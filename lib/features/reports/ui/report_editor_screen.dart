@@ -1120,7 +1120,6 @@ _disposeLater(titleC);
             onChanged: vm.setReportTitle,
           ),
           const SizedBox(height: 12),
-          Text("Layout options are on the Preview screen.", style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );

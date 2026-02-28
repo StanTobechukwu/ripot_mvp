@@ -48,10 +48,12 @@ class PdfRendererService {
     final pw.MemoryImage? logo = (letterhead == null) ? null : await _loadLogo(letterhead);
 
     // ---------- Title ----------
-    final subjectName = doc.subjectInfo.valueOf('subjectName').trim();
-    final titleText = doc.reportTitle.trim().isNotEmpty
-        ? doc.reportTitle.trim()
-        : (subjectName.isEmpty ? 'Medical Report' : '$subjectName Report');
+    // Use exactly what the user typed. If blank, keep it blank (no fallback).
+    final titleText = doc.reportTitle.trim();
+
+    // Default title size should match content (bold is fine).
+    const double contentFontSize = 11;
+    final double titleFontSize = contentFontSize;
 
     // ---------- Page rules ----------
     final hasAttachments = attachmentImgs.isNotEmpty;
@@ -103,21 +105,32 @@ class PdfRendererService {
                 : _entriesBlock(firstPageEntries),
           );
 
-          final titleHeight = 34.0;
+          // Dynamic title reserve (prevents overlap/misalignment for any title size).
+          final bool showTitle = titleText.isNotEmpty;
+          final double titleGap = showTitle ? 12.0 : 0.0;
+          final double titleLineHeight = showTitle ? (titleFontSize * 1.35) : 0.0;
+          final double titleBlockHeight = titleLineHeight + titleGap;
+
           final subjectBlockHeight = (doc.subjectInfoDef.enabled) ? 90.0 : 0.0;
           final signatureHeight = canPlaceSignatureOnPage1 ? 130.0 : 0.0;
 
           final mainHeight =
-              usableHeight - titleHeight - subjectBlockHeight - signatureHeight - 12;
+              usableHeight - titleBlockHeight - subjectBlockHeight - signatureHeight - 12;
 
           final body = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              pw.Text(
-                titleText,
-                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
-              ),
-              pw.SizedBox(height: 12),
+              if (showTitle) ...[
+                pw.Text(
+                  titleText,
+                  style: pw.TextStyle(
+                    fontSize: titleFontSize, // same size as content by default
+                    fontWeight: pw.FontWeight.bold,
+                    height: 1.35, // keeps vertical math stable
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+              ],
               if (doc.subjectInfoDef.enabled) ...[
                 _subjectInfoBlock(doc),
                 pw.SizedBox(height: 12),
@@ -682,24 +695,19 @@ class PdfRendererService {
     final slotHeight = (totalHeight - (gap * (slots - 1))) / slots;
 
     pw.Widget slot(pw.MemoryImage? img) {
+      // Reserve the space, but don't render placeholder frames in the final PDF.
+      if (img == null) return pw.SizedBox(height: slotHeight);
       return pw.Container(
         height: slotHeight,
         decoration: pw.BoxDecoration(
           border: pw.Border.all(color: PdfColors.grey300),
           borderRadius: pw.BorderRadius.circular(12),
         ),
-        child: img == null
-            ? pw.Center(
-                child: pw.Text(
-                  '(empty)',
-                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
-                ),
-              )
-            : pw.ClipRRect(
-                horizontalRadius: 12,
-                verticalRadius: 12,
-                child: pw.Image(img, fit: pw.BoxFit.cover),
-              ),
+        child: pw.ClipRRect(
+          horizontalRadius: 12,
+          verticalRadius: 12,
+          child: pw.Image(img, fit: pw.BoxFit.cover),
+        ),
       );
     }
 
@@ -723,24 +731,19 @@ class PdfRendererService {
     const gap = 10.0;
 
     pw.Widget cell(pw.MemoryImage? img) {
+      // Keep the grid geometry, but don't show empty placeholder frames.
+      if (img == null) return pw.Container();
       return pw.Container(
         decoration: pw.BoxDecoration(
           border: pw.Border.all(width: 0.6, color: PdfColors.grey400),
           borderRadius: pw.BorderRadius.circular(10),
         ),
         padding: const pw.EdgeInsets.all(4),
-        child: img == null
-            ? pw.Center(
-                child: pw.Text(
-                  '(empty)',
-                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
-                ),
-              )
-            : pw.ClipRRect(
-                horizontalRadius: 10,
-                verticalRadius: 10,
-                child: pw.Image(img, fit: pw.BoxFit.cover),
-              ),
+        child: pw.ClipRRect(
+          horizontalRadius: 10,
+          verticalRadius: 10,
+          child: pw.Image(img, fit: pw.BoxFit.cover),
+        ),
       );
     }
 

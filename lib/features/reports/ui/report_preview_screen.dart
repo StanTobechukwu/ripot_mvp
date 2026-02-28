@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../domain/pdf/pdf_plan.dart';
 import '../domain/models/letterhead_template.dart';
+import '../domain/models/report_doc.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/pdf_renderer_service.dart';
 import '../data/letterhead_repository.dart';
@@ -157,15 +158,68 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
 
   void _openLayoutSheet() {
-  showModalBottomSheet(
-    context: context,
-    showDragHandle: true,
-    builder: (_) => const SizedBox(
-      height: 160,
-      child: Center(child: Text('Layout options')),
-    ),
-  );
-}
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Consumer<ReportEditorProvider>(
+            builder: (context, vm, _) {
+              final layout = vm.doc.reportLayout;
+              final indent = vm.doc.indentContent;
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Report layout',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  RadioListTile<ReportLayout>(
+                    value: ReportLayout.block,
+                    groupValue: layout,
+                    onChanged: (v) {
+                      if (v != null) vm.setReportLayout(v);
+                    },
+                    title: const Text('Block (section title on its own line)'),
+                    dense: true,
+                  ),
+                  RadioListTile<ReportLayout>(
+                    value: ReportLayout.inline,
+                    groupValue: layout,
+                    onChanged: (v) {
+                      if (v != null) vm.setReportLayout(v);
+                    },
+                    title: const Text('Inline (Title: content)'),
+                    dense: true,
+                  ),
+                  RadioListTile<ReportLayout>(
+                    value: ReportLayout.aligned,
+                    groupValue: layout,
+                    onChanged: (v) {
+                      if (v != null) vm.setReportLayout(v);
+                    },
+                    title: const Text('Aligned (two-column style)'),
+                    dense: true,
+                  ),
+                  const Divider(height: 24),
+                  SwitchListTile(
+                    value: indent,
+                    onChanged: vm.setIndentContent,
+                    title: const Text('Indent content under headings'),
+                    dense: true,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
