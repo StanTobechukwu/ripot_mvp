@@ -15,13 +15,17 @@ class PdfRendererService {
     required PdfPlan plan,
     LetterheadTemplate? letterhead,
   }) async {
+    // Global font sizes (single source of truth)
+    const double contentFontSize = 11;
+    const double reportTitleFontSize = contentFontSize; // same size as content
+
     final theme = pw.ThemeData.withFont(
       base: pw.Font.helvetica(),
       bold: pw.Font.helveticaBold(),
     );
 
     // ---------- Text ----------
-    final entries = _buildEntries(doc);
+    final entries = _buildEntries(doc, contentFontSize: contentFontSize);
     final plain = entries.map((e) => e.plain).join();
 
     final (firstPagePlain, remainingPlain) = _splitForFirstPage(
@@ -47,13 +51,9 @@ class PdfRendererService {
     // ---------- Letterhead logo ----------
     final pw.MemoryImage? logo = (letterhead == null) ? null : await _loadLogo(letterhead);
 
-    // ---------- Title ----------
-    // Use exactly what the user typed. If blank, keep it blank (no fallback).
+    // ---------- Report Title ----------
     final titleText = doc.reportTitle.trim();
-
-    // Default title size should match content (bold is fine).
-    const double contentFontSize = 11;
-    final double titleFontSize = contentFontSize;
+    final bool showTitle = titleText.isNotEmpty;
 
     // ---------- Page rules ----------
     final hasAttachments = attachmentImgs.isNotEmpty;
@@ -105,10 +105,9 @@ class PdfRendererService {
                 : _entriesBlock(firstPageEntries),
           );
 
-          // Dynamic title reserve (prevents overlap/misalignment for any title size).
-          final bool showTitle = titleText.isNotEmpty;
+          // Dynamic title reserve (safe even if title changes later).
           final double titleGap = showTitle ? 12.0 : 0.0;
-          final double titleLineHeight = showTitle ? (titleFontSize * 1.35) : 0.0;
+          final double titleLineHeight = showTitle ? (reportTitleFontSize * 1.35) : 0.0;
           final double titleBlockHeight = titleLineHeight + titleGap;
 
           final subjectBlockHeight = (doc.subjectInfoDef.enabled) ? 90.0 : 0.0;
@@ -124,9 +123,9 @@ class PdfRendererService {
                 pw.Text(
                   titleText,
                   style: pw.TextStyle(
-                    fontSize: titleFontSize, // same size as content by default
-                    fontWeight: pw.FontWeight.bold,
-                    height: 1.35, // keeps vertical math stable
+                    fontSize: reportTitleFontSize, // same as content
+                    fontWeight: pw.FontWeight.bold, // slightly thicker
+                    height: 1.35,
                   ),
                 ),
                 pw.SizedBox(height: 12),
@@ -250,6 +249,8 @@ class PdfRendererService {
     return pdf.save();
   }
 
+  // =================== LETTERHEAD WRAPPER ===================
+
   pw.Widget _pageWithLetterhead({
     required pw.Widget body,
     required LetterheadTemplate? letterhead,
@@ -369,6 +370,8 @@ class PdfRendererService {
     );
   }
 
+  // =================== SUBJECT INFO ===================
+
   pw.Widget _subjectInfoBlock(ReportDoc doc) {
     final def = doc.subjectInfoDef;
     final fields = def.orderedFields;
@@ -462,6 +465,8 @@ class PdfRendererService {
     );
   }
 
+  // =================== SIGNATURE ===================
+
   pw.Widget _signatureBlock(ReportDoc doc, pw.MemoryImage? signature) {
     final role =
         doc.signature.roleTitle.trim().isEmpty ? 'Reporter' : doc.signature.roleTitle.trim();
@@ -513,12 +518,14 @@ class PdfRendererService {
     );
   }
 
-  pw.Widget _textBlock(String text) => pw.Text(
+  // =================== ENTRIES / LAYOUT ===================
+
+  pw.Widget _textBlock(String text, {required double contentFontSize}) => pw.Text(
         text.trim().isEmpty ? '(no content)' : text.trim(),
-        style: const pw.TextStyle(fontSize: 11, lineSpacing: 2),
+        style: pw.TextStyle(fontSize: contentFontSize, lineSpacing: 2),
       );
 
-  List<_PdfEntry> _buildEntries(ReportDoc doc) {
+  List<_PdfEntry> _buildEntries(ReportDoc doc, {required double contentFontSize}) {
     final out = <_PdfEntry>[];
 
     void walk(SectionNode s) {
@@ -528,15 +535,16 @@ class PdfRendererService {
       final indentPx = 12.0 * s.indent;
       final contentIndentPx = indentPx + (doc.indentContent ? 12.0 : 0.0);
 
-      final double titleSize = switch (s.style.level) {
+      // Keep your heading levels for BLOCK titles (as you already designed)
+      final double blockTitleSize = switch (s.style.level) {
         HeadingLevel.h1 => 16,
         HeadingLevel.h2 => 14,
         HeadingLevel.h3 => 12,
         HeadingLevel.h4 => 11,
       };
 
-      final titleStyle = pw.TextStyle(
-        fontSize: titleSize,
+      final blockTitleStyle = pw.TextStyle(
+        fontSize: blockTitleSize,
         fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
       );
 
@@ -551,7 +559,7 @@ class PdfRendererService {
           padding: pw.EdgeInsets.only(left: indentPx, bottom: 2),
           child: pw.Align(
             alignment: titleAlign,
-            child: pw.Text(s.title, style: titleStyle),
+            child: pw.Text(s.title, style: blockTitleStyle),
           ),
         );
       }
@@ -559,16 +567,27 @@ class PdfRendererService {
       pw.Widget contentWidget(String text) {
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 6),
-          child: pw.Text(text, style: const pw.TextStyle(fontSize: 11)),
+          child: pw.Text(text, style: pw.TextStyle(fontSize: contentFontSize)),
         );
       }
 
+      /// INLINE / ALIGNED mode:
+      /// - Title and content SAME size (contentFontSize)
+      /// - Title only slightly thicker (bold)
+      /// - No vertical offset padding
       pw.Widget inlineWidget(String text, {required bool aligned}) {
+        final inlineTitleStyle = pw.TextStyle(
+          fontSize: contentFontSize, // same as content
+          fontWeight: pw.FontWeight.bold, // slightly thicker
+        );
+
         final titleCell = pw.Container(
           width: aligned ? 160 : null,
-          child: pw.Align(
-            alignment: titleAlign,
-            child: pw.Text(aligned ? s.title : '${s.title}:', style: titleStyle),
+          alignment: pw.Alignment.topLeft,
+          child: pw.Text(
+            aligned ? s.title : '${s.title}:',
+            style: inlineTitleStyle,
+            textAlign: pw.TextAlign.left,
           ),
         );
 
@@ -579,7 +598,12 @@ class PdfRendererService {
             children: [
               titleCell,
               pw.SizedBox(width: 10),
-              pw.Expanded(child: pw.Text(text, style: const pw.TextStyle(fontSize: 11))),
+              pw.Expanded(
+                child: pw.Text(
+                  text,
+                  style: pw.TextStyle(fontSize: contentFontSize),
+                ),
+              ),
             ],
           ),
         );
@@ -678,12 +702,22 @@ class PdfRendererService {
   }
 
   pw.Widget _entriesBlock(List<_PdfEntry> entries) {
-    if (entries.isEmpty) return _textBlock('');
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-      children: entries.map((e) => e.widget).toList(growable: false),
+    if (entries.isEmpty) {
+      return pw.Text(
+        '(no content)',
+        style: const pw.TextStyle(fontSize: 11),
+      );
+    }
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(top: 6),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: entries.map((e) => e.widget).toList(growable: false),
+      ),
     );
   }
+
+  // =================== IMAGES ===================
 
   pw.Widget _inlineColumnFixed(
     List<pw.MemoryImage> images, {
@@ -695,7 +729,6 @@ class PdfRendererService {
     final slotHeight = (totalHeight - (gap * (slots - 1))) / slots;
 
     pw.Widget slot(pw.MemoryImage? img) {
-      // Reserve the space, but don't render placeholder frames in the final PDF.
       if (img == null) return pw.SizedBox(height: slotHeight);
       return pw.Container(
         height: slotHeight,
@@ -731,7 +764,6 @@ class PdfRendererService {
     const gap = 10.0;
 
     pw.Widget cell(pw.MemoryImage? img) {
-      // Keep the grid geometry, but don't show empty placeholder frames.
       if (img == null) return pw.Container();
       return pw.Container(
         decoration: pw.BoxDecoration(
@@ -760,6 +792,8 @@ class PdfRendererService {
       children: filled.map(cell).toList(),
     );
   }
+
+  // =================== SPLIT / LOADERS ===================
 
   (String, String) _splitForFirstPage(
     String text, {
