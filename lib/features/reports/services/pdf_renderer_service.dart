@@ -7,6 +7,8 @@ import 'package:pdf/widgets.dart' as pw;
 import '../domain/models/letterhead_template.dart';
 import '../domain/models/nodes.dart';
 import '../domain/models/report_doc.dart';
+import '../domain/pdf/pdf_estimates.dart';
+import '../domain/pdf/pdf_layout_metrics.dart';
 import '../domain/pdf/pdf_plan.dart';
 import 'platforms/file_loader.dart';
 
@@ -30,39 +32,42 @@ class PdfRendererService {
       bold: pw.Font.helveticaBold(),
     );
 
-    // A4
-    const pageFormat = PdfPageFormat.a4;
-    const pageMargin = 28.0;
+    final metrics = PdfLayoutMetrics(
+      headerReserve: (letterhead != null) ? 90.0 : 0.0,
+      footerReserve: (letterhead != null) ? 45.0 : 0.0,
+    );
 
-    final headerReserve = (letterhead != null) ? 90.0 : 0.0;
-    final footerReserve = (letterhead != null) ? 45.0 : 0.0;
-
-    final usableHeight =
-        pageFormat.height - (pageMargin * 2) - headerReserve - footerReserve;
-
+    final pageFormat = metrics.pageFormat;
+    final pageMargin = metrics.pageMargin;
+    final headerReserve = metrics.headerReserve;
+    final footerReserve = metrics.footerReserve;
+    final usableHeight = metrics.usableHeight;
     // ---------- Title ----------
-    final titleText = doc.reportTitle.trim();
-    final bool showTitle = titleText.isNotEmpty;
-    final double titleGap = showTitle ? 12.0 : 0.0;
-    final double titleLineHeight =
-        showTitle ? (reportTitleFontSize * 1.35) : 0.0;
-    final double titleReserve = titleLineHeight + titleGap;
+    final titleText = plan.title;
+    final bool showTitle = titleText.trim().isNotEmpty;
+    final double titleReserve = estimateTitleReserve(
+      title: titleText,
+      fontScale: fontScale,
+    );
 
     // ---------- Subject Info reserve ----------
-    final double subjectReserve = doc.subjectInfoDef.enabled
-        ? _estimateSubjectInfoHeight(doc, contentFontSize) + 12
-        : 0.0;
+    final double subjectReserve = estimateSubjectInfoReserve(
+      doc,
+      fontScale: fontScale,
+    );
 
     // ---------- Signature reserve ----------
-    final double signatureReserve = 135.0;
+    final double signatureReserve = estimateSignatureHeight(
+      fontScale: fontScale,
+    );
 
     // ---------- Images ----------
     final inlineCandidates = await _loadImages(
-      plan.page1InlineCandidates.map((e) => e.filePath).toList(),
+      plan.pageOne.inlineImages.map((e) => e.filePath).toList(),
     );
 
     final spillInlineCandidates = await _loadImages(
-      plan.spillInlineCandidates.map((e) => e.filePath).toList(),
+      plan.finalContent.spillInlineImages.map((e) => e.filePath).toList(),
     );
 
     final attachmentImgs = await _loadImages(
@@ -80,8 +85,7 @@ class PdfRendererService {
         (letterhead == null) ? null : await _loadLogo(letterhead);
 
     // ---------- Inline mode ----------
-    final bool inlineEnabled =
-        doc.placementChoice == ImagePlacementChoice.inlinePage1;
+    final bool inlineEnabled = plan.inlineEnabled;
 
     double availableMainHeightAssumingSigOnPage1() {
       final gaps = 12.0;
@@ -91,9 +95,10 @@ class PdfRendererService {
     }
 
     final int page1InlineSlotsFit = inlineEnabled
-        ? _fitInlineSlots(
+        ? computeInlineSlotsThatFit(
             availableHeight: availableMainHeightAssumingSigOnPage1(),
             fontScale: fontScale,
+            metrics: metrics,
           )
         : 0;
 
@@ -109,7 +114,7 @@ class PdfRendererService {
     );
     final plain = entries.map((e) => e.plain).join();
 
-    final int firstPageBudget = _smartCharBudget(
+    final int firstPageBudget = estimateSmartFirstPageCharBudget(
       usableHeight: usableHeight,
       availableMainHeight: availableMainHeightAssumingSigOnPage1(),
       inlineEnabled: inlineEnabled,
@@ -163,7 +168,7 @@ class PdfRendererService {
       pw.Page(
         theme: theme,
         pageFormat: pageFormat,
-        margin: const pw.EdgeInsets.all(pageMargin),
+        margin: pw.EdgeInsets.all(pageMargin),
         build: (_) {
           final mainContent = pw.Container(
             padding: const pw.EdgeInsets.all(12),
@@ -171,12 +176,12 @@ class PdfRendererService {
               border: pw.Border.all(color: PdfColors.grey300),
               borderRadius: pw.BorderRadius.circular(12),
             ),
-            child: inlineEnabled
+            child: inlineEnabled && inlineImgsPage1.isNotEmpty
                 ? pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Container(
-                        width: pageFormat.width - (pageMargin * 2) - 160 - 12,
+                        width: metrics.page1TextWidth,
                         child: _entriesBlock(
                           firstPageEntries,
                           contentFontSize: contentFontSize,
@@ -184,11 +189,11 @@ class PdfRendererService {
                       ),
                       pw.SizedBox(width: 12),
                       pw.SizedBox(
-                        width: 160,
+                        width: metrics.inlineColumnWidth,
                         child: _inlineColumnFixed(
                           inlineImgsPage1,
                           fontScale: fontScale,
-                          slots: 4,
+                          metrics: metrics,
                         ),
                       ),
                     ],
@@ -198,15 +203,6 @@ class PdfRendererService {
                     contentFontSize: contentFontSize,
                   ),
           );
-
-          final double mainHeight = max(
-            60,
-            usableHeight -
-                titleReserve -
-                subjectReserve -
-                (canPlaceSignatureOnPage1 ? signatureReserve : 0) -
-                12,
-          ).toDouble();
 
           final body = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -226,7 +222,7 @@ class PdfRendererService {
                 _subjectInfoBlock(doc, fontScale: fontScale),
                 pw.SizedBox(height: 12),
               ],
-              pw.SizedBox(height: mainHeight, child: mainContent),
+              mainContent,
               if (canPlaceSignatureOnPage1) ...[
                 pw.SizedBox(height: 12),
                 _signatureBlock(doc, signatureImg, fontScale: fontScale),
@@ -248,14 +244,14 @@ class PdfRendererService {
 
     // ================= ATTACHMENT PAGES =================
     if (allAttachmentImgs.isNotEmpty) {
-      final chunks = _chunk(allAttachmentImgs, 8);
+      final chunks = chunked(allAttachmentImgs, metrics.attachmentImagesPerPage);
 
       for (final chunk in chunks) {
         pdf.addPage(
           pw.Page(
             theme: theme,
             pageFormat: pageFormat,
-            margin: const pw.EdgeInsets.all(pageMargin),
+            margin: pw.EdgeInsets.all(pageMargin),
             build: (_) {
               final titleH = 30.0 * fontScale;
               final gridH = usableHeight - titleH - 12;
@@ -273,7 +269,7 @@ class PdfRendererService {
                   pw.SizedBox(height: 12),
                   pw.SizedBox(
                     height: gridH > 60 ? gridH : 60,
-                    child: _attachmentsGridFixed(chunk),
+                    child: _attachmentsGridFixed(chunk, metrics: metrics),
                   ),
                 ],
               );
@@ -298,50 +294,43 @@ class PdfRendererService {
         pw.Page(
           theme: theme,
           pageFormat: pageFormat,
-          margin: const pw.EdgeInsets.all(pageMargin),
+          margin: pw.EdgeInsets.all(pageMargin),
           build: (_) {
-            final sigH = 135.0;
-            final textH = usableHeight - sigH - 12;
-
             final body = pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                pw.SizedBox(
-                  height: textH > 60 ? textH : 60,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(12),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.grey300),
-                      borderRadius: pw.BorderRadius.circular(12),
-                    ),
-                    child: inlineEnabled && spillInlineImgs.isNotEmpty
-                        ? pw.Row(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Container(
-                                width:
-                                    pageFormat.width - (pageMargin * 2) - 160 - 12,
-                                child: _entriesBlock(
-                                  remainingEntries,
-                                  contentFontSize: contentFontSize,
-                                ),
-                              ),
-                              pw.SizedBox(width: 12),
-                              pw.SizedBox(
-                                width: 160,
-                                child: _inlineColumnFixed(
-                                  spillInlineImgs,
-                                  fontScale: fontScale,
-                                  slots: 4,
-                                ),
-                              ),
-                            ],
-                          )
-                        : _entriesBlock(
-                            remainingEntries,
-                            contentFontSize: contentFontSize,
-                          ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: pw.BorderRadius.circular(12),
                   ),
+                  child: inlineEnabled && spillInlineImgs.isNotEmpty
+                      ? pw.Row(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Container(
+                              width: metrics.page1TextWidth,
+                              child: _entriesBlock(
+                                remainingEntries,
+                                contentFontSize: contentFontSize,
+                              ),
+                            ),
+                            pw.SizedBox(width: 12),
+                            pw.SizedBox(
+                              width: metrics.inlineColumnWidth,
+                              child: _inlineColumnFixed(
+                                spillInlineImgs,
+                                fontScale: fontScale,
+                                metrics: metrics,
+                              ),
+                            ),
+                          ],
+                        )
+                      : _entriesBlock(
+                          remainingEntries,
+                          contentFontSize: contentFontSize,
+                        ),
                 ),
                 pw.SizedBox(height: 12),
                 _signatureBlock(doc, signatureImg, fontScale: fontScale),
@@ -362,63 +351,6 @@ class PdfRendererService {
     }
 
     return pdf.save();
-  }
-
-  int _smartCharBudget({
-    required double usableHeight,
-    required double availableMainHeight,
-    required bool inlineEnabled,
-    required int inlineSlotsUsed,
-    required double fontScale,
-  }) {
-    final base = inlineEnabled ? 900 : 1400;
-    final heightFactor = usableHeight <= 0
-        ? 1.0
-        : (availableMainHeight / usableHeight).clamp(0.25, 1.0);
-
-    final slotBonus = inlineEnabled ? (4 - inlineSlotsUsed) * 90 : 0;
-    final scaled = ((base * heightFactor) + slotBonus) / max(0.7, fontScale);
-
-    return scaled.round().clamp(350, 2200);
-  }
-
-  int _fitInlineSlots({
-    required double availableHeight,
-    required double fontScale,
-  }) {
-    final slotH = 95.0 * fontScale;
-    final gap = 10.0 * fontScale;
-
-    int fit = 0;
-    double used = 0;
-    for (int i = 0; i < 4; i++) {
-      final next = used + slotH + (i == 0 ? 0 : gap);
-      if (next <= availableHeight) {
-        used = next;
-        fit++;
-      } else {
-        break;
-      }
-    }
-    return fit.clamp(0, 4);
-  }
-
-  double _estimateSubjectInfoHeight(
-    ReportDoc doc,
-    double contentFontSize,
-  ) {
-    final def = doc.subjectInfoDef;
-    final fields = def.orderedFields;
-    if (fields.isEmpty) return 50;
-
-    final cols = max(1, def.columns);
-    final rows = (fields.length / cols).ceil();
-
-    final header = (contentFontSize * 1.3) + 16;
-    final rowH = (contentFontSize * 1.35) + 8;
-    final pad = 20;
-
-    return header + (rows * rowH) + pad;
   }
 
   // =================== LETTERHEAD WRAPPER ===================
@@ -990,13 +922,14 @@ class PdfRendererService {
   pw.Widget _inlineColumnFixed(
     List<pw.MemoryImage> images, {
     required double fontScale,
-    int slots = 4,
+    required PdfLayoutMetrics metrics,
   }) {
-    final slotH = 95.0 * fontScale;
-    final gap = 10.0 * fontScale;
+    if (images.isEmpty) return pw.SizedBox();
 
-    pw.Widget slot(pw.MemoryImage? img) {
-      if (img == null) return pw.SizedBox(height: slotH);
+    final slotH = metrics.inlineSlotHeight * fontScale;
+    final gap = metrics.inlineSlotGap * fontScale;
+
+    pw.Widget slot(pw.MemoryImage img) {
       return pw.Container(
         height: slotH,
         decoration: pw.BoxDecoration(
@@ -1011,15 +944,10 @@ class PdfRendererService {
       );
     }
 
-    final filled = List<pw.MemoryImage?>.generate(
-      slots,
-      (i) => i < images.length ? images[i] : null,
-    );
-
     final children = <pw.Widget>[];
-    for (int i = 0; i < slots; i++) {
-      children.add(slot(filled[i]));
-      if (i != slots - 1) {
+    for (int i = 0; i < images.length; i++) {
+      children.add(slot(images[i]));
+      if (i != images.length - 1) {
         children.add(pw.SizedBox(height: gap));
       }
     }
@@ -1030,8 +958,11 @@ class PdfRendererService {
     );
   }
 
-  pw.Widget _attachmentsGridFixed(List<pw.MemoryImage> images) {
-    const slots = 8;
+  pw.Widget _attachmentsGridFixed(
+    List<pw.MemoryImage> images, {
+    required PdfLayoutMetrics metrics,
+  }) {
+    final slots = metrics.attachmentImagesPerPage;
     const cols = 2;
     const gap = 10.0;
 
@@ -1051,17 +982,14 @@ class PdfRendererService {
       );
     }
 
-    final filled = List<pw.MemoryImage?>.generate(
-      slots,
-      (i) => i < images.length ? images[i] : null,
-    );
+    final visible = images.take(slots).toList(growable: false);
 
     return pw.GridView(
       crossAxisCount: cols,
       mainAxisSpacing: gap,
       crossAxisSpacing: gap,
       childAspectRatio: 1.25,
-      children: filled.map(cell).toList(),
+      children: visible.map((img) => cell(img)).toList(growable: false),
     );
   }
 
@@ -1096,13 +1024,6 @@ class PdfRendererService {
     return pw.MemoryImage(bytes);
   }
 
-  List<List<T>> _chunk<T>(List<T> items, int size) {
-    final chunks = <List<T>>[];
-    for (var i = 0; i < items.length; i += size) {
-      chunks.add(items.sublist(i, (i + size).clamp(0, items.length)));
-    }
-    return chunks;
-  }
 }
 
 class _PdfEntry {

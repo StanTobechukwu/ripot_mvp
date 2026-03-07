@@ -19,6 +19,7 @@ class SafeTextController extends TextEditingController {
 
   @override
   void dispose() {
+   // FocusManager.instance.removeListener(_focusManagerListener);
     _disposed = true;
     super.dispose();
   }
@@ -78,6 +79,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
 
   bool _hintShown = false;
   bool _editorMode = false;
+ String? _actionsVisibleForSectionId;
 
   // Prevent pruning controllers while a build is still using them.
   bool _pruneScheduled = false;
@@ -93,22 +95,45 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   static const _gap = 12.0;
   static const _bigGap = 16.0;
 
-  @override
-  void initState() {
-    super.initState();
-    _roleTitleC = SafeTextController();
-    _signerNameC = SafeTextController();
-    _credentialsC = SafeTextController();
-    _reportTitleC = SafeTextController();
+  late final VoidCallback _focusManagerListener;
 
-    _roleTitleF = SafeFocusNode();
-    _signerNameF = SafeFocusNode();
-    _credentialsF = SafeFocusNode();
-    _reportTitleF = SafeFocusNode();
-  }
+ @override
+void initState() {
+  super.initState();
 
+  _roleTitleC = SafeTextController();
+  _signerNameC = SafeTextController();
+  _credentialsC = SafeTextController();
+  _reportTitleC = SafeTextController();
+
+  _roleTitleF = SafeFocusNode();
+  _signerNameF = SafeFocusNode();
+  _credentialsF = SafeFocusNode();
+  _reportTitleF = SafeFocusNode();
+
+  _focusManagerListener = () {
+    if (!mounted) return;
+
+    final anyFocused =
+        _reportTitleF.hasFocus ||
+        _roleTitleF.hasFocus ||
+        _signerNameF.hasFocus ||
+        _credentialsF.hasFocus ||
+        _subjectFocus.values.any((f) => f.hasFocus) ||
+        _contentFocus.values.any((f) => f.hasFocus);
+
+    if (anyFocused && _actionsVisibleForSectionId != null) {
+      _actionsVisibleForSectionId = null;
+    }
+
+    setState(() {});
+  };
+
+  FocusManager.instance.addListener(_focusManagerListener);
+}
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_focusManagerListener);
     // pending (won't be used while _enablePruning=false, but safe)
     for (final c in _pendingDisposeControllers) {
       if (!c.isDisposed) c.dispose();
@@ -155,6 +180,25 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   void _unfocusNow() {
     FocusManager.instance.primaryFocus?.unfocus();
   }
+
+  bool get _isAnyEditorFieldFocused {
+  if (_reportTitleF.hasFocus ||
+      _roleTitleF.hasFocus ||
+      _signerNameF.hasFocus ||
+      _credentialsF.hasFocus) {
+    return true;
+  }
+
+  for (final f in _subjectFocus.values) {
+    if (f.hasFocus) return true;
+  }
+
+  for (final f in _contentFocus.values) {
+    if (f.hasFocus) return true;
+  }
+
+  return false;
+}
 
   // =========================================================
   // ✅ Run provider mutations AFTER routes/sheets/dialogs close
@@ -825,30 +869,62 @@ _disposeLater(titleC);
             ),
         ],
       ),
-      floatingActionButton: _editorMode
-          ? Padding(
-              padding: EdgeInsets.only(bottom: hasSelection ? 180 : 0),
-              child: FloatingActionButton(
-                onPressed: () async {
-                  if (!hasSelection) {
-                    final title = await _promptText(context, 'New top-level section');
-                    if (!mounted) return;
+floatingActionButton: _editorMode
+    ? Padding(
+        padding: EdgeInsets.only(
+          bottom: (_isAnyEditorFieldFocused //|| _suppressSelectionActionsOnce
+          )
+              ? 0
+              : (hasSelection ? 180 : 0),
+        ),
+        child: FloatingActionButton(
+          onPressed: () async {
+           if (_isAnyEditorFieldFocused) {
+  setState(() {
+    _actionsVisibleForSectionId = null;
+  });
 
-                    if (title != null && title.trim().isNotEmpty) {
-                      _unfocusNow();
-                      _afterClose(() {
-                        vm.addTopLevelSection(title.trim());
-                        _schedulePruneControllers(vm);
-                      });
-                    }
-                  } else {
-                    await _showGlobalAddSheet(context, vm);
-                  }
-                },
-                child: Icon(hasSelection ? Icons.tune : Icons.add),
-              ),
-            )
-          : null,
+  _unfocusNow();
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    setState(() {});
+  });
+
+  return;
+}
+            
+
+            if (!hasSelection) {
+             // setState(() {
+              //  _suppressSelectionActionsOnce = false;
+             // });
+
+              final title = await _promptText(context, 'New top-level section');
+              if (!mounted) return;
+
+              if (title != null && title.trim().isNotEmpty) {
+                _unfocusNow();
+                _afterClose(() {
+                  vm.addTopLevelSection(title.trim());
+                  _schedulePruneControllers(vm);
+                });
+              }
+            } else {
+             // setState(() {
+             //   _suppressSelectionActionsOnce = false;
+            //  });
+              await _showGlobalAddSheet(context, vm);
+            }
+          },
+          child: Icon(
+            _isAnyEditorFieldFocused
+                ? Icons.check
+                : (hasSelection ? Icons.tune : Icons.add),
+          ),
+        ),
+      )
+    : null,
       floatingActionButtonLocation: _editorMode ? FloatingActionButtonLocation.endFloat : null,
       body: GestureDetector(
         onTap: () {
@@ -1252,7 +1328,9 @@ _disposeLater(titleC);
           ? 18
           : section.style.level == HeadingLevel.h2
               ? 16
-              : 14,
+              : section.style.level == HeadingLevel.h3
+                  ? 14
+                  : 12,
     );
 
     final titleAlign = switch (section.style.align) {
@@ -1275,7 +1353,12 @@ _disposeLater(titleC);
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              onTap: () => vm.selectNode(section.id),
+             onTap: () {
+  setState(() {
+    _actionsVisibleForSectionId = section.id;
+  });
+  vm.selectNode(section.id);
+},
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 child: Row(
@@ -1309,40 +1392,50 @@ _disposeLater(titleC);
             ),
           ),
           const SizedBox(height: 8),
-          if (selected)
-            Padding(
-              padding: const EdgeInsets.only(left: 24),
-              child: Row(
-                children: [
-                  if (showAddHere)
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: FilledButton.icon(
-                        onPressed: () => _showAddHereSheet(context, vm),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add here'),
-                      ),
-                    ),
-                  if (showDeleteContent) ...[
-                    const SizedBox(width: 8),
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          _unfocusNow();
-                          _afterClose(() {
-                            vm.deleteContentForSelectedSection();
-                            _schedulePruneControllers(vm);
-                          });
-                        },
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete content'),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+        if (selected &&
+    !_isAnyEditorFieldFocused &&
+    _actionsVisibleForSectionId == section.id)
+  Padding(
+    padding: const EdgeInsets.only(left: 24),
+    child: Row(
+      children: [
+        if (showAddHere)
+          Flexible(
+            fit: FlexFit.loose,
+            child: FilledButton.icon(
+              onPressed: () {
+               // setState(() {
+              //    _suppressSelectionActionsOnce = false;
+            //    });
+                _showAddHereSheet(context, vm);
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add here'),
             ),
+          ),
+        if (showDeleteContent) ...[
+          const SizedBox(width: 8),
+          Flexible(
+            fit: FlexFit.loose,
+            child: OutlinedButton.icon(
+              onPressed: () {
+              //  setState(() {
+             //     _suppressSelectionActionsOnce = false;
+            //    });
+                _unfocusNow();
+                _afterClose(() {
+                  vm.deleteContentForSelectedSection();
+                  _schedulePruneControllers(vm);
+                });
+              },
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Delete content'),
+            ),
+          ),
+        ],
+      ],
+    ),
+  ),
           const SizedBox(height: 8),
           if (!section.collapsed)
             ...section.children.map((child) {
@@ -1363,7 +1456,9 @@ _disposeLater(titleC);
                       border: OutlineInputBorder(),
                       hintText: 'Enter text…',
                     ),
-                    onTap: () => vm.selectNode(section.id),
+onTap: () {
+  vm.selectNode(section.id);
+},
                     onChanged: (v) => vm.updateContent(child.id, v),
                   ),
                 );

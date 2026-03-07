@@ -16,7 +16,7 @@ class TitleStyle {
   final TitleAlign align;
 
   const TitleStyle({
-    this.level = HeadingLevel.h2,
+    this.level = HeadingLevel.h4,
     this.bold = true,
     this.align = TitleAlign.left,
   });

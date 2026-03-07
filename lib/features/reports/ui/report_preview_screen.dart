@@ -6,7 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
-import '../domain/pdf/pdf_plan.dart';
+import '../domain/pdf/pdf_layout_metrics.dart';
+import '../domain/pdf/pdf_plan_builder.dart';
 import '../domain/models/letterhead_template.dart';
 import '../domain/models/report_doc.dart';
 import '../providers/report_editor_provider.dart';
@@ -24,11 +25,11 @@ class ReportPreviewScreen extends StatefulWidget {
 
 class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   final _renderer = PdfRendererService();
+  final _planBuilder = const PdfPlanBuilder();
   bool _saving = false;
 
   Future<Uint8List> _buildBytes() async {
     final vm = context.read<ReportEditorProvider>();
-    final plan = buildPdfPlan(vm.doc);
     final repo = context.read<LetterheadsRepository>();
 
     LetterheadTemplate? letterhead;
@@ -36,6 +37,12 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (vm.doc.applyLetterhead && vm.doc.letterheadId != null) {
       letterhead = await repo.loadLetterhead(vm.doc.letterheadId!);
     }
+
+    final metrics = PdfLayoutMetrics(
+      headerReserve: letterhead != null ? 90.0 : 0.0,
+      footerReserve: letterhead != null ? 45.0 : 0.0,
+    );
+    final plan = _planBuilder.build(vm.doc, metrics: metrics);
 
     return _renderer.generatePdfBytes(
       doc: vm.doc,
@@ -190,6 +197,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (_) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -199,10 +207,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               final indent = vm.doc.indentContent;
               final scale = vm.doc.fontScale;
 
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   const Text(
                     'Report layout',
                     style: TextStyle(
@@ -272,6 +281,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     onChanged: vm.setFontScale,
                   ),
                 ],
+              ),
               );
             },
           ),
