@@ -44,16 +44,19 @@ class ReportDoc {
   final List<ImageAttachment> images;
   final ImagePlacementChoice placementChoice;
 
-  /// ✅ Global PDF layout style.
+  /// Global PDF layout style
   final ReportLayout reportLayout;
 
-  /// ✅ Optional global indentation toggle for *content* fields.
-  /// Titles still follow section indentation; this only affects content padding.
+  /// Optional global indentation toggle for content fields
   final bool indentContent;
+
+  /// ✅ NEW: global font scale applied everywhere
+  /// Editor + Form + Preview + PDF
+  final double fontScale;
 
   final SignatureBlock signature;
 
-  /// Subject Info schema + values (snapshot stored per report)
+  /// Subject Info schema + values
   final SubjectInfoBlockDef subjectInfoDef;
   final SubjectInfoValues subjectInfo;
 
@@ -70,6 +73,7 @@ class ReportDoc {
     this.placementChoice = ImagePlacementChoice.attachmentsOnly,
     this.reportLayout = ReportLayout.block,
     this.indentContent = true,
+    this.fontScale = 1.0,
     this.signature = const SignatureBlock(),
     this.applyLetterhead = false,
     this.letterheadId,
@@ -78,7 +82,8 @@ class ReportDoc {
   })  : subjectInfoDef = subjectInfoDef ?? SubjectInfoBlockDef.kDefaults,
         subjectInfo = subjectInfo ?? const SubjectInfoValues({});
 
-  int get maxImages => placementChoice == ImagePlacementChoice.inlinePage1 ? 12 : 8;
+  int get maxImages =>
+      placementChoice == ImagePlacementChoice.inlinePage1 ? 12 : 8;
 
   ReportDoc copyWith({
     String? createdAtIso,
@@ -89,6 +94,7 @@ class ReportDoc {
     ImagePlacementChoice? placementChoice,
     ReportLayout? reportLayout,
     bool? indentContent,
+    double? fontScale,
     SignatureBlock? signature,
     SubjectInfoBlockDef? subjectInfoDef,
     SubjectInfoValues? subjectInfo,
@@ -105,6 +111,7 @@ class ReportDoc {
       placementChoice: placementChoice ?? this.placementChoice,
       reportLayout: reportLayout ?? this.reportLayout,
       indentContent: indentContent ?? this.indentContent,
+      fontScale: fontScale ?? this.fontScale,
       signature: signature ?? this.signature,
       subjectInfoDef: subjectInfoDef ?? this.subjectInfoDef,
       subjectInfo: subjectInfo ?? this.subjectInfo,
@@ -115,14 +122,18 @@ class ReportDoc {
 }
 
 // =========================================================
-// Small supporting value types
+// Supporting value types
 // =========================================================
 
 @immutable
 class ImageAttachment {
   final String id;
   final String filePath;
-  const ImageAttachment({required this.id, required this.filePath});
+
+  const ImageAttachment({
+    required this.id,
+    required this.filePath,
+  });
 }
 
 @immutable

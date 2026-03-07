@@ -17,6 +17,7 @@ import '../ui/manage_letterhead.screen.dart';
 
 class ReportPreviewScreen extends StatefulWidget {
   const ReportPreviewScreen({super.key});
+
   @override
   State<ReportPreviewScreen> createState() => _ReportPreviewScreenState();
 }
@@ -25,13 +26,13 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   final _renderer = PdfRendererService();
   bool _saving = false;
 
-  // Build the PDF bytes from the provider state.
   Future<Uint8List> _buildBytes() async {
     final vm = context.read<ReportEditorProvider>();
     final plan = buildPdfPlan(vm.doc);
     final repo = context.read<LetterheadsRepository>();
 
     LetterheadTemplate? letterhead;
+
     if (vm.doc.applyLetterhead && vm.doc.letterheadId != null) {
       letterhead = await repo.loadLetterhead(vm.doc.letterheadId!);
     }
@@ -43,50 +44,56 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     );
   }
 
-
-
-
-
-
-
-
-
-
-  // Save the generated PDF to local storage.
   Future<File> _savePdfToLocal(Uint8List bytes) async {
     final dir = await getApplicationDocumentsDirectory();
+
     final folder = Directory('${dir.path}/saved_pdfs');
+
     if (!await folder.exists()) {
       await folder.create(recursive: true);
     }
-    final file = File('${folder.path}/report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+
+    final file = File(
+      '${folder.path}/report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
+
     await file.writeAsBytes(bytes, flush: true);
+
     return file;
   }
 
   Future<void> _onSavePressed() async {
     if (_saving) return;
+
     final vm = context.read<ReportEditorProvider>();
+
     setState(() => _saving = true);
 
     try {
       await vm.save();
+
       final bytes = await _buildBytes();
+
       final file = await _savePdfToLocal(bytes);
+
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF saved: ${file.path.split('/').last}')),
+        SnackBar(
+          content: Text('PDF saved: ${file.path.split('/').last}'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  // Opens the letterhead selector.
   Future<void> _openLetterheadSheet() async {
     final vm = context.read<ReportEditorProvider>();
     final repo = context.read<LetterheadsRepository>();
+
     final templates = await repo.loadAll();
+
     if (!mounted) return;
 
     const addToken = '__add__';
@@ -102,26 +109,46 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
           padding: const EdgeInsets.only(bottom: 12),
           children: [
             const SizedBox(height: 12),
-            const Center(child: Text('Select Letterhead', style: TextStyle(fontWeight: FontWeight.bold))),
+
+            const Center(
+              child: Text(
+                'Select Letterhead',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+
             const Divider(),
-            // "None" option:
+
             ListTile(
-              leading: Radio<String?>(value: null, groupValue: vm.doc.letterheadId, onChanged: (_) {}),
+              leading: Radio<String?>(
+                value: null,
+                groupValue: vm.doc.letterheadId,
+                onChanged: (_) {},
+              ),
               title: const Text('None'),
               onTap: () => Navigator.pop(sheetContext, null),
             ),
-            // Existing templates:
-            ...templates.map((t) => ListTile(
-                  leading: Radio<String?>(value: t.letterheadId, groupValue: vm.doc.letterheadId, onChanged: (_) {}),
-                  title: Text(t.name),
-                  onTap: () => Navigator.pop(sheetContext, t.letterheadId),
-                )),
+
+            ...templates.map(
+              (t) => ListTile(
+                leading: Radio<String?>(
+                  value: t.letterheadId,
+                  groupValue: vm.doc.letterheadId,
+                  onChanged: (_) {},
+                ),
+                title: Text(t.name),
+                onTap: () => Navigator.pop(sheetContext, t.letterheadId),
+              ),
+            ),
+
             const Divider(),
+
             ListTile(
               leading: const Icon(Icons.add),
               title: const Text('Add new letterhead'),
               onTap: () => Navigator.pop(sheetContext, addToken),
             ),
+
             ListTile(
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Manage letterheads'),
@@ -137,7 +164,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (result == addToken) {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const LetterheadEditorScreen(letterheadId: null)),
+        MaterialPageRoute(
+          builder: (_) => const LetterheadEditorScreen(letterheadId: null),
+        ),
       );
       return;
     }
@@ -145,17 +174,17 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (result == manageToken) {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const ManageLetterheadsScreen()),
+        MaterialPageRoute(
+          builder: (_) => const ManageLetterheadsScreen(),
+        ),
       );
       return;
     }
 
-    // Update provider only after the sheet has closed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) vm.setLetterhead(result);
     });
   }
-
 
   void _openLayoutSheet() {
     showModalBottomSheet(
@@ -168,6 +197,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             builder: (context, vm, _) {
               final layout = vm.doc.reportLayout;
               final indent = vm.doc.indentContent;
+              final scale = vm.doc.fontScale;
 
               return Column(
                 mainAxisSize: MainAxisSize.min,
@@ -175,18 +205,26 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 children: [
                   const Text(
                     'Report layout',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
+
                   const SizedBox(height: 8),
+
                   RadioListTile<ReportLayout>(
                     value: ReportLayout.block,
                     groupValue: layout,
                     onChanged: (v) {
                       if (v != null) vm.setReportLayout(v);
                     },
-                    title: const Text('Block (section title on its own line)'),
+                    title: const Text(
+                      'Block (section title on its own line)',
+                    ),
                     dense: true,
                   ),
+
                   RadioListTile<ReportLayout>(
                     value: ReportLayout.inline,
                     groupValue: layout,
@@ -196,6 +234,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     title: const Text('Inline (Title: content)'),
                     dense: true,
                   ),
+
                   RadioListTile<ReportLayout>(
                     value: ReportLayout.aligned,
                     groupValue: layout,
@@ -205,12 +244,32 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     title: const Text('Aligned (two-column style)'),
                     dense: true,
                   ),
+
                   const Divider(height: 24),
+
                   SwitchListTile(
                     value: indent,
                     onChanged: vm.setIndentContent,
-                    title: const Text('Indent content under headings'),
+                    title: const Text(
+                      'Indent content under headings',
+                    ),
                     dense: true,
+                  ),
+
+                  const Divider(height: 24),
+
+                  const Text(
+                    'Global font size',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+
+                  Slider(
+                    value: scale,
+                    min: 0.85,
+                    max: 1.35,
+                    divisions: 10,
+                    label: scale.toStringAsFixed(2),
+                    onChanged: vm.setFontScale,
                   ),
                 ],
               );
@@ -223,7 +282,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // LayoutBuilder ensures PdfPreview gets bounded constraints.
     return Scaffold(
       appBar: AppBar(
         title: const Text('Preview'),
@@ -238,7 +296,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             icon: const Icon(Icons.tune),
             onPressed: _openLayoutSheet,
           ),
-
           IconButton(
             icon: _saving
                 ? const SizedBox(
@@ -261,7 +318,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   height: constraints.maxHeight,
                 ),
                 child: PdfPreview(
-                  key: ValueKey("preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}"),
+                  key: ValueKey(
+                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.fontScale}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}",
+                  ),
                   build: (_) => _buildBytes(),
                   allowPrinting: true,
                   allowSharing: true,

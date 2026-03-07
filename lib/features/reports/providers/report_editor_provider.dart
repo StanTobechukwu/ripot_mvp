@@ -678,6 +678,16 @@ class ReportEditorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setFontScale(double scale) {
+  final clamped = scale.clamp(0.85, 1.35).toDouble();
+
+  _doc = _doc.copyWith(
+    fontScale: clamped,
+    updatedAtIso: nowIso(),
+  );
+  notifyListeners();
+}
+
   void setIndentContent(bool enabled) {
     _doc = _doc.copyWith(
       indentContent: enabled,
