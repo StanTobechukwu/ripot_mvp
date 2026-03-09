@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../data/templates_repository.dart';
 import '../domain/models/template_doc.dart';
 import '../providers/template_editor_provider.dart';
+import '../providers/report_editor_provider.dart';
+import 'report_editor_screen.dart';
 
 class TemplateEditorScreen extends StatelessWidget {
   final String templateId;
@@ -86,6 +88,28 @@ class _TemplateEditorBody extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _editStructure(BuildContext context) async {
+    final repo = context.read<TemplatesRepository>();
+    final template = await repo.loadTemplate(context.read<TemplateEditorProvider>().template.templateId);
+    if (!context.mounted) return;
+
+    context.read<ReportEditorProvider>().loadTemplateForEditing(template);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportEditorScreen(
+          templateStructureMode: true,
+          templateId: template.templateId,
+          templateName: template.name,
+        ),
+      ),
+    );
+
+    if (!context.mounted) return;
+    final reloaded = await repo.loadTemplate(template.templateId);
+    context.read<TemplateEditorProvider>().replaceTemplate(reloaded);
   }
 
   Future<void> _save(BuildContext context) async {
@@ -182,6 +206,30 @@ class _TemplateEditorBody extends StatelessWidget {
                     onPressed: () => vm.addCustomField(title: 'Custom Field', required: false),
                     icon: const Icon(Icons.add),
                     label: const Text('Add field'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Segments', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Text(
+                    vm.template.roots.isEmpty
+                        ? 'No sections yet. Open structure editor to add sections.'
+                        : '${vm.template.roots.length} top-level section(s)',
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: () => _editStructure(context),
+                    icon: const Icon(Icons.account_tree_outlined),
+                    label: const Text('Edit structure'),
                   ),
                 ],
               ),

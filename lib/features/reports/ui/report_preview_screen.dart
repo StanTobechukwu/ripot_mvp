@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -13,6 +12,7 @@ import '../domain/models/report_doc.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/pdf_renderer_service.dart';
 import '../data/letterhead_repository.dart';
+import '../data/reports_repository.dart';
 import '../ui/letterhead_editor_screen.dart';
 import '../ui/manage_letterhead.screen.dart';
 
@@ -51,21 +51,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     );
   }
 
-  Future<File> _savePdfToLocal(Uint8List bytes) async {
-    final dir = await getApplicationDocumentsDirectory();
-
-    final folder = Directory('${dir.path}/saved_pdfs');
-
-    if (!await folder.exists()) {
-      await folder.create(recursive: true);
-    }
-
-    final file = File(
-      '${folder.path}/report_${DateTime.now().millisecondsSinceEpoch}.pdf',
-    );
-
+  Future<File> _savePdfToLocal(Uint8List bytes, String reportId) async {
+    final repo = context.read<ReportsRepository>();
+    final file = await repo.pdfFileForReport(reportId);
     await file.writeAsBytes(bytes, flush: true);
-
     return file;
   }
 
@@ -81,7 +70,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
       final bytes = await _buildBytes();
 
-      final file = await _savePdfToLocal(bytes);
+      final file = await _savePdfToLocal(bytes, vm.doc.reportId);
 
       if (!mounted) return;
 

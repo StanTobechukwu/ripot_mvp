@@ -14,6 +14,11 @@ class TemplateEditorProvider extends ChangeNotifier {
   TemplateDoc get template => _template;
   SubjectInfoBlockDef get subjectInfo => _template.subjectInfo;
 
+  void replaceTemplate(TemplateDoc template) {
+    _template = template;
+    notifyListeners();
+  }
+
   // ---------- block settings ----------
   void toggleSubjectInfo(bool enabled) {
     _template = _template.copyWith(

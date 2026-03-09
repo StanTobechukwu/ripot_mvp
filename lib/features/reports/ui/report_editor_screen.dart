@@ -38,7 +38,16 @@ class SafeFocusNode extends FocusNode {
 }
 
 class ReportEditorScreen extends StatefulWidget {
-  const ReportEditorScreen({super.key});
+  final bool templateStructureMode;
+  final String? templateId;
+  final String? templateName;
+
+  const ReportEditorScreen({
+    super.key,
+    this.templateStructureMode = false,
+    this.templateId,
+    this.templateName,
+  });
 
   @override
   State<ReportEditorScreen> createState() => _ReportEditorScreenState();
@@ -100,6 +109,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
  @override
 void initState() {
   super.initState();
+  _editorMode = widget.templateStructureMode;
 
   _roleTitleC = SafeTextController();
   _signerNameC = SafeTextController();
@@ -619,6 +629,12 @@ _disposeLater(titleC);
                 title: const Text('Add same-level section'),
                 onTap: () => Navigator.pop(sheetContext, 'add_same'),
               ),
+              if (selectedIsSection && widget.templateStructureMode)
+                ListTile(
+                  leading: const Icon(Icons.subdirectory_arrow_right),
+                  title: const Text('Add subsection'),
+                  onTap: () => Navigator.pop(sheetContext, 'add_subsection'),
+                ),
               if (selectedIsSection)
                 ListTile(
                   leading: const Icon(Icons.layers_outlined),
@@ -664,6 +680,20 @@ _disposeLater(titleC);
         _unfocusNow();
         _afterClose(() {
           vm.addSameLevelSection(title.trim());
+          _schedulePruneControllers(vm);
+        });
+      }
+      return;
+    }
+
+    if (action == 'add_subsection') {
+      final title = await _promptText(context, 'New subsection');
+      if (!mounted) return;
+
+      if (title != null && title.trim().isNotEmpty) {
+        _unfocusNow();
+        _afterClose(() {
+          vm.addHereSubsection(title.trim());
           _schedulePruneControllers(vm);
         });
       }
@@ -792,7 +822,7 @@ _disposeLater(titleC);
     _syncSignerControllers(vm);
     _syncReportTitleController(vm);
 
-    if (_editorMode && !_hintShown && vm.doc.roots.isNotEmpty && vm.selectedNodeId == null) {
+    if (_editorMode && !widget.templateStructureMode && !_hintShown && vm.doc.roots.isNotEmpty && vm.selectedNodeId == null) {
       _hintShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -809,37 +839,38 @@ _disposeLater(titleC);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_editorMode ? 'Editor Mode' : 'Form Mode'),
+        title: Text(widget.templateStructureMode ? 'Edit Template' : (_editorMode ? 'Editor Mode' : 'Form Mode')),
         actions: [
           IconButton(
             tooltip: _editorMode ? 'Switch to Form Mode' : 'Switch to Editor Mode',
             icon: Icon(_editorMode ? Icons.description_outlined : Icons.edit_note_outlined),
-            onPressed: () => _toggleMode(vm),
+            onPressed: widget.templateStructureMode ? null : () => _toggleMode(vm),
           ),
-          IconButton(
-            tooltip: 'Preview',
-            icon: const Icon(Icons.preview_outlined),
-            onPressed: () {
-              _unfocusNow();
-              vm.ensureFormReady();
-              _schedulePruneControllers(vm);
+          if (!widget.templateStructureMode)
+            IconButton(
+              tooltip: 'Preview',
+              icon: const Icon(Icons.preview_outlined),
+              onPressed: () {
+                _unfocusNow();
+                vm.ensureFormReady();
+                _schedulePruneControllers(vm);
 
-              final errs = _validateSubjectInfo(vm);
-              if (errs.isNotEmpty) {
-                setState(() => _subjectErrors = errs);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please complete required Subject Info fields.')),
+                final errs = _validateSubjectInfo(vm);
+                if (errs.isNotEmpty) {
+                  setState(() => _subjectErrors = errs);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please complete required Subject Info fields.')),
+                  );
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ReportPreviewScreen()),
                 );
-                return;
-              }
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReportPreviewScreen()),
-              );
-            },
-          ),
-          if (_editorMode)
+              },
+            ),
+          if (_editorMode && !widget.templateStructureMode)
             IconButton(
               tooltip: 'Save as template',
               icon: const Icon(Icons.bookmark_add_outlined),
@@ -865,6 +896,22 @@ _disposeLater(titleC);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Template saved')),
                 );
+              },
+            ),
+          if (widget.templateStructureMode && widget.templateId != null)
+            IconButton(
+              tooltip: 'Save template',
+              icon: const Icon(Icons.save_outlined),
+              onPressed: () async {
+                await vm.saveExistingTemplateStructure(
+                  templateId: widget.templateId!,
+                  name: widget.templateName ?? 'Template',
+                );
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Template updated')),
+                );
+                Navigator.pop(context);
               },
             ),
         ],
@@ -933,8 +980,8 @@ floatingActionButton: _editorMode
         child: ListView(
           padding: const EdgeInsets.all(_pagePad),
           children: [
-            _reportTitleCard(vm),
-            const SizedBox(height: _bigGap),
+            if (!widget.templateStructureMode) _reportTitleCard(vm),
+            if (!widget.templateStructureMode) const SizedBox(height: _bigGap),
             _subjectInfoCard(vm),
             const SizedBox(height: _bigGap),
             _card(
@@ -982,10 +1029,10 @@ floatingActionButton: _editorMode
                               .toList(growable: false),
                         ),
             ),
-            const SizedBox(height: _bigGap),
-            _imagesCard(context, vm),
-            const SizedBox(height: _bigGap),
-            _card(title: 'Signer', child: _signerCard(vm)),
+            if (!widget.templateStructureMode) const SizedBox(height: _bigGap),
+            if (!widget.templateStructureMode) _imagesCard(context, vm),
+            if (!widget.templateStructureMode) const SizedBox(height: _bigGap),
+            if (!widget.templateStructureMode) _card(title: 'Signer', child: _signerCard(vm)),
           ],
         ),
       ),
@@ -1392,7 +1439,7 @@ floatingActionButton: _editorMode
             ),
           ),
           const SizedBox(height: 8),
-        if (selected &&
+        if (!widget.templateStructureMode && selected &&
     !_isAnyEditorFieldFocused &&
     _actionsVisibleForSectionId == section.id)
   Padding(
@@ -1440,6 +1487,9 @@ floatingActionButton: _editorMode
           if (!section.collapsed)
             ...section.children.map((child) {
               if (child is ContentNode) {
+                if (widget.templateStructureMode) {
+                  return const SizedBox.shrink();
+                }
                 final contentLeft = vm.doc.indentContent ? (sectionIndent + 24) : 0.0;
                 final c = _contentControllerFor(child.id, child.text);
                 final f = _contentFocusFor(child.id);
@@ -1456,9 +1506,9 @@ floatingActionButton: _editorMode
                       border: OutlineInputBorder(),
                       hintText: 'Enter text…',
                     ),
-onTap: () {
-  vm.selectNode(section.id);
-},
+                    onTap: () {
+                      vm.selectNode(section.id);
+                    },
                     onChanged: (v) => vm.updateContent(child.id, v),
                   ),
                 );

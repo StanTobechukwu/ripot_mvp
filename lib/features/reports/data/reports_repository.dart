@@ -19,6 +19,19 @@ class ReportSummary {
 }
 
 class ReportsRepository {
+
+  Future<Directory> pdfsDir() async {
+    final base = await getApplicationDocumentsDirectory();
+    final dir = Directory('${base.path}/saved_pdfs');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  Future<File> pdfFileForReport(String reportId) async {
+    final dir = await pdfsDir();
+    return File('${dir.path}/$reportId.pdf');
+  }
+
   Future<Directory> _reportsDir() async {
     final base = await getApplicationDocumentsDirectory();
     final dir = Directory('${base.path}/reports');
@@ -63,9 +76,11 @@ class ReportsRepository {
         final id = j['reportId'] as String;
         final updated = DateTime.parse(j['updatedAtIso'] as String);
 
-        // Title heuristic: first section title if exists, else fallback
+        final reportTitle = (j['reportTitle'] as String?)?.trim() ?? '';
         final roots = (j['roots'] as List?) ?? const [];
-        final title = roots.isNotEmpty ? (roots.first['title'] as String? ?? 'Untitled Report') : 'Untitled Report';
+        final title = reportTitle.isNotEmpty
+            ? reportTitle
+            : (roots.isNotEmpty ? (roots.first['title'] as String? ?? 'Untitled Report') : 'Untitled Report');
 
         summaries.add(ReportSummary(reportId: id, title: title, updatedAt: updated));
       } catch (_) {

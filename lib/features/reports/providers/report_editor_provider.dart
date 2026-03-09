@@ -156,6 +156,41 @@ class ReportEditorProvider extends ChangeNotifier {
     _commit(); // ✅ prune + notify (structure changed)
   }
 
+  void loadTemplateForEditing(TemplateDoc template) {
+    final now = nowIso();
+    _doc = ReportDoc(
+      reportId: newId('rpt'),
+      createdAtIso: now,
+      updatedAtIso: now,
+      reportTitle: template.name,
+      roots: template.roots.map((s) => s.cloneNodeTree()).toList(growable: false),
+      images: const [],
+      placementChoice: ImagePlacementChoice.attachmentsOnly,
+      signature: const SignatureBlock(),
+      subjectInfoDef: template.subjectInfo,
+      subjectInfo: SubjectInfoValues.emptyFromDef(template.subjectInfo),
+    );
+    _selectedNodeId = null;
+    _commit();
+  }
+
+  Future<void> saveExistingTemplateStructure({
+    required String templateId,
+    required String name,
+  }) async {
+    final t = TemplateDoc(
+      templateId: templateId,
+      updatedAt: DateTime.now(),
+      name: name.trim().isEmpty ? 'Untitled Template' : name.trim(),
+      roots: _doc.roots
+          .map((r) => r.toTemplateNode(includeContent: false))
+          .toList(growable: false),
+      subjectInfo: _doc.subjectInfoDef,
+    );
+
+    await templatesRepo.saveTemplate(t);
+  }
+
   Future<void> loadTemplateAndStartReport(String templateId) async {
     final template = await templatesRepo.loadTemplate(templateId);
     newReportFromTemplate(template);
