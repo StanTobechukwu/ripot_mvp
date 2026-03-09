@@ -13,18 +13,15 @@ import '../domain/pdf/pdf_plan.dart';
 import 'platforms/file_loader.dart';
 
 class PdfRendererService {
+  static const double _alignedTitleWidth = 160.0;
+
   Future<Uint8List> generatePdfBytes({
     required ReportDoc doc,
     required PdfPlan plan,
     LetterheadTemplate? letterhead,
   }) async {
-    // -------------------------
-    // Global font scaling
-    // -------------------------
     final double fontScale = doc.fontScale;
     final double contentFontSize = 11 * fontScale;
-
-    // Title: same size as content, only slightly thicker
     final double reportTitleFontSize = contentFontSize;
 
     final theme = pw.ThemeData.withFont(
@@ -42,7 +39,7 @@ class PdfRendererService {
     final headerReserve = metrics.headerReserve;
     final footerReserve = metrics.footerReserve;
     final usableHeight = metrics.usableHeight;
-    // ---------- Title ----------
+
     final titleText = plan.title;
     final bool showTitle = titleText.trim().isNotEmpty;
     final double titleReserve = estimateTitleReserve(
@@ -50,18 +47,15 @@ class PdfRendererService {
       fontScale: fontScale,
     );
 
-    // ---------- Subject Info reserve ----------
     final double subjectReserve = estimateSubjectInfoReserve(
       doc,
       fontScale: fontScale,
     );
 
-    // ---------- Signature reserve ----------
     final double signatureReserve = estimateSignatureHeight(
       fontScale: fontScale,
     );
 
-    // ---------- Images ----------
     final inlineCandidates = await _loadImages(
       plan.pageOne.inlineImages.map((e) => e.filePath).toList(),
     );
@@ -71,24 +65,17 @@ class PdfRendererService {
     );
 
     final attachmentImgs = await _loadImages(
-      plan.attachmentPages
-          .expand((p) => p.images)
-          .map((e) => e.filePath)
-          .toList(),
+      plan.attachmentPages.expand((p) => p.images).map((e) => e.filePath).toList(),
     );
 
-    // ---------- Signature ----------
     final signatureImg = await _loadSingle(doc.signature.signatureFilePath);
-
-    // ---------- Letterhead logo ----------
     final pw.MemoryImage? logo =
         (letterhead == null) ? null : await _loadLogo(letterhead);
 
-    // ---------- Inline mode ----------
     final bool inlineEnabled = plan.inlineEnabled;
 
     double availableMainHeightAssumingSigOnPage1() {
-      final gaps = 12.0;
+      const gaps = 12.0;
       final remaining =
           usableHeight - titleReserve - subjectReserve - signatureReserve - gaps;
       return max(0, remaining);
@@ -107,7 +94,6 @@ class PdfRendererService {
     final inlineImgsNotShownOnPage1 =
         inlineCandidates.skip(page1InlineSlotsFit).toList(growable: false);
 
-    // ---------- Build entries ----------
     final entries = _buildEntries(
       doc,
       contentFontSize: contentFontSize,
@@ -125,17 +111,11 @@ class PdfRendererService {
     final (firstPagePlain, remainingPlain) =
         _splitForFirstPage(plain, approxChars: firstPageBudget);
     final splitIndex = firstPagePlain.length;
-    final (firstPageEntries, remainingEntries) =
-        _splitEntries(entries, splitIndex);
+    final (firstPageEntries, remainingEntries) = _splitEntries(entries, splitIndex);
 
     final hasRemainingText = remainingPlain.trim().isNotEmpty;
-
-    // ---------- Final placement rules ----------
-    // Signature follows final content.
-    // Attachments do NOT force signature off page 1 if content does not spill.
     final canPlaceSignatureOnPage1 = !hasRemainingText;
 
-    // Spill inline only if text spills
     final spillInlineActive =
         inlineEnabled && hasRemainingText && spillInlineCandidates.isNotEmpty;
 
@@ -143,7 +123,7 @@ class PdfRendererService {
         ? [
             ...inlineImgsNotShownOnPage1,
             ...spillInlineCandidates,
-          ].take(4).toList(growable: false)
+          ].take(metrics.maxSpillInlineSlots).toList(growable: false)
         : <pw.MemoryImage>[];
 
     final spillInlineRemainder = spillInlineActive
@@ -163,7 +143,6 @@ class PdfRendererService {
 
     final pdf = pw.Document();
 
-    // ================= PAGE 1 =================
     pdf.addPage(
       pw.Page(
         theme: theme,
@@ -180,14 +159,14 @@ class PdfRendererService {
                 ? pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Container(
+                      pw.SizedBox(
                         width: metrics.page1TextWidth,
                         child: _entriesBlock(
                           firstPageEntries,
                           contentFontSize: contentFontSize,
                         ),
                       ),
-                      pw.SizedBox(width: 12),
+                      pw.SizedBox(width: metrics.inlineToTextGap),
                       pw.SizedBox(
                         width: metrics.inlineColumnWidth,
                         child: _inlineColumnFixed(
@@ -242,7 +221,6 @@ class PdfRendererService {
       ),
     );
 
-    // ================= ATTACHMENT PAGES =================
     if (allAttachmentImgs.isNotEmpty) {
       final chunks = chunked(allAttachmentImgs, metrics.attachmentImagesPerPage);
 
@@ -288,7 +266,6 @@ class PdfRendererService {
       }
     }
 
-    // ================= FINAL CONTENT + SIGNATURE PAGE =================
     if (!canPlaceSignatureOnPage1) {
       pdf.addPage(
         pw.Page(
@@ -309,14 +286,14 @@ class PdfRendererService {
                       ? pw.Row(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Container(
+                            pw.SizedBox(
                               width: metrics.page1TextWidth,
                               child: _entriesBlock(
                                 remainingEntries,
                                 contentFontSize: contentFontSize,
                               ),
                             ),
-                            pw.SizedBox(width: 12),
+                            pw.SizedBox(width: metrics.inlineToTextGap),
                             pw.SizedBox(
                               width: metrics.inlineColumnWidth,
                               child: _inlineColumnFixed(
@@ -352,8 +329,6 @@ class PdfRendererService {
 
     return pdf.save();
   }
-
-  // =================== LETTERHEAD WRAPPER ===================
 
   pw.Widget _pageWithLetterhead({
     required pw.Widget body,
@@ -413,10 +388,7 @@ class PdfRendererService {
     }
   }
 
-  pw.Widget _letterheadHeader(
-    LetterheadTemplate lh,
-    pw.MemoryImage? logo,
-  ) {
+  pw.Widget _letterheadHeader(LetterheadTemplate lh, pw.MemoryImage? logo) {
     final align = _logoAlign(lh.logoAlign);
     final tAlign = _textAlignFromLogoAlign(lh.logoAlign);
 
@@ -428,8 +400,7 @@ class PdfRendererService {
         textAlign: tAlign,
         style: pw.TextStyle(
           fontSize: size,
-          fontWeight:
-              bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
         ),
       );
     }
@@ -467,7 +438,7 @@ class PdfRendererService {
           pw.Divider(),
           pw.Row(
             children: [
-              pw.Container(
+              pw.SizedBox(
                 width: 250,
                 child: pw.Text(
                   left,
@@ -486,8 +457,6 @@ class PdfRendererService {
       ),
     );
   }
-
-  // =================== SUBJECT INFO ===================
 
   pw.Widget _subjectInfoBlock(
     ReportDoc doc, {
@@ -543,11 +512,9 @@ class PdfRendererService {
       );
     }
 
-    pw.Widget body;
+    late final pw.Widget body;
     if (def.columns == 2) {
-      final items = fields
-          .map((f) => (f.title, doc.subjectInfo.valueOf(f.key)))
-          .toList();
+      final items = fields.map((f) => (f.title, doc.subjectInfo.valueOf(f.key))).toList();
       final rows = <pw.Widget>[];
 
       for (int i = 0; i < items.length; i += 2) {
@@ -561,9 +528,7 @@ class PdfRendererService {
               pw.Expanded(child: fieldRow(left.$1, left.$2)),
               pw.SizedBox(width: 12),
               pw.Expanded(
-                child: right == null
-                    ? pw.SizedBox()
-                    : fieldRow(right.$1, right.$2),
+                child: right == null ? pw.SizedBox() : fieldRow(right.$1, right.$2),
               ),
             ],
           ),
@@ -575,7 +540,7 @@ class PdfRendererService {
       body = pw.Column(
         children: fields
             .map((f) => fieldRow(f.title, doc.subjectInfo.valueOf(f.key)))
-            .toList(),
+            .toList(growable: false),
       );
     }
 
@@ -601,8 +566,6 @@ class PdfRendererService {
       ),
     );
   }
-
-  // =================== SIGNATURE ===================
 
   pw.Widget _signatureBlock(
     ReportDoc doc,
@@ -680,17 +643,6 @@ class PdfRendererService {
     );
   }
 
-  // =================== ENTRIES / LAYOUT ===================
-
-  pw.Widget _textBlock(
-    String text, {
-    required double contentFontSize,
-  }) =>
-      pw.Text(
-        text.trim().isEmpty ? '(no content)' : text.trim(),
-        style: pw.TextStyle(fontSize: contentFontSize, lineSpacing: 2),
-      );
-
   List<_PdfEntry> _buildEntries(
     ReportDoc doc, {
     required double contentFontSize,
@@ -698,17 +650,12 @@ class PdfRendererService {
     final out = <_PdfEntry>[];
 
     void walk(SectionNode s) {
-      final sectionChildren =
-          s.children.whereType<SectionNode>().toList(growable: false);
-      final contentChildren =
-          s.children.whereType<ContentNode>().toList(growable: false);
+      final sectionChildren = s.children.whereType<SectionNode>().toList(growable: false);
+      final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
 
       final indentPx = 12.0 * s.indent;
-      final contentIndentPx =
-          indentPx + (doc.indentContent ? 12.0 : 0.0);
+      final contentIndentPx = indentPx + (doc.indentContent ? 12.0 : 0.0);
 
-      // Default block title size = same as content.
-      // Only gets larger when the user changes heading level.
       final double blockTitleSize = switch (s.style.level) {
         HeadingLevel.h1 => contentFontSize * 1.45,
         HeadingLevel.h2 => contentFontSize * 1.25,
@@ -718,8 +665,7 @@ class PdfRendererService {
 
       final blockTitleStyle = pw.TextStyle(
         fontSize: blockTitleSize,
-        fontWeight:
-            s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
       );
 
       final titleAlign = switch (s.style.align) {
@@ -728,12 +674,22 @@ class PdfRendererService {
         TitleAlign.right => pw.Alignment.centerRight,
       };
 
+      final titleTextAlign = switch (s.style.align) {
+        TitleAlign.left => pw.TextAlign.left,
+        TitleAlign.center => pw.TextAlign.center,
+        TitleAlign.right => pw.TextAlign.right,
+      };
+
       pw.Widget titleWidget() {
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: indentPx, bottom: 2),
           child: pw.Align(
             alignment: titleAlign,
-            child: pw.Text(s.title, style: blockTitleStyle),
+            child: pw.Text(
+              s.title,
+              textAlign: titleTextAlign,
+              style: blockTitleStyle,
+            ),
           ),
         );
       }
@@ -748,24 +704,35 @@ class PdfRendererService {
         );
       }
 
-      pw.Widget inlineWidget(
-        String text, {
-        required bool aligned,
-      }) {
+      pw.Widget inlineWidget(String text, {required bool aligned}) {
         final inlineTitleStyle = pw.TextStyle(
           fontSize: contentFontSize,
           fontWeight: pw.FontWeight.bold,
         );
 
-        final titleCell = pw.Container(
-          width: aligned ? 160 : null,
-          alignment: pw.Alignment.topLeft,
-          child: pw.Text(
-            aligned ? s.title : '${s.title}:',
-            style: inlineTitleStyle,
-            textAlign: pw.TextAlign.left,
-          ),
-        );
+        final label = aligned ? s.title : '${s.title}:';
+        final value = text.trim().isEmpty ? '(no content)' : text.trim();
+
+        final titleCell = aligned
+            ? pw.SizedBox(
+                width: _alignedTitleWidth,
+                child: pw.Align(
+                  alignment: titleAlign,
+                  child: pw.Text(
+                    label,
+                    textAlign: titleTextAlign,
+                    style: inlineTitleStyle,
+                  ),
+                ),
+              )
+            : pw.Container(
+                alignment: titleAlign,
+                child: pw.Text(
+                  label,
+                  textAlign: titleTextAlign,
+                  style: inlineTitleStyle,
+                ),
+              );
 
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: indentPx, bottom: 6),
@@ -776,7 +743,7 @@ class PdfRendererService {
               pw.SizedBox(width: 10),
               pw.Expanded(
                 child: pw.Text(
-                  text,
+                  value,
                   style: pw.TextStyle(fontSize: contentFontSize),
                 ),
               ),
@@ -785,10 +752,8 @@ class PdfRendererService {
         );
       }
 
-      // Container section
       if (sectionChildren.isNotEmpty) {
-        final introNode =
-            contentChildren.isNotEmpty ? contentChildren.first : null;
+        final introNode = contentChildren.isNotEmpty ? contentChildren.first : null;
 
         if (doc.reportLayout == ReportLayout.block || introNode == null) {
           out.add(
@@ -805,8 +770,7 @@ class PdfRendererService {
             if (doc.reportLayout == ReportLayout.block) {
               out.add(
                 _PdfEntry(
-                  plain:
-                      '${indentText(s.indent + (doc.indentContent ? 1 : 0))}$introText\n\n',
+                  plain: '${indentText(s.indent + (doc.indentContent ? 1 : 0))}$introText\n\n',
                   widget: contentWidget(introText),
                 ),
               );
@@ -830,7 +794,6 @@ class PdfRendererService {
         return;
       }
 
-      // Leaf section
       final leafText =
           contentChildren.isNotEmpty ? contentChildren.first.text.trim() : '';
 
@@ -845,8 +808,7 @@ class PdfRendererService {
         if (leafText.isNotEmpty) {
           out.add(
             _PdfEntry(
-              plain:
-                  '${indentText(s.indent + (doc.indentContent ? 1 : 0))}$leafText\n\n',
+              plain: '${indentText(s.indent + (doc.indentContent ? 1 : 0))}$leafText\n\n',
               widget: contentWidget(leafText),
             ),
           );
@@ -916,8 +878,6 @@ class PdfRendererService {
       ),
     );
   }
-
-  // =================== IMAGES ===================
 
   pw.Widget _inlineColumnFixed(
     List<pw.MemoryImage> images, {
@@ -993,8 +953,6 @@ class PdfRendererService {
     );
   }
 
-  // =================== SPLIT / LOADERS ===================
-
   (String, String) _splitForFirstPage(
     String text, {
     required int approxChars,
@@ -1023,7 +981,6 @@ class PdfRendererService {
     if (bytes == null || bytes.isEmpty) return null;
     return pw.MemoryImage(bytes);
   }
-
 }
 
 class _PdfEntry {
