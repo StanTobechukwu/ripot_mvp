@@ -578,12 +578,8 @@ class PdfRendererService {
     final name = doc.signature.name.trim();
     final creds = doc.signature.credentials.trim();
 
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(12),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey400),
-        borderRadius: pw.BorderRadius.circular(14),
-      ),
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(top: 4),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -605,39 +601,13 @@ class PdfRendererService {
               creds,
               style: pw.TextStyle(fontSize: 11 * fontScale),
             ),
-          pw.SizedBox(height: 10),
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
-            children: [
-              pw.Text(
-                'Signature:',
-                style: pw.TextStyle(
-                  fontSize: 10 * fontScale,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(width: 8),
-              pw.Container(
-                height: 60,
-                width: 340,
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey300),
-                  borderRadius: pw.BorderRadius.circular(10),
-                ),
-                alignment: pw.Alignment.centerLeft,
-                padding: const pw.EdgeInsets.symmetric(horizontal: 8),
-                child: signature == null
-                    ? pw.Text(
-                        '(not provided)',
-                        style: pw.TextStyle(
-                          fontSize: 10 * fontScale,
-                          color: PdfColors.grey700,
-                        ),
-                      )
-                    : pw.Image(signature, fit: pw.BoxFit.contain),
-              ),
-            ],
-          ),
+          if (signature != null) ...[
+            pw.SizedBox(height: 10),
+            pw.SizedBox(
+              height: 60,
+              child: pw.Image(signature, fit: pw.BoxFit.contain),
+            ),
+          ],
         ],
       ),
     );
@@ -925,31 +895,52 @@ class PdfRendererService {
     final slots = metrics.attachmentImagesPerPage;
     const cols = 2;
     const gap = 10.0;
+    const cellHeight = 160.0;
 
     pw.Widget cell(pw.MemoryImage? img) {
-      if (img == null) return pw.Container();
       return pw.Container(
+        height: cellHeight,
         decoration: pw.BoxDecoration(
           border: pw.Border.all(width: 0.6, color: PdfColors.grey400),
           borderRadius: pw.BorderRadius.circular(10),
         ),
         padding: const pw.EdgeInsets.all(4),
-        child: pw.ClipRRect(
-          horizontalRadius: 10,
-          verticalRadius: 10,
-          child: pw.Image(img, fit: pw.BoxFit.cover),
-        ),
+        child: img == null
+            ? pw.SizedBox()
+            : pw.ClipRRect(
+                horizontalRadius: 10,
+                verticalRadius: 10,
+                child: pw.Image(img, fit: pw.BoxFit.cover),
+              ),
       );
     }
 
     final visible = images.take(slots).toList(growable: false);
+    final rows = <pw.Widget>[];
 
-    return pw.GridView(
-      crossAxisCount: cols,
-      mainAxisSpacing: gap,
-      crossAxisSpacing: gap,
-      childAspectRatio: 1.25,
-      children: visible.map((img) => cell(img)).toList(growable: false),
+    for (int i = 0; i < visible.length; i += cols) {
+      final left = visible[i];
+      final right = (i + 1 < visible.length) ? visible[i + 1] : null;
+
+      rows.add(
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(child: cell(left)),
+            pw.SizedBox(width: gap),
+            pw.Expanded(child: cell(right)),
+          ],
+        ),
+      );
+
+      if (i + cols < visible.length) {
+        rows.add(pw.SizedBox(height: gap));
+      }
+    }
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: rows,
     );
   }
 

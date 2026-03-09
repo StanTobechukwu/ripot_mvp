@@ -1653,10 +1653,17 @@ class _SubjectFieldsEditor extends StatefulWidget {
 }
 
 class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
-  void _renameDialog(String fieldKey, String currentTitle) {
+  void _runAfterFrame(VoidCallback fn) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      fn();
+    });
+  }
+
+  Future<void> _renameDialog(String fieldKey, String currentTitle) async {
     final c = SafeTextController(text: currentTitle);
 
-    showDialog(
+    final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Rename field'),
@@ -1676,18 +1683,26 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
           FilledButton(
             onPressed: () {
               final t = c.text.trim().isEmpty ? currentTitle : c.text.trim();
-              Navigator.pop(dialogContext);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                widget.vm.renameSubjectField(fieldKey, t);
-                if (mounted) setState(() {});
-              });
+              Navigator.pop(dialogContext, t);
             },
             child: const Text('Save'),
           ),
         ],
       ),
-    ).then((_) {
-      if (!c.isDisposed) c.dispose();
+    );
+
+    // Dispose safely after dialog is fully gone.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!c.isDisposed) c.dispose();
+      });
+    });
+
+    if (result == null) return;
+
+    _runAfterFrame(() {
+      widget.vm.renameSubjectField(fieldKey, result);
+      setState(() {});
     });
   }
 
@@ -1700,10 +1715,11 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
     const double rowHeight = 60.0;
     final double listHeight = fields.length * rowHeight;
     final double maxHeight = screenHeight * 0.5;
-    final double constrainedHeight = listHeight < maxHeight ? listHeight : maxHeight;
+    final double constrainedHeight =
+        listHeight < maxHeight ? listHeight : maxHeight;
 
     return Column(
-      mainAxisSize: MainAxisSize.min, // ✅ prevent bottom-sheet overflow
+      mainAxisSize: MainAxisSize.min,
       children: [
         const ListTile(
           title: Text('Subject Fields'),
@@ -1718,8 +1734,10 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
             shrinkWrap: true,
             itemCount: fields.length,
             onReorder: (oldIndex, newIndex) {
-              vm.reorderSubjectFields(oldIndex, newIndex);
-              setState(() {});
+              _runAfterFrame(() {
+                vm.reorderSubjectFields(oldIndex, newIndex);
+                setState(() {});
+              });
             },
             itemBuilder: (_, i) {
               final f = fields[i];
@@ -1735,8 +1753,10 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
                     Checkbox(
                       value: f.required,
                       onChanged: (v) {
-                        vm.toggleSubjectRequired(f.key, v ?? false);
-                        setState(() {});
+                        _runAfterFrame(() {
+                          vm.toggleSubjectRequired(f.key, v ?? false);
+                          setState(() {});
+                        });
                       },
                     ),
                     IconButton(
@@ -1749,8 +1769,10 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
                         tooltip: 'Delete',
                         icon: const Icon(Icons.delete_outline),
                         onPressed: () {
-                          vm.removeSubjectField(f.key);
-                          setState(() {});
+                          _runAfterFrame(() {
+                            vm.removeSubjectField(f.key);
+                            setState(() {});
+                          });
                         },
                       ),
                   ],
@@ -1768,7 +1790,6 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
     );
   }
 }
-
 // ---------------- Section edit sheet ----------------
 
 class _SectionEditResult {

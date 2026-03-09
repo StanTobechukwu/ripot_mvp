@@ -5,7 +5,7 @@ import 'pdf_layout_metrics.dart';
 
 String effectiveReportTitle(ReportDoc doc) {
   final title = doc.reportTitle.trim();
-  return title.isEmpty ? 'Medical Report' : title;
+  return title;
 }
 
 double estimateTitleReserve({
