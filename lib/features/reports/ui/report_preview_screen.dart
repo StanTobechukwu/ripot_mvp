@@ -193,7 +193,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
           child: Consumer<ReportEditorProvider>(
             builder: (context, vm, _) {
               final layout = vm.doc.reportLayout;
-              final indent = vm.doc.indentContent;
+              final indentContent = vm.doc.indentContent;
+              final indentHierarchy = vm.doc.indentHierarchy;
+              final applyIndentation = indentContent || indentHierarchy;
               final scale = vm.doc.fontScale;
 
               return SingleChildScrollView(
@@ -243,18 +245,48 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     dense: true,
                   ),
 
-                  const Divider(height: 24),
-
-                  SwitchListTile(
-                    value: indent,
-                    onChanged: vm.setIndentContent,
-                    title: const Text(
-                      'Indent content under headings',
+                  if (layout == ReportLayout.block) ...[
+                    const Divider(height: 24),
+                    SwitchListTile(
+                      value: applyIndentation,
+                      onChanged: (enabled) {
+                        if (enabled) {
+                          vm.setIndentContent(true);
+                          vm.setIndentHierarchy(true);
+                        } else {
+                          vm.setIndentContent(false);
+                          vm.setIndentHierarchy(false);
+                        }
+                      },
+                      title: const Text('Apply indentation'),
+                      dense: true,
                     ),
-                    dense: true,
-                  ),
-
-                  const Divider(height: 24),
+                    if (applyIndentation) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: CheckboxListTile(
+                          value: indentContent,
+                          onChanged: (v) => vm.setIndentContent(v ?? false),
+                          title: const Text('Content'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: CheckboxListTile(
+                          value: indentHierarchy,
+                          onChanged: (v) => vm.setIndentHierarchy(v ?? false),
+                          title: const Text('Hierarchy'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      ),
+                    ],
+                    const Divider(height: 24),
+                  ],
 
                   const Text(
                     'Global font size',
@@ -318,7 +350,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 ),
                 child: PdfPreview(
                   key: ValueKey(
-                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.fontScale}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}",
+                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.indentHierarchy}-${vm.doc.fontScale}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}",
                   ),
                   build: (_) => _buildBytes(),
                   allowPrinting: true,

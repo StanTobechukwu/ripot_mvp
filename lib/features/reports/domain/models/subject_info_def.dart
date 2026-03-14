@@ -68,12 +68,14 @@ class SubjectInfoBlockDef {
   final int columns;
 
   final int schemaVersion;
+  final String heading;
   final List<SubjectFieldDef> fields;
 
   const SubjectInfoBlockDef({
     required this.enabled,
     required this.columns,
     required this.schemaVersion,
+    required this.heading,
     required this.fields,
   });
 
@@ -82,17 +84,18 @@ class SubjectInfoBlockDef {
     enabled: true,
     columns: 2,
     schemaVersion: 1,
+    heading: 'Patient Info',
     fields: [
       SubjectFieldDef(
         key: SubjectFieldKeys.subjectName,
-        title: 'Subject Name',
+        title: 'Patient Name',
         required: true,
         order: 0,
         isSystem: true,
       ),
       SubjectFieldDef(
         key: SubjectFieldKeys.subjectId,
-        title: 'Subject ID',
+        title: 'Hospital ID',
         required: false,
         order: 1,
         isSystem: true,
@@ -110,6 +113,7 @@ class SubjectInfoBlockDef {
   SubjectInfoBlockDef copyWith({
     bool? enabled,
     int? columns,
+    String? heading,
     List<SubjectFieldDef>? fields,
   }) {
     final safeCols = (columns ?? this.columns) == 2 ? 2 : 1;
@@ -117,6 +121,7 @@ class SubjectInfoBlockDef {
       enabled: enabled ?? this.enabled,
       columns: safeCols,
       schemaVersion: schemaVersion,
+      heading: heading ?? this.heading,
       fields: fields ?? this.fields,
     );
   }
@@ -125,6 +130,7 @@ class SubjectInfoBlockDef {
         'enabled': enabled,
         'columns': columns,
         'schemaVersion': schemaVersion,
+        'heading': heading,
         'fields': fields.map((f) => f.toJson()).toList(),
       };
 
@@ -137,6 +143,7 @@ class SubjectInfoBlockDef {
       enabled: (j['enabled'] as bool?) ?? kDefaults.enabled,
       columns: cols == 2 ? 2 : 1,
       schemaVersion: (j['schemaVersion'] as int?) ?? kDefaults.schemaVersion,
+      heading: (j['heading'] as String?) ?? kDefaults.heading,
       fields: ((j['fields'] as List?) ?? const [])
           .whereType<Map>()
           .map((e) => SubjectFieldDef.fromJson(Map<String, dynamic>.from(e)))

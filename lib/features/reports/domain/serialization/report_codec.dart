@@ -28,6 +28,7 @@ class ReportCodec {
         'placementChoice': doc.placementChoice.name,
         'reportLayout': doc.reportLayout.name,
         'indentContent': doc.indentContent,
+        'indentHierarchy': doc.indentHierarchy,
         'roots': doc.roots.map(sectionToJson).toList(),
 
         // images
@@ -73,6 +74,7 @@ class ReportCodec {
     );
 
     final indentContent = (j['indentContent'] as bool?) ?? true;
+    final indentHierarchy = (j['indentHierarchy'] as bool?) ?? true;
 
     // ✅ NEW: report title (migration-safe)
     final reportTitle = (j['reportTitle'] as String?) ?? '';
@@ -139,6 +141,7 @@ class ReportCodec {
       placementChoice: placementChoice,
       reportLayout: reportLayout,
       indentContent: indentContent,
+      indentHierarchy: indentHierarchy,
       subjectInfoDef: subjectInfoDef,
       subjectInfo: subjectInfo,
       roots: roots,

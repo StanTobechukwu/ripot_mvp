@@ -156,41 +156,6 @@ class ReportEditorProvider extends ChangeNotifier {
     _commit(); // ✅ prune + notify (structure changed)
   }
 
-  void loadTemplateForEditing(TemplateDoc template) {
-    final now = nowIso();
-    _doc = ReportDoc(
-      reportId: newId('rpt'),
-      createdAtIso: now,
-      updatedAtIso: now,
-      reportTitle: template.name,
-      roots: template.roots.map((s) => s.cloneNodeTree()).toList(growable: false),
-      images: const [],
-      placementChoice: ImagePlacementChoice.attachmentsOnly,
-      signature: const SignatureBlock(),
-      subjectInfoDef: template.subjectInfo,
-      subjectInfo: SubjectInfoValues.emptyFromDef(template.subjectInfo),
-    );
-    _selectedNodeId = null;
-    _commit();
-  }
-
-  Future<void> saveExistingTemplateStructure({
-    required String templateId,
-    required String name,
-  }) async {
-    final t = TemplateDoc(
-      templateId: templateId,
-      updatedAt: DateTime.now(),
-      name: name.trim().isEmpty ? 'Untitled Template' : name.trim(),
-      roots: _doc.roots
-          .map((r) => r.toTemplateNode(includeContent: false))
-          .toList(growable: false),
-      subjectInfo: _doc.subjectInfoDef,
-    );
-
-    await templatesRepo.saveTemplate(t);
-  }
-
   Future<void> loadTemplateAndStartReport(String templateId) async {
     final template = await templatesRepo.loadTemplate(templateId);
     newReportFromTemplate(template);
@@ -289,6 +254,14 @@ class ReportEditorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+void setSubjectInfoHeading(String heading) {
+  _doc = _doc.copyWith(
+    subjectInfoDef: _doc.subjectInfoDef.copyWith(
+      heading: heading.trim(),
+    ),
+  );
+  notifyListeners();
+}
   void removeSubjectField(String fieldKey) {
     final fields = _doc.subjectInfoDef.fields;
     final target = fields.firstWhere(
@@ -457,7 +430,7 @@ class ReportEditorProvider extends ChangeNotifier {
     final t = title.trim();
     if (t.isEmpty) return;
 
-    final sec = SectionNode(id: _id('sec'), title: t);
+    final sec = SectionNode(id: _id('sec'), title: t, indent: 0);
 
     _doc = _doc.copyWith(
       roots: [..._doc.roots, sec],
@@ -471,12 +444,14 @@ class ReportEditorProvider extends ChangeNotifier {
     final targetId = _selectedNodeId;
     if (t.isEmpty || targetId == null) return;
 
-    final newSec = SectionNode(id: _id('sec'), title: t);
-
     final selected = _findNodeById(_doc.roots, targetId);
     final effectiveTargetId = (selected is ContentNode)
         ? _findOwningSectionId(_doc.roots, targetId) ?? targetId
         : targetId;
+
+    final targetSection = _findNodeById(_doc.roots, effectiveTargetId);
+    final indent = targetSection is SectionNode ? targetSection.indent : 0;
+    final newSec = SectionNode(id: _id('sec'), title: t, indent: indent);
 
     final nextRoots = _insertSibling(_doc.roots, effectiveTargetId, newSec);
     _doc = _doc.copyWith(roots: nextRoots, updatedAtIso: nowIso());
@@ -529,7 +504,11 @@ class ReportEditorProvider extends ChangeNotifier {
     final selected = _findNodeById(_doc.roots, targetId);
     if (selected is! SectionNode) return;
 
-    final newSec = SectionNode(id: _id('sec'), title: t);
+    final newSec = SectionNode(
+      id: _id('sec'),
+      title: t,
+      indent: selected.indent + 1,
+    );
 
     _doc = _doc.copyWith(
       roots: _updateSectionTree(
@@ -685,6 +664,23 @@ class ReportEditorProvider extends ChangeNotifier {
     _commit(); // ✅ prune + notify
   }
 
+
+  void moveSectionUp(String sectionId) {
+    _doc = _doc.copyWith(
+      roots: _moveSectionAmongSiblings(_doc.roots, sectionId, -1),
+      updatedAtIso: nowIso(),
+    );
+    _commit();
+  }
+
+  void moveSectionDown(String sectionId) {
+    _doc = _doc.copyWith(
+      roots: _moveSectionAmongSiblings(_doc.roots, sectionId, 1),
+      updatedAtIso: nowIso(),
+    );
+    _commit();
+  }
+
   // =========================
   // Images / Signature
   // =========================
@@ -726,6 +722,14 @@ class ReportEditorProvider extends ChangeNotifier {
   void setIndentContent(bool enabled) {
     _doc = _doc.copyWith(
       indentContent: enabled,
+      updatedAtIso: nowIso(),
+    );
+    notifyListeners();
+  }
+
+  void setIndentHierarchy(bool enabled) {
+    _doc = _doc.copyWith(
+      indentHierarchy: enabled,
       updatedAtIso: nowIso(),
     );
     notifyListeners();
@@ -1053,6 +1057,43 @@ class ReportEditorProvider extends ChangeNotifier {
     }
 
     return shift(node) as SectionNode;
+  }
+
+
+  List<SectionNode> _moveSectionAmongSiblings(
+    List<SectionNode> nodes,
+    String sectionId,
+    int delta,
+  ) {
+    final rootIndex = nodes.indexWhere((s) => s.id == sectionId);
+    if (rootIndex != -1) {
+      final target = rootIndex + delta;
+      if (target < 0 || target >= nodes.length) return nodes;
+      final next = [...nodes];
+      final item = next.removeAt(rootIndex);
+      next.insert(target, item);
+      return next;
+    }
+
+    return nodes.map((section) {
+      final childSections = section.children.whereType<SectionNode>().toList(growable: false);
+      final childContent = section.children.where((n) => n is! SectionNode).toList(growable: false);
+      final idx = childSections.indexWhere((s) => s.id == sectionId);
+      if (idx != -1) {
+        final target = idx + delta;
+        if (target < 0 || target >= childSections.length) return section;
+        final nextSections = [...childSections];
+        final item = nextSections.removeAt(idx);
+        nextSections.insert(target, item);
+        return section.copyWith(children: [...childContent, ...nextSections]);
+      }
+
+      final movedSections = _moveSectionAmongSiblings(childSections, sectionId, delta);
+      if (!identical(movedSections, childSections) && movedSections != childSections) {
+        return section.copyWith(children: [...childContent, ...movedSections]);
+      }
+      return section;
+    }).toList(growable: false);
   }
 
 }

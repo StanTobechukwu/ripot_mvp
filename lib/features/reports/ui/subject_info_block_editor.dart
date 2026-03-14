@@ -11,6 +11,50 @@ class SubjectInfoTemplateEditor extends StatefulWidget {
 }
 
 class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
+
+  Future<void> _showAddFieldDialog(BuildContext context, TemplateEditorProvider vm) async {
+    final c = TextEditingController();
+    bool required = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Add field'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: c,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Field title',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                value: required,
+                onChanged: (v) => setLocal(() => required = v ?? false),
+                title: const Text('Required'),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      vm.addCustomField(title: c.text.trim().isEmpty ? 'Custom Field' : c.text.trim(), required: required);
+    }
+    Future<void>.delayed(const Duration(milliseconds: 250), c.dispose);
+  }
+
   void _renameDialog(
     BuildContext context,
     TemplateEditorProvider vm,
@@ -21,25 +65,54 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
 
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Rename field'),
         content: TextField(
           controller: c,
           decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               final next = c.text.trim().isEmpty ? currentTitle : c.text.trim();
+              FocusManager.instance.primaryFocus?.unfocus();
               vm.renameField(fieldId, next);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             child: const Text('Save'),
           ),
         ],
       ),
-    ).whenComplete(() => c.dispose());
+    ).whenComplete(() => Future<void>.delayed(const Duration(milliseconds: 250), c.dispose));
+  }
+
+  void _editHeadingDialog(BuildContext context, TemplateEditorProvider vm, String currentHeading) {
+    final c = TextEditingController(text: currentHeading);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Subject info heading'),
+        content: TextField(
+          controller: c,
+          decoration: const InputDecoration(
+            hintText: 'Leave empty to hide heading',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              vm.setSubjectInfoHeading(c.text);
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ).whenComplete(() => Future<void>.delayed(const Duration(milliseconds: 250), c.dispose));
   }
 
   @override
@@ -59,11 +132,26 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
               children: [
                 Row(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Subject Info (Template)',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Subject Info (Template)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            def.heading.trim().isEmpty ? '(Heading hidden in output)' : 'Heading: ${def.heading}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Edit heading',
+                      icon: const Icon(Icons.edit_note),
+                      onPressed: () => _editHeadingDialog(context, vm, def.heading),
                     ),
                     Switch(
                       value: def.enabled,
@@ -78,7 +166,7 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                   children: [
                     const Spacer(),
                     OutlinedButton.icon(
-                      onPressed: () => vm.addCustomField(),
+                      onPressed: () => _showAddFieldDialog(context, vm),
                       icon: const Icon(Icons.add),
                       label: const Text('Add field'),
                     ),

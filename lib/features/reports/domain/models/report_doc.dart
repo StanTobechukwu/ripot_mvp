@@ -50,6 +50,9 @@ class ReportDoc {
   /// Optional global indentation toggle for content fields
   final bool indentContent;
 
+  /// Optional hierarchy indentation for subsection titles in block layout.
+  final bool indentHierarchy;
+
   /// ✅ NEW: global font scale applied everywhere
   /// Editor + Form + Preview + PDF
   final double fontScale;
@@ -73,7 +76,8 @@ class ReportDoc {
     this.placementChoice = ImagePlacementChoice.attachmentsOnly,
     this.reportLayout = ReportLayout.block,
     this.indentContent = true,
-    this.fontScale = 1.0,
+    this.indentHierarchy = true,
+    this.fontScale = 1.05,
     this.signature = const SignatureBlock(),
     this.applyLetterhead = false,
     this.letterheadId,
@@ -94,6 +98,7 @@ class ReportDoc {
     ImagePlacementChoice? placementChoice,
     ReportLayout? reportLayout,
     bool? indentContent,
+    bool? indentHierarchy,
     double? fontScale,
     SignatureBlock? signature,
     SubjectInfoBlockDef? subjectInfoDef,
@@ -111,6 +116,7 @@ class ReportDoc {
       placementChoice: placementChoice ?? this.placementChoice,
       reportLayout: reportLayout ?? this.reportLayout,
       indentContent: indentContent ?? this.indentContent,
+      indentHierarchy: indentHierarchy ?? this.indentHierarchy,
       fontScale: fontScale ?? this.fontScale,
       signature: signature ?? this.signature,
       subjectInfoDef: subjectInfoDef ?? this.subjectInfoDef,

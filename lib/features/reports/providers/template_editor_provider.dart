@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/utils/ids.dart';
+
 import '../domain/models/template_doc.dart';
 import '../domain/models/subject_info_def.dart';
 import '../domain/models/nodes.dart';
@@ -14,15 +16,17 @@ class TemplateEditorProvider extends ChangeNotifier {
   TemplateDoc get template => _template;
   SubjectInfoBlockDef get subjectInfo => _template.subjectInfo;
 
-  void replaceTemplate(TemplateDoc template) {
-    _template = template;
-    notifyListeners();
-  }
-
   // ---------- block settings ----------
   void toggleSubjectInfo(bool enabled) {
     _template = _template.copyWith(
       subjectInfo: subjectInfo.copyWith(enabled: enabled),
+    );
+    notifyListeners();
+  }
+
+  void setSubjectInfoHeading(String heading) {
+    _template = _template.copyWith(
+      subjectInfo: subjectInfo.copyWith(heading: heading.trim()),
     );
     notifyListeners();
   }
@@ -137,5 +141,151 @@ class TemplateEditorProvider extends ChangeNotifier {
     final r = Random();
     final chunk = List.generate(8, (_) => r.nextInt(36).toRadixString(36)).join();
     return 'custom_$chunk';
+}
+
+
+  // ---------- outline editing ----------
+  void addTopLevelSection(String title) {
+    final t = title.trim();
+    if (t.isEmpty) return;
+    _template = _template.copyWith(
+      roots: [..._template.roots, SectionNode(id: newId('sec'), title: t, indent: 0)],
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void addSubsection(String parentId, String title) {
+    final t = title.trim();
+    if (t.isEmpty) return;
+    _template = _template.copyWith(
+      roots: _updateTree(
+        _template.roots,
+        parentId,
+        (s) => s.copyWith(
+          children: [...s.children, SectionNode(id: newId('sec'), title: t, indent: s.indent + 1)],
+          collapsed: false,
+        ),
+      ),
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void renameSection(String sectionId, String title) {
+    final t = title.trim();
+    if (t.isEmpty) return;
+    _template = _template.copyWith(
+      roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(title: t)),
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void updateSectionStyle(String sectionId, TitleStyle style) {
+    _template = _template.copyWith(
+      roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(style: style)),
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void toggleCollapsed(String sectionId) {
+    _template = _template.copyWith(
+      roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(collapsed: !s.collapsed)),
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void deleteSection(String sectionId) {
+    _template = _template.copyWith(
+      roots: _deleteNode(_template.roots, sectionId),
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void moveSectionUp(String sectionId) {
+    _template = _template.copyWith(
+      roots: _moveSectionAmongSiblings(_template.roots, sectionId, -1),
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void moveSectionDown(String sectionId) {
+    _template = _template.copyWith(
+      roots: _moveSectionAmongSiblings(_template.roots, sectionId, 1),
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  List<SectionNode> _updateTree(
+    List<SectionNode> roots,
+    String targetId,
+    SectionNode Function(SectionNode) updater,
+  ) {
+    return roots.map((s) => _updateNode(s, targetId, updater)).toList(growable: false);
+  }
+
+  SectionNode _updateNode(
+    SectionNode node,
+    String targetId,
+    SectionNode Function(SectionNode) updater,
+  ) {
+    var current = node.id == targetId ? updater(node) : node;
+    return current.copyWith(
+      children: current.children.map((child) {
+        if (child is SectionNode) return _updateNode(child, targetId, updater);
+        return child;
+      }).toList(growable: false),
+    );
+  }
+
+  List<SectionNode> _deleteNode(List<SectionNode> roots, String targetId) {
+    List<Node> walk(List<Node> children) {
+      return children.where((n) => !(n is SectionNode && n.id == targetId)).map((n) {
+        if (n is SectionNode) return n.copyWith(children: walk(n.children));
+        return n;
+      }).toList(growable: false);
+    }
+
+    return roots.where((s) => s.id != targetId).map((s) => s.copyWith(children: walk(s.children))).toList(growable: false);
+  }
+
+  List<SectionNode> _moveSectionAmongSiblings(List<SectionNode> roots, String targetId, int delta) {
+    final topIndex = roots.indexWhere((s) => s.id == targetId);
+    if (topIndex != -1) {
+      final next = [...roots];
+      final newIndex = topIndex + delta;
+      if (newIndex < 0 || newIndex >= next.length) return roots;
+      final item = next.removeAt(topIndex);
+      next.insert(newIndex, item);
+      return next;
+    }
+
+    SectionNode walk(SectionNode section) {
+      final childSections = section.children.whereType<SectionNode>().toList(growable: false);
+      final childIndex = childSections.indexWhere((s) => s.id == targetId);
+      if (childIndex != -1) {
+        final newIndex = childIndex + delta;
+        if (newIndex < 0 || newIndex >= childSections.length) return section;
+
+        final reordered = [...childSections];
+        final item = reordered.removeAt(childIndex);
+        reordered.insert(newIndex, item);
+
+        final others = section.children.where((c) => c is! SectionNode).toList(growable: false);
+        return section.copyWith(children: [...others, ...reordered]);
+      }
+
+      return section.copyWith(
+        children: section.children.map((c) => c is SectionNode ? walk(c) : c).toList(growable: false),
+      );
+    }
+
+    return roots.map(walk).toList(growable: false);
   }
 }

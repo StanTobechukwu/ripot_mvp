@@ -1,52 +1,92 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../data/reports_repository.dart';
 import '../providers/report_editor_provider.dart';
 import '../providers/reports_list_provider.dart';
 import 'report_editor_screen.dart';
+import 'saved_pdf_viewer_screen.dart';
 import 'template_list_screen.dart';
 
 class ReportsListScreen extends StatelessWidget {
   const ReportsListScreen({super.key});
 
-  Future<_SavedReportAction?> _askOpenChoice(BuildContext context, String title) {
-    return showModalBottomSheet<_SavedReportAction>(
+  Future<_SavedReportOpenChoice?> _askOpenChoice(
+    BuildContext context,
+    ReportSummary report,
+  ) {
+    return showModalBottomSheet<_SavedReportOpenChoice>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(title),
-              subtitle: const Text('Choose how to open this saved report.'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf_outlined),
-              title: const Text('Open PDF'),
-              subtitle: const Text('Recommended'),
-              onTap: () => Navigator.pop(ctx, _SavedReportAction.openPdf),
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit_note_outlined),
-              title: const Text('Continue editing'),
-              subtitle: const Text('Open the editable draft'),
-              onTap: () => Navigator.pop(ctx, _SavedReportAction.continueEditing),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                child: Text(
+                  report.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(24, 4, 24, 12),
+                child: Text('Choose how to open this saved report.'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf_outlined),
+                title: const Text('Open PDF'),
+                onTap: () => Navigator.pop(ctx, _SavedReportOpenChoice.openPdf),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit_note_outlined),
+                title: const Text('Continue editing'),
+                subtitle: const Text('Open the editable draft'),
+                onTap: () => Navigator.pop(ctx, _SavedReportOpenChoice.continueEditing),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  Future<void> _handleOpen(BuildContext context, ReportSummary report) async {
+    final choice = await _askOpenChoice(context, report);
+    if (choice == null || !context.mounted) return;
+
+    if (choice == _SavedReportOpenChoice.openPdf) {
+      final repo = context.read<ReportsRepository>();
+      final pdfFile = await repo.pdfFileForReport(report.reportId);
+      if (!context.mounted) return;
+
+      if (await pdfFile.exists()) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SavedPdfViewerScreen(title: report.title, pdfFile: pdfFile),
+          ),
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No saved PDF found yet. Open the draft and save from Preview first.')),
+      );
+      return;
+    }
+
+    await context.read<ReportEditorProvider>().loadById(report.reportId);
+    if (!context.mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final listVm = context.watch<ReportsListProvider>();
-    final repo = context.read<ReportsRepository>();
 
     return Scaffold(
       appBar: AppBar(
@@ -92,35 +132,8 @@ class ReportsListScreen extends StatelessWidget {
               return Card(
                 child: ListTile(
                   title: Text(r.title),
-                  subtitle: Text('Updated: ${r.updatedAt}'),
-                  onTap: () async {
-                    final action = await _askOpenChoice(context, r.title);
-                    if (action == null || !context.mounted) return;
-
-                    if (action == _SavedReportAction.openPdf) {
-                      final pdfFile = await repo.pdfFileForReport(r.reportId);
-                      if (!context.mounted) return;
-
-                      if (!await pdfFile.exists()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('PDF not found yet. Open the report and save from Preview first.')),
-                        );
-                        return;
-                      }
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => _SavedPdfViewScreen(file: pdfFile, title: r.title),
-                        ),
-                      );
-                      return;
-                    }
-
-                    await context.read<ReportEditorProvider>().loadById(r.reportId);
-                    if (!context.mounted) return;
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
-                  },
+                  subtitle: Text(r.subtitle),
+                  onTap: () => _handleOpen(context, r),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () => listVm.delete(r.reportId),
@@ -135,23 +148,4 @@ class ReportsListScreen extends StatelessWidget {
   }
 }
 
-enum _SavedReportAction { openPdf, continueEditing }
-
-class _SavedPdfViewScreen extends StatelessWidget {
-  final File file;
-  final String title;
-
-  const _SavedPdfViewScreen({required this.file, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: PdfPreview(
-        build: (_) => file.readAsBytes(),
-        allowPrinting: true,
-        allowSharing: true,
-      ),
-    );
-  }
-}
+enum _SavedReportOpenChoice { openPdf, continueEditing }

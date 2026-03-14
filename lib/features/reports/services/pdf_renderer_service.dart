@@ -21,7 +21,7 @@ class PdfRendererService {
     LetterheadTemplate? letterhead,
   }) async {
     final double fontScale = doc.fontScale;
-    final double contentFontSize = 11 * fontScale;
+    final double contentFontSize = 11.5 * fontScale;
     final double reportTitleFontSize = contentFontSize;
 
     final theme = pw.ThemeData.withFont(
@@ -413,7 +413,7 @@ class PdfRendererService {
           if (logo != null)
             pw.Container(
               alignment: align,
-              height: 40,
+              height: 46,
               child: pw.Image(logo, fit: pw.BoxFit.contain),
             ),
           line(lh.headerLine1, size: 14, bold: true),
@@ -464,7 +464,7 @@ class PdfRendererService {
   }) {
     final def = doc.subjectInfoDef;
     final fields = def.orderedFields;
-    final base = 10.0 * fontScale;
+    final base = 10.5 * fontScale;
 
     if (fields.isEmpty) {
       return pw.Container(
@@ -497,14 +497,15 @@ class PdfRendererService {
                 style: pw.TextStyle(
                   fontSize: base,
                   fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.grey800,
+                  color: PdfColors.grey900,
+                  lineSpacing: 1.5,
                 ),
               ),
             ),
             pw.Expanded(
               child: pw.Text(
                 v,
-                style: pw.TextStyle(fontSize: base),
+                style: pw.TextStyle(fontSize: base, lineSpacing: 1.5),
               ),
             ),
           ],
@@ -553,18 +554,26 @@ class PdfRendererService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          pw.Text(
-            'Subject Info',
-            style: pw.TextStyle(
-              fontSize: 12 * fontScale,
-              fontWeight: pw.FontWeight.bold,
+          if (def.heading.trim().isNotEmpty) ...[
+            pw.Text(
+              def.heading.trim(),
+              style: pw.TextStyle(
+                fontSize: 12.4 * fontScale,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
-          ),
-          pw.SizedBox(height: 8),
+            pw.SizedBox(height: 8),
+          ],
           body,
         ],
       ),
     );
+  }
+
+  String _formatSignedDate(String iso) {
+    final dt = DateTime.tryParse(iso) ?? DateTime.now();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
   }
 
   pw.Widget _signatureBlock(
@@ -577,6 +586,7 @@ class PdfRendererService {
         : doc.signature.roleTitle.trim();
     final name = doc.signature.name.trim();
     final creds = doc.signature.credentials.trim();
+    final signedDate = _formatSignedDate(doc.updatedAtIso);
 
     return pw.Padding(
       padding: const pw.EdgeInsets.only(top: 4),
@@ -601,6 +611,10 @@ class PdfRendererService {
               creds,
               style: pw.TextStyle(fontSize: 11 * fontScale),
             ),
+          pw.Text(
+            signedDate,
+            style: pw.TextStyle(fontSize: 11 * fontScale, lineSpacing: 1.4),
+          ),
           if (signature != null) ...[
             pw.SizedBox(height: 10),
             pw.SizedBox(
@@ -623,8 +637,9 @@ class PdfRendererService {
       final sectionChildren = s.children.whereType<SectionNode>().toList(growable: false);
       final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
 
-      final indentPx = 12.0 * s.indent;
-      final contentIndentPx = indentPx + (doc.indentContent ? 12.0 : 0.0);
+      final useBlockIndent = doc.reportLayout == ReportLayout.block;
+      final indentPx = useBlockIndent && doc.indentHierarchy ? 12.0 * s.indent : 0.0;
+      final contentIndentPx = indentPx + (useBlockIndent && doc.indentContent ? 12.0 : 0.0);
 
       final double blockTitleSize = switch (s.style.level) {
         HeadingLevel.h1 => contentFontSize * 1.45,
@@ -652,7 +667,7 @@ class PdfRendererService {
 
       pw.Widget titleWidget() {
         return pw.Padding(
-          padding: pw.EdgeInsets.only(left: indentPx, bottom: 2),
+          padding: pw.EdgeInsets.only(left: indentPx, bottom: 4),
           child: pw.Align(
             alignment: titleAlign,
             child: pw.Text(
@@ -666,10 +681,10 @@ class PdfRendererService {
 
       pw.Widget contentWidget(String text) {
         return pw.Padding(
-          padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 6),
+          padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
           child: pw.Text(
             text,
-            style: pw.TextStyle(fontSize: contentFontSize),
+            style: pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6),
           ),
         );
       }
@@ -705,7 +720,7 @@ class PdfRendererService {
               );
 
         return pw.Padding(
-          padding: pw.EdgeInsets.only(left: indentPx, bottom: 6),
+          padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -714,7 +729,7 @@ class PdfRendererService {
               pw.Expanded(
                 child: pw.Text(
                   value,
-                  style: pw.TextStyle(fontSize: contentFontSize),
+                  style: pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6),
                 ),
               ),
             ],
