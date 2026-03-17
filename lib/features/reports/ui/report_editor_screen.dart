@@ -182,17 +182,6 @@ void initState() {
   }
 
   bool get _isAnyEditorFieldFocused {
-  if (_reportTitleF.hasFocus ||
-      _roleTitleF.hasFocus ||
-      _signerNameF.hasFocus ||
-      _credentialsF.hasFocus) {
-    return true;
-  }
-
-  for (final f in _subjectFocus.values) {
-    if (f.hasFocus) return true;
-  }
-
   for (final f in _contentFocus.values) {
     if (f.hasFocus) return true;
   }
@@ -807,6 +796,25 @@ _disposeLater(titleC);
     }
   }
 
+  String _collapsedContentHint(SectionNode section) {
+    final firstContent = section.children.whereType<ContentNode>().cast<ContentNode?>().firstWhere(
+      (node) => node != null && node.text.trim().isNotEmpty,
+      orElse: () => null,
+    );
+
+    if (firstContent == null) return '';
+
+    final cleaned = firstContent.text
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    if (cleaned.isEmpty) return '';
+
+    const maxChars = 40;
+    if (cleaned.length <= maxChars) return cleaned;
+    return '${cleaned.substring(0, maxChars)}...';
+  }
+
   // ---------------- Build ----------------
 
   @override
@@ -896,14 +904,7 @@ _disposeLater(titleC);
         ],
       ),
 floatingActionButton: _editorMode
-    ? Padding(
-        padding: EdgeInsets.only(
-          bottom: (_isAnyEditorFieldFocused //|| _suppressSelectionActionsOnce
-          )
-              ? 0
-              : (hasSelection ? 180 : 0),
-        ),
-        child: FloatingActionButton(
+    ? FloatingActionButton(
           onPressed: () async {
            if (_isAnyEditorFieldFocused) {
   setState(() {
@@ -943,18 +944,36 @@ floatingActionButton: _editorMode
               await _showGlobalAddSheet(context, vm);
             }
           },
-          child: Icon(
-            _isAnyEditorFieldFocused
-                ? Icons.check
-                : (hasSelection ? Icons.tune : Icons.add),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, animation) => ScaleTransition(
+              scale: animation,
+              child: FadeTransition(opacity: animation, child: child),
+            ),
+            child: Icon(
+              _isAnyEditorFieldFocused
+                  ? Icons.check
+                  : (hasSelection ? Icons.tune : Icons.add),
+              key: ValueKey<String>(
+                _isAnyEditorFieldFocused
+                    ? 'check'
+                    : (hasSelection ? 'tune' : 'add'),
+              ),
+            ),
           ),
-        ),
-      )
+        )
     : null,
       floatingActionButtonLocation: _editorMode ? FloatingActionButtonLocation.endFloat : null,
       body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
         onTap: () {
           _unfocusNow();
+          if (vm.selectedNodeId != null || _actionsVisibleForSectionId != null) {
+            setState(() {
+              _actionsVisibleForSectionId = null;
+            });
+            vm.clearSelection();
+          }
         },
         child: ListView(
           padding: const EdgeInsets.all(_pagePad),
@@ -991,7 +1010,7 @@ floatingActionButton: _editorMode
                               const Text(
                                 'Switch to Edit Mode to start creating your template.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.black54),
+                                style: TextStyle(color: Colors.black45),
                               ),
                               const SizedBox(height: 14),
                               OutlinedButton.icon(
@@ -1415,178 +1434,218 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
   );
 }
   // ---------------- Outline widgets ----------------
+Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode section) {
+  final accent = _accent(context);
 
-  Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode section) {
-    final accent = _accent(context);
+  final selected = vm.selectedNodeId == section.id;
+  final hasChildren = section.children.isNotEmpty;
+  final sectionHasContent = section.children.any((n) => n is ContentNode);
 
-    final selected = vm.selectedNodeId == section.id;
-    final hasChildren = section.children.isNotEmpty;
+  final sectionIndent = section.indent * 16.0;
 
-    final sectionIndent = section.indent * 16.0;
+  // Editor-tile-only title style:
+  // uniform across all tiles, just slightly bigger than preview text.
+  final titleStyle = TextStyle(
+    fontWeight: section.style.bold ? FontWeight.w700 : FontWeight.w600,
+    fontSize: 15,
+    height: 1.15,
+  );
 
-    final titleStyle = TextStyle(
-      fontWeight: section.style.bold ? FontWeight.w800 : FontWeight.w600,
-      fontSize: section.style.level == HeadingLevel.h1
-          ? 18
-          : section.style.level == HeadingLevel.h2
-              ? 16
-              : section.style.level == HeadingLevel.h3
-                  ? 14
-                  : 12,
-    );
+  final titleAlign = switch (section.style.align) {
+    TitleAlign.left => Alignment.centerLeft,
+    TitleAlign.center => Alignment.center,
+    TitleAlign.right => Alignment.centerRight,
+  };
 
-    final titleAlign = switch (section.style.align) {
-      TitleAlign.left => Alignment.centerLeft,
-      TitleAlign.center => Alignment.center,
-      TitleAlign.right => Alignment.centerRight,
-    };
-
-    final sectionHasContent = section.children.any((n) => n is ContentNode);
-
-    return Padding(
-      padding: EdgeInsets.only(left: sectionIndent + (section.indent > 0 ? 8 : 0), top: section.indent > 0 ? 14 : 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Material(
-            color: selected ? accent.withOpacity(0.10) : accent.withOpacity(0.04),
+  return Padding(
+    padding: EdgeInsets.only(
+      left: sectionIndent + (section.indent > 0 ? 8 : 0),
+      top: section.indent > 0 ? 14 : 10,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: selected ? accent.withOpacity(0.10) : accent.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-             onTap: () {
-  setState(() {
-    _actionsVisibleForSectionId = section.id;
-  });
-  vm.selectNode(section.id);
-},
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                child: Row(
-                  children: [
-                    if (hasChildren)
-                      InkWell(
-                        onTap: () => vm.toggleCollapsed(section.id),
-                        child: Icon(section.collapsed ? Icons.chevron_right : Icons.expand_more),
-                      )
-                    else
-                      const SizedBox(width: 24),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Align(
-                        alignment: titleAlign,
-                        child: Text(section.title, style: titleStyle),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    PopupMenuButton<String>(
-                      tooltip: 'Section actions',
-                      onSelected: (value) => _handleSectionMenuAction(context, vm, section, value),
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'add_subsection',
-                          child: ListTile(
-                            leading: Icon(Icons.subdirectory_arrow_right),
-                            title: Text('Add subsection'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
+            onTap: () {
+              setState(() {
+                _actionsVisibleForSectionId = section.id;
+              });
+              vm.selectNode(section.id);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            if (hasChildren)
+                              InkWell(
+                                onTap: () => vm.toggleCollapsed(section.id),
+                                child: Icon(
+                                  section.collapsed
+                                      ? Icons.chevron_right
+                                      : Icons.expand_more,
+                                  size: 20,
+                                ),
+                              )
+                            else
+                              const SizedBox(width: 20),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Align(
+                                alignment: titleAlign,
+                                child: Text(
+                                  section.title,
+                                  style: titleStyle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        if (!sectionHasContent)
-                          const PopupMenuItem(
-                            value: 'add_content',
-                            child: ListTile(
-                              leading: Icon(Icons.notes_outlined),
-                              title: Text('Add content'),
-                              contentPadding: EdgeInsets.zero,
+                        if (section.collapsed && sectionHasContent)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 24, top: 1),
+                            child: Text(
+                              _collapsedContentHint(section),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.black54,
+                                fontWeight: FontWeight.w400,
+                                height: 1.05,
+                              ),
                             ),
                           ),
-                        if (sectionHasContent)
-                          const PopupMenuItem(
-                            value: 'remove_content',
-                            child: ListTile(
-                              leading: Icon(Icons.delete_sweep_outlined),
-                              title: Text('Remove content'),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'style',
-                          child: ListTile(
-                            leading: Icon(Icons.tune),
-                            title: Text('Style section'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'move_up',
-                          child: ListTile(
-                            leading: Icon(Icons.arrow_upward),
-                            title: Text('Move up'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'move_down',
-                          child: ListTile(
-                            leading: Icon(Icons.arrow_downward),
-                            title: Text('Move down'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'delete_section',
-                          child: ListTile(
-                            leading: Icon(Icons.delete_outline),
-                            title: Text('Delete section'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    tooltip: 'Section actions',
+                    padding: EdgeInsets.zero,
+                    onSelected: (value) =>
+                        _handleSectionMenuAction(context, vm, section, value),
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'add_subsection',
+                        child: ListTile(
+                          leading: Icon(Icons.subdirectory_arrow_right),
+                          title: Text('Add subsection'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      if (!sectionHasContent)
+                        const PopupMenuItem(
+                          value: 'add_content',
+                          child: ListTile(
+                            leading: Icon(Icons.notes_outlined),
+                            title: Text('Add content'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      if (sectionHasContent)
+                        const PopupMenuItem(
+                          value: 'remove_content',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_sweep_outlined),
+                            title: Text('Remove content'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'style',
+                        child: ListTile(
+                          leading: Icon(Icons.tune),
+                          title: Text('Style section'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'move_up',
+                        child: ListTile(
+                          leading: Icon(Icons.arrow_upward),
+                          title: Text('Move up'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'move_down',
+                        child: ListTile(
+                          leading: Icon(Icons.arrow_downward),
+                          title: Text('Move down'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'delete_section',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('Delete section'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          if (!section.collapsed)
-            ...section.children.map((child) {
-              if (child is ContentNode) {
-                final contentLeft = (vm.doc.indentHierarchy ? sectionIndent : 0.0) + (vm.doc.indentContent ? 16.0 : 0.0);
-                final c = _contentControllerFor(child.id, child.text);
-                final f = _contentFocusFor(child.id);
+        ),
+        if (!section.collapsed)
+          ...section.children.map((child) {
+            if (child is ContentNode) {
+              final contentLeft =
+                  (vm.doc.indentHierarchy ? sectionIndent : 0.0) +
+                      (vm.doc.indentContent ? 16.0 : 0.0);
+              final c = _contentControllerFor(child.id, child.text);
+              final f = _contentFocusFor(child.id);
 
-                return Padding(
-                  padding: EdgeInsets.only(left: contentLeft, top: 10),
-                  child: TextField(
-                    key: ValueKey('content-outline-${child.id}'),
-                    controller: c,
-                    focusNode: f,
-                    minLines: 2,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Enter text…',
-                    ),
-onTap: () {
-  vm.selectNode(section.id);
-},
-                    onChanged: (v) => vm.updateContent(child.id, v),
+              return Padding(
+                padding: EdgeInsets.only(left: contentLeft, top: 10),
+                child: TextField(
+                  key: ValueKey('content-outline-${child.id}'),
+                  controller: c,
+                  focusNode: f,
+                  minLines: 2,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter text…',
                   ),
-                );
-              }
+                  onTap: () {
+                    vm.selectNode(section.id);
+                  },
+                  onChanged: (v) => vm.updateContent(child.id, v),
+                ),
+              );
+            }
 
-              if (child is SectionNode) return _sectionWidget(context, vm, child);
+            if (child is SectionNode) {
+              return _sectionWidget(context, vm, child);
+            }
 
-              return const SizedBox.shrink();
-            }),
-        ],
-      ),
-    );
-  }
-
+            return const SizedBox.shrink();
+          }),
+      ],
+    ),
+  );
+}
   Future<void> _showSectionEditMenu(
     BuildContext context,
     ReportEditorProvider vm,
