@@ -65,7 +65,10 @@ class PdfRendererService {
     );
 
     final attachmentImgs = await _loadImages(
-      plan.attachmentPages.expand((p) => p.images).map((e) => e.filePath).toList(),
+      plan.attachmentPages
+          .expand((p) => p.images)
+          .map((e) => e.filePath)
+          .toList(),
     );
 
     final signatureImg = await _loadSingle(doc.signature.signatureFilePath);
@@ -74,16 +77,21 @@ class PdfRendererService {
 
     final bool inlineEnabled = plan.inlineEnabled;
 
-    double availableMainHeightAssumingSigOnPage1() {
+    double availableMainHeightPage1({required bool reserveSignature}) {
       const gaps = 12.0;
-      final remaining =
-          usableHeight - titleReserve - subjectReserve - signatureReserve - gaps;
+      final remaining = usableHeight -
+          titleReserve -
+          subjectReserve -
+          gaps -
+          (reserveSignature ? signatureReserve : 0.0);
       return max(0, remaining);
     }
 
     final int page1InlineSlotsFit = inlineEnabled
         ? computeInlineSlotsThatFit(
-            availableHeight: availableMainHeightAssumingSigOnPage1(),
+            availableHeight: availableMainHeightPage1(
+              reserveSignature: false,
+            ),
             fontScale: fontScale,
             metrics: metrics,
           )
@@ -91,30 +99,35 @@ class PdfRendererService {
 
     final inlineImgsPage1 =
         inlineCandidates.take(page1InlineSlotsFit).toList(growable: false);
-    final inlineImgsNotShownOnPage1 =
-        inlineCandidates.skip(page1InlineSlotsFit).toList(growable: false);
+    final inlineImgsNotShownOnPage1 = inlineCandidates
+        .skip(page1InlineSlotsFit)
+        .toList(growable: false);
 
     final entries = _buildEntries(
       doc,
       contentFontSize: contentFontSize,
     );
-    final plain = entries.map((e) => e.plain).join();
 
-    final int firstPageBudget = estimateSmartFirstPageCharBudget(
-      usableHeight: usableHeight,
-      availableMainHeight: availableMainHeightAssumingSigOnPage1(),
-      inlineEnabled: inlineEnabled,
-      inlineSlotsUsed: inlineImgsPage1.length,
-      fontScale: fontScale,
+    var firstPageSplit = _splitEntriesByHeight(
+      entries,
+      availableMainHeightPage1(reserveSignature: false),
     );
+    var firstPageEntries = firstPageSplit.$1;
+    var remainingEntries = firstPageSplit.$2;
 
-    final (firstPagePlain, remainingPlain) =
-        _splitForFirstPage(plain, approxChars: firstPageBudget);
-    final splitIndex = firstPagePlain.length;
-    final (firstPageEntries, remainingEntries) = _splitEntries(entries, splitIndex);
+    var hasRemainingText = remainingEntries.isNotEmpty;
+    var canPlaceSignatureOnPage1 = !hasRemainingText;
 
-    final hasRemainingText = remainingPlain.trim().isNotEmpty;
-    final canPlaceSignatureOnPage1 = !hasRemainingText;
+    if (canPlaceSignatureOnPage1) {
+      final adjusted = _splitEntriesByHeight(
+        entries,
+        availableMainHeightPage1(reserveSignature: true),
+      );
+      firstPageEntries = adjusted.$1;
+      remainingEntries = adjusted.$2;
+      hasRemainingText = remainingEntries.isNotEmpty;
+      canPlaceSignatureOnPage1 = !hasRemainingText;
+    }
 
     final spillInlineActive =
         inlineEnabled && hasRemainingText && spillInlineCandidates.isNotEmpty;
@@ -267,64 +280,105 @@ class PdfRendererService {
     }
 
     if (!canPlaceSignatureOnPage1) {
-      pdf.addPage(
-        pw.Page(
-          theme: theme,
-          pageFormat: pageFormat,
-          margin: pw.EdgeInsets.all(pageMargin),
-          build: (_) {
-            final body = pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: pw.BorderRadius.circular(12),
-                  ),
-                  child: inlineEnabled && spillInlineImgs.isNotEmpty
-                      ? pw.Row(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.SizedBox(
-                              width: metrics.page1TextWidth,
-                              child: _entriesBlock(
-                                remainingEntries,
-                                contentFontSize: contentFontSize,
-                              ),
-                            ),
-                            pw.SizedBox(width: metrics.inlineToTextGap),
-                            pw.SizedBox(
-                              width: metrics.inlineColumnWidth,
-                              child: _inlineColumnFixed(
-                                spillInlineImgs,
-                                fontScale: fontScale,
-                                metrics: metrics,
-                              ),
-                            ),
-                          ],
-                        )
-                      : _entriesBlock(
-                          remainingEntries,
-                          contentFontSize: contentFontSize,
-                        ),
-                ),
-                pw.SizedBox(height: 12),
-                _signatureBlock(doc, signatureImg, fontScale: fontScale),
-              ],
-            );
+      final double continuationUsable = usableHeight - 12.0;
 
-            return _pageWithLetterhead(
-              body: body,
-              letterhead: letterhead,
-              logo: logo,
-              headerReserve: headerReserve,
-              footerReserve: footerReserve,
-              usableHeight: usableHeight,
-            );
-          },
-        ),
-      );
+      var currentRemainingEntries = remainingEntries;
+      var firstContinuation = true;
+
+      while (currentRemainingEntries.isNotEmpty) {
+        final noSigSplit = _splitEntriesByHeight(
+          currentRemainingEntries,
+          continuationUsable,
+        );
+
+        List<_PdfEntry> pageEntries;
+        bool includeSignature = false;
+
+        if (noSigSplit.$2.isEmpty) {
+          final withSigSplit = _splitEntriesByHeight(
+            currentRemainingEntries,
+            max(0, continuationUsable - signatureReserve - 12.0),
+          );
+
+          if (withSigSplit.$2.isEmpty) {
+            pageEntries = withSigSplit.$1;
+            currentRemainingEntries = <_PdfEntry>[];
+            includeSignature = true;
+          } else {
+            pageEntries = noSigSplit.$1;
+            currentRemainingEntries = noSigSplit.$2;
+          }
+        } else {
+          pageEntries = noSigSplit.$1;
+          currentRemainingEntries = noSigSplit.$2;
+        }
+
+        final pageSpillInlineImgs =
+            firstContinuation ? spillInlineImgs : <pw.MemoryImage>[];
+
+        pdf.addPage(
+          pw.Page(
+            theme: theme,
+            pageFormat: pageFormat,
+            margin: pw.EdgeInsets.all(pageMargin),
+            build: (_) {
+              final body = pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(12),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey300),
+                      borderRadius: pw.BorderRadius.circular(12),
+                    ),
+                    child: inlineEnabled && pageSpillInlineImgs.isNotEmpty
+                        ? pw.Row(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.SizedBox(
+                                width: metrics.page1TextWidth,
+                                child: _entriesBlock(
+                                  pageEntries,
+                                  contentFontSize: contentFontSize,
+                                ),
+                              ),
+                              pw.SizedBox(width: metrics.inlineToTextGap),
+                              pw.SizedBox(
+                                width: metrics.inlineColumnWidth,
+                                child: _inlineColumnFixed(
+                                  pageSpillInlineImgs,
+                                  fontScale: fontScale,
+                                  metrics: metrics,
+                                ),
+                              ),
+                            ],
+                          )
+                        : _entriesBlock(
+                            pageEntries,
+                            contentFontSize: contentFontSize,
+                          ),
+                  ),
+                  if (includeSignature) ...[
+                    pw.SizedBox(height: 12),
+                    _signatureBlock(doc, signatureImg, fontScale: fontScale),
+                  ],
+                ],
+              );
+
+              return _pageWithLetterhead(
+                body: body,
+                letterhead: letterhead,
+                logo: logo,
+                headerReserve: headerReserve,
+                footerReserve: footerReserve,
+                usableHeight: usableHeight,
+              );
+            },
+          ),
+        );
+
+        firstContinuation = false;
+      }
     }
 
     return pdf.save();
@@ -515,7 +569,8 @@ class PdfRendererService {
 
     late final pw.Widget body;
     if (def.columns == 2) {
-      final items = fields.map((f) => (f.title, doc.subjectInfo.valueOf(f.key))).toList();
+      final items =
+          fields.map((f) => (f.title, doc.subjectInfo.valueOf(f.key))).toList();
       final rows = <pw.Widget>[];
 
       for (int i = 0; i < items.length; i += 2) {
@@ -572,7 +627,20 @@ class PdfRendererService {
 
   String _formatSignedDate(String iso) {
     final dt = DateTime.tryParse(iso) ?? DateTime.now();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
   }
 
@@ -627,19 +695,119 @@ class PdfRendererService {
     );
   }
 
+  int _estimateWrappedLines(
+    String text, {
+    required int charsPerLine,
+  }) {
+    if (text.trim().isEmpty) return 1;
+
+    final lines = text.split('\n');
+    var total = 0;
+
+    for (final line in lines) {
+      final clean = line.trimRight();
+      if (clean.isEmpty) {
+        total += 1;
+        continue;
+      }
+      total += (clean.length / charsPerLine).ceil().clamp(1, 1000);
+    }
+
+    return total.clamp(1, 10000);
+  }
+
+  (List<_PdfEntry>, List<_PdfEntry>) _splitEntriesByHeight(
+    List<_PdfEntry> entries,
+    double availableHeight,
+  ) {
+    if (entries.isEmpty) return (<_PdfEntry>[], <_PdfEntry>[]);
+    if (availableHeight <= 0) {
+      return (
+        [entries.first],
+        entries.length > 1 ? entries.sublist(1) : <_PdfEntry>[],
+      );
+    }
+
+    final first = <_PdfEntry>[];
+    final rest = <_PdfEntry>[];
+
+    double used = 0;
+
+    for (final e in entries) {
+      final next = used + e.estimatedHeight;
+
+      if (first.isEmpty || next <= availableHeight) {
+        first.add(e);
+        used = next;
+      } else {
+        rest.add(e);
+      }
+    }
+
+    if (rest.isEmpty && first.length < entries.length) {
+      rest.addAll(entries.skip(first.length));
+    }
+
+    return (first, rest);
+  }
+
   List<_PdfEntry> _buildEntries(
     ReportDoc doc, {
     required double contentFontSize,
   }) {
     final out = <_PdfEntry>[];
 
+    List<String> chunkText(String text, {int maxChars = 240}) {
+      final source = text.trim();
+      if (source.isEmpty) return const [];
+
+      final chunks = <String>[];
+      var remaining = source;
+
+      while (remaining.isNotEmpty) {
+        if (remaining.length <= maxChars) {
+          chunks.add(remaining);
+          break;
+        }
+
+        var idx = remaining.lastIndexOf('\n', maxChars);
+        if (idx <= 0 || idx < (maxChars * 0.6).floor()) {
+          idx = remaining.lastIndexOf(' ', maxChars);
+        }
+        if (idx <= 0 || idx < (maxChars * 0.6).floor()) {
+          idx = maxChars;
+        }
+        if (idx <= 0) idx = maxChars;
+        if (idx > remaining.length) idx = remaining.length;
+
+        final piece = remaining.substring(0, idx).trimRight();
+        if (piece.isEmpty) {
+          final forced =
+              remaining.substring(0, maxChars.clamp(1, remaining.length));
+          chunks.add(forced);
+          remaining =
+              remaining.substring(forced.length).replaceFirst(RegExp(r'^\s+'), '');
+          continue;
+        }
+
+        chunks.add(piece);
+        remaining = remaining.substring(idx).replaceFirst(RegExp(r'^\s+'), '');
+      }
+
+      return chunks;
+    }
+
     void walk(SectionNode s) {
-      final sectionChildren = s.children.whereType<SectionNode>().toList(growable: false);
-      final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
+      final sectionChildren =
+          s.children.whereType<SectionNode>().toList(growable: false);
+      final contentChildren =
+          s.children.whereType<ContentNode>().toList(growable: false);
 
       final useBlockIndent = doc.reportLayout == ReportLayout.block;
-      final indentPx = useBlockIndent && doc.indentHierarchy ? 12.0 * s.indent : 0.0;
-      final contentIndentPx = indentPx + (useBlockIndent && doc.indentContent ? 12.0 : 0.0);
+      final indentPx =
+          useBlockIndent && doc.indentHierarchy ? 12.0 * s.indent : 0.0;
+      final contentIndentPx =
+          indentPx + (useBlockIndent && doc.indentContent ? 12.0 : 0.0);
 
       final double blockTitleSize = switch (s.style.level) {
         HeadingLevel.h1 => contentFontSize * 1.45,
@@ -650,7 +818,8 @@ class PdfRendererService {
 
       final blockTitleStyle = pw.TextStyle(
         fontSize: blockTitleSize,
-        fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        fontWeight:
+            s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
       );
 
       final titleAlign = switch (s.style.align) {
@@ -684,7 +853,10 @@ class PdfRendererService {
           padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
           child: pw.Text(
             text,
-            style: pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6),
+            style: pw.TextStyle(
+              fontSize: contentFontSize,
+              lineSpacing: 1.6,
+            ),
           ),
         );
       }
@@ -729,7 +901,10 @@ class PdfRendererService {
               pw.Expanded(
                 child: pw.Text(
                   value,
-                  style: pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6),
+                  style: pw.TextStyle(
+                    fontSize: contentFontSize,
+                    lineSpacing: 1.6,
+                  ),
                 ),
               ),
             ],
@@ -737,14 +912,106 @@ class PdfRendererService {
         );
       }
 
+      pw.Widget inlineContinuationWidget(String text, {required bool aligned}) {
+        final titleCell =
+            aligned ? pw.SizedBox(width: _alignedTitleWidth) : pw.SizedBox();
+
+        return pw.Padding(
+          padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              titleCell,
+              if (aligned) pw.SizedBox(width: 10),
+              pw.Expanded(
+                child: pw.Text(
+                  text.trim(),
+                  style: pw.TextStyle(
+                    fontSize: contentFontSize,
+                    lineSpacing: 1.6,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      void addBlockContent(String text) {
+        final pieces = chunkText(text);
+        if (pieces.isEmpty) return;
+
+        for (final piece in pieces) {
+          final lines = _estimateWrappedLines(
+            piece,
+            charsPerLine: 62,
+          );
+          out.add(
+            _PdfEntry(
+              plain:
+                  '${indentText(s.indent + (doc.indentContent ? 1 : 0))}$piece\n\n',
+              widget: contentWidget(piece),
+              estimatedHeight: (lines * contentFontSize * 1.32) + 8,
+            ),
+          );
+        }
+      }
+
+      void addInlineContent(String text) {
+        final pieces = chunkText(text);
+        if (pieces.isEmpty) {
+          out.add(
+            _PdfEntry(
+              plain: '${indentText(s.indent)}${s.title}: (no content)\n\n',
+              widget: inlineWidget(
+                '',
+                aligned: doc.reportLayout == ReportLayout.aligned,
+              ),
+              estimatedHeight: contentFontSize * 1.15 + 4,
+            ),
+          );
+          return;
+        }
+
+        for (int i = 0; i < pieces.length; i++) {
+          final piece = pieces[i];
+          final isFirst = i == 0;
+
+          final lines = _estimateWrappedLines(
+            isFirst ? '${s.title}: $piece' : piece,
+            charsPerLine: doc.reportLayout == ReportLayout.aligned ? 60 : 72,
+          );
+
+          out.add(
+            _PdfEntry(
+              plain: isFirst
+                  ? '${indentText(s.indent)}${s.title}: $piece\n\n'
+                  : '${indentText(s.indent)}$piece\n\n',
+              widget: isFirst
+                  ? inlineWidget(
+                      piece,
+                      aligned: doc.reportLayout == ReportLayout.aligned,
+                    )
+                  : inlineContinuationWidget(
+                      piece,
+                      aligned: doc.reportLayout == ReportLayout.aligned,
+                    ),
+              estimatedHeight: (lines * contentFontSize * 1.20) + 4,
+            ),
+          );
+        }
+      }
+
       if (sectionChildren.isNotEmpty) {
-        final introNode = contentChildren.isNotEmpty ? contentChildren.first : null;
+        final introNode =
+            contentChildren.isNotEmpty ? contentChildren.first : null;
 
         if (doc.reportLayout == ReportLayout.block || introNode == null) {
           out.add(
             _PdfEntry(
               plain: '${indentText(s.indent)}${s.title}\n',
               widget: titleWidget(),
+              estimatedHeight: blockTitleSize * 1.35 + 2,
             ),
           );
         }
@@ -753,22 +1020,9 @@ class PdfRendererService {
           final introText = introNode.text.trim();
           if (introText.isNotEmpty) {
             if (doc.reportLayout == ReportLayout.block) {
-              out.add(
-                _PdfEntry(
-                  plain: '${indentText(s.indent + (doc.indentContent ? 1 : 0))}$introText\n\n',
-                  widget: contentWidget(introText),
-                ),
-              );
+              addBlockContent(introText);
             } else {
-              out.add(
-                _PdfEntry(
-                  plain: '${indentText(s.indent)}${s.title}: $introText\n\n',
-                  widget: inlineWidget(
-                    introText,
-                    aligned: doc.reportLayout == ReportLayout.aligned,
-                  ),
-                ),
-              );
+              addInlineContent(introText);
             }
           }
         }
@@ -787,31 +1041,25 @@ class PdfRendererService {
           _PdfEntry(
             plain: '${indentText(s.indent)}${s.title}\n',
             widget: titleWidget(),
+            estimatedHeight: blockTitleSize * 1.35 + 2,
           ),
         );
 
         if (leafText.isNotEmpty) {
+          addBlockContent(leafText);
+        } else {
           out.add(
             _PdfEntry(
-              plain: '${indentText(s.indent + (doc.indentContent ? 1 : 0))}$leafText\n\n',
-              widget: contentWidget(leafText),
+              plain: '\n',
+              widget: pw.SizedBox(height: 6),
+              estimatedHeight: 4,
             ),
           );
-        } else {
-          out.add(_PdfEntry(plain: '\n', widget: pw.SizedBox(height: 6)));
         }
         return;
       }
 
-      out.add(
-        _PdfEntry(
-          plain: '${indentText(s.indent)}${s.title}: $leafText\n\n',
-          widget: inlineWidget(
-            leafText,
-            aligned: doc.reportLayout == ReportLayout.aligned,
-          ),
-        ),
-      );
+      addInlineContent(leafText);
     }
 
     for (final s in doc.roots) {
@@ -819,29 +1067,6 @@ class PdfRendererService {
     }
 
     return out;
-  }
-
-  (List<_PdfEntry>, List<_PdfEntry>) _splitEntries(
-    List<_PdfEntry> entries,
-    int splitIndex,
-  ) {
-    if (splitIndex <= 0) return (<_PdfEntry>[], entries);
-
-    var seen = 0;
-    final first = <_PdfEntry>[];
-    final rest = <_PdfEntry>[];
-
-    for (final e in entries) {
-      final next = seen + e.plain.length;
-      if (next <= splitIndex) {
-        first.add(e);
-      } else {
-        rest.add(e);
-      }
-      seen = next;
-    }
-
-    return (first, rest);
   }
 
   pw.Widget _entriesBlock(
@@ -959,19 +1184,6 @@ class PdfRendererService {
     );
   }
 
-  (String, String) _splitForFirstPage(
-    String text, {
-    required int approxChars,
-  }) {
-    if (text.trim().isEmpty) return ('', '');
-    if (text.length <= approxChars) return (text, '');
-
-    final cut = text.lastIndexOf('\n', approxChars);
-    final idx = cut > 200 ? cut : approxChars;
-
-    return (text.substring(0, idx).trim(), text.substring(idx).trim());
-  }
-
   Future<List<pw.MemoryImage>> _loadImages(List<String> paths) async {
     final out = <pw.MemoryImage>[];
     for (final p in paths) {
@@ -993,10 +1205,12 @@ class _PdfEntry {
   const _PdfEntry({
     required this.plain,
     required this.widget,
+    required this.estimatedHeight,
   });
 
   final String plain;
   final pw.Widget widget;
+  final double estimatedHeight;
 }
 
 String indentText(int level, {int spacesPerLevel = 2}) {

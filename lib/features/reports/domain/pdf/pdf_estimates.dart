@@ -98,3 +98,16 @@ List<List<T>> chunked<T>(List<T> items, int size) {
   }
   return chunks;
 }
+
+
+int estimateContinuationPageCharBudget({
+  required double usableHeight,
+  required bool inlineEnabled,
+  required int spillInlineCount,
+  required double fontScale,
+}) {
+  final base = inlineEnabled ? 1150 : 1700;
+  final slotPenalty = inlineEnabled ? spillInlineCount * 85 : 0;
+  final scaled = (base - slotPenalty) / max(0.7, fontScale);
+  return scaled.round().clamp(350, 2600);
+}
