@@ -117,7 +117,7 @@ class PdfRendererService {
     var firstPageSplit = _paginateTemplates(
       templates,
       availableHeight: availableMainHeightPage1(reserveSignature: false),
-      bodyWidth: metrics.bodyWidth,
+      bodyWidth: metrics.page1TextWidth,
       pageTextWidth: page1TextWidth,
     );
     var firstPageEntries = firstPageSplit.$1;
@@ -130,7 +130,7 @@ class PdfRendererService {
       final adjusted = _paginateTemplates(
         templates,
         availableHeight: availableMainHeightPage1(reserveSignature: true),
-        bodyWidth: metrics.bodyWidth,
+        bodyWidth: metrics.page1TextWidth,
         pageTextWidth: page1TextWidth,
       );
       firstPageEntries = adjusted.$1;

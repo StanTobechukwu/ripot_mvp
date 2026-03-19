@@ -86,7 +86,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
   Future<void> _openLetterheadSheet() async {
     final vm = context.read<ReportEditorProvider>();
-    final repo = context.read<LetterheadsRepository>();
+     final repo = context.read<LetterheadsRepository>();
 
     final templates = await repo.loadAll();
 
@@ -95,11 +95,23 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     const addToken = '__add__';
     const manageToken = '__manage__';
 
-    final result = await showModalBottomSheet<String?>(
+    final result = await 
+    showModalBottomSheet<String?>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
+     builder: (sheetContext) {
+
+  //final vm = context.read<ReportEditorProvider>();
+ // final repo= 
+  //context.read<LetterheadsRepository>();
+
+  String? tempSelected = vm.doc.letterheadId;
+ // final templates = await repo.loadAll();
+   // String? tempSelected = vm.doc.letterheadId;
+  return StatefulBuilder(
+    builder: (context, setState) {
+      return SafeArea(
         child: ListView(
           shrinkWrap: true,
           padding: const EdgeInsets.only(bottom: 12),
@@ -115,25 +127,27 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
             const Divider(),
 
-            ListTile(
-              leading: Radio<String?>(
-                value: null,
-                groupValue: vm.doc.letterheadId,
-                onChanged: (_) {},
-              ),
+            // NONE
+            RadioListTile<String?>(
+              value: null,
+              groupValue: tempSelected,
               title: const Text('None'),
-              onTap: () => Navigator.pop(sheetContext, null),
+              onChanged: (value) {
+                setState(() => tempSelected = value);
+                Navigator.pop(sheetContext, value);
+              },
             ),
 
+            // TEMPLATES
             ...templates.map(
-              (t) => ListTile(
-                leading: Radio<String?>(
-                  value: t.letterheadId,
-                  groupValue: vm.doc.letterheadId,
-                  onChanged: (_) {},
-                ),
+              (t) => RadioListTile<String?>(
+                value: t.letterheadId,
+                groupValue: tempSelected,
                 title: Text(t.name),
-                onTap: () => Navigator.pop(sheetContext, t.letterheadId),
+                onChanged: (value) {
+                  setState(() => tempSelected = value);
+                  Navigator.pop(sheetContext, value);
+                },
               ),
             ),
 
@@ -142,19 +156,20 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             ListTile(
               leading: const Icon(Icons.add),
               title: const Text('Add new letterhead'),
-              onTap: () => Navigator.pop(sheetContext, addToken),
+              onTap: () => Navigator.pop(sheetContext, 'add'),
             ),
 
             ListTile(
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Manage letterheads'),
-              onTap: () => Navigator.pop(sheetContext, manageToken),
+              onTap: () => Navigator.pop(sheetContext, 'manage'),
             ),
           ],
         ),
-      ),
-    );
-
+      );
+    },
+  );
+});
     if (!mounted) return;
 
     if (result == addToken) {
@@ -175,7 +190,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         ),
       );
       return;
-    }
+          }
+          
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) vm.setLetterhead(result);
