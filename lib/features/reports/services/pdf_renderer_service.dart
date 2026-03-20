@@ -117,7 +117,7 @@ class PdfRendererService {
     var firstPageSplit = _paginateTemplates(
       templates,
       availableHeight: availableMainHeightPage1(reserveSignature: false),
-      bodyWidth: metrics.page1TextWidth,
+      bodyWidth: page1TextWidth,
       pageTextWidth: page1TextWidth,
     );
     var firstPageEntries = firstPageSplit.$1;
@@ -130,7 +130,7 @@ class PdfRendererService {
       final adjusted = _paginateTemplates(
         templates,
         availableHeight: availableMainHeightPage1(reserveSignature: true),
-        bodyWidth: metrics.page1TextWidth,
+        bodyWidth: page1TextWidth,
         pageTextWidth: page1TextWidth,
       );
       firstPageEntries = adjusted.$1;
@@ -1075,7 +1075,11 @@ class PdfRendererService {
                 pageTextWidth,
               ),
             );
-            return (lines * contentFontSize * 1.20) + 4;
+            final multiplier =
+                doc.reportLayout == ReportLayout.aligned ? 1.32 : 1.20;
+            final extra =
+                doc.reportLayout == ReportLayout.aligned ? 8.0 : 4.0;
+            return (lines * contentFontSize * multiplier) + extra;
           },
           buildWidget: (piece) => inlineWidget(
             piece,
