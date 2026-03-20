@@ -67,11 +67,14 @@ class ReportCodec {
     );
 
     final layoutName = (j['reportLayout'] as String?) ?? ReportLayout.block.name;
-    final reportLayout = _safeEnumByName<ReportLayout>(
+    final decodedLayout = _safeEnumByName<ReportLayout>(
       ReportLayout.values,
       layoutName,
       fallback: ReportLayout.block,
     );
+    final reportLayout = decodedLayout == ReportLayout.inline
+        ? ReportLayout.block
+        : decodedLayout;
 
     final indentContent = (j['indentContent'] as bool?) ?? true;
     final indentHierarchy = (j['indentHierarchy'] as bool?) ?? true;

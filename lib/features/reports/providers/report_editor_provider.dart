@@ -151,7 +151,10 @@ class ReportEditorProvider extends ChangeNotifier {
   }
 
   Future<void> loadById(String reportId) async {
-    _doc = await repo.loadReport(reportId);
+    final loaded = await repo.loadReport(reportId);
+    _doc = loaded.reportLayout == ReportLayout.inline
+        ? loaded.copyWith(reportLayout: ReportLayout.block, updatedAtIso: loaded.updatedAtIso)
+        : loaded;
     _selectedNodeId = null;
     _commit(); // ✅ prune + notify (structure changed)
   }
@@ -702,22 +705,29 @@ void setSubjectInfoHeading(String heading) {
   // =========================
 
   void setReportLayout(ReportLayout layout) {
+    final effectiveLayout = layout == ReportLayout.inline
+        ? ReportLayout.block
+        : layout;
+
     _doc = _doc.copyWith(
-      reportLayout: layout,
+      reportLayout: effectiveLayout,
+      fontScale: effectiveLayout == ReportLayout.aligned ? 1.05 : _doc.fontScale,
       updatedAtIso: nowIso(),
     );
     notifyListeners();
   }
 
   void setFontScale(double scale) {
-  final clamped = scale.clamp(0.85, 1.35).toDouble();
+    if (_doc.reportLayout != ReportLayout.block) return;
 
-  _doc = _doc.copyWith(
-    fontScale: clamped,
-    updatedAtIso: nowIso(),
-  );
-  notifyListeners();
-}
+    final clamped = scale.clamp(0.85, 1.35).toDouble();
+
+    _doc = _doc.copyWith(
+      fontScale: clamped,
+      updatedAtIso: nowIso(),
+    );
+    notifyListeners();
+  }
 
   void setIndentContent(bool enabled) {
     _doc = _doc.copyWith(

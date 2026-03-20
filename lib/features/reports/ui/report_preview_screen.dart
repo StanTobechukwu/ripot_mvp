@@ -234,16 +234,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   ),
 
                   RadioListTile<ReportLayout>(
-                    value: ReportLayout.inline,
-                    groupValue: layout,
-                    onChanged: (v) {
-                      if (v != null) vm.setReportLayout(v);
-                    },
-                    title: const Text('Inline (Title: content)'),
-                    dense: true,
-                  ),
-
-                  RadioListTile<ReportLayout>(
                     value: ReportLayout.aligned,
                     groupValue: layout,
                     onChanged: (v) {
@@ -300,15 +290,37 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     'Global font size',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
-
-                  Slider(
-                    value: scale,
-                    min: 0.85,
-                    max: 1.35,
-                    divisions: 10,
-                    label: scale.toStringAsFixed(2),
-                    onChanged: vm.setFontScale,
-                  ),
+                  const SizedBox(height: 6),
+                  if (layout == ReportLayout.block)
+                    Slider(
+                      value: scale,
+                      min: 0.85,
+                      max: 1.35,
+                      divisions: 10,
+                      label: scale.toStringAsFixed(2),
+                      onChanged: vm.setFontScale,
+                    )
+                  else
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Slider(
+                          value: 1.05,
+                          min: 0.85,
+                          max: 1.35,
+                          divisions: 10,
+                          label: '1.05',
+                          onChanged: null,
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Text(
+                            'Fixed at 1.05 for stable aligned output',
+                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
               );
