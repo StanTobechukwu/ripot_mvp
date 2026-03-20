@@ -1769,7 +1769,7 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
             borderRadius: BorderRadius.circular(12),
             child: Image.file(
               File(vm.doc.signature.signatureFilePath!),
-              height: 90,
+              height: 110,
               fit: BoxFit.contain,
             ),
           ),

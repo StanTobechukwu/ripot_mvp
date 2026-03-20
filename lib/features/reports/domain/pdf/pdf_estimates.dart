@@ -28,12 +28,27 @@ double estimateSubjectInfoHeight(
 
   final cols = max(1, def.columns);
   final rows = (fields.length / cols).ceil();
-  final headerHeight = 24.0 * fontScale;
-  final rowHeight = 22.0 * fontScale;
-  final verticalGap = 6.0 * fontScale;
+
+  final headerHeight = def.heading.trim().isEmpty
+      ? 0.0
+      : (12.4 * fontScale) + 8.0;
+
+  // Subject Info grows significantly in 1-column mode, especially once
+  // there are more than 3 rendered rows. Keep 2-column estimates compact,
+  // but reserve extra height for the exact risky case that caused the
+  // disappearing-signature bug.
+  late final double rowHeight;
+  if (cols == 1 && rows > 3) {
+    rowHeight = 34.0 * fontScale;
+  } else if (cols == 1) {
+    rowHeight = 30.0 * fontScale;
+  } else {
+    rowHeight = 26.0 * fontScale;
+  }
+
   final containerPadding = 20.0;
 
-  return headerHeight + (rows * rowHeight) + ((rows - 1) * verticalGap) + containerPadding;
+  return headerHeight + (rows * rowHeight) + containerPadding;
 }
 
 double estimateSubjectInfoReserve(

@@ -675,13 +675,6 @@ class PdfRendererService {
     final creds = doc.signature.credentials.trim();
     final signedDate = _formatSignedDate(doc.updatedAtIso);
 
-    final combinedName = () {
-      if (name.isEmpty) return '';
-      if (creds.isEmpty) return name;
-      final inline = '$name ($creds)';
-      return inline.length <= 34 ? inline : name;
-    }();
-
     return pw.Padding(
       padding: const pw.EdgeInsets.only(top: 4),
       child: pw.Column(
@@ -695,17 +688,12 @@ class PdfRendererService {
             ),
           ),
           pw.SizedBox(height: 6),
-          if (combinedName.isNotEmpty)
-            pw.Text(
-              combinedName,
-              style: pw.TextStyle(fontSize: 11 * fontScale),
-            ),
-          if (combinedName.isEmpty && name.isNotEmpty)
+          if (name.isNotEmpty)
             pw.Text(
               name,
               style: pw.TextStyle(fontSize: 11 * fontScale),
             ),
-          if (combinedName == name && creds.isNotEmpty)
+          if (creds.isNotEmpty)
             pw.Text(
               creds,
               style: pw.TextStyle(fontSize: 11 * fontScale),
@@ -717,15 +705,15 @@ class PdfRendererService {
               lineSpacing: 1.4,
             ),
           ),
-          pw.SizedBox(height: 6),
+          pw.SizedBox(height: 10),
           if (signature != null)
             pw.SizedBox(
-              height: 46,
+              height: 60,
               child: pw.Image(signature, fit: pw.BoxFit.contain),
             )
           else
             pw.Container(
-              height: 20,
+              height: 32,
               width: 180,
               decoration: const pw.BoxDecoration(
                 border: pw.Border(
