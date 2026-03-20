@@ -1,3 +1,4 @@
+
 import 'package:flutter/foundation.dart';
 
 import 'nodes.dart';
@@ -34,6 +35,8 @@ enum ReportLayout {
 
 @immutable
 class ReportDoc {
+  static const Object _unset = Object();
+
   final String reportId;
   final String createdAtIso;
   final String updatedAtIso;
@@ -53,7 +56,7 @@ class ReportDoc {
   /// Optional hierarchy indentation for subsection titles in block layout.
   final bool indentHierarchy;
 
-  /// ✅ NEW: global font scale applied everywhere
+  /// Global font scale applied everywhere
   /// Editor + Form + Preview + PDF
   final double fontScale;
 
@@ -104,7 +107,7 @@ class ReportDoc {
     SubjectInfoBlockDef? subjectInfoDef,
     SubjectInfoValues? subjectInfo,
     bool? applyLetterhead,
-    String? letterheadId,
+    Object? letterheadId = _unset,
   }) {
     return ReportDoc(
       reportId: reportId,
@@ -122,7 +125,9 @@ class ReportDoc {
       subjectInfoDef: subjectInfoDef ?? this.subjectInfoDef,
       subjectInfo: subjectInfo ?? this.subjectInfo,
       applyLetterhead: applyLetterhead ?? this.applyLetterhead,
-      letterheadId: letterheadId ?? this.letterheadId,
+      letterheadId: identical(letterheadId, _unset)
+          ? this.letterheadId
+          : letterheadId as String?,
     );
   }
 }
@@ -170,3 +175,6 @@ class SignatureBlock {
     );
   }
 }
+
+
+
