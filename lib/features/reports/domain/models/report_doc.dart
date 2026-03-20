@@ -147,6 +147,8 @@ class ImageAttachment {
   });
 }
 
+const Object _unsetSignaturePath = Object();
+
 @immutable
 class SignatureBlock {
   final String roleTitle;
@@ -165,13 +167,15 @@ class SignatureBlock {
     String? roleTitle,
     String? name,
     String? credentials,
-    String? signatureFilePath,
+    Object? signatureFilePath = _unsetSignaturePath,
   }) {
     return SignatureBlock(
       roleTitle: roleTitle ?? this.roleTitle,
       name: name ?? this.name,
       credentials: credentials ?? this.credentials,
-      signatureFilePath: signatureFilePath ?? this.signatureFilePath,
+      signatureFilePath: identical(signatureFilePath, _unsetSignaturePath)
+          ? this.signatureFilePath
+          : signatureFilePath as String?,
     );
   }
 }

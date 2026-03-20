@@ -1769,9 +1769,17 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
             borderRadius: BorderRadius.circular(12),
             child: Image.file(
               File(vm.doc.signature.signatureFilePath!),
-              height: 110,
+              height: 90,
               fit: BoxFit.contain,
             ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () {
+              vm.setSignatureFilePath(null);
+            },
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Clear Signature'),
           ),
         ],
       ],

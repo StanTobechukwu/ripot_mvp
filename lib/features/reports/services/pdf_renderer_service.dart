@@ -675,6 +675,13 @@ class PdfRendererService {
     final creds = doc.signature.credentials.trim();
     final signedDate = _formatSignedDate(doc.updatedAtIso);
 
+    final combinedName = () {
+      if (name.isEmpty) return '';
+      if (creds.isEmpty) return name;
+      final inline = '$name ($creds)';
+      return inline.length <= 34 ? inline : name;
+    }();
+
     return pw.Padding(
       padding: const pw.EdgeInsets.only(top: 4),
       child: pw.Column(
@@ -688,27 +695,47 @@ class PdfRendererService {
             ),
           ),
           pw.SizedBox(height: 6),
-          if (name.isNotEmpty)
+          if (combinedName.isNotEmpty)
+            pw.Text(
+              combinedName,
+              style: pw.TextStyle(fontSize: 11 * fontScale),
+            ),
+          if (combinedName.isEmpty && name.isNotEmpty)
             pw.Text(
               name,
               style: pw.TextStyle(fontSize: 11 * fontScale),
             ),
-          if (creds.isNotEmpty)
+          if (combinedName == name && creds.isNotEmpty)
             pw.Text(
               creds,
               style: pw.TextStyle(fontSize: 11 * fontScale),
             ),
           pw.Text(
             signedDate,
-            style: pw.TextStyle(fontSize: 11 * fontScale, lineSpacing: 1.4),
-          ),
-          if (signature != null) ...[
-            pw.SizedBox(height: 10),
-            pw.SizedBox(
-              height: 60,
-              child: pw.Image(signature, fit: pw.BoxFit.contain),
+            style: pw.TextStyle(
+              fontSize: 11 * fontScale,
+              lineSpacing: 1.4,
             ),
-          ],
+          ),
+          pw.SizedBox(height: 6),
+          if (signature != null)
+            pw.SizedBox(
+              height: 46,
+              child: pw.Image(signature, fit: pw.BoxFit.contain),
+            )
+          else
+            pw.Container(
+              height: 20,
+              width: 180,
+              decoration: const pw.BoxDecoration(
+                border: pw.Border(
+                  bottom: pw.BorderSide(
+                    width: 1,
+                    color: PdfColors.black,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
