@@ -894,9 +894,21 @@ class PdfRendererService {
       var rest = split.$2;
 
       if (piece.trim().isEmpty) {
+        if (t.text.trim().isEmpty) {
+          pageEntries.add(
+            _PdfEntry(
+              plain: t.plainOf(''),
+              widget: t.buildWidget(''),
+            ),
+          );
+          working.removeAt(0);
+          break;
+        }
+
         final forcedIdx = _safeBreakIndex(t.text, min(t.text.length, 80));
-        piece = t.text.substring(0, max(1, forcedIdx)).trimRight();
-        rest = t.text.substring(max(1, forcedIdx)).replaceFirst(RegExp(r'^\s+'), '');
+        final safeIdx = forcedIdx.clamp(1, t.text.length);
+        piece = t.text.substring(0, safeIdx).trimRight();
+        rest = t.text.substring(safeIdx).replaceFirst(RegExp(r'^\s+'), '');
       }
 
       pageEntries.add(
@@ -1177,7 +1189,21 @@ class PdfRendererService {
         return;
       }
 
-      out.add(makeInlineTemplate(leafText, showLabel: true));
+      if (leafText.isNotEmpty) {
+        out.add(makeInlineTemplate(leafText, showLabel: true));
+      } else {
+        out.add(
+          _PdfTemplate(
+            text: '',
+            splittable: false,
+            fixedHeight: contentFontSize * 1.32 + 8,
+            measureHeight: (_, __, ___) => contentFontSize * 1.32 + 8,
+            buildWidget: (_) => inlineWidget('', aligned: true, showLabel: true),
+            plainOf: (_) => '${indentText(s.indent)}${s.title}: \n\n',
+            continueWith: null,
+          ),
+        );
+      }
     }
 
     for (final s in doc.roots) {

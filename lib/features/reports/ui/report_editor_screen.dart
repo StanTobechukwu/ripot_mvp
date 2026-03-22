@@ -1043,9 +1043,12 @@ floatingActionButton: _editorMode
     final sectionChildren = s.children.whereType<SectionNode>().toList(growable: false);
     final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
 
-    final useBlockIndent = vm.doc.reportLayout == ReportLayout.block;
-    final indentPx = useBlockIndent && vm.doc.indentHierarchy ? 12.0 * s.indent : 0.0;
-    final contentIndentPx = indentPx + (useBlockIndent && vm.doc.indentContent ? 12.0 : 0.0);
+    // Form Mode is intentionally fixed to the block-style entry layout.
+    // Preview/PDF may vary by reportLayout, but editing should remain stable
+    // and full-width on mobile.
+    const bool useBlockIndent = true;
+    final indentPx = vm.doc.indentHierarchy ? 12.0 * s.indent : 0.0;
+    final contentIndentPx = indentPx + (vm.doc.indentContent ? 12.0 : 0.0);
 
    final double fontSize = switch (s.style.level) {
   HeadingLevel.h1 => 18,
@@ -1153,8 +1156,8 @@ floatingActionButton: _editorMode
       );
     }
 
-    final isBlock = vm.doc.reportLayout == ReportLayout.block;
-    final isAligned = vm.doc.reportLayout == ReportLayout.aligned;
+    const bool isBlock = true;
+    const bool isAligned = false;
 
     if (sectionChildren.isNotEmpty) {
       final introNode = contentChildren.isNotEmpty ? contentChildren.first : null;
