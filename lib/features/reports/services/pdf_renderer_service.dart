@@ -79,8 +79,11 @@ class PdfRendererService {
     final overflowInlineToAttachments = continuedInline
         .skip(metrics.maxSpillInlineSlots)
         .toList(growable: false);
+    final double signatureReserve = estimateSignatureHeight(fontScale: fontScale) + 12;
 
     List<_PdfTemplate> remainingTemplates = templates;
+    bool showSignatureOnPage1 = false;
+    bool showSignatureOnContinuedPage = false;
 
     if (useSpecialPageOne) {
       final page1TopHeight = _estimatePage1TopStackHeight(
@@ -92,12 +95,27 @@ class PdfRendererService {
       final availableBodyZoneHeight =
           max(80.0, metrics.usableHeight - page1TopHeight);
 
-      final page1Split = _paginateTemplates(
+      var page1BodyZoneHeight = availableBodyZoneHeight;
+      var page1Split = _paginateTemplates(
         templates,
-        availableHeight: availableBodyZoneHeight,
+        availableHeight: page1BodyZoneHeight,
         bodyWidth: metrics.bodyWidth,
         pageTextWidth: metrics.page1TextWidth,
       );
+      if (continuedInlinePageImages.isEmpty && page1Split.$2.isEmpty) {
+        final reservedHeight = max(80.0, availableBodyZoneHeight - signatureReserve);
+        final reservedSplit = _paginateTemplates(
+          templates,
+          availableHeight: reservedHeight,
+          bodyWidth: metrics.bodyWidth,
+          pageTextWidth: metrics.page1TextWidth,
+        );
+        if (reservedSplit.$1.isNotEmpty || templates.isEmpty) {
+          page1BodyZoneHeight = reservedHeight;
+          page1Split = reservedSplit;
+          showSignatureOnPage1 = true;
+        }
+      }
       final page1Entries = page1Split.$1;
       remainingTemplates = page1Split.$2;
 
@@ -133,13 +151,17 @@ class PdfRendererService {
             if (letterhead != null) {
               footerWidgets.add(_letterheadFooter(letterhead));
             }
+            if (attachmentImgs.isEmpty && showSignatureOnContinuedPage) {
+              if (footerWidgets.isNotEmpty) footerWidgets.add(pw.SizedBox(height: 4));
+              footerWidgets.add(_ripotBranding());
+            }
 
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
                 ...topWidgets,
                 pw.SizedBox(
-                  height: availableBodyZoneHeight,
+                  height: page1BodyZoneHeight,
                   child: pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
@@ -161,6 +183,10 @@ class PdfRendererService {
                     ],
                   ),
                 ),
+                if (showSignatureOnPage1) ...[
+                  pw.SizedBox(height: 12),
+                  _signatureBlock(doc, signatureImg, fontScale: fontScale),
+                ],
                 if (footerWidgets.isNotEmpty) ...[
                   pw.Spacer(),
                   ...footerWidgets,
@@ -173,12 +199,27 @@ class PdfRendererService {
     }
 
     if (plan.inlineEnabled && continuedInlinePageImages.isNotEmpty) {
-      final continuedSplit = _paginateTemplates(
+      var continuedBodyZoneHeight = metrics.usableHeight;
+      var continuedSplit = _paginateTemplates(
         remainingTemplates,
-        availableHeight: metrics.usableHeight,
+        availableHeight: continuedBodyZoneHeight,
         bodyWidth: metrics.bodyWidth,
         pageTextWidth: metrics.page1TextWidth,
       );
+      if (continuedSplit.$2.isEmpty) {
+        final reservedHeight = max(80.0, metrics.usableHeight - signatureReserve);
+        final reservedSplit = _paginateTemplates(
+          remainingTemplates,
+          availableHeight: reservedHeight,
+          bodyWidth: metrics.bodyWidth,
+          pageTextWidth: metrics.page1TextWidth,
+        );
+        if (reservedSplit.$1.isNotEmpty || remainingTemplates.isEmpty) {
+          continuedBodyZoneHeight = reservedHeight;
+          continuedSplit = reservedSplit;
+          showSignatureOnContinuedPage = true;
+        }
+      }
       final continuedEntries = continuedSplit.$1;
       remainingTemplates = continuedSplit.$2;
 
@@ -192,12 +233,16 @@ class PdfRendererService {
             if (letterhead != null) {
               footerWidgets.add(_letterheadFooter(letterhead));
             }
+            if (attachmentImgs.isEmpty && showSignatureOnContinuedPage) {
+              if (footerWidgets.isNotEmpty) footerWidgets.add(pw.SizedBox(height: 4));
+              footerWidgets.add(_ripotBranding());
+            }
 
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
                 pw.SizedBox(
-                  height: metrics.usableHeight,
+                  height: continuedBodyZoneHeight,
                   child: pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
@@ -219,6 +264,10 @@ class PdfRendererService {
                     ],
                   ),
                 ),
+                if (showSignatureOnContinuedPage) ...[
+                  pw.SizedBox(height: 12),
+                  _signatureBlock(doc, signatureImg, fontScale: fontScale),
+                ],
                 if (footerWidgets.isNotEmpty) ...[
                   pw.Spacer(),
                   ...footerWidgets,
@@ -229,6 +278,8 @@ class PdfRendererService {
         ),
       );
     }
+
+    final signatureAlreadyRendered = showSignatureOnPage1 || showSignatureOnContinuedPage;
 
     final bodyWidgets = <pw.Widget>[];
     if (!useSpecialPageOne) {
@@ -261,11 +312,14 @@ class PdfRendererService {
       bodyWidgets.addAll(_templatesToWidgets(remainingTemplates));
     }
 
-    bodyWidgets.add(pw.SizedBox(height: 12));
-    bodyWidgets.add(_signatureBlock(doc, signatureImg, fontScale: fontScale));
+    if (!signatureAlreadyRendered) {
+      bodyWidgets.add(pw.SizedBox(height: 12));
+      bodyWidgets.add(_signatureBlock(doc, signatureImg, fontScale: fontScale));
+    }
 
-    pdf.addPage(
-      pw.MultiPage(
+    if (bodyWidgets.isNotEmpty) {
+      pdf.addPage(
+        pw.MultiPage(
         theme: theme,
         pageFormat: pageFormat,
         margin: pw.EdgeInsets.all(pageMargin),
@@ -293,6 +347,7 @@ class PdfRendererService {
         build: (_) => bodyWidgets,
       ),
     );
+    }
 
     final allAttachmentImgs = <pw.MemoryImage>[
       ...overflowInlineToAttachments,

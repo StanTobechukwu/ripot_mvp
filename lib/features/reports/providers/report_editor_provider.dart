@@ -456,7 +456,7 @@ void setSubjectInfoHeading(String heading) {
     final indent = targetSection is SectionNode ? targetSection.indent : 0;
     final newSec = SectionNode(id: _id('sec'), title: t, indent: indent);
 
-    final nextRoots = _insertSibling(_doc.roots, effectiveTargetId, newSec);
+    final nextRoots = _appendSameLevelSibling(_doc.roots, effectiveTargetId, newSec);
     _doc = _doc.copyWith(roots: nextRoots, updatedAtIso: nowIso());
     _commit(); // ✅ prune + notify
   }
@@ -948,34 +948,39 @@ void setSubjectInfoHeading(String heading) {
     return null;
   }
 
-  List<SectionNode> _insertSibling(List<SectionNode> roots, String targetId, Node newNode) {
-    for (int i = 0; i < roots.length; i++) {
-      if (roots[i].id == targetId && newNode is SectionNode) {
-        final next = [...roots];
-        next.insert(i + 1, newNode);
-        return next;
+  List<SectionNode> _appendSameLevelSibling(
+    List<SectionNode> roots,
+    String targetId,
+    SectionNode newNode,
+  ) {
+    for (final root in roots) {
+      if (root.id == targetId) {
+        return [...roots, newNode];
       }
     }
 
     return roots
-        .map((s) =>
-            s.copyWith(children: _insertSiblingInChildren(s.children, targetId, newNode)))
+        .map((s) => s.copyWith(
+              children: _appendSameLevelSiblingInChildren(s.children, targetId, newNode),
+            ))
         .toList();
   }
 
-  List<Node> _insertSiblingInChildren(List<Node> children, String targetId, Node newNode) {
-    for (int i = 0; i < children.length; i++) {
-      final n = children[i];
+  List<Node> _appendSameLevelSiblingInChildren(
+    List<Node> children,
+    String targetId,
+    SectionNode newNode,
+  ) {
+    for (final n in children) {
       if (n.id == targetId) {
-        final next = [...children];
-        next.insert(i + 1, newNode);
-        return next;
+        return [...children, newNode];
       }
       if (n is SectionNode) {
-        final updated = _insertSiblingInChildren(n.children, targetId, newNode);
+        final updated = _appendSameLevelSiblingInChildren(n.children, targetId, newNode);
         if (!identical(updated, n.children)) {
           final next = [...children];
-          next[i] = n.copyWith(children: updated);
+          final index = children.indexOf(n);
+          next[index] = n.copyWith(children: updated);
           return next;
         }
       }

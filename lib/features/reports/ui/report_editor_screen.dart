@@ -1402,12 +1402,13 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
               const Text('Columns'),
               const Spacer(),
               SegmentedButton<int>(
+                key: ValueKey('subject-cols-${def.columns}'),
                 segments: const [
                   ButtonSegment(value: 1, label: Text('1 col')),
                   ButtonSegment(value: 2, label: Text('2 col')),
                 ],
                 selected: {def.columns},
-                onSelectionChanged: (s) => vm.setSubjectInfoColumns(s.first),
+                onSelectionChanged: (s) => setState(() => vm.setSubjectInfoColumns(s.first)),
               ),
             ],
           ),
@@ -2134,6 +2135,7 @@ class _ImagesManagerState extends State<_ImagesManager> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SegmentedButton<ImagePlacementChoice>(
+              key: ValueKey('placement-${vm.doc.placementChoice.name}'),
               segments: const [
                 ButtonSegment(
                   value: ImagePlacementChoice.attachmentsOnly,
