@@ -20,7 +20,7 @@ class PdfLayoutMetrics {
     this.headerReserve = 0.0,
     this.footerReserve = 0.0,
     this.inlineColumnWidth = 160.0,
-    this.inlineSlotHeight = 95.0,
+    this.inlineSlotHeight = 108.0,
     this.inlineSlotGap = 10.0,
     this.inlineToTextGap = 12.0,
     this.maxPage1InlineSlots = 4,

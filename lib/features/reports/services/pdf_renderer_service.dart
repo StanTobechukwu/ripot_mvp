@@ -57,85 +57,250 @@ class PdfRendererService {
 
     final pdf = pw.Document(theme: theme);
 
-    final bodyWidgets = <pw.Widget>[];
-    if (showTitle) {
-      bodyWidgets.add(
-        pw.Text(
-          titleText,
-          style: pw.TextStyle(
-            fontSize: reportTitleFontSize,
-            fontWeight: pw.FontWeight.bold,
-            height: 1.35,
-          ),
-        ),
-      );
-      bodyWidgets.add(pw.SizedBox(height: 12));
-    }
-
-    if (doc.subjectInfoDef.enabled) {
-      bodyWidgets.add(_subjectInfoBlock(doc, fontScale: fontScale));
-      bodyWidgets.add(pw.SizedBox(height: 12));
-    }
-
-    if (plan.inlineEnabled && inlinePageOneImgs.isNotEmpty) {
-      bodyWidgets.add(
-        _inlineImagesFlowBlock(
-          inlinePageOneImgs.take(metrics.maxPage1InlineSlots).toList(growable: false),
-          heading: 'Inline Images',
-          fontScale: fontScale,
-          metrics: metrics,
-        ),
-      );
-      bodyWidgets.add(pw.SizedBox(height: 12));
-    }
-
-    bodyWidgets.addAll(
-      _buildBodyWidgets(
-        doc,
-        contentFontSize: contentFontSize,
-      ),
+    final templates = _buildTemplates(
+      doc,
+      contentFontSize: contentFontSize,
+      metrics: metrics,
     );
+
+    final page1InlineImages = inlinePageOneImgs
+        .take(metrics.maxPage1InlineSlots)
+        .toList(growable: false);
+
+    final useSpecialPageOne = plan.inlineEnabled && page1InlineImages.isNotEmpty;
 
     final continuedInline = <pw.MemoryImage>[
       ...inlinePageOneImgs.skip(metrics.maxPage1InlineSlots),
       ...spillInlineImgs,
     ];
-    if (plan.inlineEnabled && continuedInline.isNotEmpty) {
-      bodyWidgets.add(pw.SizedBox(height: 6));
-      bodyWidgets.add(
-        _inlineImagesFlowBlock(
-          continuedInline,
-          heading: 'Inline Images Continued',
-          fontScale: fontScale,
-          metrics: metrics,
+    final continuedInlinePageImages = continuedInline
+        .take(metrics.maxSpillInlineSlots)
+        .toList(growable: false);
+    final overflowInlineToAttachments = continuedInline
+        .skip(metrics.maxSpillInlineSlots)
+        .toList(growable: false);
+
+    List<_PdfTemplate> remainingTemplates = templates;
+
+    if (useSpecialPageOne) {
+      final page1TopHeight = _estimatePage1TopStackHeight(
+        doc,
+        fontScale: fontScale,
+        showTitle: showTitle,
+        titleFontSize: reportTitleFontSize,
+      );
+      final availableBodyZoneHeight =
+          max(80.0, metrics.usableHeight - page1TopHeight);
+
+      final page1Split = _paginateTemplates(
+        templates,
+        availableHeight: availableBodyZoneHeight,
+        bodyWidth: metrics.bodyWidth,
+        pageTextWidth: metrics.page1TextWidth,
+      );
+      final page1Entries = page1Split.$1;
+      remainingTemplates = page1Split.$2;
+
+      pdf.addPage(
+        pw.Page(
+          theme: theme,
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.all(pageMargin),
+          build: (_) {
+            final topWidgets = <pw.Widget>[];
+            if (letterhead != null) {
+              topWidgets.add(_letterheadHeader(letterhead, logo));
+            }
+            if (showTitle) {
+              topWidgets.add(
+                pw.Text(
+                  titleText,
+                  style: pw.TextStyle(
+                    fontSize: reportTitleFontSize,
+                    fontWeight: pw.FontWeight.bold,
+                    height: 1.35,
+                  ),
+                ),
+              );
+              topWidgets.add(pw.SizedBox(height: 12));
+            }
+            if (doc.subjectInfoDef.enabled) {
+              topWidgets.add(_subjectInfoBlock(doc, fontScale: fontScale));
+              topWidgets.add(pw.SizedBox(height: 12));
+            }
+
+            final footerWidgets = <pw.Widget>[];
+            if (letterhead != null) {
+              footerWidgets.add(_letterheadFooter(letterhead));
+            }
+
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                ...topWidgets,
+                pw.SizedBox(
+                  height: availableBodyZoneHeight,
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Expanded(
+                        child: _entriesBlock(
+                          page1Entries,
+                          contentFontSize: contentFontSize,
+                        ),
+                      ),
+                      pw.SizedBox(width: metrics.inlineToTextGap),
+                      pw.SizedBox(
+                        width: metrics.inlineColumnWidth,
+                        child: _inlineColumnFixed(
+                          page1InlineImages,
+                          fontScale: 1.0,
+                          metrics: metrics,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (footerWidgets.isNotEmpty) ...[
+                  pw.Spacer(),
+                  ...footerWidgets,
+                ],
+              ],
+            );
+          },
         ),
       );
     }
 
+    if (plan.inlineEnabled && continuedInlinePageImages.isNotEmpty) {
+      final continuedSplit = _paginateTemplates(
+        remainingTemplates,
+        availableHeight: metrics.usableHeight,
+        bodyWidth: metrics.bodyWidth,
+        pageTextWidth: metrics.page1TextWidth,
+      );
+      final continuedEntries = continuedSplit.$1;
+      remainingTemplates = continuedSplit.$2;
+
+      pdf.addPage(
+        pw.Page(
+          theme: theme,
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.all(pageMargin),
+          build: (_) {
+            final footerWidgets = <pw.Widget>[];
+            if (letterhead != null) {
+              footerWidgets.add(_letterheadFooter(letterhead));
+            }
+
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.SizedBox(
+                  height: metrics.usableHeight,
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Expanded(
+                        child: _entriesBlock(
+                          continuedEntries,
+                          contentFontSize: contentFontSize,
+                        ),
+                      ),
+                      pw.SizedBox(width: metrics.inlineToTextGap),
+                      pw.SizedBox(
+                        width: metrics.inlineColumnWidth,
+                        child: _inlineColumnFixed(
+                          continuedInlinePageImages,
+                          fontScale: 1.0,
+                          metrics: metrics,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (footerWidgets.isNotEmpty) ...[
+                  pw.Spacer(),
+                  ...footerWidgets,
+                ],
+              ],
+            );
+          },
+        ),
+      );
+    }
+
+    final bodyWidgets = <pw.Widget>[];
+    if (!useSpecialPageOne) {
+      if (showTitle) {
+        bodyWidgets.add(
+          pw.Text(
+            titleText,
+            style: pw.TextStyle(
+              fontSize: reportTitleFontSize,
+              fontWeight: pw.FontWeight.bold,
+              height: 1.35,
+            ),
+          ),
+        );
+        bodyWidgets.add(pw.SizedBox(height: 12));
+      }
+
+      if (doc.subjectInfoDef.enabled) {
+        bodyWidgets.add(_subjectInfoBlock(doc, fontScale: fontScale));
+        bodyWidgets.add(pw.SizedBox(height: 12));
+      }
+
+      bodyWidgets.addAll(
+        _buildBodyWidgets(
+          doc,
+          contentFontSize: contentFontSize,
+        ),
+      );
+    } else {
+      bodyWidgets.addAll(_templatesToWidgets(remainingTemplates));
+    }
+
     bodyWidgets.add(pw.SizedBox(height: 12));
     bodyWidgets.add(_signatureBlock(doc, signatureImg, fontScale: fontScale));
-    if (attachmentImgs.isEmpty) {
-      bodyWidgets.add(pw.SizedBox(height: 8));
-      bodyWidgets.add(_ripotBranding());
-    }
 
     pdf.addPage(
       pw.MultiPage(
         theme: theme,
         pageFormat: pageFormat,
         margin: pw.EdgeInsets.all(pageMargin),
-        header: (_) => letterhead == null
-            ? pw.SizedBox()
-            : _letterheadHeader(letterhead, logo),
-        footer: (_) => letterhead == null
-            ? pw.SizedBox()
-            : _letterheadFooter(letterhead),
+        header: (_) => (!useSpecialPageOne && letterhead != null)
+            ? _letterheadHeader(letterhead, logo)
+            : pw.SizedBox(),
+        footer: (context) {
+          final footerParts = <pw.Widget>[];
+          if (!useSpecialPageOne && letterhead != null) {
+            footerParts.add(_letterheadFooter(letterhead));
+          }
+          final showBranding = attachmentImgs.isEmpty &&
+              context.pageNumber == context.pagesCount;
+          if (showBranding) {
+            if (footerParts.isNotEmpty) footerParts.add(pw.SizedBox(height: 4));
+            footerParts.add(_ripotBranding());
+          }
+          if (footerParts.isEmpty) return pw.SizedBox();
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: footerParts,
+          );
+        },
         build: (_) => bodyWidgets,
       ),
     );
 
-    if (attachmentImgs.isNotEmpty) {
-      final chunks = chunked(attachmentImgs, metrics.attachmentImagesPerPage);
+    final allAttachmentImgs = <pw.MemoryImage>[
+      ...overflowInlineToAttachments,
+      ...attachmentImgs,
+    ];
+
+    if (allAttachmentImgs.isNotEmpty) {
+      final chunks = chunked(allAttachmentImgs, metrics.attachmentImagesPerPage);
       for (int i = 0; i < chunks.length; i++) {
         final chunk = chunks[i];
         final isLastAttachmentPage = i == chunks.length - 1;
@@ -182,6 +347,36 @@ class PdfRendererService {
     return pdf.save();
   }
 
+
+
+  List<pw.Widget> _templatesToWidgets(List<_PdfTemplate> templates) {
+    return templates
+        .map((t) => t.buildWidget(t.text))
+        .toList(growable: false);
+  }
+
+  double _estimatePage1TopStackHeight(
+    ReportDoc doc, {
+    required double fontScale,
+    required bool showTitle,
+    required double titleFontSize,
+  }) {
+    var h = 0.0;
+    if (showTitle) {
+      h += (titleFontSize * 1.35) + 12;
+    }
+    if (doc.subjectInfoDef.enabled) {
+      final def = doc.subjectInfoDef;
+      final fieldCount = def.orderedFields.length;
+      final rows = def.columns == 2
+          ? (fieldCount / 2).ceil().clamp(1, 1000)
+          : fieldCount.clamp(1, 1000);
+      final headingH = def.heading.trim().isEmpty ? 0.0 : (12.4 * fontScale) + 8;
+      final rowH = 24.0 * fontScale;
+      h += 20 + headingH + (rows * rowH) + 12;
+    }
+    return h;
+  }
   List<pw.Widget> _buildBodyWidgets(
     ReportDoc doc, {
     required double contentFontSize,
