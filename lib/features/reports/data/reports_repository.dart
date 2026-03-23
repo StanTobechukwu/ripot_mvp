@@ -40,9 +40,39 @@ class ReportsRepository {
     return File('${dir.path}/$reportId.json');
   }
 
-  Future<File> pdfFileForReport(String reportId) async {
+
+  Future<File> pdfFileForReport(String reportId, {ReportDoc? doc}) async {
     final dir = await _pdfDir();
-    return File('${dir.path}/$reportId.pdf');
+    final reportDir = Directory('${dir.path}/$reportId');
+    if (!await reportDir.exists()) {
+      await reportDir.create(recursive: true);
+    }
+
+    if (doc != null) {
+      final fileName = _pdfFileNameFor(doc);
+      final existing = reportDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.pdf'))
+          .toList();
+      for (final f in existing) {
+        try {
+          await f.delete();
+        } catch (_) {}
+      }
+      return File('${reportDir.path}/$fileName');
+    }
+
+    final existing = reportDir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.pdf'))
+        .toList()
+      ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+    if (existing.isNotEmpty) return existing.first;
+
+    final legacy = File('${dir.path}/$reportId.pdf');
+    return legacy;
   }
 
   Future<void> saveReport(ReportDoc doc) async {
@@ -61,8 +91,14 @@ class ReportsRepository {
     final f = await _reportFile(reportId);
     if (await f.exists()) await f.delete();
 
-    final pdf = await pdfFileForReport(reportId);
-    if (await pdf.exists()) await pdf.delete();
+    final dir = await _pdfDir();
+    final reportDir = Directory('${dir.path}/$reportId');
+    if (await reportDir.exists()) {
+      await reportDir.delete(recursive: true);
+    }
+
+    final legacy = File('${dir.path}/$reportId.pdf');
+    if (await legacy.exists()) await legacy.delete();
   }
 
   Future<List<ReportSummary>> listReports() async {
@@ -98,7 +134,37 @@ class ReportsRepository {
   }
 
 
+
+  String _pdfFileNameFor(ReportDoc doc) {
+    final type = _reportTypeFor(doc);
+    final dt = DateTime.tryParse(doc.updatedAtIso) ?? DateTime.now();
+    final yyyy = dt.year.toString().padLeft(4, '0');
+    final mm = dt.month.toString().padLeft(2, '0');
+    final dd = dt.day.toString().padLeft(2, '0');
+    return '${type}_Report_${yyyy}-${mm}-${dd}.pdf';
+  }
+
+  String _reportTypeFor(ReportDoc doc) {
+    final explicit = doc.reportTitle.trim();
+    if (explicit.isNotEmpty) return _sanitizeFileSegment(explicit);
+    if (doc.roots.isNotEmpty) {
+      final first = doc.roots.first.title.trim();
+      if (first.isNotEmpty) return _sanitizeFileSegment(first);
+    }
+    return 'Ripot';
+  }
+
+  String _sanitizeFileSegment(String input) {
+    final cleaned = input
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    if (cleaned.isEmpty) return 'Ripot';
+    return cleaned.length <= 40 ? cleaned : cleaned.substring(0, 40);
+  }
+
   String _displaySubtitleFor(ReportDoc doc, DateTime updatedAt) {
+
     final subjectName = doc.subjectInfo.valueOf('subjectName').trim();
     final subjectId = doc.subjectInfo.valueOf('subjectId').trim();
     final stamp = _formatDateTime(updatedAt);

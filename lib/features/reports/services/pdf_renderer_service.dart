@@ -15,6 +15,7 @@ import 'platforms/file_loader.dart';
 class PdfRendererService {
   static const double _alignedTitleWidth = 160.0;
 
+
   Future<Uint8List> generatePdfBytes({
     required ReportDoc doc,
     required PdfPlan plan,
@@ -36,230 +37,127 @@ class PdfRendererService {
 
     final pageFormat = metrics.pageFormat;
     final pageMargin = metrics.pageMargin;
-    final headerReserve = metrics.headerReserve;
-    final footerReserve = metrics.footerReserve;
-    final usableHeight = metrics.usableHeight;
 
-    final titleText = plan.title;
-    final bool showTitle = titleText.trim().isNotEmpty;
-    final double titleReserve = estimateTitleReserve(
-      title: titleText,
-      fontScale: fontScale,
-    );
+    final titleText = plan.title.trim();
+    final bool showTitle = titleText.isNotEmpty;
 
-    final double subjectReserve = estimateSubjectInfoReserve(
-      doc,
-      fontScale: fontScale,
-    );
-
-    final double signatureReserve = estimateSignatureHeight(
-      fontScale: fontScale,
-    );
-
-    final inlineCandidates = await _loadImages(
+    final inlinePageOneImgs = await _loadImages(
       plan.pageOne.inlineImages.map((e) => e.filePath).toList(),
     );
-
-    final spillInlineCandidates = await _loadImages(
+    final spillInlineImgs = await _loadImages(
       plan.finalContent.spillInlineImages.map((e) => e.filePath).toList(),
     );
-
     final attachmentImgs = await _loadImages(
-      plan.attachmentPages
-          .expand((p) => p.images)
-          .map((e) => e.filePath)
-          .toList(),
+      plan.attachmentPages.expand((p) => p.images).map((e) => e.filePath).toList(),
     );
 
     final signatureImg = await _loadSingle(doc.signature.signatureFilePath);
     final pw.MemoryImage? logo =
         (letterhead == null) ? null : await _loadLogo(letterhead);
 
-    final bool inlineEnabled = plan.inlineEnabled;
+    final pdf = pw.Document(theme: theme);
 
-    double availableMainHeightPage1({required bool reserveSignature}) {
-      const gaps = 12.0;
-      final remaining = usableHeight -
-          titleReserve -
-          subjectReserve -
-          gaps -
-          (reserveSignature ? signatureReserve : 0.0);
-      return max(0, remaining);
-    }
-
-    final int page1InlineSlotsFit = inlineEnabled
-        ? computeInlineSlotsThatFit(
-            availableHeight: availableMainHeightPage1(
-              reserveSignature: false,
-            ),
-            fontScale: fontScale,
-            metrics: metrics,
-          )
-        : 0;
-
-    final inlineImgsPage1 =
-        inlineCandidates.take(page1InlineSlotsFit).toList(growable: false);
-    final inlineImgsNotShownOnPage1 = inlineCandidates
-        .skip(page1InlineSlotsFit)
-        .toList(growable: false);
-
-    final templates = _buildTemplates(
-      doc,
-      contentFontSize: contentFontSize,
-      metrics: metrics,
-    );
-
-    final bool hasRealPage1InlineImages =
-        inlineEnabled && inlineImgsPage1.isNotEmpty;
-    final double page1TextWidth =
-        hasRealPage1InlineImages ? metrics.page1TextWidth : metrics.bodyWidth;
-
-    var firstPageSplit = _paginateTemplates(
-      templates,
-      availableHeight: availableMainHeightPage1(reserveSignature: false),
-      bodyWidth: page1TextWidth,
-      pageTextWidth: page1TextWidth,
-    );
-    var firstPageEntries = firstPageSplit.$1;
-    var remainingTemplates = firstPageSplit.$2;
-
-    var hasRemainingText = remainingTemplates.isNotEmpty;
-    var canPlaceSignatureOnPage1 = !hasRemainingText;
-
-    if (canPlaceSignatureOnPage1) {
-      final adjusted = _paginateTemplates(
-        templates,
-        availableHeight: availableMainHeightPage1(reserveSignature: true),
-        bodyWidth: page1TextWidth,
-        pageTextWidth: page1TextWidth,
+    final bodyWidgets = <pw.Widget>[];
+    if (showTitle) {
+      bodyWidgets.add(
+        pw.Text(
+          titleText,
+          style: pw.TextStyle(
+            fontSize: reportTitleFontSize,
+            fontWeight: pw.FontWeight.bold,
+            height: 1.35,
+          ),
+        ),
       );
-      firstPageEntries = adjusted.$1;
-      remainingTemplates = adjusted.$2;
-      hasRemainingText = remainingTemplates.isNotEmpty;
-      canPlaceSignatureOnPage1 = !hasRemainingText;
+      bodyWidgets.add(pw.SizedBox(height: 12));
     }
 
-    final spillInlineActive =
-        inlineEnabled && hasRemainingText && spillInlineCandidates.isNotEmpty;
+    if (doc.subjectInfoDef.enabled) {
+      bodyWidgets.add(_subjectInfoBlock(doc, fontScale: fontScale));
+      bodyWidgets.add(pw.SizedBox(height: 12));
+    }
 
-    final spillInlineImgs = spillInlineActive
-        ? [
-            ...inlineImgsNotShownOnPage1,
-            ...spillInlineCandidates,
-          ].take(metrics.maxSpillInlineSlots).toList(growable: false)
-        : <pw.MemoryImage>[];
+    if (plan.inlineEnabled && inlinePageOneImgs.isNotEmpty) {
+      bodyWidgets.add(
+        _inlineImagesFlowBlock(
+          inlinePageOneImgs.take(metrics.maxPage1InlineSlots).toList(growable: false),
+          heading: 'Inline Images',
+          fontScale: fontScale,
+          metrics: metrics,
+        ),
+      );
+      bodyWidgets.add(pw.SizedBox(height: 12));
+    }
 
-    final spillInlineRemainder = spillInlineActive
-        ? [
-            ...inlineImgsNotShownOnPage1,
-            ...spillInlineCandidates,
-          ].skip(spillInlineImgs.length).toList(growable: false)
-        : <pw.MemoryImage>[
-            ...inlineImgsNotShownOnPage1,
-            ...spillInlineCandidates,
-          ];
-
-    final allAttachmentImgs = <pw.MemoryImage>[
-      ...attachmentImgs,
-      ...spillInlineRemainder,
-    ];
-
-    final pdf = pw.Document();
-
-    pdf.addPage(
-      pw.Page(
-        theme: theme,
-        pageFormat: pageFormat,
-        margin: pw.EdgeInsets.all(pageMargin),
-        build: (_) {
-          final mainContent = pw.Container(
-            padding: const pw.EdgeInsets.all(12),
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey300),
-              borderRadius: pw.BorderRadius.circular(12),
-            ),
-            child: hasRealPage1InlineImages
-                ? pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.SizedBox(
-                        width: metrics.page1TextWidth,
-                        child: _entriesBlock(
-                          firstPageEntries,
-                          contentFontSize: contentFontSize,
-                        ),
-                      ),
-                      pw.SizedBox(width: metrics.inlineToTextGap),
-                      pw.SizedBox(
-                        width: metrics.inlineColumnWidth,
-                        child: _inlineColumnFixed(
-                          inlineImgsPage1,
-                          fontScale: fontScale,
-                          metrics: metrics,
-                        ),
-                      ),
-                    ],
-                  )
-                : _entriesBlock(
-                    firstPageEntries,
-                    contentFontSize: contentFontSize,
-                  ),
-          );
-
-          final body = pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              if (showTitle) ...[
-                pw.Text(
-                  titleText,
-                  style: pw.TextStyle(
-                    fontSize: reportTitleFontSize,
-                    fontWeight: pw.FontWeight.bold,
-                    height: 1.35,
-                  ),
-                ),
-                pw.SizedBox(height: 12),
-              ],
-              if (doc.subjectInfoDef.enabled) ...[
-                _subjectInfoBlock(doc, fontScale: fontScale),
-                pw.SizedBox(height: 12),
-              ],
-              mainContent,
-              if (canPlaceSignatureOnPage1) ...[
-                pw.SizedBox(height: 12),
-                _signatureBlock(doc, signatureImg, fontScale: fontScale),
-              ],
-            ],
-          );
-
-          return _pageWithLetterhead(
-            body: body,
-            letterhead: letterhead,
-            logo: logo,
-            headerReserve: headerReserve,
-            footerReserve: footerReserve,
-            usableHeight: usableHeight,
-          );
-        },
+    bodyWidgets.addAll(
+      _buildBodyWidgets(
+        doc,
+        contentFontSize: contentFontSize,
       ),
     );
 
-    if (allAttachmentImgs.isNotEmpty) {
-      final chunks = chunked(allAttachmentImgs, metrics.attachmentImagesPerPage);
+    final continuedInline = <pw.MemoryImage>[
+      ...inlinePageOneImgs.skip(metrics.maxPage1InlineSlots),
+      ...spillInlineImgs,
+    ];
+    if (plan.inlineEnabled && continuedInline.isNotEmpty) {
+      bodyWidgets.add(pw.SizedBox(height: 6));
+      bodyWidgets.add(
+        _inlineImagesFlowBlock(
+          continuedInline,
+          heading: 'Inline Images Continued',
+          fontScale: fontScale,
+          metrics: metrics,
+        ),
+      );
+    }
 
-      for (final chunk in chunks) {
+    bodyWidgets.add(pw.SizedBox(height: 12));
+    bodyWidgets.add(_signatureBlock(doc, signatureImg, fontScale: fontScale));
+    if (attachmentImgs.isEmpty) {
+      bodyWidgets.add(pw.SizedBox(height: 8));
+      bodyWidgets.add(_ripotBranding());
+    }
+
+    pdf.addPage(
+      pw.MultiPage(
+        theme: theme,
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.all(pageMargin),
+        header: (_) => letterhead == null
+            ? pw.SizedBox()
+            : _letterheadHeader(letterhead, logo),
+        footer: (_) => letterhead == null
+            ? pw.SizedBox()
+            : _letterheadFooter(letterhead),
+        build: (_) => bodyWidgets,
+      ),
+    );
+
+    if (attachmentImgs.isNotEmpty) {
+      final chunks = chunked(attachmentImgs, metrics.attachmentImagesPerPage);
+      for (int i = 0; i < chunks.length; i++) {
+        final chunk = chunks[i];
+        final isLastAttachmentPage = i == chunks.length - 1;
         pdf.addPage(
           pw.Page(
             theme: theme,
             pageFormat: pageFormat,
             margin: pw.EdgeInsets.all(pageMargin),
             build: (_) {
-              final titleH = 30.0 * fontScale;
-              final gridH = usableHeight - titleH - 12;
+              final footerChildren = <pw.Widget>[];
+              if (letterhead != null) {
+                footerChildren.add(_letterheadFooter(letterhead));
+              }
+              if (isLastAttachmentPage) {
+                if (footerChildren.isNotEmpty) footerChildren.add(pw.SizedBox(height: 4));
+                footerChildren.add(_ripotBranding());
+              }
 
-              final body = pw.Column(
+              return pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
+                  if (letterhead != null) _letterheadHeader(letterhead, logo),
                   pw.Text(
                     'Image Attachments',
                     style: pw.TextStyle(
@@ -268,139 +166,281 @@ class PdfRendererService {
                     ),
                   ),
                   pw.SizedBox(height: 12),
-                  pw.SizedBox(
-                    height: gridH > 60 ? gridH : 60,
-                    child: _attachmentsGridFixed(chunk, metrics: metrics),
-                  ),
-                ],
-              );
-
-              return _pageWithLetterhead(
-                body: body,
-                letterhead: letterhead,
-                logo: logo,
-                headerReserve: headerReserve,
-                footerReserve: footerReserve,
-                usableHeight: usableHeight,
-              );
-            },
-          ),
-        );
-      }
-    }
-
-    if (!canPlaceSignatureOnPage1) {
-      final double continuationUsable = usableHeight - 12.0;
-
-      var currentRemainingTemplates = remainingTemplates;
-      var firstContinuation = true;
-
-      while (currentRemainingTemplates.isNotEmpty) {
-        final pageSpillInlineImgs =
-            firstContinuation ? spillInlineImgs : <pw.MemoryImage>[];
-        final bool hasRealSpillInlineImages =
-            inlineEnabled && pageSpillInlineImgs.isNotEmpty;
-        final double continuationTextWidth = hasRealSpillInlineImages
-            ? metrics.page1TextWidth
-            : metrics.bodyWidth;
-
-        final noSigSplit = _paginateTemplates(
-          currentRemainingTemplates,
-          availableHeight: continuationUsable,
-          bodyWidth: metrics.bodyWidth,
-          pageTextWidth: continuationTextWidth,
-        );
-
-        List<_PdfEntry> pageEntries;
-        bool includeSignature = false;
-
-        if (noSigSplit.$2.isEmpty) {
-          final withSigSplit = _paginateTemplates(
-            currentRemainingTemplates,
-            availableHeight: max(0, continuationUsable - signatureReserve - 12.0),
-            bodyWidth: metrics.bodyWidth,
-            pageTextWidth: continuationTextWidth,
-          );
-
-          if (withSigSplit.$2.isEmpty) {
-            pageEntries = withSigSplit.$1;
-            currentRemainingTemplates = <_PdfTemplate>[];
-            includeSignature = true;
-          } else {
-            pageEntries = noSigSplit.$1;
-            currentRemainingTemplates = noSigSplit.$2;
-          }
-        } else {
-          pageEntries = noSigSplit.$1;
-          currentRemainingTemplates = noSigSplit.$2;
-        }
-
-        pdf.addPage(
-          pw.Page(
-            theme: theme,
-            pageFormat: pageFormat,
-            margin: pw.EdgeInsets.all(pageMargin),
-            build: (_) {
-              final body = pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: [
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(12),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.grey300),
-                      borderRadius: pw.BorderRadius.circular(12),
-                    ),
-                    child: hasRealSpillInlineImages
-                        ? pw.Row(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.SizedBox(
-                                width: metrics.page1TextWidth,
-                                child: _entriesBlock(
-                                  pageEntries,
-                                  contentFontSize: contentFontSize,
-                                ),
-                              ),
-                              pw.SizedBox(width: metrics.inlineToTextGap),
-                              pw.SizedBox(
-                                width: metrics.inlineColumnWidth,
-                                child: _inlineColumnFixed(
-                                  pageSpillInlineImgs,
-                                  fontScale: fontScale,
-                                  metrics: metrics,
-                                ),
-                              ),
-                            ],
-                          )
-                        : _entriesBlock(
-                            pageEntries,
-                            contentFontSize: contentFontSize,
-                          ),
-                  ),
-                  if (includeSignature) ...[
-                    pw.SizedBox(height: 12),
-                    _signatureBlock(doc, signatureImg, fontScale: fontScale),
+                  _attachmentsGridFixed(chunk, metrics: metrics),
+                  if (footerChildren.isNotEmpty) ...[
+                    pw.Spacer(),
+                    ...footerChildren,
                   ],
                 ],
               );
-
-              return _pageWithLetterhead(
-                body: body,
-                letterhead: letterhead,
-                logo: logo,
-                headerReserve: headerReserve,
-                footerReserve: footerReserve,
-                usableHeight: usableHeight,
-              );
             },
           ),
         );
-
-        firstContinuation = false;
       }
     }
 
     return pdf.save();
+  }
+
+  List<pw.Widget> _buildBodyWidgets(
+    ReportDoc doc, {
+    required double contentFontSize,
+  }) {
+    final widgets = <pw.Widget>[];
+    for (final root in doc.roots) {
+      widgets.addAll(
+        _sectionWidgets(
+          root,
+          doc: doc,
+          contentFontSize: contentFontSize,
+        ),
+      );
+    }
+    if (widgets.isEmpty) {
+      widgets.add(
+        pw.Text(
+          '(no content)',
+          style: pw.TextStyle(fontSize: contentFontSize),
+        ),
+      );
+    }
+    return widgets;
+  }
+
+  List<pw.Widget> _sectionWidgets(
+    SectionNode s, {
+    required ReportDoc doc,
+    required double contentFontSize,
+  }) {
+    final out = <pw.Widget>[];
+    final sectionChildren = s.children.whereType<SectionNode>().toList(growable: false);
+    final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
+
+    final useBlockIndent = doc.reportLayout == ReportLayout.block;
+    final indentPx = useBlockIndent && doc.indentHierarchy ? 12.0 * s.indent : 0.0;
+    final contentIndentPx = indentPx + (useBlockIndent && doc.indentContent ? 12.0 : 0.0);
+
+    final double titleFontSize = switch (s.style.level) {
+      HeadingLevel.h1 => contentFontSize * 1.45,
+      HeadingLevel.h2 => contentFontSize * 1.25,
+      HeadingLevel.h3 => contentFontSize * 1.10,
+      HeadingLevel.h4 => contentFontSize,
+    };
+
+    final titleStyle = pw.TextStyle(
+      fontSize: titleFontSize,
+      fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+    );
+
+    final titleAlign = switch (s.style.align) {
+      TitleAlign.left => pw.Alignment.centerLeft,
+      TitleAlign.center => pw.Alignment.center,
+      TitleAlign.right => pw.Alignment.centerRight,
+    };
+
+    final titleTextAlign = switch (s.style.align) {
+      TitleAlign.left => pw.TextAlign.left,
+      TitleAlign.center => pw.TextAlign.center,
+      TitleAlign.right => pw.TextAlign.right,
+    };
+
+    pw.Widget titleWidget() {
+      return pw.Padding(
+        padding: pw.EdgeInsets.only(left: indentPx, bottom: 4),
+        child: pw.Align(
+          alignment: titleAlign,
+          child: pw.Text(
+            s.title,
+            textAlign: titleTextAlign,
+            style: titleStyle,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget blockContentWidget(String text) {
+      return pw.Padding(
+        padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
+        child: pw.Text(
+          text.trim().isEmpty ? '(no content)' : text,
+          style: pw.TextStyle(
+            fontSize: contentFontSize,
+            lineSpacing: 1.6,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget inlineWidget(String text, {required bool aligned, required bool showLabel}) {
+      final inlineTitleStyle = pw.TextStyle(
+        fontSize: contentFontSize,
+        fontWeight: pw.FontWeight.bold,
+      );
+      final label = aligned ? s.title : '${s.title}:';
+      final value = text.trim().isEmpty ? '(no content)' : text.trim();
+
+      final titleCell = showLabel
+          ? (aligned
+              ? pw.SizedBox(
+                  width: _alignedTitleWidth,
+                  child: pw.Align(
+                    alignment: titleAlign,
+                    child: pw.Text(
+                      label,
+                      textAlign: titleTextAlign,
+                      style: inlineTitleStyle,
+                    ),
+                  ),
+                )
+              : pw.Container(
+                  alignment: titleAlign,
+                  child: pw.Text(
+                    label,
+                    textAlign: titleTextAlign,
+                    style: inlineTitleStyle,
+                  ),
+                ))
+          : (aligned ? pw.SizedBox(width: _alignedTitleWidth) : pw.SizedBox());
+
+      return pw.Padding(
+        padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            titleCell,
+            if (showLabel || aligned) pw.SizedBox(width: 10),
+            pw.Expanded(
+              child: pw.Text(
+                value,
+                style: pw.TextStyle(
+                  fontSize: contentFontSize,
+                  lineSpacing: 1.6,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (sectionChildren.isNotEmpty) {
+      final introNode = contentChildren.isNotEmpty ? contentChildren.first : null;
+      if (doc.reportLayout == ReportLayout.block || introNode == null) {
+        out.add(titleWidget());
+      }
+      if (introNode != null && introNode.text.trim().isNotEmpty) {
+        out.add(
+          doc.reportLayout == ReportLayout.block
+              ? blockContentWidget(introNode.text.trim())
+              : inlineWidget(introNode.text.trim(), aligned: doc.reportLayout == ReportLayout.aligned, showLabel: true),
+        );
+      }
+      for (final child in sectionChildren) {
+        out.addAll(
+          _sectionWidgets(child, doc: doc, contentFontSize: contentFontSize),
+        );
+      }
+      return out;
+    }
+
+    final leafText = contentChildren.isNotEmpty ? contentChildren.first.text.trim() : '';
+    if (doc.reportLayout == ReportLayout.block) {
+      out.add(titleWidget());
+      out.add(blockContentWidget(leafText));
+      return out;
+    }
+
+    out.add(
+      inlineWidget(
+        leafText,
+        aligned: doc.reportLayout == ReportLayout.aligned,
+        showLabel: true,
+      ),
+    );
+    return out;
+  }
+
+  pw.Widget _inlineImagesFlowBlock(
+    List<pw.MemoryImage> images, {
+    required String heading,
+    required double fontScale,
+    required PdfLayoutMetrics metrics,
+  }) {
+    if (images.isEmpty) return pw.SizedBox();
+
+    final rows = <pw.Widget>[
+      pw.Text(
+        heading,
+        style: pw.TextStyle(
+          fontSize: 12.0 * fontScale,
+          fontWeight: pw.FontWeight.bold,
+        ),
+      ),
+      pw.SizedBox(height: 8),
+    ];
+
+    for (int i = 0; i < images.length; i += 2) {
+      final left = images[i];
+      final right = (i + 1 < images.length) ? images[i + 1] : null;
+      rows.add(
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(child: _inlineImageCell(left, metrics: metrics)),
+            pw.SizedBox(width: 10),
+            pw.Expanded(
+              child: right == null ? pw.SizedBox() : _inlineImageCell(right, metrics: metrics),
+            ),
+          ],
+        ),
+      );
+      if (i + 2 < images.length) {
+        rows.add(pw.SizedBox(height: 10));
+      }
+    }
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(12),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: rows,
+      ),
+    );
+  }
+
+  pw.Widget _inlineImageCell(
+    pw.MemoryImage image, {
+    required PdfLayoutMetrics metrics,
+  }) {
+    return pw.Container(
+      height: metrics.inlineSlotHeight,
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(12),
+      ),
+      child: pw.ClipRRect(
+        horizontalRadius: 12,
+        verticalRadius: 12,
+        child: pw.Image(image, fit: pw.BoxFit.cover),
+      ),
+    );
+  }
+
+  pw.Widget _ripotBranding() {
+    return pw.Align(
+      alignment: pw.Alignment.centerRight,
+      child: pw.Text(
+        'Generated by Ripot',
+        style: const pw.TextStyle(
+          fontSize: 8,
+          color: PdfColors.grey600,
+        ),
+      ),
+    );
   }
 
   pw.Widget _pageWithLetterhead({

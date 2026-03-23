@@ -51,9 +51,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     );
   }
 
-  Future<File> _savePdfToLocal(Uint8List bytes, String reportId) async {
+
+  Future<File> _savePdfToLocal(Uint8List bytes, ReportDoc doc) async {
     final repo = context.read<ReportsRepository>();
-    final file = await repo.pdfFileForReport(reportId);
+    final file = await repo.pdfFileForReport(doc.reportId, doc: doc);
     await file.writeAsBytes(bytes, flush: true);
     return file;
   }
@@ -70,7 +71,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
       final bytes = await _buildBytes();
 
-      final file = await _savePdfToLocal(bytes, vm.doc.reportId);
+      final file = await _savePdfToLocal(bytes, vm.doc);
 
       if (!mounted) return;
 
