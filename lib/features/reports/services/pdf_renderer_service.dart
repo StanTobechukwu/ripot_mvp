@@ -14,6 +14,14 @@ import 'platforms/file_loader.dart';
 
 class PdfRendererService {
   static const double _alignedTitleWidth = 160.0;
+  static const String _emptyDots = '..........';
+
+  String _displayValue(String text) => text.trim().isEmpty ? _emptyDots : text.trim();
+
+  pw.TextStyle _placeholderStyle(double fontSize) => pw.TextStyle(
+        fontSize: fontSize,
+        color: PdfColors.grey600,
+      );
 
 
   Future<Uint8List> generatePdfBytes({
@@ -449,8 +457,8 @@ class PdfRendererService {
     if (widgets.isEmpty) {
       widgets.add(
         pw.Text(
-          '(no content)',
-          style: pw.TextStyle(fontSize: contentFontSize),
+          _emptyDots,
+          style: _placeholderStyle(contentFontSize),
         ),
       );
     }
@@ -509,14 +517,17 @@ class PdfRendererService {
     }
 
     pw.Widget blockContentWidget(String text) {
+      final trimmed = text.trim();
       return pw.Padding(
         padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
         child: pw.Text(
-          text.trim().isEmpty ? '(no content)' : text,
-          style: pw.TextStyle(
-            fontSize: contentFontSize,
-            lineSpacing: 1.6,
-          ),
+          _displayValue(trimmed),
+          style: trimmed.isEmpty
+              ? _placeholderStyle(contentFontSize)
+              : pw.TextStyle(
+                  fontSize: contentFontSize,
+                  lineSpacing: 1.6,
+                ),
         ),
       );
     }
@@ -527,7 +538,14 @@ class PdfRendererService {
         fontWeight: pw.FontWeight.bold,
       );
       final label = aligned ? s.title : '${s.title}:';
-      final value = text.trim().isEmpty ? '(no content)' : text.trim();
+      final trimmed = text.trim();
+      final value = _displayValue(trimmed);
+      final valueStyle = trimmed.isEmpty
+          ? _placeholderStyle(contentFontSize)
+          : pw.TextStyle(
+              fontSize: contentFontSize,
+              lineSpacing: 1.6,
+            );
 
       final titleCell = showLabel
           ? (aligned
@@ -562,10 +580,7 @@ class PdfRendererService {
             pw.Expanded(
               child: pw.Text(
                 value,
-                style: pw.TextStyle(
-                  fontSize: contentFontSize,
-                  lineSpacing: 1.6,
-                ),
+                style: valueStyle,
               ),
             ),
           ],
@@ -1276,14 +1291,18 @@ class PdfRendererService {
       }
 
       pw.Widget contentWidget(String text) {
+        final trimmed = text.trim();
+        final value = _displayValue(trimmed);
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
           child: pw.Text(
-            text,
-            style: pw.TextStyle(
-              fontSize: contentFontSize,
-              lineSpacing: 1.6,
-            ),
+            value,
+            style: trimmed.isEmpty
+                ? _placeholderStyle(contentFontSize)
+                : pw.TextStyle(
+                    fontSize: contentFontSize,
+                    lineSpacing: 1.6,
+                  ),
           ),
         );
       }
@@ -1295,7 +1314,14 @@ class PdfRendererService {
         );
 
         final label = aligned ? s.title : '${s.title}:';
-        final value = text.trim().isEmpty ? '(no content)' : text.trim();
+        final trimmed = text.trim();
+      final value = _displayValue(trimmed);
+      final valueStyle = trimmed.isEmpty
+          ? _placeholderStyle(contentFontSize)
+          : pw.TextStyle(
+              fontSize: contentFontSize,
+              lineSpacing: 1.6,
+            );
 
         final titleCell = showLabel
             ? (aligned
@@ -1330,10 +1356,7 @@ class PdfRendererService {
               pw.Expanded(
                 child: pw.Text(
                   value,
-                  style: pw.TextStyle(
-                    fontSize: contentFontSize,
-                    lineSpacing: 1.6,
-                  ),
+                  style: valueStyle,
                 ),
               ),
             ],
@@ -1468,9 +1491,9 @@ class PdfRendererService {
             _PdfTemplate(
               text: '',
               splittable: false,
-              fixedHeight: 4,
-              measureHeight: (_, __, ___) => 4,
-              buildWidget: (_) => pw.SizedBox(height: 6),
+              fixedHeight: contentFontSize * 1.32 + 8,
+              measureHeight: (_, __, ___) => contentFontSize * 1.32 + 8,
+              buildWidget: (_) => contentWidget(_emptyDots),
               plainOf: (_) => '\n',
               continueWith: null,
             ),
@@ -1488,7 +1511,7 @@ class PdfRendererService {
             splittable: false,
             fixedHeight: contentFontSize * 1.32 + 8,
             measureHeight: (_, __, ___) => contentFontSize * 1.32 + 8,
-            buildWidget: (_) => inlineWidget('', aligned: true, showLabel: true),
+            buildWidget: (_) => inlineWidget('', aligned: doc.reportLayout == ReportLayout.aligned, showLabel: true),
             plainOf: (_) => '${indentText(s.indent)}${s.title}: \n\n',
             continueWith: null,
           ),
@@ -1509,7 +1532,7 @@ class PdfRendererService {
   }) {
     if (entries.isEmpty) {
       return pw.Text(
-        '(no content)',
+        _emptyDots,
         style: pw.TextStyle(fontSize: contentFontSize),
       );
     }

@@ -362,6 +362,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       ),
       body: Consumer<ReportEditorProvider>(
         builder: (context, vm, _) {
+          final reportsRepo = context.read<ReportsRepository>();
+          final pdfFileName = reportsRepo.pdfFileNameForDoc(vm.doc);
           return LayoutBuilder(
             builder: (context, constraints) {
               return ConstrainedBox(
@@ -371,9 +373,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 ),
                 child: PdfPreview(
                   key: ValueKey(
-                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.indentHierarchy}-${vm.doc.fontScale}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}",
+                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.indentHierarchy}-${vm.doc.fontScale}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}-${vm.doc.updatedAtIso}",
                   ),
                   build: (_) => _buildBytes(),
+                  pdfFileName: pdfFileName,
                   allowPrinting: true,
                   allowSharing: true,
                 ),

@@ -135,6 +135,8 @@ class ReportsRepository {
 
 
 
+  String pdfFileNameForDoc(ReportDoc doc) => _pdfFileNameFor(doc);
+
   String _pdfFileNameFor(ReportDoc doc) {
     final type = _reportTypeFor(doc);
     final dt = DateTime.tryParse(doc.updatedAtIso) ?? DateTime.now();
