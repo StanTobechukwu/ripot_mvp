@@ -567,20 +567,55 @@ _disposeLater(titleC);
 
 
   Future<void> _editSubjectInfoTitleDialog(ReportEditorProvider vm) async {
-  final current = vm.subjectInfoDef.heading;
-  final nextTitle = await _promptText(
-    context,
-    'Edit Subject Info title',
-    hint: current.trim().isEmpty ? 'Leave empty to hide title' : current,
-  );
-  if (!mounted) return;
-  if (nextTitle == null) return;
+    final controller = SafeTextController(text: vm.subjectInfoDef.heading);
+    final nextTitle = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Edit Subject Info title'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Subject info',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Leave empty to hide title',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, ''),
+              child: const Text('Clear'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, controller.text),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
 
-  _afterClose(() {
-    vm.setSubjectInfoHeading(nextTitle);
-    setState(() => _subjectErrors = _validateSubjectInfo(vm));
-  });
-}
+    _disposeLater(controller);
+
+    if (!mounted) return;
+    if (nextTitle == null) return;
+
+    _afterClose(() {
+      vm.setSubjectInfoHeading(nextTitle);
+      setState(() => _subjectErrors = _validateSubjectInfo(vm));
+    });
+  }
 
   Future<void> _editSubjectFieldsSheet(ReportEditorProvider vm) async {
     await showModalBottomSheet<void>(
@@ -1991,6 +2026,20 @@ class _SectionEditSheet extends StatefulWidget {
   State<_SectionEditSheet> createState() => _SectionEditSheetState();
 }
 
+
+String _sizeLabel(HeadingLevel level) {
+  switch (level) {
+    case HeadingLevel.h1:
+      return 'Size 4';
+    case HeadingLevel.h2:
+      return 'Size 3';
+    case HeadingLevel.h3:
+      return 'Size 2';
+    case HeadingLevel.h4:
+      return 'Size 1';
+  }
+}
+
 class _SectionEditSheetState extends State<_SectionEditSheet> {
   late final SafeTextController _title;
   late HeadingLevel _level;
@@ -2041,7 +2090,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                       isDense: true,
                     ),
                     items: HeadingLevel.values
-                        .map((h) => DropdownMenuItem(value: h, child: Text(h.name.toUpperCase())))
+                        .map((h) => DropdownMenuItem(value: h, child: Text(_sizeLabel(h))))
                         .toList(),
                     onChanged: (v) => setState(() => _level = v ?? _level),
                   ),

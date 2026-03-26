@@ -205,6 +205,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               final indentContent = vm.doc.indentContent;
               final indentHierarchy = vm.doc.indentHierarchy;
               final applyIndentation = indentContent || indentHierarchy;
+              final showColonAfterTitlesWithContent = vm.doc.showColonAfterTitlesWithContent;
               final scale = vm.doc.fontScale;
 
               return SingleChildScrollView(
@@ -244,46 +245,56 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     dense: true,
                   ),
 
-                  if (layout == ReportLayout.block) ...[
+                  if (layout == ReportLayout.block || layout == ReportLayout.aligned) ...[
                     const Divider(height: 24),
                     SwitchListTile(
                       value: applyIndentation,
                       onChanged: (enabled) {
                         if (enabled) {
-                          vm.setIndentContent(true);
                           vm.setIndentHierarchy(true);
+                          if (layout == ReportLayout.block) {
+                            vm.setIndentContent(true);
+                          }
                         } else {
-                          vm.setIndentContent(false);
                           vm.setIndentHierarchy(false);
+                          vm.setIndentContent(false);
                         }
                       },
                       title: const Text('Apply indentation'),
                       dense: true,
                     ),
                     if (applyIndentation) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12),
-                        child: CheckboxListTile(
-                          value: indentContent,
-                          onChanged: (v) => vm.setIndentContent(v ?? false),
-                          title: const Text('Content'),
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          controlAffinity: ListTileControlAffinity.leading,
+                      if (layout == ReportLayout.block)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: CheckboxListTile(
+                            value: indentContent,
+                            onChanged: (v) => vm.setIndentContent(v ?? false),
+                            title: const Text('Content'),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            controlAffinity: ListTileControlAffinity.leading,
+                          ),
                         ),
-                      ),
                       Padding(
                         padding: const EdgeInsets.only(left: 12),
                         child: CheckboxListTile(
                           value: indentHierarchy,
                           onChanged: (v) => vm.setIndentHierarchy(v ?? false),
-                          title: const Text('Hierarchy'),
+                          title: const Text('Hierarchy / subsections'),
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           controlAffinity: ListTileControlAffinity.leading,
                         ),
                       ),
                     ],
+                    const Divider(height: 24),
+                    SwitchListTile(
+                      value: showColonAfterTitlesWithContent,
+                      onChanged: vm.setShowColonAfterTitlesWithContent,
+                      title: const Text('Show colons'),
+                      dense: true,
+                    ),
                     const Divider(height: 24),
                   ],
 
@@ -292,36 +303,23 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 6),
-                  if (layout == ReportLayout.block)
-                    Slider(
-                      value: scale,
-                      min: 0.85,
-                      max: 1.35,
-                      divisions: 10,
-                      label: scale.toStringAsFixed(2),
-                      onChanged: vm.setFontScale,
-                    )
-                  else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Slider(
-                          value: 1.05,
-                          min: 0.85,
-                          max: 1.35,
-                          divisions: 10,
-                          label: '1.05',
-                          onChanged: null,
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: Text(
-                            'Fixed at 1.05 for stable aligned output',
-                            style: TextStyle(fontSize: 12, color: Colors.black54),
-                          ),
-                        ),
-                      ],
+                  Slider(
+                    value: scale,
+                    min: 0.85,
+                    max: 1.35,
+                    divisions: 10,
+                    label: scale.toStringAsFixed(2),
+                    onChanged: vm.setFontScale,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      layout == ReportLayout.aligned
+                          ? 'Applies to aligned layout too'
+                          : 'Applies to the current layout',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
                     ),
+                  ),
                 ],
               ),
               );
@@ -373,7 +371,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 ),
                 child: PdfPreview(
                   key: ValueKey(
-                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.indentHierarchy}-${vm.doc.fontScale}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}-${vm.doc.updatedAtIso}",
+                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.indentHierarchy}-${vm.doc.showColonAfterTitlesWithContent}-${vm.doc.fontScale}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}-${vm.doc.updatedAtIso}",
                   ),
                   build: (_) => _buildBytes(),
                   pdfFileName: pdfFileName,

@@ -16,7 +16,8 @@ class PdfRendererService {
   static const double _alignedTitleWidth = 160.0;
   static const String _emptyDots = '..........';
 
-  String _displayValue(String text) => text.trim().isEmpty ? _emptyDots : text.trim();
+  String _displayValue(String text, {bool suppressPlaceholder = false}) =>
+      text.trim().isEmpty ? (suppressPlaceholder ? '' : _emptyDots) : text.trim();
 
   pw.TextStyle _placeholderStyle(double fontSize) => pw.TextStyle(
         fontSize: fontSize,
@@ -474,9 +475,9 @@ class PdfRendererService {
     final sectionChildren = s.children.whereType<SectionNode>().toList(growable: false);
     final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
 
-    final useBlockIndent = doc.reportLayout == ReportLayout.block;
-    final indentPx = useBlockIndent && doc.indentHierarchy ? 12.0 * s.indent : 0.0;
-    final contentIndentPx = indentPx + (useBlockIndent && doc.indentContent ? 12.0 : 0.0);
+    final useContentIndent = doc.reportLayout == ReportLayout.block;
+    final indentPx = doc.indentHierarchy ? 12.0 * s.indent : 0.0;
+    final contentIndentPx = indentPx + (useContentIndent && doc.indentContent ? 12.0 : 0.0);
 
     final double titleFontSize = switch (s.style.level) {
       HeadingLevel.h1 => contentFontSize * 1.45,
@@ -485,9 +486,10 @@ class PdfRendererService {
       HeadingLevel.h4 => contentFontSize,
     };
 
+    final isStructuralHeading = sectionChildren.isNotEmpty;
     final titleStyle = pw.TextStyle(
       fontSize: titleFontSize,
-      fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+      fontWeight: (isStructuralHeading && s.style.bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
     );
 
     final titleAlign = switch (s.style.align) {
@@ -502,13 +504,13 @@ class PdfRendererService {
       TitleAlign.right => pw.TextAlign.right,
     };
 
-    pw.Widget titleWidget() {
+    pw.Widget titleWidget({String? overrideTitle}) {
       return pw.Padding(
         padding: pw.EdgeInsets.only(left: indentPx, bottom: 4),
         child: pw.Align(
           alignment: titleAlign,
           child: pw.Text(
-            s.title,
+            overrideTitle ?? s.title,
             textAlign: titleTextAlign,
             style: titleStyle,
           ),
@@ -521,7 +523,7 @@ class PdfRendererService {
       return pw.Padding(
         padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
         child: pw.Text(
-          _displayValue(trimmed),
+          _displayValue(trimmed, suppressPlaceholder: doc.showColonAfterTitlesWithContent),
           style: trimmed.isEmpty
               ? _placeholderStyle(contentFontSize)
               : pw.TextStyle(
@@ -535,11 +537,12 @@ class PdfRendererService {
     pw.Widget inlineWidget(String text, {required bool aligned, required bool showLabel}) {
       final inlineTitleStyle = pw.TextStyle(
         fontSize: contentFontSize,
-        fontWeight: pw.FontWeight.bold,
+        fontWeight: pw.FontWeight.normal,
       );
-      final label = aligned ? s.title : '${s.title}:';
       final trimmed = text.trim();
-      final value = _displayValue(trimmed);
+      final colon = doc.showColonAfterTitlesWithContent;
+      final label = aligned ? (colon ? '${s.title}:' : s.title) : '${s.title}${colon ? ':' : ''}';
+      final value = _displayValue(trimmed, suppressPlaceholder: doc.showColonAfterTitlesWithContent);
       final valueStyle = trimmed.isEmpty
           ? _placeholderStyle(contentFontSize)
           : pw.TextStyle(
@@ -570,6 +573,14 @@ class PdfRendererService {
                 ))
           : (aligned ? pw.SizedBox(width: _alignedTitleWidth) : pw.SizedBox());
 
+      final approxTitleCharsPerLine = max(8, (_alignedTitleWidth / (contentFontSize * 0.62)).floor());
+      final titleLines = aligned && showLabel
+          ? _estimateWrappedLines(label, charsPerLine: approxTitleCharsPerLine)
+          : 1;
+      final valueTopPad = aligned && showLabel && titleLines > 1
+          ? (titleLines - 1) * contentFontSize * 1.15
+          : 0.0;
+
       return pw.Padding(
         padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
         child: pw.Row(
@@ -578,9 +589,12 @@ class PdfRendererService {
             titleCell,
             if (showLabel || aligned) pw.SizedBox(width: 10),
             pw.Expanded(
-              child: pw.Text(
-                value,
-                style: valueStyle,
+              child: pw.Padding(
+                padding: pw.EdgeInsets.only(top: valueTopPad),
+                child: pw.Text(
+                  value,
+                  style: valueStyle,
+                ),
               ),
             ),
           ],
@@ -591,7 +605,9 @@ class PdfRendererService {
     if (sectionChildren.isNotEmpty) {
       final introNode = contentChildren.isNotEmpty ? contentChildren.first : null;
       if (doc.reportLayout == ReportLayout.block || introNode == null) {
-        out.add(titleWidget());
+        final introHasText = introNode != null && introNode.text.trim().isNotEmpty;
+        final colonTitle = doc.reportLayout == ReportLayout.block && doc.showColonAfterTitlesWithContent ? '${s.title}:' : s.title;
+        out.add(titleWidget(overrideTitle: colonTitle));
       }
       if (introNode != null && introNode.text.trim().isNotEmpty) {
         out.add(
@@ -610,7 +626,8 @@ class PdfRendererService {
 
     final leafText = contentChildren.isNotEmpty ? contentChildren.first.text.trim() : '';
     if (doc.reportLayout == ReportLayout.block) {
-      out.add(titleWidget());
+      final colonTitle = doc.showColonAfterTitlesWithContent ? '${s.title}:' : s.title;
+      out.add(titleWidget(overrideTitle: colonTitle));
       out.add(blockContentWidget(leafText));
       return out;
     }
@@ -1245,11 +1262,11 @@ class PdfRendererService {
       final contentChildren =
           s.children.whereType<ContentNode>().toList(growable: false);
 
-      final useBlockIndent = doc.reportLayout == ReportLayout.block;
+      final useContentIndent = doc.reportLayout == ReportLayout.block;
       final indentPx =
-          useBlockIndent && doc.indentHierarchy ? 12.0 * s.indent : 0.0;
+          doc.indentHierarchy ? 12.0 * s.indent : 0.0;
       final contentIndentPx =
-          indentPx + (useBlockIndent && doc.indentContent ? 12.0 : 0.0);
+          indentPx + (useContentIndent && doc.indentContent ? 12.0 : 0.0);
 
       final double blockTitleSize = switch (s.style.level) {
         HeadingLevel.h1 => contentFontSize * 1.45,
@@ -1258,10 +1275,11 @@ class PdfRendererService {
         HeadingLevel.h4 => contentFontSize,
       };
 
+      final isStructuralHeading = sectionChildren.isNotEmpty;
       final blockTitleStyle = pw.TextStyle(
         fontSize: blockTitleSize,
         fontWeight:
-            s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            (isStructuralHeading && s.style.bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
       );
 
       final titleAlign = switch (s.style.align) {
@@ -1276,13 +1294,13 @@ class PdfRendererService {
         TitleAlign.right => pw.TextAlign.right,
       };
 
-      pw.Widget titleWidget() {
+      pw.Widget titleWidget({String? overrideTitle}) {
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: indentPx, bottom: 4),
           child: pw.Align(
             alignment: titleAlign,
             child: pw.Text(
-              s.title,
+              overrideTitle ?? s.title,
               textAlign: titleTextAlign,
               style: blockTitleStyle,
             ),
@@ -1292,7 +1310,7 @@ class PdfRendererService {
 
       pw.Widget contentWidget(String text) {
         final trimmed = text.trim();
-        final value = _displayValue(trimmed);
+        final value = _displayValue(trimmed, suppressPlaceholder: doc.showColonAfterTitlesWithContent);
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
           child: pw.Text(
@@ -1310,18 +1328,19 @@ class PdfRendererService {
       pw.Widget inlineWidget(String text, {required bool aligned, required bool showLabel}) {
         final inlineTitleStyle = pw.TextStyle(
           fontSize: contentFontSize,
-          fontWeight: pw.FontWeight.bold,
+          fontWeight: pw.FontWeight.normal,
         );
 
-        final label = aligned ? s.title : '${s.title}:';
         final trimmed = text.trim();
-      final value = _displayValue(trimmed);
-      final valueStyle = trimmed.isEmpty
-          ? _placeholderStyle(contentFontSize)
-          : pw.TextStyle(
-              fontSize: contentFontSize,
-              lineSpacing: 1.6,
-            );
+        final colon = doc.showColonAfterTitlesWithContent;
+        final label = aligned ? (colon ? '${s.title}:' : s.title) : '${s.title}${colon ? ':' : ''}';
+        final value = _displayValue(trimmed, suppressPlaceholder: doc.showColonAfterTitlesWithContent);
+        final valueStyle = trimmed.isEmpty
+            ? _placeholderStyle(contentFontSize)
+            : pw.TextStyle(
+                fontSize: contentFontSize,
+                lineSpacing: 1.6,
+              );
 
         final titleCell = showLabel
             ? (aligned
@@ -1346,6 +1365,14 @@ class PdfRendererService {
                   ))
             : (aligned ? pw.SizedBox(width: _alignedTitleWidth) : pw.SizedBox());
 
+        final approxTitleCharsPerLine = max(8, (_alignedTitleWidth / (contentFontSize * 0.62)).floor());
+        final titleLines = aligned && showLabel
+            ? _estimateWrappedLines(label, charsPerLine: approxTitleCharsPerLine)
+            : 1;
+        final valueTopPad = aligned && showLabel && titleLines > 1
+            ? (titleLines - 1) * contentFontSize * 1.15
+            : 0.0;
+
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
           child: pw.Row(
@@ -1354,9 +1381,12 @@ class PdfRendererService {
               titleCell,
               if (showLabel || aligned) pw.SizedBox(width: 10),
               pw.Expanded(
-                child: pw.Text(
-                  value,
-                  style: valueStyle,
+                child: pw.Padding(
+                  padding: pw.EdgeInsets.only(top: valueTopPad),
+                  child: pw.Text(
+                    value,
+                    style: valueStyle,
+                  ),
                 ),
               ),
             ],
@@ -1444,7 +1474,7 @@ class PdfRendererService {
               splittable: false,
               fixedHeight: blockTitleSize * 1.35 + 2,
               measureHeight: (_, __, ___) => blockTitleSize * 1.35 + 2,
-              buildWidget: (_) => titleWidget(),
+              buildWidget: (_) => titleWidget(overrideTitle: (doc.reportLayout == ReportLayout.block && doc.showColonAfterTitlesWithContent) ? '${s.title}:' : s.title),
               plainOf: (_) => '${indentText(s.indent)}${s.title}\n',
               continueWith: null,
             ),
@@ -1478,7 +1508,7 @@ class PdfRendererService {
             splittable: false,
             fixedHeight: blockTitleSize * 1.35 + 2,
             measureHeight: (_, __, ___) => blockTitleSize * 1.35 + 2,
-            buildWidget: (_) => titleWidget(),
+            buildWidget: (_) => titleWidget(overrideTitle: doc.showColonAfterTitlesWithContent ? '${s.title}:' : s.title),
             plainOf: (_) => '${indentText(s.indent)}${s.title}\n',
             continueWith: null,
           ),
@@ -1493,7 +1523,7 @@ class PdfRendererService {
               splittable: false,
               fixedHeight: contentFontSize * 1.32 + 8,
               measureHeight: (_, __, ___) => contentFontSize * 1.32 + 8,
-              buildWidget: (_) => contentWidget(_emptyDots),
+              buildWidget: (_) => contentWidget(doc.showColonAfterTitlesWithContent ? '' : _emptyDots),
               plainOf: (_) => '\n',
               continueWith: null,
             ),

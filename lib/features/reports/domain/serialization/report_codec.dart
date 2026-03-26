@@ -29,6 +29,7 @@ class ReportCodec {
         'reportLayout': doc.reportLayout.name,
         'indentContent': doc.indentContent,
         'indentHierarchy': doc.indentHierarchy,
+        'showColonAfterTitlesWithContent': doc.showColonAfterTitlesWithContent,
         'roots': doc.roots.map(sectionToJson).toList(),
 
         // images
@@ -78,6 +79,7 @@ class ReportCodec {
 
     final indentContent = (j['indentContent'] as bool?) ?? true;
     final indentHierarchy = (j['indentHierarchy'] as bool?) ?? true;
+    final showColonAfterTitlesWithContent = (j['showColonAfterTitlesWithContent'] as bool?) ?? false;
 
     // ✅ NEW: report title (migration-safe)
     final reportTitle = (j['reportTitle'] as String?) ?? '';
@@ -145,6 +147,7 @@ class ReportCodec {
       reportLayout: reportLayout,
       indentContent: indentContent,
       indentHierarchy: indentHierarchy,
+      showColonAfterTitlesWithContent: showColonAfterTitlesWithContent,
       subjectInfoDef: subjectInfoDef,
       subjectInfo: subjectInfo,
       roots: roots,

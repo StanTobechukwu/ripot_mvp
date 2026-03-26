@@ -711,15 +711,12 @@ void setSubjectInfoHeading(String heading) {
 
     _doc = _doc.copyWith(
       reportLayout: effectiveLayout,
-      fontScale: effectiveLayout == ReportLayout.aligned ? 1.05 : _doc.fontScale,
       updatedAtIso: nowIso(),
     );
     notifyListeners();
   }
 
   void setFontScale(double scale) {
-    if (_doc.reportLayout != ReportLayout.block) return;
-
     final clamped = scale.clamp(0.85, 1.35).toDouble();
 
     _doc = _doc.copyWith(
@@ -740,6 +737,14 @@ void setSubjectInfoHeading(String heading) {
   void setIndentHierarchy(bool enabled) {
     _doc = _doc.copyWith(
       indentHierarchy: enabled,
+      updatedAtIso: nowIso(),
+    );
+    notifyListeners();
+  }
+
+  void setShowColonAfterTitlesWithContent(bool enabled) {
+    _doc = _doc.copyWith(
+      showColonAfterTitlesWithContent: enabled,
       updatedAtIso: nowIso(),
     );
     notifyListeners();

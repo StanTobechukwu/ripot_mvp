@@ -27,18 +27,13 @@ class PdfPlanBuilder {
     }
 
     final pageOneInline = doc.images.take(metrics.maxPage1InlineSlots).toList(growable: false);
-    final remainingAfterPageOne = doc.images.skip(pageOneInline.length).toList(growable: false);
-
-    final spillAllowance = (metrics.maxTotalInlineImages - pageOneInline.length)
-        .clamp(0, metrics.maxSpillInlineSlots);
-    final spillInline = remainingAfterPageOne.take(spillAllowance).toList(growable: false);
-    final attachmentImages = remainingAfterPageOne.skip(spillInline.length).toList(growable: false);
+    final attachmentImages = doc.images.skip(pageOneInline.length).toList(growable: false);
 
     return PdfPlan(
       title: title,
       inlineEnabled: true,
       pageOne: PageOnePlan(inlineImages: pageOneInline),
-      finalContent: FinalContentPlan(spillInlineImages: spillInline),
+      finalContent: const FinalContentPlan(spillInlineImages: []),
       attachmentPages: [
         for (final chunk in chunked(attachmentImages, metrics.attachmentImagesPerPage))
           AttachmentPagePlan(images: chunk),

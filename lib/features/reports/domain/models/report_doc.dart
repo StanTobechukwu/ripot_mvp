@@ -53,8 +53,11 @@ class ReportDoc {
   /// Optional global indentation toggle for content fields
   final bool indentContent;
 
-  /// Optional hierarchy indentation for subsection titles in block layout.
+  /// Optional hierarchy indentation for subsection titles in block/aligned layout.
   final bool indentHierarchy;
+
+  /// Show a colon after titles that directly own content.
+  final bool showColonAfterTitlesWithContent;
 
   /// Global font scale applied everywhere
   /// Editor + Form + Preview + PDF
@@ -80,6 +83,7 @@ class ReportDoc {
     this.reportLayout = ReportLayout.block,
     this.indentContent = true,
     this.indentHierarchy = true,
+    this.showColonAfterTitlesWithContent = false,
     this.fontScale = 1.05,
     this.signature = const SignatureBlock(),
     this.applyLetterhead = false,
@@ -102,6 +106,7 @@ class ReportDoc {
     ReportLayout? reportLayout,
     bool? indentContent,
     bool? indentHierarchy,
+    bool? showColonAfterTitlesWithContent,
     double? fontScale,
     SignatureBlock? signature,
     SubjectInfoBlockDef? subjectInfoDef,
@@ -120,6 +125,7 @@ class ReportDoc {
       reportLayout: reportLayout ?? this.reportLayout,
       indentContent: indentContent ?? this.indentContent,
       indentHierarchy: indentHierarchy ?? this.indentHierarchy,
+      showColonAfterTitlesWithContent: showColonAfterTitlesWithContent ?? this.showColonAfterTitlesWithContent,
       fontScale: fontScale ?? this.fontScale,
       signature: signature ?? this.signature,
       subjectInfoDef: subjectInfoDef ?? this.subjectInfoDef,
