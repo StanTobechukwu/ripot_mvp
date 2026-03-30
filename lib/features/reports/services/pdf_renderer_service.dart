@@ -1010,16 +1010,12 @@ class PdfRendererService {
             ),
           ),
           pw.SizedBox(height: 6),
-          if (name.isNotEmpty)
-            pw.Text(
-              name,
-              style: pw.TextStyle(fontSize: 11 * fontScale),
-            ),
-          if (creds.isNotEmpty)
-            pw.Text(
-              creds,
-              style: pw.TextStyle(fontSize: 11 * fontScale),
-            ),
+        
+         if (name.isNotEmpty || creds.isNotEmpty)
+  pw.Text(
+    creds.isNotEmpty ? '$name ($creds)' : name,
+    style: pw.TextStyle(fontSize: 11 * fontScale),
+  ),
           pw.Text(
             signedDate,
             style: pw.TextStyle(
