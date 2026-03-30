@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:signature/signature.dart';
+
+import '../services/media_ref.dart';
 
 class SignatureCaptureScreen extends StatefulWidget {
   const SignatureCaptureScreen({super.key});
@@ -36,12 +36,12 @@ class _SignatureCaptureScreenState extends State<SignatureCaptureScreen> {
     final Uint8List? bytes = await _controller.toPngBytes();
     if (bytes == null) return null;
 
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File(
-      '${dir.path}/signature_${DateTime.now().millisecondsSinceEpoch}.png',
+    return persistBytesAsRef(
+      bytes,
+      fileStem: 'signature',
+      extension: 'png',
+      mimeType: 'image/png',
     );
-    await file.writeAsBytes(bytes, flush: true);
-    return file.path;
   }
 
   @override
@@ -53,7 +53,7 @@ class _SignatureCaptureScreenState extends State<SignatureCaptureScreen> {
           TextButton(
             onPressed: () async {
               final path = await _saveSignature();
-              if (!mounted) return;
+              if (!context.mounted) return;
 
               if (path == null) {
                 ScaffoldMessenger.of(context).showSnackBar(

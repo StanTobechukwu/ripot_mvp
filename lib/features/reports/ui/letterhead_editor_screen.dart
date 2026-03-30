@@ -1,7 +1,8 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../services/media_ref.dart';
 import 'package:provider/provider.dart';
 
 import '../../reports/data/letterhead_repository.dart';
@@ -97,16 +98,10 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
   }
 
   Future<void> _pickLogo() async {
-    final repo = context.read<LetterheadsRepository>();
-
-    final x = await _picker.pickImage(source: ImageSource.gallery);
+    final x = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (x == null) return;
 
-    // copy into app folder so it persists
-    final imported = await repo.importLogoFile(
-      sourcePath: x.path,
-      letterheadId: _model.letterheadId,
-    );
+    final imported = await xFileToPortableRef(x, fileStem: 'logo_${_model.letterheadId}');
 
     setState(() {
       _model = _model.copyWith(logoFilePath: imported);
@@ -178,7 +173,7 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
       );
     }
 
-    final hasLogo = _model.logoFilePath != null && File(_model.logoFilePath!).existsSync();
+    final hasLogo = _model.logoFilePath != null && _model.logoFilePath!.trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -217,7 +212,7 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
                     height: 72,
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: hasLogo
-                        ? Image.file(File(_model.logoFilePath!), fit: BoxFit.cover)
+                        ? RefImage(_model.logoFilePath!, fit: BoxFit.cover)
                         : const Icon(Icons.image_outlined),
                   ),
                 ),

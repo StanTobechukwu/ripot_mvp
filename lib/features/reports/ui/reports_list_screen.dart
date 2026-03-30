@@ -60,14 +60,17 @@ class ReportsListScreen extends StatelessWidget {
 
     if (choice == _SavedReportOpenChoice.openPdf) {
       final repo = context.read<ReportsRepository>();
-      final pdfFile = await repo.pdfFileForReport(report.reportId);
+      final pdfBytes = await repo.loadPdfBytesForReport(report.reportId);
       if (!context.mounted) return;
 
-      if (await pdfFile.exists()) {
+      if (pdfBytes != null && pdfBytes.isNotEmpty) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => SavedPdfViewerScreen(title: report.title, pdfFile: pdfFile),
+            builder: (_) => SavedPdfViewerScreen(
+              title: report.title,
+              pdfBytesFuture: Future.value(pdfBytes),
+            ),
           ),
         );
         return;

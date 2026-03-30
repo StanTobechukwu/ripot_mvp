@@ -1,18 +1,15 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
-/// Web/unsupported stub. Keeps compilation working on Flutter Web.
 Future<Uint8List?> readFileBytes(String path) async {
-  // On web we don't have direct file system access by path.
-  // The app should avoid calling PDF generation that depends on local paths on web.
-  return null;
+  if (path.isEmpty) return null;
+  if (!path.startsWith('data:')) return null;
+  final comma = path.indexOf(',');
+  if (comma == -1 || comma == path.length - 1) return null;
+  try {
+    final bytes = base64Decode(path.substring(comma + 1));
+    return bytes.isEmpty ? null : bytes;
+  } catch (_) {
+    return null;
+  }
 }
-
-
-
-
-
-
-
-
-
-

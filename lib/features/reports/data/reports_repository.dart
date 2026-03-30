@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/models/report_doc.dart';
 import '../domain/serialization/report_codec.dart';
@@ -21,119 +21,108 @@ class ReportSummary {
 }
 
 class ReportsRepository {
-  Future<Directory> _reportsDir() async {
-    final base = await getApplicationDocumentsDirectory();
-    final dir = Directory('${base.path}/reports');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    return dir;
+  static const _reportsIndexKey = 'reports.index';
+  static const _reportPrefix = 'reports.doc.';
+  static const _pdfPrefix = 'reports.pdf.';
+  static const _pdfNamePrefix = 'reports.pdfname.';
+
+  Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
+
+  String _reportKey(String reportId) => '$_reportPrefix$reportId';
+  String _pdfKey(String reportId) => '$_pdfPrefix$reportId';
+  String _pdfNameKey(String reportId) => '$_pdfNamePrefix$reportId';
+
+  Future<List<String>> _readIndex() async {
+    final prefs = await _prefs;
+    return prefs.getStringList(_reportsIndexKey) ?? <String>[];
   }
 
-  Future<Directory> _pdfDir() async {
-    final base = await getApplicationDocumentsDirectory();
-    final dir = Directory('${base.path}/saved_pdfs');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    return dir;
-  }
-
-  Future<File> _reportFile(String reportId) async {
-    final dir = await _reportsDir();
-    return File('${dir.path}/$reportId.json');
-  }
-
-
-  Future<File> pdfFileForReport(String reportId, {ReportDoc? doc}) async {
-    final dir = await _pdfDir();
-    final reportDir = Directory('${dir.path}/$reportId');
-    if (!await reportDir.exists()) {
-      await reportDir.create(recursive: true);
-    }
-
-    if (doc != null) {
-      final fileName = _pdfFileNameFor(doc);
-      final existing = reportDir
-          .listSync()
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.pdf'))
-          .toList();
-      for (final f in existing) {
-        try {
-          await f.delete();
-        } catch (_) {}
-      }
-      return File('${reportDir.path}/$fileName');
-    }
-
-    final existing = reportDir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.pdf'))
-        .toList()
-      ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
-    if (existing.isNotEmpty) return existing.first;
-
-    final legacy = File('${dir.path}/$reportId.pdf');
-    return legacy;
+  Future<void> _writeIndex(List<String> ids) async {
+    final prefs = await _prefs;
+    await prefs.setStringList(_reportsIndexKey, ids);
   }
 
   Future<void> saveReport(ReportDoc doc) async {
-    final f = await _reportFile(doc.reportId);
-    final jsonMap = ReportCodec.reportToJson(doc);
-    await f.writeAsString(jsonEncode(jsonMap), flush: true);
+    final prefs = await _prefs;
+    await prefs.setString(_reportKey(doc.reportId), jsonEncode(ReportCodec.reportToJson(doc)));
+    final ids = await _readIndex();
+    ids.remove(doc.reportId);
+    ids.insert(0, doc.reportId);
+    await _writeIndex(ids);
   }
 
   Future<ReportDoc> loadReport(String reportId) async {
-    final f = await _reportFile(reportId);
-    final text = await f.readAsString();
-    return ReportCodec.reportFromJson(jsonDecode(text) as Map<String, dynamic>);
+    final prefs = await _prefs;
+    final raw = prefs.getString(_reportKey(reportId));
+    if (raw == null || raw.trim().isEmpty) {
+      throw Exception('Report not found');
+    }
+    return ReportCodec.reportFromJson(jsonDecode(raw) as Map<String, dynamic>);
   }
 
   Future<void> deleteReport(String reportId) async {
-    final f = await _reportFile(reportId);
-    if (await f.exists()) await f.delete();
-
-    final dir = await _pdfDir();
-    final reportDir = Directory('${dir.path}/$reportId');
-    if (await reportDir.exists()) {
-      await reportDir.delete(recursive: true);
-    }
-
-    final legacy = File('${dir.path}/$reportId.pdf');
-    if (await legacy.exists()) await legacy.delete();
+    final prefs = await _prefs;
+    await prefs.remove(_reportKey(reportId));
+    await prefs.remove(_pdfKey(reportId));
+    await prefs.remove(_pdfNameKey(reportId));
+    final ids = await _readIndex();
+    ids.remove(reportId);
+    await _writeIndex(ids);
   }
 
   Future<List<ReportSummary>> listReports() async {
-    final dir = await _reportsDir();
-    final files = dir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.json'))
-        .toList();
-
+    final prefs = await _prefs;
+    final ids = await _readIndex();
     final summaries = <ReportSummary>[];
-    for (final f in files) {
+
+    for (final id in ids) {
+      final raw = prefs.getString(_reportKey(id));
+      if (raw == null || raw.trim().isEmpty) continue;
       try {
-        final j = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+        final j = jsonDecode(raw) as Map<String, dynamic>;
         final doc = ReportCodec.reportFromJson(j);
         final updated = DateTime.parse(doc.updatedAtIso);
-        final title = _displayTitleFor(doc);
-        final subtitle = _displaySubtitleFor(doc, updated);
-
-        summaries.add(ReportSummary(
-          reportId: doc.reportId,
-          title: title,
-          subtitle: subtitle,
-          updatedAt: updated,
-        ));
-      } catch (_) {
-        // ignore corrupted file
-      }
+        summaries.add(
+          ReportSummary(
+            reportId: doc.reportId,
+            title: _displayTitleFor(doc),
+            subtitle: _displaySubtitleFor(doc, updated),
+            updatedAt: updated,
+          ),
+        );
+      } catch (_) {}
     }
 
     summaries.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return summaries;
   }
 
+  Future<void> savePdfBytesForReport(
+    String reportId,
+    Uint8List bytes, {
+    required ReportDoc doc,
+  }) async {
+    final prefs = await _prefs;
+    await prefs.setString(_pdfKey(reportId), base64Encode(bytes));
+    await prefs.setString(_pdfNameKey(reportId), _pdfFileNameFor(doc));
+  }
 
+  Future<Uint8List?> loadPdfBytesForReport(String reportId) async {
+    final prefs = await _prefs;
+    final raw = prefs.getString(_pdfKey(reportId));
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final bytes = base64Decode(raw);
+      return bytes.isEmpty ? null : bytes;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> pdfFileNameForReport(String reportId) async {
+    final prefs = await _prefs;
+    return prefs.getString(_pdfNameKey(reportId));
+  }
 
   String pdfFileNameForDoc(ReportDoc doc) => _pdfFileNameFor(doc);
 
@@ -166,7 +155,6 @@ class ReportsRepository {
   }
 
   String _displaySubtitleFor(ReportDoc doc, DateTime updatedAt) {
-
     final subjectName = doc.subjectInfo.valueOf('subjectName').trim();
     final subjectId = doc.subjectInfo.valueOf('subjectId').trim();
     final stamp = _formatDateTime(updatedAt);

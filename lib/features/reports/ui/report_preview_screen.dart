@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -52,11 +51,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   }
 
 
-  Future<File> _savePdfToLocal(Uint8List bytes, ReportDoc doc) async {
+  Future<String> _savePdfToLocal(Uint8List bytes, ReportDoc doc) async {
     final repo = context.read<ReportsRepository>();
-    final file = await repo.pdfFileForReport(doc.reportId, doc: doc);
-    await file.writeAsBytes(bytes, flush: true);
-    return file;
+    await repo.savePdfBytesForReport(doc.reportId, bytes, doc: doc);
+    return repo.pdfFileNameForDoc(doc);
   }
 
   Future<void> _onSavePressed() async {
@@ -71,13 +69,13 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
       final bytes = await _buildBytes();
 
-      final file = await _savePdfToLocal(bytes, vm.doc);
+      final fileName = await _savePdfToLocal(bytes, vm.doc);
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('PDF saved: ${file.path.split('/').last}'),
+          content: Text('PDF saved: $fileName'),
         ),
       );
     } finally {

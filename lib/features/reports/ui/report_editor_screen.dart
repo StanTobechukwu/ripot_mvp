@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../domain/models/nodes.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/image_services.dart';
+import '../services/media_ref.dart';
 import 'report_preview_screen.dart';
 import '../ui/signature_capture.dart';
 import '../domain/models/report_doc.dart';
@@ -1806,8 +1806,8 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
           const SizedBox(height: _gap),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.file(
-              File(vm.doc.signature.signatureFilePath!),
+            child: RefImage(
+              vm.doc.signature.signatureFilePath!,
               height: 110,
               fit: BoxFit.contain,
             ),
@@ -2223,7 +2223,7 @@ class _ImagesManagerState extends State<_ImagesManager> {
                         final files = await _imageService.pickMultiFromGallery();
                         if (!mounted) return;
                         if (files.isEmpty) return;
-                        vm.addImages(files.map((f) => f.path).toList());
+                        vm.addImages(files.map((f) => f).toList());
                         if (mounted) setState(() {});
                       } catch (e) {
                         _showErr(e);
@@ -2241,7 +2241,7 @@ class _ImagesManagerState extends State<_ImagesManager> {
                         final file = await _imageService.pickFromCamera();
                         if (!mounted) return;
                         if (file == null) return;
-                        vm.addImages([file.path]);
+                        vm.addImages([file]);
                         if (mounted) setState(() {});
                       } catch (e) {
                         _showErr(e);
@@ -2282,8 +2282,8 @@ class _ImagesManagerState extends State<_ImagesManager> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(img.filePath),
+                          child: RefImage(
+                            img.filePath,
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,

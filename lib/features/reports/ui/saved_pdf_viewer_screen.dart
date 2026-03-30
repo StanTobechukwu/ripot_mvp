@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,24 +5,34 @@ import 'package:printing/printing.dart';
 
 class SavedPdfViewerScreen extends StatelessWidget {
   final String title;
-  final File pdfFile;
+  final Future<Uint8List?> pdfBytesFuture;
 
   const SavedPdfViewerScreen({
     super.key,
     required this.title,
-    required this.pdfFile,
+    required this.pdfBytesFuture,
   });
-
-  Future<Uint8List> _loadBytes() => pdfFile.readAsBytes();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: PdfPreview(
-        build: (_) => _loadBytes(),
-        allowPrinting: true,
-        allowSharing: true,
+      body: FutureBuilder<Uint8List?>(
+        future: pdfBytesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final bytes = snapshot.data;
+          if (bytes == null || bytes.isEmpty) {
+            return const Center(child: Text('No saved PDF found.'));
+          }
+          return PdfPreview(
+            build: (_) async => bytes,
+            allowPrinting: true,
+            allowSharing: true,
+          );
+        },
       ),
     );
   }
