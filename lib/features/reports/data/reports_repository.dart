@@ -11,13 +11,18 @@ class ReportSummary {
   final String title;
   final String subtitle;
   final DateTime updatedAt;
+  final bool hasPdf;
 
   const ReportSummary({
     required this.reportId,
     required this.title,
     required this.subtitle,
     required this.updatedAt,
+    required this.hasPdf,
   });
+
+  bool get isFinalReport => hasPdf;
+  bool get isSavedWork => !hasPdf;
 }
 
 class ReportsRepository {
@@ -82,12 +87,14 @@ class ReportsRepository {
         final j = jsonDecode(raw) as Map<String, dynamic>;
         final doc = ReportCodec.reportFromJson(j);
         final updated = DateTime.parse(doc.updatedAtIso);
+        final hasPdf = (prefs.getString(_pdfKey(doc.reportId)) ?? '').trim().isNotEmpty;
         summaries.add(
           ReportSummary(
             reportId: doc.reportId,
             title: _displayTitleFor(doc),
             subtitle: _displaySubtitleFor(doc, updated),
             updatedAt: updated,
+            hasPdf: hasPdf,
           ),
         );
       } catch (_) {}

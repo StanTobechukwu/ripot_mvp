@@ -20,7 +20,7 @@ class TemplateEditorScreen extends StatelessWidget {
       builder: (context, snap) {
         if (!snap.hasData) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Edit Template')),
+            appBar: AppBar(centerTitle: true, title: const Text('Edit Template')),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -48,25 +48,32 @@ class _TemplateEditorBody extends StatelessWidget {
     );
   }
 
-  Future<String?> _promptText(BuildContext context, String title, {String hint = 'Type…'}) async {
-    final controller = TextEditingController();
+  Future<String?> _promptText(
+    BuildContext context,
+    String title, {
+    String hint = 'Type…',
+    String initialValue = '',
+  }) async {
+    String value = initialValue;
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
-        content: TextField(
-          controller: controller,
+        content: TextFormField(
+          initialValue: initialValue,
           autofocus: true,
           decoration: InputDecoration(hintText: hint, border: const OutlineInputBorder()),
+          onChanged: (v) => value = v,
+          onFieldSubmitted: (_) => Navigator.pop(ctx, value.trim()),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('OK')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, value.trim()), child: const Text('OK')),
         ],
       ),
     );
-    controller.dispose();
-    return result?.trim().isEmpty ?? true ? null : result!.trim();
+    final trimmed = (result ?? '').trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   Future<void> _showSectionActions(BuildContext context, SectionNode section) async {
@@ -140,7 +147,7 @@ class _TemplateEditorBody extends StatelessWidget {
         vm.moveSectionDown(section.id);
         break;
       case 'rename':
-        final title = await _promptText(context, 'Edit section title', hint: section.title);
+        final title = await _promptText(context, 'Edit section title', hint: section.title, initialValue: section.title);
         if (title != null) vm.renameSection(section.id, title);
         break;
       case 'delete':
@@ -191,6 +198,7 @@ class _TemplateEditorBody extends StatelessWidget {
     final vm = context.watch<TemplateEditorProvider>();
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: Text(vm.template.name),
         actions: [
           IconButton(

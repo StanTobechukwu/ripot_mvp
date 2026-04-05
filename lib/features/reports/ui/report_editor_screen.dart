@@ -878,12 +878,57 @@ _disposeLater(titleC);
 
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: Text(_editorMode ? 'Editor Mode' : 'Form Mode'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    ),
+                  ),
+                  segments: const [
+                    ButtonSegment(
+                      value: 'editor',
+                      label: Text('Editor'),
+                      icon: Icon(Icons.edit_note_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 'form',
+                      label: Text('Form'),
+                      icon: Icon(Icons.description_outlined, size: 16),
+                    ),
+                  ],
+                  selected: {_editorMode ? 'editor' : 'form'},
+                  onSelectionChanged: (s) {
+                    final choice = s.first;
+                    setState(() => _editorMode = choice == 'editor');
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
         actions: [
           IconButton(
-            tooltip: _editorMode ? 'Switch to Form Mode' : 'Switch to Editor Mode',
-            icon: Icon(_editorMode ? Icons.description_outlined : Icons.edit_note_outlined),
-            onPressed: () => _toggleMode(vm),
+            tooltip: 'Save progress',
+            icon: const Icon(Icons.save_outlined),
+            onPressed: () async {
+              _unfocusNow();
+              await vm.save();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Progress saved to My Reports')),
+              );
+            },
           ),
           IconButton(
             tooltip: 'Preview',
@@ -897,7 +942,9 @@ _disposeLater(titleC);
               if (errs.isNotEmpty) {
                 setState(() => _subjectErrors = errs);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please complete required Subject Info fields.')),
+                  const SnackBar(
+                    content: Text('Please complete required Subject Info fields.'),
+                  ),
                 );
                 return;
               }
@@ -1033,27 +1080,60 @@ floatingActionButton: _editorMode
                       ],
                     )
                   : vm.doc.roots.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 28),
-                          child: Column(
-                            children: [
-                              const Icon(Icons.edit_note_outlined, size: 42, color: Colors.grey),
-                              const SizedBox(height: 12),
-                              const Text('No sections yet',
-                                  style: TextStyle(fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 6),
-                              const Text(
-                                'Switch to Edit Mode to start creating your template.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.black45),
+                      ? SizedBox(
+                          height: outlineMinHeight.clamp(260.0, 420.0),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 420),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      height: 68,
+                                      width: 68,
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.edit_note_outlined,
+                                        size: 34,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'No sections yet',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    const Text(
+                                      'Switch to Edit Mode to start building your template structure.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        height: 1.5,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 18),
+                                    FilledButton.icon(
+                                      icon: const Icon(Icons.edit_outlined),
+                                      label: const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 4),
+                                        child: Text('Go to Edit Mode'),
+                                      ),
+                                      onPressed: () => setState(() => _editorMode = true),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 14),
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.edit),
-                                label: const Text('Go to Edit Mode'),
-                                onPressed: () => setState(() => _editorMode = true),
-                              ),
-                            ],
+                            ),
                           ),
                         )
                       : Column(
@@ -1264,6 +1344,7 @@ floatingActionButton: _editorMode
   Widget _reportTitleCard(ReportEditorProvider vm) {
     return _card(
       title: 'Report',
+      emphasized: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1271,15 +1352,31 @@ floatingActionButton: _editorMode
             key: const ValueKey('report-title'),
             controller: _reportTitleC,
             focusNode: _reportTitleF,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Report Title / Topic',
+              labelStyle: TextStyle(color: Colors.black.withOpacity(0.62)),
               hintText: 'e.g., Upper GI Endoscopy Report',
-              border: OutlineInputBorder(),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: Theme.of(context).dividerColor.withOpacity(0.9),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 1.5,
+                ),
+              ),
               isDense: true,
             ),
             onChanged: vm.setReportTitle,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -1310,7 +1407,12 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
                 Expanded(
                   child: Text(
                     displayTitle,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: Colors.black.withOpacity(0.88),
+                    letterSpacing: -0.2,
+                  ),
                   ),
                 ),
                 IconButton(
@@ -1406,7 +1508,12 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
               Expanded(
                 child: Text(
                   displayTitle,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: Colors.black.withOpacity(0.88),
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
               IconButton(
@@ -1421,7 +1528,7 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
           // Enabled row
           Row(
             children: [
-              const Text('Enabled'),
+              Text('Enabled', style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.62))),
               const Spacer(),
               Switch(
                 value: def.enabled,
@@ -1434,7 +1541,7 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
           // Columns row
           Row(
             children: [
-              const Text('Columns'),
+              Text('Columns', style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.62))),
               const Spacer(),
               SegmentedButton<int>(
                 key: ValueKey('subject-cols-${def.columns}'),
@@ -1451,21 +1558,56 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
           const SizedBox(height: 14),
           fieldsBody,
 
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              OutlinedButton.icon(
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final manageBtn = OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 46),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                ),
                 onPressed: () => _editSubjectFieldsSheet(vm),
-                icon: const Icon(Icons.tune),
+                icon: const Icon(Icons.tune, size: 18),
                 label: const Text('Manage fields'),
-              ),
-              const SizedBox(width: 10),
-              FilledButton.icon(
+              );
+
+              final addBtn = FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 46),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
+                ),
                 onPressed: () => _addSubjectFieldDialog(vm),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add field'),
-              ),
-            ],
+              );
+
+              final actionGroup = Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [manageBtn, addBtn],
+              );
+
+              if (constraints.maxWidth >= 640) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text('Fields', style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.62))),
+                    const SizedBox(width: 16),
+                    Expanded(child: Align(alignment: Alignment.centerRight, child: actionGroup)),
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Fields', style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.62))),
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerLeft, child: actionGroup),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1836,9 +1978,11 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
         : BorderSide.none;
 
     return Card(
-      elevation: emphasized ? 2.5 : 1,
+      elevation: emphasized ? 3 : 1.2,
+      shadowColor: Colors.black.withOpacity(0.06),
+      surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         side: border,
       ),
       child: Padding(
@@ -1846,8 +1990,16 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: emphasized ? 20 : 18,
+                color: Colors.black.withOpacity(0.88),
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 14),
             if (minHeight != null)
               ConstrainedBox(
                 constraints: BoxConstraints(minHeight: minHeight),

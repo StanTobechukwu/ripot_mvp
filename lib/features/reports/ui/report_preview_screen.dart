@@ -332,6 +332,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: const Text('Preview'),
         actions: [
           IconButton(

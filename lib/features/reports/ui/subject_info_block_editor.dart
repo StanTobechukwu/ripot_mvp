@@ -11,108 +11,82 @@ class SubjectInfoTemplateEditor extends StatefulWidget {
 }
 
 class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
-
-  Future<void> _showAddFieldDialog(BuildContext context, TemplateEditorProvider vm) async {
-    final c = TextEditingController();
-    bool required = false;
-    final ok = await showDialog<bool>(
+  Future<String?> _promptText(
+    BuildContext context,
+    String title, {
+    String initialValue = '',
+    String hint = '',
+    String confirmText = 'Save',
+  }) async {
+    String value = initialValue;
+    final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Add field'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: c,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Field title',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                value: required,
-                onChanged: (v) => setLocal(() => required = v ?? false),
-                title: const Text('Required'),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextFormField(
+          initialValue: initialValue,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: hint.isEmpty ? null : hint,
+            border: const OutlineInputBorder(),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
-          ],
+          onChanged: (v) => value = v,
+          onFieldSubmitted: (_) => Navigator.pop(ctx, value.trim()),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, value.trim()),
+            child: Text(confirmText),
+          ),
+        ],
       ),
     );
-    if (ok == true) {
-      FocusManager.instance.primaryFocus?.unfocus();
-      vm.addCustomField(title: c.text.trim().isEmpty ? 'Custom Field' : c.text.trim(), required: required);
-    }
-    Future<void>.delayed(const Duration(milliseconds: 250), c.dispose);
+    if (!mounted) return null;
+    final trimmed = (result ?? '').trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
-  void _renameDialog(
+  Future<void> _showAddFieldDialog(BuildContext context, TemplateEditorProvider vm) async {
+    final title = await _promptText(
+      context,
+      'Add field',
+      hint: 'Field title',
+      confirmText: 'Add',
+    );
+    if (!mounted || title == null) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    vm.addCustomField(title: title, required: false);
+  }
+
+  Future<void> _renameDialog(
     BuildContext context,
     TemplateEditorProvider vm,
     String fieldId,
     String currentTitle,
-  ) {
-    final c = TextEditingController(text: currentTitle);
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Rename field'),
-        content: TextField(
-          controller: c,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final next = c.text.trim().isEmpty ? currentTitle : c.text.trim();
-              FocusManager.instance.primaryFocus?.unfocus();
-              vm.renameField(fieldId, next);
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    ).whenComplete(() => Future<void>.delayed(const Duration(milliseconds: 250), c.dispose));
+  ) async {
+    final next = await _promptText(
+      context,
+      'Rename field',
+      initialValue: currentTitle,
+      confirmText: 'Save',
+    );
+    if (!mounted || next == null) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    vm.renameField(fieldId, next);
   }
 
-  void _editHeadingDialog(BuildContext context, TemplateEditorProvider vm, String currentHeading) {
-    final c = TextEditingController(text: currentHeading);
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Subject info heading'),
-        content: TextField(
-          controller: c,
-          decoration: const InputDecoration(
-            hintText: 'Leave empty to hide heading',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              FocusManager.instance.primaryFocus?.unfocus();
-              vm.setSubjectInfoHeading(c.text);
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    ).whenComplete(() => Future<void>.delayed(const Duration(milliseconds: 250), c.dispose));
+  Future<void> _editHeadingDialog(BuildContext context, TemplateEditorProvider vm, String currentHeading) async {
+    final next = await _promptText(
+      context,
+      'Subject info heading',
+      initialValue: currentHeading,
+      hint: 'Leave empty to hide heading',
+      confirmText: 'Save',
+    );
+    if (!mounted) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    vm.setSubjectInfoHeading(next ?? '');
   }
 
   @override
@@ -120,9 +94,87 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
     return Consumer<TemplateEditorProvider>(
       builder: (context, vm, _) {
         final def = vm.subjectInfo;
+        final fields = def.orderedFields;
 
-        final fields = def.fields.toList()
-          ..sort((a, b) => a.order.compareTo(b.order));
+        Widget fieldTile(field) {
+          return Material(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.7)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      field.title,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 96,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          tooltip: 'Rename',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () => _renameDialog(context, vm, field.key, field.title),
+                        ),
+                        field.isSystem
+                            ? const SizedBox(width: 40)
+                            : IconButton(
+                                tooltip: 'Discard field',
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => vm.removeField(field.key),
+                              ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        Widget fieldsBody;
+        if (fields.isEmpty) {
+          fieldsBody = const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('No fields yet.'),
+          );
+        } else if (def.columns == 2) {
+          fieldsBody = LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth > 560
+                  ? (constraints.maxWidth - 12) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: fields
+                    .map((f) => SizedBox(width: width, child: fieldTile(f)))
+                    .toList(growable: false),
+              );
+            },
+          );
+        } else {
+          fieldsBody = Column(
+            children: [
+              for (final f in fields) ...[
+                fieldTile(f),
+                const SizedBox(height: 10),
+              ]
+            ],
+          );
+        }
 
         return Card(
           child: Padding(
@@ -142,7 +194,11 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            def.heading.trim().isEmpty ? '(Heading hidden in output)' : 'Heading: ${def.heading}',
+                            !def.enabled
+                                ? 'Disabled in this template'
+                                : def.heading.trim().isEmpty
+                                    ? '(Heading hidden in output)'
+                                    : 'Heading: ${def.heading}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -159,58 +215,49 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 8),
-
-                Row(
-                  children: [
-                    const Spacer(),
-                    OutlinedButton.icon(
-                      onPressed: () => _showAddFieldDialog(context, vm),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add field'),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: fields.length,
-                  onReorder: vm.reorderFields,
-                  itemBuilder: (_, i) {
-                    final f = fields[i];
-
-                    return ListTile(
-                      key: ValueKey(f.key),
-                      title: Text(f.title),
-                      subtitle: Text(f.isSystem ? 'System field' : 'Custom field'),
-                      leading: const Icon(Icons.drag_handle),
-                      trailing: Wrap(
-                        spacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 180),
+                  crossFadeState: def.enabled ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+                  firstChild: Column(
+                    children: [
+                      const SizedBox(height: 12),
+                      Row(
                         children: [
-                          Checkbox(
-                            value: f.required,
-                            onChanged: (v) => vm.toggleRequired(f.key, v ?? false),
+                          Text(
+                            'Columns',
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
-                          IconButton(
-                            tooltip: 'Rename',
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _renameDialog(context, vm, f.key, f.title),
+                          const Spacer(),
+                          SegmentedButton<int>(
+                            segments: const [
+                              ButtonSegment(value: 1, label: Text('1 col')),
+                              ButtonSegment(value: 2, label: Text('2 col')),
+                            ],
+                            selected: {def.columns},
+                            onSelectionChanged: (s) => vm.setSubjectInfoColumns(s.first),
                           ),
-                          if (!f.isSystem)
-                            IconButton(
-                              tooltip: 'Delete',
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () => vm.removeField(f.key),
-                            ),
                         ],
                       ),
-                    );
-                  },
+                      const SizedBox(height: 12),
+                      fieldsBody,
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showAddFieldDialog(context, vm),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add field'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  secondChild: const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Subject info is disabled for this template.'),
+                    ),
+                  ),
                 ),
               ],
             ),
