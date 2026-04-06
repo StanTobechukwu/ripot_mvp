@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import '../domain/models/letterhead_template.dart';
 import '../domain/models/report_doc.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/pdf_renderer_service.dart';
+import '../../../core/web/file_download.dart';
 import '../data/letterhead_repository.dart';
 import '../data/reports_repository.dart';
 import '../ui/letterhead_editor_screen.dart';
@@ -345,6 +347,22 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             icon: const Icon(Icons.tune),
             onPressed: _openLayoutSheet,
           ),
+          if (kIsWeb)
+            IconButton(
+              tooltip: 'Download PDF',
+              icon: const Icon(Icons.download_outlined),
+              onPressed: () async {
+                final bytes = await _buildBytes();
+                if (!mounted) return;
+                final reportsRepo = context.read<ReportsRepository>();
+                final pdfFileName = reportsRepo.pdfFileNameForDoc(context.read<ReportEditorProvider>().doc);
+                await downloadBytes(bytes: bytes, fileName: pdfFileName);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('PDF downloaded: $pdfFileName')),
+                );
+              },
+            ),
           IconButton(
             icon: _saving
                 ? const SizedBox(
@@ -363,7 +381,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
           final pdfFileName = reportsRepo.pdfFileNameForDoc(vm.doc);
           return LayoutBuilder(
             builder: (context, constraints) {
-              return ConstrainedBox(
+              final isDesktopWeb = kIsWeb && constraints.maxWidth >= 900;
+              final preview = ConstrainedBox(
                 constraints: BoxConstraints.tightFor(
                   width: constraints.maxWidth,
                   height: constraints.maxHeight,
@@ -375,8 +394,25 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   build: (_) => _buildBytes(),
                   pdfFileName: pdfFileName,
                   allowPrinting: true,
-                  allowSharing: true,
+                  allowSharing: !isDesktopWeb,
                 ),
+              );
+
+              if (!isDesktopWeb) return preview;
+
+              return Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    color: const Color(0xFFF8FAFC),
+                    child: const Text(
+                      'On desktop web, use the download button in the preview toolbar, then share the PDF from your downloads.',
+                      style: TextStyle(fontSize: 12.5, color: Colors.black54),
+                    ),
+                  ),
+                  Expanded(child: preview),
+                ],
               );
             },
           );

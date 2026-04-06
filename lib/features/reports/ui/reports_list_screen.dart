@@ -68,6 +68,7 @@ class ReportsListScreen extends StatelessWidget {
     if (choice == _SavedReportOpenChoice.openPdf) {
       final repo = context.read<ReportsRepository>();
       final pdfBytes = await repo.loadPdfBytesForReport(report.reportId);
+      final pdfFileName = await repo.pdfFileNameForReport(report.reportId) ?? '${report.title}.pdf';
       if (!context.mounted) return;
 
       if (pdfBytes != null && pdfBytes.isNotEmpty) {
@@ -76,6 +77,7 @@ class ReportsListScreen extends StatelessWidget {
           MaterialPageRoute(
             builder: (_) => SavedPdfViewerScreen(
               title: report.title,
+              pdfFileName: pdfFileName,
               pdfBytesFuture: Future.value(pdfBytes),
             ),
           ),

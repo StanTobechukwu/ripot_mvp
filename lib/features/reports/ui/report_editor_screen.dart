@@ -96,6 +96,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   static const _bigGap = 16.0;
 
   late final VoidCallback _focusManagerListener;
+  DateTime? _lastEditorFocusChangeAt;
+  bool _lastKnownAnyEditorFieldFocused = false;
 
  @override
 void initState() {
@@ -121,6 +123,11 @@ void initState() {
         _credentialsF.hasFocus ||
         _subjectFocus.values.any((f) => f.hasFocus) ||
         _contentFocus.values.any((f) => f.hasFocus);
+
+    if (anyFocused != _lastKnownAnyEditorFieldFocused) {
+      _lastEditorFocusChangeAt = DateTime.now();
+      _lastKnownAnyEditorFieldFocused = anyFocused;
+    }
 
     if (anyFocused && _actionsVisibleForSectionId != null) {
       _actionsVisibleForSectionId = null;
@@ -188,6 +195,15 @@ void initState() {
 
   return false;
 }
+
+  bool get _shouldTreatFabTapAsDismissOnly {
+    if (_isAnyEditorFieldFocused) return true;
+    final changedAt = _lastEditorFocusChangeAt;
+    if (changedAt == null) return false;
+    if (_lastKnownAnyEditorFieldFocused) return true;
+    final ms = DateTime.now().difference(changedAt).inMilliseconds;
+    return ms >= 0 && ms < 400;
+  }
 
   // =========================================================
   // ✅ Run provider mutations AFTER routes/sheets/dialogs close
@@ -988,7 +1004,7 @@ _disposeLater(titleC);
 floatingActionButton: _editorMode
     ? FloatingActionButton(
           onPressed: () async {
-           if (_isAnyEditorFieldFocused) {
+           if (_shouldTreatFabTapAsDismissOnly) {
   setState(() {
     _actionsVisibleForSectionId = null;
   });
