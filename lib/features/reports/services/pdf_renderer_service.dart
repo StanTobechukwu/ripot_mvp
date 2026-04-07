@@ -1624,21 +1624,15 @@ class PdfRendererService {
     const gap = 10.0;
     const cellHeight = 160.0;
 
-    pw.Widget cell(pw.MemoryImage? img) {
+    pw.Widget cell(pw.MemoryImage img) {
       return pw.Container(
         height: cellHeight,
         decoration: pw.BoxDecoration(
           border: pw.Border.all(width: 0.6, color: PdfColors.grey400),
           borderRadius: pw.BorderRadius.circular(10),
         ),
-        padding: const pw.EdgeInsets.all(4),
-        child: img == null
-            ? pw.SizedBox()
-            : pw.ClipRRect(
-                horizontalRadius: 10,
-                verticalRadius: 10,
-                child: pw.Image(img, fit: pw.BoxFit.cover),
-              ),
+       // clipBehavior: pw.Clip.antiAlias,
+        child: pw.Image(img, fit: pw.BoxFit.cover),
       );
     }
 
@@ -1655,7 +1649,9 @@ class PdfRendererService {
           children: [
             pw.Expanded(child: cell(left)),
             pw.SizedBox(width: gap),
-            pw.Expanded(child: cell(right)),
+            pw.Expanded(
+              child: right == null ? pw.SizedBox() : cell(right),
+            ),
           ],
         ),
       );

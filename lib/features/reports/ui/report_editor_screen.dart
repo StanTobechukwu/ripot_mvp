@@ -926,7 +926,9 @@ _disposeLater(titleC);
                   selected: {_editorMode ? 'editor' : 'form'},
                   onSelectionChanged: (s) {
                     final choice = s.first;
-                    setState(() => _editorMode = choice == 'editor');
+                    final wantsEditor = choice == 'editor';
+                    if (wantsEditor == _editorMode) return;
+                    _toggleMode(vm);
                   },
                 ),
               ),
