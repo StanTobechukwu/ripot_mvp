@@ -1622,7 +1622,7 @@ class PdfRendererService {
     final slots = metrics.attachmentImagesPerPage;
     const cols = 2;
     const gap = 10.0;
-    const cellHeight = 160.0;
+    const cellHeight = 190.0;
 
     pw.Widget cell(pw.MemoryImage img) {
       return pw.Container(
@@ -1644,15 +1644,18 @@ class PdfRendererService {
       final right = (i + 1 < visible.length) ? visible[i + 1] : null;
 
       rows.add(
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(child: cell(left)),
-            pw.SizedBox(width: gap),
-            pw.Expanded(
-              child: right == null ? pw.SizedBox() : cell(right),
-            ),
-          ],
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 10),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(child: cell(left)),
+              pw.SizedBox(width: gap),
+              pw.Expanded(
+                child: right == null ? pw.SizedBox() : cell(right),
+              ),
+            ],
+          ),
         ),
       );
 
