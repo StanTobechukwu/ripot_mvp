@@ -858,6 +858,23 @@ void setSubjectInfoHeading(String heading) {
     _commit(); // ✅ prune + notify
   }
 
+
+  void collapseAllSections() {
+    SectionNode walk(SectionNode s) => s.copyWith(
+          collapsed: true,
+          children: s.children.map((n) {
+            if (n is SectionNode) return walk(n);
+            return n;
+          }).toList(growable: false),
+        );
+
+    _doc = _doc.copyWith(
+      roots: _doc.roots.map(walk).toList(growable: false),
+      updatedAtIso: nowIso(),
+    );
+    _commit();
+  }
+
   // =========================
   // Tree helpers
   // =========================

@@ -442,11 +442,18 @@ void initState() {
   void _toggleMode(ReportEditorProvider vm) {
     _unfocusNow();
     final goingToFormMode = _editorMode == true;
+    final goingToEditorMode = _editorMode == false;
+
     if (goingToFormMode) {
       vm.ensureFormReady();
       vm.clearSelection();
       _schedulePruneControllers(vm);
+    } else if (goingToEditorMode) {
+      vm.clearSelection();
+      vm.collapseAllSections();
+      _schedulePruneControllers(vm);
     }
+
     setState(() => _editorMode = !_editorMode);
   }
 
