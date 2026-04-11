@@ -37,6 +37,7 @@ class ReportCodec {
             .map((i) => {
                   'id': i.id,
                   'filePath': i.filePath,
+                  'label': i.label,
                 })
             .toList(),
 
@@ -110,6 +111,7 @@ class ReportCodec {
           return ImageAttachment(
             id: (m['id'] as String?) ?? '',
             filePath: (m['filePath'] as String?) ?? '',
+            label: (m['label'] as String?) ?? '',
           );
         })
         .where((img) => img.id.isNotEmpty && img.filePath.isNotEmpty)

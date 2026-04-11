@@ -26,7 +26,7 @@ class PdfLayoutMetrics {
     this.maxPage1InlineSlots = 4,
     this.maxSpillInlineSlots = 4,
     this.maxTotalInlineImages = 8,
-    this.attachmentImagesPerPage = 8,
+    this.attachmentImagesPerPage = 6,
   });
 
   double get usableHeight =>

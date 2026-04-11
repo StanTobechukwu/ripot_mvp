@@ -94,7 +94,7 @@ class ReportDoc {
         subjectInfo = subjectInfo ?? const SubjectInfoValues({});
 
   int get maxImages =>
-      placementChoice == ImagePlacementChoice.inlinePage1 ? 12 : 8;
+      placementChoice == ImagePlacementChoice.inlinePage1 ? 12 : 12;
 
   ReportDoc copyWith({
     String? createdAtIso,
@@ -146,11 +146,25 @@ class ReportDoc {
 class ImageAttachment {
   final String id;
   final String filePath;
+  final String label;
 
   const ImageAttachment({
     required this.id,
     required this.filePath,
+    this.label = '',
   });
+
+  ImageAttachment copyWith({
+    String? id,
+    String? filePath,
+    String? label,
+  }) {
+    return ImageAttachment(
+      id: id ?? this.id,
+      filePath: filePath ?? this.filePath,
+      label: label ?? this.label,
+    );
+  }
 }
 
 const Object _unsetSignaturePath = Object();

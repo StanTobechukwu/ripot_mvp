@@ -1885,7 +1885,7 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
         title: const Text('Images'),
         subtitle: Text(
           'Selected: ${vm.doc.images.length} • '
-          'Mode: ${vm.doc.placementChoice == ImagePlacementChoice.inlinePage1 ? "Inline enabled (max 12)" : "Attachments only (max 8)"}',
+          'Mode: ${vm.doc.placementChoice == ImagePlacementChoice.inlinePage1 ? "Inline enabled (up to 12 total)" : "Attachments only (6 per page)"}',
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _openImagesManager(context, vm),
@@ -2386,7 +2386,7 @@ class _ImagesManagerState extends State<_ImagesManager> {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Max images in this mode: ${vm.doc.maxImages}'),
+            child: Text(vm.doc.placementChoice == ImagePlacementChoice.attachmentsOnly ? '6 images per attachment page' : 'Max images in this mode: ${vm.doc.maxImages}'),
           ),
           const SizedBox(height: 12),
           Padding(
@@ -2457,13 +2457,46 @@ class _ImagesManagerState extends State<_ImagesManager> {
                     final img = vm.doc.images[i];
                     return Stack(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: RefImage(
-                            img.filePath,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: RefImage(
+                              img.filePath,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                            ),
+                          ),
+                        ),
+                        if (img.label.trim().isNotEmpty)
+                          Positioned(
+                            left: 6,
+                            right: 38,
+                            bottom: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.55),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                img.label.trim(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white, fontSize: 11),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          left: 4,
+                          top: 4,
+                          child: IconButton.filledTonal(
+                            style: IconButton.styleFrom(
+                              padding: const EdgeInsets.all(6),
+                              minimumSize: const Size(32, 32),
+                            ),
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            onPressed: () => _editImageLabel(context, vm, img),
                           ),
                         ),
                         Positioned(
@@ -2500,4 +2533,50 @@ class _ImagesManagerState extends State<_ImagesManager> {
       ),
     );
   }
+  Future<void> _editImageLabel(
+    BuildContext context,
+    ReportEditorProvider vm,
+    ImageAttachment img,
+  ) async {
+    final controller = TextEditingController(text: img.label);
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Image label'),
+        content: TextField(
+          controller: controller,
+          maxLength: 25,
+          decoration: const InputDecoration(
+            labelText: 'Optional label',
+            hintText: 'e.g. Sigmoid polyp',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    final text = controller.text.trim();
+    controller.dispose();
+    if (result == true) {
+      try {
+        vm.updateImageLabel(img.id, text);
+        if (mounted) setState(() {});
+      } catch (e) {
+        _showErr(e);
+      }
+    }
+  }
+
+
 }

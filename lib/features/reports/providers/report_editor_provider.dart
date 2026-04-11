@@ -760,7 +760,7 @@ void setSubjectInfoHeading(String heading) {
     }
 
     final newImgs =
-        clean.map((p) => ImageAttachment(id: _id('img'), filePath: p)).toList();
+        clean.map((p) => ImageAttachment(id: _id('img'), filePath: p, label: '')).toList();
 
     _doc = _doc.copyWith(
       images: [..._doc.images, ...newImgs],
@@ -776,6 +776,21 @@ void setSubjectInfoHeading(String heading) {
     );
     notifyListeners();
   }
+
+  void updateImageLabel(String imageId, String label) {
+    final safe = label.trim();
+    if (safe.length > 25) {
+      throw Exception('Image label cannot exceed 25 characters.');
+    }
+    _doc = _doc.copyWith(
+      images: _doc.images
+          .map((i) => i.id == imageId ? i.copyWith(label: safe) : i)
+          .toList(),
+      updatedAtIso: nowIso(),
+    );
+    notifyListeners();
+  }
+
 
   void updateSigner({String? roleTitle, String? name, String? credentials}) {
     _doc = _doc.copyWith(

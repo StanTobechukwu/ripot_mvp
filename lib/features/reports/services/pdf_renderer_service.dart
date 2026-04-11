@@ -50,14 +50,14 @@ class PdfRendererService {
     final titleText = plan.title.trim();
     final bool showTitle = titleText.isNotEmpty;
 
-    final inlinePageOneImgs = await _loadImages(
-      plan.pageOne.inlineImages.map((e) => e.filePath).toList(),
+    final inlinePageOneImgs = await _loadLabeledImages(
+      plan.pageOne.inlineImages,
     );
-    final spillInlineImgs = await _loadImages(
-      plan.finalContent.spillInlineImages.map((e) => e.filePath).toList(),
+    final spillInlineImgs = await _loadLabeledImages(
+      plan.finalContent.spillInlineImages,
     );
-    final attachmentImgs = await _loadImages(
-      plan.attachmentPages.expand((p) => p.images).map((e) => e.filePath).toList(),
+    final attachmentImgs = await _loadLabeledImages(
+      plan.attachmentPages.expand((p) => p.images).toList(),
     );
 
     final signatureImg = await _loadSingle(doc.signature.signatureFilePath);
@@ -78,7 +78,7 @@ class PdfRendererService {
 
     final useSpecialPageOne = plan.inlineEnabled && page1InlineImages.isNotEmpty;
 
-    final continuedInline = <pw.MemoryImage>[
+    final continuedInline = <_PdfLoadedImage>[
       ...inlinePageOneImgs.skip(metrics.maxPage1InlineSlots),
       ...spillInlineImgs,
     ];
@@ -358,7 +358,7 @@ class PdfRendererService {
     );
     }
 
-    final allAttachmentImgs = <pw.MemoryImage>[
+    final allAttachmentImgs = <_PdfLoadedImage>[
       ...overflowInlineToAttachments,
       ...attachmentImgs,
     ];
@@ -643,7 +643,7 @@ class PdfRendererService {
   }
 
   pw.Widget _inlineImagesFlowBlock(
-    List<pw.MemoryImage> images, {
+    List<_PdfLoadedImage> images, {
     required String heading,
     required double fontScale,
     required PdfLayoutMetrics metrics,
@@ -681,33 +681,42 @@ class PdfRendererService {
       }
     }
 
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(12),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey300),
-        borderRadius: pw.BorderRadius.circular(12),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: rows,
-      ),
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: rows,
     );
   }
 
   pw.Widget _inlineImageCell(
-    pw.MemoryImage image, {
+    _PdfLoadedImage entry, {
     required PdfLayoutMetrics metrics,
   }) {
-    return pw.Container(
+    return pw.SizedBox(
       height: metrics.inlineSlotHeight,
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey300),
-        borderRadius: pw.BorderRadius.circular(12),
-      ),
-      child: pw.ClipRRect(
-        horizontalRadius: 12,
-        verticalRadius: 12,
-        child: pw.Image(image, fit: pw.BoxFit.cover),
+      child: pw.Stack(
+        children: [
+          pw.Positioned.fill(
+            child: pw.ClipRRect(
+              horizontalRadius: 12,
+              verticalRadius: 12,
+              child: pw.Image(entry.image, fit: pw.BoxFit.cover),
+            ),
+          ),
+          if (entry.label.trim().isNotEmpty)
+            pw.Positioned(
+              left: 28,
+              bottom: 18,
+              child: pw.Text(
+                entry.label.trim(),
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+                style: const pw.TextStyle(
+                  color: PdfColors.white,
+                  fontSize: 9,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1576,8 +1585,9 @@ class PdfRendererService {
     );
   }
 
+
   pw.Widget _inlineColumnFixed(
-    List<pw.MemoryImage> images, {
+    List<_PdfLoadedImage> images, {
     required double fontScale,
     required PdfLayoutMetrics metrics,
   }) {
@@ -1586,17 +1596,33 @@ class PdfRendererService {
     final slotH = metrics.inlineSlotHeight * fontScale;
     final gap = metrics.inlineSlotGap * fontScale;
 
-    pw.Widget slot(pw.MemoryImage img) {
-      return pw.Container(
+    pw.Widget slot(_PdfLoadedImage entry) {
+      return pw.SizedBox(
         height: slotH,
-        decoration: pw.BoxDecoration(
-          border: pw.Border.all(color: PdfColors.grey300),
-          borderRadius: pw.BorderRadius.circular(12),
-        ),
-        child: pw.ClipRRect(
-          horizontalRadius: 12,
-          verticalRadius: 12,
-          child: pw.Image(img, fit: pw.BoxFit.cover),
+        child: pw.Stack(
+          children: [
+            pw.Positioned.fill(
+              child: pw.ClipRRect(
+                horizontalRadius: 12,
+                verticalRadius: 12,
+                child: pw.Image(entry.image, fit: pw.BoxFit.cover),
+              ),
+            ),
+            if (entry.label.trim().isNotEmpty)
+              pw.Positioned(
+                left: 18,
+                bottom: 8,
+                child: pw.Text(
+                  entry.label.trim(),
+                  maxLines: 1,
+                  overflow: pw.TextOverflow.clip,
+                  style: const pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+          ],
         ),
       );
     }
@@ -1616,7 +1642,7 @@ class PdfRendererService {
   }
 
   pw.Widget _attachmentsGridFixed(
-    List<pw.MemoryImage> images, {
+    List<_PdfLoadedImage> images, {
     required PdfLayoutMetrics metrics,
   }) {
     final slots = metrics.attachmentImagesPerPage;
@@ -1624,15 +1650,30 @@ class PdfRendererService {
     const gap = 10.0;
     const cellHeight = 190.0;
 
-    pw.Widget cell(pw.MemoryImage img) {
-      return pw.Container(
+    pw.Widget cell(_PdfLoadedImage entry) {
+      return pw.SizedBox(
         height: cellHeight,
-        decoration: pw.BoxDecoration(
-          border: pw.Border.all(width: 0.6, color: PdfColors.grey400),
-          borderRadius: pw.BorderRadius.circular(10),
+        child: pw.Stack(
+          children: [
+            pw.Positioned.fill(
+              child: pw.Image(entry.image, fit: pw.BoxFit.cover),
+            ),
+            if (entry.label.trim().isNotEmpty)
+              pw.Positioned(
+                left: 28,
+                bottom: 8,
+                child: pw.Text(
+                  entry.label.trim(),
+                  maxLines: 1,
+                  overflow: pw.TextOverflow.clip,
+                  style: const pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+          ],
         ),
-       // clipBehavior: pw.Clip.antiAlias,
-        child: pw.Image(img, fit: pw.BoxFit.cover),
       );
     }
 
@@ -1670,11 +1711,13 @@ class PdfRendererService {
     );
   }
 
-  Future<List<pw.MemoryImage>> _loadImages(List<String> paths) async {
-    final out = <pw.MemoryImage>[];
-    for (final p in paths) {
-      final img = await _loadSingle(p);
-      if (img != null) out.add(img);
+  Future<List<_PdfLoadedImage>> _loadLabeledImages(
+    List<ImageAttachment> attachments,
+  ) async {
+    final out = <_PdfLoadedImage>[];
+    for (final a in attachments) {
+      final img = await _loadSingle(a.filePath);
+      if (img != null) out.add(_PdfLoadedImage(image: img, label: a.label));
     }
     return out;
   }
@@ -1685,6 +1728,16 @@ class PdfRendererService {
     if (bytes == null || bytes.isEmpty) return null;
     return pw.MemoryImage(bytes);
   }
+}
+
+class _PdfLoadedImage {
+  const _PdfLoadedImage({
+    required this.image,
+    required this.label,
+  });
+
+  final pw.MemoryImage image;
+  final String label;
 }
 
 class _PdfEntry {
