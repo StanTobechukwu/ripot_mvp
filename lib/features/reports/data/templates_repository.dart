@@ -1,8 +1,12 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../access/data/access_repository.dart';
 import '../domain/models/template_doc.dart';
+import '../domain/models/nodes.dart';
 import '../domain/serialization/template_codec.dart';
 
 class TemplateSummary {
@@ -18,6 +22,10 @@ class TemplateSummary {
 }
 
 class TemplatesRepository {
+  TemplatesRepository({AccessRepository? accessRepository})
+      : _accessRepository = accessRepository ?? AccessRepository();
+
+  final AccessRepository _accessRepository;
   static const _indexKey = 'templates.index';
   static const _prefix = 'templates.doc.';
 
@@ -41,6 +49,7 @@ class TemplatesRepository {
     ids.remove(t.templateId);
     ids.insert(0, t.templateId);
     await _writeIndex(ids);
+    await _syncStructureOnlyTemplate(t);
   }
 
   Future<TemplateDoc> loadTemplate(String templateId) async {
@@ -58,6 +67,7 @@ class TemplatesRepository {
     final ids = await _readIndex();
     ids.remove(templateId);
     await _writeIndex(ids);
+    await _deleteRemoteTemplate(templateId);
   }
 
   Future<List<TemplateSummary>> listTemplates() async {
@@ -80,5 +90,44 @@ class TemplatesRepository {
     }
     out.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return out;
+  }
+
+  Future<void> _syncStructureOnlyTemplate(TemplateDoc t) async {
+    if (Firebase.apps.isEmpty) return;
+    try {
+      final access = await _accessRepository.load();
+      if (!access.isPremiumLike) return;
+
+      final structureOnly = t.copyWith(
+        roots: t.roots.map((r) => r.toTemplateNode(includeContent: false)).toList(growable: false),
+      );
+      await FirebaseFirestore.instance
+          .collection('ripot_template_structures')
+          .doc('${access.installationId}_${t.templateId}')
+          .set(
+        {
+          ...TemplateCodec.templateToJson(structureOnly),
+          'templateId': t.templateId,
+          'ownerInstallationId': access.installationId,
+          'planAtSync': access.plan.name,
+          'isStructureOnly': true,
+          'syncedAtIso': DateTime.now().toIso8601String(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      // Cloud sync must not break local template saving.
+    }
+  }
+
+  Future<void> _deleteRemoteTemplate(String templateId) async {
+    if (Firebase.apps.isEmpty) return;
+    try {
+      final access = await _accessRepository.load();
+      await FirebaseFirestore.instance
+          .collection('ripot_template_structures')
+          .doc('${access.installationId}_$templateId')
+          .delete();
+    } catch (_) {}
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'features/reports/data/letterhead_repository.dart';
+import 'features/access/data/access_repository.dart';
+import 'features/access/providers/access_provider.dart';
 
 import 'features/reports/data/reports_repository.dart';
 import 'features/reports/data/templates_repository.dart';
@@ -15,15 +17,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reportsRepo = ReportsRepository();
-    final templatesRepo = TemplatesRepository();
+    final accessRepo = AccessRepository();
+    final templatesRepo = TemplatesRepository(accessRepository: accessRepo);
     final letterheadsRepo = LetterheadsRepository();
-
 
     return MultiProvider(
       providers: [
         Provider.value(value: reportsRepo),
         Provider.value(value: templatesRepo),
         Provider.value(value: letterheadsRepo),
+        Provider.value(value: accessRepo),
 
         ChangeNotifierProvider(
           create: (_) => ReportEditorProvider(
@@ -36,6 +39,9 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => TemplateListProvider(repo: templatesRepo)..load(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AccessProvider(repo: accessRepo)..load(),
         ),
       ],
       child: MaterialApp(

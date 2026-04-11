@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../data/reports_repository.dart';
 import '../providers/report_editor_provider.dart';
 import '../providers/reports_list_provider.dart';
+import '../../access/providers/access_provider.dart';
+import '../../access/ui/upgrade_screen.dart';
 import 'report_editor_screen.dart';
 import 'saved_pdf_viewer_screen.dart';
 import 'template_list_screen.dart';
@@ -99,11 +101,18 @@ class ReportsListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final listVm = context.watch<ReportsListProvider>();
+    final access = context.watch<AccessProvider>().safeState;
 
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('My Reports'),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('My Reports'),
+            Text(access.badgeLabel, style: Theme.of(context).textTheme.labelSmall),
+          ],
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 4),
@@ -123,6 +132,16 @@ class ReportsListScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const TemplatesListScreen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.workspace_premium_outlined),
+                  tooltip: 'Ripot Premium',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const UpgradeScreen()),
                     );
                   },
                 ),

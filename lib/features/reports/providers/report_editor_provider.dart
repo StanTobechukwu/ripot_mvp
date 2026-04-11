@@ -425,6 +425,10 @@ void setSubjectInfoHeading(String heading) {
 
   String _id(String prefix) => newId(prefix);
 
+  TitleStyle _defaultTitleStyleForIndent(int indent) {
+    return TitleStyle(bold: indent == 0);
+  }
+
   // =========================
   // Tree: Global Add (structure)
   // =========================
@@ -433,7 +437,12 @@ void setSubjectInfoHeading(String heading) {
     final t = title.trim();
     if (t.isEmpty) return;
 
-    final sec = SectionNode(id: _id('sec'), title: t, indent: 0);
+    final sec = SectionNode(
+      id: _id('sec'),
+      title: t,
+      indent: 0,
+      style: _defaultTitleStyleForIndent(0),
+    );
 
     _doc = _doc.copyWith(
       roots: [..._doc.roots, sec],
@@ -454,7 +463,12 @@ void setSubjectInfoHeading(String heading) {
 
     final targetSection = _findNodeById(_doc.roots, effectiveTargetId);
     final indent = targetSection is SectionNode ? targetSection.indent : 0;
-    final newSec = SectionNode(id: _id('sec'), title: t, indent: indent);
+    final newSec = SectionNode(
+      id: _id('sec'),
+      title: t,
+      indent: indent,
+      style: _defaultTitleStyleForIndent(indent),
+    );
 
     final nextRoots = _appendSameLevelSibling(_doc.roots, effectiveTargetId, newSec);
     _doc = _doc.copyWith(roots: nextRoots, updatedAtIso: nowIso());
@@ -477,7 +491,7 @@ void setSubjectInfoHeading(String heading) {
       indent: node.indent,
       children: [wrappedChild],
       collapsed: false,
-      style: node.style,
+      style: _defaultTitleStyleForIndent(node.indent),
     );
 
     final nextRoots = _replaceNode(_doc.roots, targetId, wrapper);
@@ -507,10 +521,12 @@ void setSubjectInfoHeading(String heading) {
     final selected = _findNodeById(_doc.roots, targetId);
     if (selected is! SectionNode) return;
 
+    final nextIndent = selected.indent + 1;
     final newSec = SectionNode(
       id: _id('sec'),
       title: t,
-      indent: selected.indent + 1,
+      indent: nextIndent,
+      style: _defaultTitleStyleForIndent(nextIndent),
     );
 
     _doc = _doc.copyWith(

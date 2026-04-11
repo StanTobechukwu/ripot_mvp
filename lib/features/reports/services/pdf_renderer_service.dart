@@ -29,6 +29,7 @@ class PdfRendererService {
     required ReportDoc doc,
     required PdfPlan plan,
     LetterheadTemplate? letterhead,
+    bool showRipotBranding = true,
   }) async {
     final double fontScale = doc.fontScale;
     final double contentFontSize = 11.5 * fontScale;
@@ -162,7 +163,7 @@ class PdfRendererService {
             }
             if (attachmentImgs.isEmpty && showSignatureOnContinuedPage) {
               if (footerWidgets.isNotEmpty) footerWidgets.add(pw.SizedBox(height: 4));
-              footerWidgets.add(_ripotBranding());
+              if (showRipotBranding) footerWidgets.add(_ripotBranding());
             }
 
             return pw.Column(
@@ -244,7 +245,7 @@ class PdfRendererService {
             }
             if (attachmentImgs.isEmpty && showSignatureOnContinuedPage) {
               if (footerWidgets.isNotEmpty) footerWidgets.add(pw.SizedBox(height: 4));
-              footerWidgets.add(_ripotBranding());
+              if (showRipotBranding) footerWidgets.add(_ripotBranding());
             }
 
             return pw.Column(
@@ -344,7 +345,7 @@ class PdfRendererService {
               context.pageNumber == context.pagesCount;
           if (showBranding) {
             if (footerParts.isNotEmpty) footerParts.add(pw.SizedBox(height: 4));
-            footerParts.add(_ripotBranding());
+            if (showRipotBranding) footerParts.add(_ripotBranding());
           }
           if (footerParts.isEmpty) return pw.SizedBox();
           return pw.Column(
@@ -380,7 +381,7 @@ class PdfRendererService {
               }
               if (isLastAttachmentPage) {
                 if (footerChildren.isNotEmpty) footerChildren.add(pw.SizedBox(height: 4));
-                footerChildren.add(_ripotBranding());
+                if (showRipotBranding) footerChildren.add(_ripotBranding());
               }
 
               return pw.Column(
@@ -486,10 +487,9 @@ class PdfRendererService {
       HeadingLevel.h4 => contentFontSize,
     };
 
-    final isStructuralHeading = sectionChildren.isNotEmpty;
     final titleStyle = pw.TextStyle(
       fontSize: titleFontSize,
-      fontWeight: (isStructuralHeading && s.style.bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
+      fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
     );
 
     final titleAlign = switch (s.style.align) {
@@ -1019,14 +1019,9 @@ class PdfRendererService {
             ),
           ),
           pw.SizedBox(height: 6),
-          if (name.isNotEmpty)
+          if (name.isNotEmpty || creds.isNotEmpty)
             pw.Text(
-              name,
-              style: pw.TextStyle(fontSize: 11 * fontScale),
-            ),
-          if (creds.isNotEmpty)
-            pw.Text(
-              creds,
+              creds.isEmpty ? name : '$name ($creds)',
               style: pw.TextStyle(fontSize: 11 * fontScale),
             ),
           pw.Text(
@@ -1284,11 +1279,9 @@ class PdfRendererService {
         HeadingLevel.h4 => contentFontSize,
       };
 
-      final isStructuralHeading = sectionChildren.isNotEmpty;
       final blockTitleStyle = pw.TextStyle(
         fontSize: blockTitleSize,
-        fontWeight:
-            (isStructuralHeading && s.style.bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
+        fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
       );
 
       final titleAlign = switch (s.style.align) {

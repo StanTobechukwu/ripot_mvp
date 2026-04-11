@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
+import '../../access/providers/access_provider.dart';
+import '../../access/ui/upgrade_screen.dart';
 import '../domain/pdf/pdf_layout_metrics.dart';
 import '../domain/pdf/pdf_plan_builder.dart';
 import '../domain/models/letterhead_template.dart';
@@ -32,10 +34,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   Future<Uint8List> _buildBytes() async {
     final vm = context.read<ReportEditorProvider>();
     final repo = context.read<LetterheadsRepository>();
+    final access = context.read<AccessProvider>().safeState;
 
     LetterheadTemplate? letterhead;
 
-    if (vm.doc.applyLetterhead && vm.doc.letterheadId != null) {
+    if (access.canUseLetterhead && vm.doc.applyLetterhead && vm.doc.letterheadId != null) {
       letterhead = await repo.loadLetterhead(vm.doc.letterheadId!);
     }
 
@@ -49,6 +52,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       doc: vm.doc,
       plan: plan,
       letterhead: letterhead,
+      showRipotBranding: !access.canRemoveBranding,
     );
   }
 
@@ -63,6 +67,28 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (_saving) return;
 
     final vm = context.read<ReportEditorProvider>();
+    final reportsRepo = context.read<ReportsRepository>();
+    final access = context.read<AccessProvider>().safeState;
+    final currentReports = await reportsRepo.listReports();
+    final isExisting = currentReports.any((r) => r.reportId == vm.doc.reportId);
+    if (!isExisting && currentReports.length >= access.maxSavedReports) {
+      if (!mounted) return;
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Report limit reached'),
+          content: Text('Free plan allows up to ${access.maxSavedReports} saved reports. Start a premium trial to save more.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
+          ],
+        ),
+      );
+      if (open == true && mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+      }
+      return;
+    }
 
     setState(() => _saving = true);
 
@@ -86,6 +112,26 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   }
 
   Future<void> _openLetterheadSheet() async {
+    final access = context.read<AccessProvider>().safeState;
+    if (!access.canUseLetterhead) {
+      if (!mounted) return;
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Premium feature'),
+          content: const Text('Custom letterhead is available in Premium Trial and Premium.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
+          ],
+        ),
+      );
+      if (open == true && mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+      }
+      return;
+    }
+
     final vm = context.read<ReportEditorProvider>();
     final repo = context.read<LetterheadsRepository>();
 

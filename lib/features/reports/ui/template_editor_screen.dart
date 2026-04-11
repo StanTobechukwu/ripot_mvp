@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../access/providers/access_provider.dart';
+import '../../access/ui/upgrade_screen.dart';
 import '../data/templates_repository.dart';
 import '../domain/models/nodes.dart';
 import '../domain/models/template_doc.dart';
@@ -40,6 +42,27 @@ class _TemplateEditorBody extends StatelessWidget {
   Future<void> _save(BuildContext context) async {
     final repo = context.read<TemplatesRepository>();
     final vm = context.read<TemplateEditorProvider>();
+    final access = context.read<AccessProvider>().safeState;
+    final templates = await repo.listTemplates();
+    final isExisting = templates.any((t) => t.templateId == vm.template.templateId);
+    if (!isExisting && templates.length >= access.maxSavedTemplates) {
+      if (!context.mounted) return;
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Template limit reached'),
+          content: Text('Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
+          ],
+        ),
+      );
+      if (open == true && context.mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+      }
+      return;
+    }
     final doc = vm.buildForSave(name: vm.template.name, includeContent: false);
     await repo.saveTemplate(doc);
     if (!context.mounted) return;
