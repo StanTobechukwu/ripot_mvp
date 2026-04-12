@@ -55,4 +55,9 @@ class AccessProvider extends ChangeNotifier {
     _state = await repo.load();
     notifyListeners();
   }
+
+  Future<void> migrateCloudIdentityToSignedInUser() async {
+    await repo.migrateCloudIdentityToSignedInUser();
+    await refresh();
+  }
 }

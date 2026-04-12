@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/firebase/sync_identity.dart';
 import '../../access/data/access_repository.dart';
 import '../domain/models/template_doc.dart';
 import '../domain/models/nodes.dart';
@@ -101,14 +102,18 @@ class TemplatesRepository {
       final structureOnly = t.copyWith(
         roots: t.roots.map((r) => r.toTemplateNode(includeContent: false)).toList(growable: false),
       );
+      final identity = await SyncIdentityResolver().resolve();
       await FirebaseFirestore.instance
           .collection('ripot_template_structures')
-          .doc('${access.installationId}_${t.templateId}')
+          .doc('${identity.documentKey}_${t.templateId}')
           .set(
         {
           ...TemplateCodec.templateToJson(structureOnly),
           'templateId': t.templateId,
-          'ownerInstallationId': access.installationId,
+          'ownerType': identity.ownerType,
+          'ownerId': identity.ownerId,
+          'ownerInstallationId': identity.installationId,
+          'authUid': identity.authUid,
           'planAtSync': access.plan.name,
           'isStructureOnly': true,
           'syncedAtIso': DateTime.now().toIso8601String(),
@@ -123,11 +128,49 @@ class TemplatesRepository {
   Future<void> _deleteRemoteTemplate(String templateId) async {
     if (Firebase.apps.isEmpty) return;
     try {
-      final access = await _accessRepository.load();
+      final identity = await SyncIdentityResolver().resolve();
       await FirebaseFirestore.instance
           .collection('ripot_template_structures')
-          .doc('${access.installationId}_$templateId')
+          .doc('${identity.documentKey}_$templateId')
           .delete();
     } catch (_) {}
+  }
+
+  Future<void> migrateCloudTemplatesToSignedInUser() async {
+    if (Firebase.apps.isEmpty) return;
+    try {
+      final identity = await SyncIdentityResolver().resolve();
+      if (!identity.isSignedInUser || identity.authUid == null) return;
+
+      final query = await FirebaseFirestore.instance
+          .collection('ripot_template_structures')
+          .where('ownerType', isEqualTo: 'local')
+          .where('ownerInstallationId', isEqualTo: identity.installationId)
+          .get();
+
+      for (final doc in query.docs) {
+        final data = doc.data();
+        final templateId = data['templateId'] as String?;
+        if (templateId == null || templateId.trim().isEmpty) continue;
+
+        await FirebaseFirestore.instance
+            .collection('ripot_template_structures')
+            .doc('${identity.authUid}_$templateId')
+            .set(
+          {
+            ...data,
+            'ownerType': 'user',
+            'ownerId': identity.authUid,
+            'authUid': identity.authUid,
+            'ownerInstallationId': identity.installationId,
+            'migratedFromInstallationId': identity.installationId,
+            'migratedAtIso': DateTime.now().toIso8601String(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+    } catch (_) {
+      // Never block template usage on migration attempts.
+    }
   }
 }

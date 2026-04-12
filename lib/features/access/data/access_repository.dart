@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/firebase/sync_identity.dart';
 import '../../../core/utils/ids.dart';
 import '../domain/access_state.dart';
 
@@ -62,13 +63,49 @@ class AccessRepository {
   Future<void> _syncToFirestore(AccessState state) async {
     if (Firebase.apps.isEmpty) return;
     try {
+      final identity = await SyncIdentityResolver().resolve();
       final db = FirebaseFirestore.instance;
-      await db.collection('ripot_user_access').doc(state.installationId).set(
-        state.toJson(),
+      await db.collection('ripot_user_access').doc(identity.documentKey).set(
+        {
+          ...state.toJson(),
+          'ownerType': identity.ownerType,
+          'ownerId': identity.ownerId,
+          'authUid': identity.authUid,
+          'lastSyncedAtIso': DateTime.now().toIso8601String(),
+        },
         SetOptions(merge: true),
       );
     } catch (_) {
       // Stability first: never fail local save because cloud sync is unavailable.
     }
   }
+
+  Future<void> migrateCloudIdentityToSignedInUser() async {
+    if (Firebase.apps.isEmpty) return;
+    try {
+      final identity = await SyncIdentityResolver().resolve();
+      if (!identity.isSignedInUser || identity.authUid == null) return;
+
+      final localDoc = FirebaseFirestore.instance
+          .collection('ripot_user_access')
+          .doc(identity.installationId);
+      final localSnap = await localDoc.get();
+      if (!localSnap.exists) return;
+
+      final localData = localSnap.data() ?? <String, dynamic>{};
+      await FirebaseFirestore.instance.collection('ripot_user_access').doc(identity.authUid).set(
+        {
+          ...localData,
+          'ownerType': 'user',
+          'ownerId': identity.authUid,
+          'authUid': identity.authUid,
+          'installationId': identity.installationId,
+          'migratedFromInstallationId': identity.installationId,
+          'migratedAtIso': DateTime.now().toIso8601String(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {}
+  }
 }
+
