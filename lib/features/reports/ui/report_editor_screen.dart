@@ -904,47 +904,19 @@ _disposeLater(titleC);
 
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
-        title: Text(_editorMode ? 'Editor Mode' : 'Form Mode'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 340),
-                child: SegmentedButton<String>(
-                  showSelectedIcon: false,
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    padding: WidgetStateProperty.all(
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                    ),
-                  ),
-                  segments: const [
-                    ButtonSegment(
-                      value: 'editor',
-                      label: Text('Editor'),
-                      icon: Icon(Icons.edit_note_outlined, size: 16),
-                    ),
-                    ButtonSegment(
-                      value: 'form',
-                      label: Text('Form'),
-                      icon: Icon(Icons.description_outlined, size: 16),
-                    ),
-                  ],
-                  selected: {_editorMode ? 'editor' : 'form'},
-                  onSelectionChanged: (s) {
-                    final choice = s.first;
-                    final wantsEditor = choice == 'editor';
-                    if (wantsEditor == _editorMode) return;
-                    _toggleMode(vm);
-                  },
-                ),
-              ),
-            ),
-          ),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            _unfocusNow();
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          },
         ),
+        toolbarHeight: 56,
+        titleSpacing: 0,
         actions: [
           IconButton(
             tooltip: 'Save progress',
@@ -1110,6 +1082,51 @@ floatingActionButton: _editorMode
         child: ListView(
           padding: const EdgeInsets.all(_pagePad),
           children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _editorMode ? 'Editor Mode' : 'Form Mode',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 340),
+                    child: SegmentedButton<String>(
+                      showSelectedIcon: false,
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        ),
+                      ),
+                      segments: const [
+                        ButtonSegment(
+                          value: 'editor',
+                          label: Text('Editor'),
+                          icon: Icon(Icons.edit_note_outlined, size: 16),
+                        ),
+                        ButtonSegment(
+                          value: 'form',
+                          label: Text('Form'),
+                          icon: Icon(Icons.description_outlined, size: 16),
+                        ),
+                      ],
+                      selected: {_editorMode ? 'editor' : 'form'},
+                      onSelectionChanged: (s) {
+                        final choice = s.first;
+                        final wantsEditor = choice == 'editor';
+                        if (wantsEditor == _editorMode) return;
+                        _toggleMode(vm);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: _bigGap),
             _reportTitleCard(vm),
             const SizedBox(height: _bigGap),
             _subjectInfoCard(vm),

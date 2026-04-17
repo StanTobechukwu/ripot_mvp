@@ -6,6 +6,8 @@ import '../providers/report_editor_provider.dart';
 import '../providers/reports_list_provider.dart';
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/upgrade_screen.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/ui/auth_screens.dart';
 import 'report_editor_screen.dart';
 import 'saved_pdf_viewer_screen.dart';
 import 'template_list_screen.dart';
@@ -105,50 +107,64 @@ class ReportsListScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 56,
+        titleSpacing: 0,
+        title: Row(
           children: [
-            const Text('My Reports'),
-            Text(access.badgeLabel, style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(width: 12),
+            Image.asset(
+              'assets/ripot_icon.png',
+              height: 26,
+              width: 26,
+              errorBuilder: (_, __, ___) => const Icon(Icons.description_outlined),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Reload reports',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.refresh),
+              onPressed: () => listVm.refresh(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.view_list_outlined),
+              tooltip: 'Templates',
+              visualDensity: VisualDensity.compact,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TemplatesListScreen()),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.workspace_premium_outlined),
+              tooltip: 'Ripot Premium',
+              visualDensity: VisualDensity.compact,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+                );
+              },
+            ),
+            Consumer<AuthProvider>(
+              builder: (context, auth, _) => IconButton(
+                icon: Icon(
+                  auth.isSignedIn
+                      ? Icons.account_circle
+                      : Icons.account_circle_outlined,
+                ),
+                tooltip: auth.isSignedIn
+                    ? 'Account'
+                    : 'Sign in or create account',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => openAccountSheet(context),
+              ),
+            ),
+            const SizedBox(width: 4),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Reload reports',
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () => listVm.refresh(),
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Icons.view_list_outlined),
-                  tooltip: 'Templates',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TemplatesListScreen()),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.workspace_premium_outlined),
-                  tooltip: 'Ripot Premium',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -158,18 +174,41 @@ class ReportsListScreen extends StatelessWidget {
         icon: const Icon(Icons.add),
         label: const Text('New Report'),
       ),
-      body: Builder(
-        builder: (_) {
-          if (listVm.loading) return const Center(child: CircularProgressIndicator());
-          if (listVm.reports.isEmpty) {
-            return const Center(child: Text('No saved reports yet.'));
-          }
+      body: Column(
+        children: [
+          const SizedBox(height: 8),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'My Reports',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  access.badgeLabel,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Builder(
+              builder: (_) {
+                if (listVm.loading) return const Center(child: CircularProgressIndicator());
+                if (listVm.reports.isEmpty) {
+                  return const Center(child: Text('No saved reports yet.'));
+                }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: listVm.reports.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
+                return ListView.separated(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: listVm.reports.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) {
               final r = listVm.reports[i];
               final accent = r.hasPdf
                   ? Theme.of(context).colorScheme.primaryContainer
@@ -212,8 +251,11 @@ class ReportsListScreen extends StatelessWidget {
                 ),
               );
             },
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

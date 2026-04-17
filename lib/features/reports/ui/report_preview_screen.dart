@@ -380,8 +380,18 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
-        title: const Text('Preview'),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+        toolbarHeight: 56,
+        titleSpacing: 0,
         actions: [
           IconButton(
             tooltip: 'Letterhead',
@@ -444,19 +454,49 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 ),
               );
 
-              if (!isDesktopWeb) return preview;
+              final header = Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Preview',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'On desktop web, use the download button in the preview toolbar, then share the PDF from your downloads.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12.5, color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+
+              if (!isDesktopWeb) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Center(
+                        child: Text(
+                          'Preview',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: preview),
+                  ],
+                );
+              }
 
               return Column(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    color: const Color(0xFFF8FAFC),
-                    child: const Text(
-                      'On desktop web, use the download button in the preview toolbar, then share the PDF from your downloads.',
-                      style: TextStyle(fontSize: 12.5, color: Colors.black54),
-                    ),
-                  ),
+                  header,
                   Expanded(child: preview),
                 ],
               );

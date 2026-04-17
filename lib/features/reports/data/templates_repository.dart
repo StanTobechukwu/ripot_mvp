@@ -54,12 +54,16 @@ class TemplatesRepository {
   }
 
   Future<TemplateDoc> loadTemplate(String templateId) async {
-    final prefs = await _prefs;
-    final text = prefs.getString(_key(templateId));
-    if (text == null || text.trim().isEmpty) {
-      throw Exception('Template not found');
+    final local = await _loadLocalTemplateOrNull(templateId);
+    if (local != null) return local;
+
+    final remote = await _loadRemoteTemplateOrNull(templateId);
+    if (remote != null) {
+      await _cacheTemplateLocally(remote);
+      return remote;
     }
-    return TemplateCodec.templateFromJson(jsonDecode(text) as Map<String, dynamic>);
+
+    throw Exception('Template not found');
   }
 
   Future<void> deleteTemplate(String templateId) async {
@@ -72,6 +76,26 @@ class TemplatesRepository {
   }
 
   Future<List<TemplateSummary>> listTemplates() async {
+    final local = await _listLocalTemplates();
+    final remote = await _listRemoteTemplates();
+
+    final merged = <String, TemplateSummary>{
+      for (final t in local) t.templateId: t,
+    };
+
+    for (final t in remote) {
+      final existing = merged[t.templateId];
+      if (existing == null || t.updatedAt.isAfter(existing.updatedAt)) {
+        merged[t.templateId] = t;
+      }
+    }
+
+    final out = merged.values.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return out;
+  }
+
+  Future<List<TemplateSummary>> _listLocalTemplates() async {
     final prefs = await _prefs;
     final ids = await _readIndex();
     final out = <TemplateSummary>[];
@@ -84,13 +108,74 @@ class TemplatesRepository {
           TemplateSummary(
             templateId: j['templateId'] as String,
             name: (j['name'] as String?) ?? 'Untitled Template',
-            updatedAt: DateTime.parse(j['updatedAtIso'] as String),
+            updatedAt: DateTime.tryParse(j['updatedAtIso'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
           ),
         );
       } catch (_) {}
     }
-    out.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return out;
+  }
+
+  Future<List<TemplateSummary>> _listRemoteTemplates() async {
+    if (Firebase.apps.isEmpty) return const [];
+    try {
+      final identity = await SyncIdentityResolver().resolve();
+      final query = await FirebaseFirestore.instance
+          .collection('ripot_template_structures')
+          .where('ownerType', isEqualTo: identity.ownerType)
+          .where('ownerId', isEqualTo: identity.ownerId)
+          .get();
+
+      return query.docs.map((doc) {
+        final data = doc.data();
+        return TemplateSummary(
+          templateId: data['templateId'] as String? ?? doc.id,
+          name: (data['name'] as String?) ?? 'Untitled Template',
+          updatedAt: DateTime.tryParse(data['updatedAtIso'] as String? ?? '') ??
+              DateTime.tryParse(data['syncedAtIso'] as String? ?? '') ??
+              DateTime.fromMillisecondsSinceEpoch(0),
+        );
+      }).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<TemplateDoc?> _loadLocalTemplateOrNull(String templateId) async {
+    final prefs = await _prefs;
+    final text = prefs.getString(_key(templateId));
+    if (text == null || text.trim().isEmpty) {
+      return null;
+    }
+    return TemplateCodec.templateFromJson(jsonDecode(text) as Map<String, dynamic>);
+  }
+
+  Future<TemplateDoc?> _loadRemoteTemplateOrNull(String templateId) async {
+    if (Firebase.apps.isEmpty) return null;
+    try {
+      final identity = await SyncIdentityResolver().resolve();
+      final query = await FirebaseFirestore.instance
+          .collection('ripot_template_structures')
+          .where('ownerType', isEqualTo: identity.ownerType)
+          .where('ownerId', isEqualTo: identity.ownerId)
+          .where('templateId', isEqualTo: templateId)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) return null;
+      final data = query.docs.first.data();
+      return TemplateCodec.templateFromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _cacheTemplateLocally(TemplateDoc t) async {
+    final prefs = await _prefs;
+    await prefs.setString(_key(t.templateId), jsonEncode(TemplateCodec.templateToJson(t)));
+    final ids = await _readIndex();
+    ids.remove(t.templateId);
+    ids.insert(0, t.templateId);
+    await _writeIndex(ids);
   }
 
   Future<void> _syncStructureOnlyTemplate(TemplateDoc t) async {

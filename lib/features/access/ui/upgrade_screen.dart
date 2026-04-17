@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -60,18 +61,20 @@ class UpgradeScreen extends StatelessWidget {
               icon: const Icon(Icons.rocket_launch_outlined),
               label: Text(access.isEarlyUser ? 'Start ${access.trialLengthDays}-day early trial' : 'Start free trial'),
             ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () async {
-              await context.read<AccessProvider>().markPremium();
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Premium enabled for testing.')),
-              );
-            },
-            icon: const Icon(Icons.workspace_premium_outlined),
-            label: const Text('Enable premium for testing'),
-          ),
+          if (kDebugMode) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await context.read<AccessProvider>().markPremium();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Premium enabled for testing.')),
+                );
+              },
+              icon: const Icon(Icons.workspace_premium_outlined),
+              label: const Text('Enable premium for testing'),
+            ),
+          ],
           const SizedBox(height: 12),
           Text(
             'Reports remain on-device. Only account, trial, premium status, and structure-only template sync should go to Firebase.',

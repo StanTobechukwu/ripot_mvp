@@ -12,5 +12,34 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "ripot-4edf7",
+          "appId": "1:802565511046:android:9a0015539a64e9aff57e07",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "ripot-4edf7",
+          "appId": "1:802565511046:ios:8d1bb54fe3ce6bcef57e07",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "ripot-4edf7",
+          "configurations": {
+            "android": "1:802565511046:android:9a0015539a64e9aff57e07",
+            "ios": "1:802565511046:ios:8d1bb54fe3ce6bcef57e07",
+            "web": "1:802565511046:web:6bea316294425640f57e07"
+          }
+        }
+      }
+    }
   }
 }

@@ -10,6 +10,7 @@ import 'features/reports/providers/report_editor_provider.dart';
 import 'features/reports/providers/reports_list_provider.dart';
 import 'features/reports/providers/template_list_provider.dart';
 import 'features/reports/ui/reports_list_screen.dart';
+import 'features/auth/providers/auth_provider.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -42,6 +43,16 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => AccessProvider(repo: accessRepo)..load(),
+        ),
+        ChangeNotifierProxyProvider<AccessProvider, AuthProvider>(
+          create: (context) => AuthProvider(
+            accessProvider: context.read<AccessProvider>(),
+            templatesRepository: templatesRepo,
+          ),
+          update: (context, accessProvider, previous) => previous ?? AuthProvider(
+            accessProvider: accessProvider,
+            templatesRepository: templatesRepo,
+          ),
         ),
       ],
       child: MaterialApp(
