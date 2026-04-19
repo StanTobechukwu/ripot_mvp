@@ -11,160 +11,164 @@ import '../../auth/ui/auth_screens.dart';
 import 'report_editor_screen.dart';
 import 'saved_pdf_viewer_screen.dart';
 import 'template_list_screen.dart';
+import '../../records/ui/records_screen.dart';
 
 class ReportsListScreen extends StatelessWidget {
   const ReportsListScreen({super.key});
 
-  Future<_SavedReportOpenChoice?> _askOpenChoice(
-    BuildContext context,
-    ReportSummary report,
-  ) {
-    return showModalBottomSheet<_SavedReportOpenChoice>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                child: Text(
-                  report.title,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(24, 4, 24, 12),
-                child: Text('Choose how to open this saved report.'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.picture_as_pdf_outlined),
-                title: const Text('Open PDF'),
-                onTap: () => Navigator.pop(ctx, _SavedReportOpenChoice.openPdf),
-              ),
-              ListTile(
-                leading: const Icon(Icons.edit_note_outlined),
-                title: const Text('Continue editing'),
-                subtitle: const Text('Open the editable draft'),
-                onTap: () => Navigator.pop(ctx, _SavedReportOpenChoice.continueEditing),
-              ),
-            ],
+  Future<void> _openPdf(BuildContext context, ReportSummary report) async {
+    final repo = context.read<ReportsRepository>();
+    final pdfBytes = await repo.loadPdfBytesForReport(report.reportId);
+    final pdfFileName = await repo.pdfFileNameForReport(report.reportId) ?? '${report.title}.pdf';
+    if (!context.mounted) return;
+
+    if (pdfBytes != null && pdfBytes.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SavedPdfViewerScreen(
+            title: report.title,
+            pdfFileName: pdfFileName,
+            pdfBytesFuture: Future.value(pdfBytes),
           ),
         ),
-      ),
-    );
-  }
-
-  Future<void> _handleOpen(BuildContext context, ReportSummary report) async {
-    if (!report.hasPdf) {
-      await context.read<ReportEditorProvider>().loadById(report.reportId);
-      if (!context.mounted) return;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
-      return;
-    }
-
-    final choice = await _askOpenChoice(context, report);
-    if (choice == null || !context.mounted) return;
-
-    if (choice == _SavedReportOpenChoice.openPdf) {
-      final repo = context.read<ReportsRepository>();
-      final pdfBytes = await repo.loadPdfBytesForReport(report.reportId);
-      final pdfFileName = await repo.pdfFileNameForReport(report.reportId) ?? '${report.title}.pdf';
-      if (!context.mounted) return;
-
-      if (pdfBytes != null && pdfBytes.isNotEmpty) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SavedPdfViewerScreen(
-              title: report.title,
-              pdfFileName: pdfFileName,
-              pdfBytesFuture: Future.value(pdfBytes),
-            ),
-          ),
-        );
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No saved PDF found yet. Open the draft and save from Preview first.')),
       );
       return;
     }
 
-    await context.read<ReportEditorProvider>().loadById(report.reportId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No saved PDF found yet.')),
+    );
+  }
+
+  Future<void> _openEditor(BuildContext context, String reportId) async {
+    await context.read<ReportEditorProvider>().loadById(reportId);
     if (!context.mounted) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
   }
+
+  Future<void> _handleOpen(BuildContext context, ReportSummary report) async {
+    if (report.isSavedWork) {
+      await _openEditor(context, report.reportId);
+      return;
+    }
+    await _openPdf(context, report);
+  }
+
+  void _openTemplates(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TemplatesListScreen()),
+    );
+  }
+
+  void _openRecords(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RecordsScreen()),
+    );
+  }
+
+  void _openPremium(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+    );
+  }
+
+  void _openAccount(BuildContext context) => openAccountSheet(context);
 
   @override
   Widget build(BuildContext context) {
     final listVm = context.watch<ReportsListProvider>();
     final access = context.watch<AccessProvider>().safeState;
+    final width = MediaQuery.of(context).size.width;
+    final compactTopBar = width < 760;
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 56,
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            const SizedBox(width: 12),
-            Image.asset(
-              'assets/ripot_icon.png',
-              height: 26,
-              width: 26,
-              errorBuilder: (_, __, ___) => const Icon(Icons.description_outlined),
+       // leadingWidth: 132,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {},
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/ripot_icon.png',
+                  height: 24,
+                  width: 24,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.description_outlined, size: 22),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Ripot',
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
-            const Spacer(),
+          ),
+        ),
+        leadingWidth: 132,
+        title: const SizedBox.shrink(),
+        actions: [
+          IconButton(
+            tooltip: 'Reload reports',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => listVm.refresh(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.library_books_outlined),
+            tooltip: 'Templates',
+            onPressed: () => _openTemplates(context),
+          ),
+          if (width >= 980)
             IconButton(
-              tooltip: 'Reload reports',
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.refresh),
-              onPressed: () => listVm.refresh(),
+              icon: const Icon(Icons.table_rows_rounded),
+              tooltip: 'Records',
+              onPressed: () => _openRecords(context),
             ),
-            IconButton(
-              icon: const Icon(Icons.view_list_outlined),
-              tooltip: 'Templates',
-              visualDensity: VisualDensity.compact,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TemplatesListScreen()),
-                );
-              },
-            ),
+          if (width >= 1100)
             IconButton(
               icon: const Icon(Icons.workspace_premium_outlined),
               tooltip: 'Ripot Premium',
-              visualDensity: VisualDensity.compact,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-                );
+              onPressed: () => _openPremium(context),
+            ),
+          Consumer<AuthProvider>(
+            builder: (context, auth, _) => IconButton(
+              icon: Icon(auth.isSignedIn ? Icons.account_circle : Icons.account_circle_outlined),
+              tooltip: auth.isSignedIn ? 'Account' : 'Sign in or create account',
+              onPressed: () => _openAccount(context),
+            ),
+          ),
+          if (width < 1100)
+            PopupMenuButton<String>(
+              tooltip: 'More',
+              icon: const Icon(Icons.more_horiz_rounded),
+              onSelected: (value) {
+                switch (value) {
+                  case 'records':
+                    _openRecords(context);
+                    break;
+                  case 'premium':
+                    _openPremium(context);
+                    break;
+                }
               },
+              itemBuilder: (_) => [
+                if (width < 980) const PopupMenuItem(value: 'records', child: Text('Records')),
+                if (width < 1100) const PopupMenuItem(value: 'premium', child: Text('Ripot Premium')),
+              ],
             ),
-            Consumer<AuthProvider>(
-              builder: (context, auth, _) => IconButton(
-                icon: Icon(
-                  auth.isSignedIn
-                      ? Icons.account_circle
-                      : Icons.account_circle_outlined,
-                ),
-                tooltip: auth.isSignedIn
-                    ? 'Account'
-                    : 'Sign in or create account',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => openAccountSheet(context),
-              ),
-            ),
-            const SizedBox(width: 4),
-          ],
-        ),
+          const SizedBox(width: 8),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -209,48 +213,50 @@ class ReportsListScreen extends StatelessWidget {
                   itemCount: listVm.reports.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) {
-              final r = listVm.reports[i];
-              final accent = r.hasPdf
-                  ? Theme.of(context).colorScheme.primaryContainer
-                  : Theme.of(context).colorScheme.surfaceContainerHighest;
-              final icon = r.hasPdf ? Icons.description_outlined : Icons.edit_note_outlined;
-              final badgeText = r.hasPdf ? 'Report' : 'Saved work';
-              return Card(
-                color: accent.withOpacity(r.hasPdf ? 0.55 : 0.45),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    child: Icon(icon),
-                  ),
-                  title: Row(
-                    children: [
-                      Expanded(child: Text(r.title, overflow: TextOverflow.ellipsis)),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(999),
+                    final r = listVm.reports[i];
+                    final accent = r.hasPdf
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : Theme.of(context).colorScheme.surfaceContainerHighest;
+                    final icon = r.hasPdf ? Icons.description_outlined : Icons.edit_note_outlined;
+                    final badgeText = r.hasPdf
+                        ? (r.isFinalized ? 'Final PDF' : 'Report')
+                        : 'Saved work';
+                    return Card(
+                      color: accent.withOpacity(r.hasPdf ? 0.55 : 0.45),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.surface,
+                          child: Icon(icon),
                         ),
-                        child: Text(
-                          badgeText,
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(r.title, overflow: TextOverflow.ellipsis)),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surface,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                badgeText,
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ],
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(r.subtitle),
+                        ),
+                        onTap: () => _handleOpen(context, r),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => listVm.delete(r.reportId),
                         ),
                       ),
-                    ],
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(r.subtitle),
-                  ),
-                  onTap: () => _handleOpen(context, r),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => listVm.delete(r.reportId),
-                  ),
-                ),
-              );
-            },
+                    );
+                  },
                 );
               },
             ),
@@ -261,4 +267,3 @@ class ReportsListScreen extends StatelessWidget {
   }
 }
 
-enum _SavedReportOpenChoice { openPdf, continueEditing }

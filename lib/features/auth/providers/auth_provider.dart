@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../access/providers/access_provider.dart';
@@ -13,14 +14,16 @@ class AuthProvider extends ChangeNotifier {
     FirebaseAuth? auth,
   })  : _accessProvider = accessProvider,
         _templatesRepository = templatesRepository,
-        _auth = auth ?? FirebaseAuth.instance {
-    _sub = _auth.authStateChanges().listen(_onAuthChanged);
-    _currentUser = _auth.currentUser;
+        _auth = auth ?? (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null) {
+    if (_auth != null) {
+      _sub = _auth!.authStateChanges().listen(_onAuthChanged);
+      _currentUser = _auth!.currentUser;
+    }
   }
 
   final AccessProvider _accessProvider;
   final TemplatesRepository _templatesRepository;
-  final FirebaseAuth _auth;
+  final FirebaseAuth? _auth;
 
   StreamSubscription<User?>? _sub;
   User? _currentUser;
@@ -33,6 +36,14 @@ class AuthProvider extends ChangeNotifier {
   bool get busy => _busy;
   String? get error => _error;
   String? get email => _currentUser?.email;
+  bool get authAvailable => _auth != null;
+
+  bool _ensureAuthAvailable() {
+    if (_auth != null) return true;
+    _error = 'Account features are unavailable until Firebase is configured for this build.';
+    notifyListeners();
+    return false;
+  }
 
   Future<void> _onAuthChanged(User? user) async {
     _currentUser = user;
@@ -58,11 +69,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> signIn({required String email, required String password}) async {
+    if (!_ensureAuthAvailable()) return false;
     _busy = true;
     _error = null;
     notifyListeners();
     try {
-      await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
+      await _auth!.signInWithEmailAndPassword(email: email.trim(), password: password);
       return true;
     } on FirebaseAuthException catch (e) {
       _error = _messageFor(e);
@@ -77,11 +89,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> signUp({required String email, required String password}) async {
+    if (!_ensureAuthAvailable()) return false;
     _busy = true;
     _error = null;
     notifyListeners();
     try {
-      await _auth.createUserWithEmailAndPassword(email: email.trim(), password: password);
+      await _auth!.createUserWithEmailAndPassword(email: email.trim(), password: password);
       return true;
     } on FirebaseAuthException catch (e) {
       _error = _messageFor(e);
@@ -96,11 +109,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> sendPasswordReset({required String email}) async {
+    if (!_ensureAuthAvailable()) return false;
     _busy = true;
     _error = null;
     notifyListeners();
     try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
+      await _auth!.sendPasswordResetEmail(email: email.trim());
       return true;
     } on FirebaseAuthException catch (e) {
       _error = _messageFor(e);
@@ -115,11 +129,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    if (!_ensureAuthAvailable()) return;
     _busy = true;
     _error = null;
     notifyListeners();
     try {
-      await _auth.signOut();
+      await _auth!.signOut();
       await _accessProvider.refresh();
     } finally {
       _busy = false;

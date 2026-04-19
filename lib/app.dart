@@ -11,6 +11,8 @@ import 'features/reports/providers/reports_list_provider.dart';
 import 'features/reports/providers/template_list_provider.dart';
 import 'features/reports/ui/reports_list_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/records/data/records_repository.dart';
+import 'features/records/providers/records_provider.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -21,6 +23,7 @@ class MyApp extends StatelessWidget {
     final accessRepo = AccessRepository();
     final templatesRepo = TemplatesRepository(accessRepository: accessRepo);
     final letterheadsRepo = LetterheadsRepository();
+    final recordsRepo = RecordsRepository();
 
     return MultiProvider(
       providers: [
@@ -28,6 +31,7 @@ class MyApp extends StatelessWidget {
         Provider.value(value: templatesRepo),
         Provider.value(value: letterheadsRepo),
         Provider.value(value: accessRepo),
+        Provider.value(value: recordsRepo),
 
         ChangeNotifierProvider(
           create: (_) => ReportEditorProvider(
@@ -43,6 +47,9 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => AccessProvider(repo: accessRepo)..load(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => RecordsProvider(repo: recordsRepo)..refresh(),
         ),
         ChangeNotifierProxyProvider<AccessProvider, AuthProvider>(
           create: (context) => AuthProvider(

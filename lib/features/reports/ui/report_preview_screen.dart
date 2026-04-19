@@ -18,6 +18,8 @@ import '../data/letterhead_repository.dart';
 import '../data/reports_repository.dart';
 import '../ui/letterhead_editor_screen.dart';
 import '../ui/manage_letterhead.screen.dart';
+import '../../records/providers/records_provider.dart';
+import '../../records/ui/record_details_screen.dart';
 
 class ReportPreviewScreen extends StatefulWidget {
   const ReportPreviewScreen({super.key});
@@ -102,13 +104,70 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('PDF saved: $fileName'),
-        ),
+        SnackBar(content: Text('PDF saved: $fileName')),
       );
+      await _offerAddToRecords();
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+
+  Future<void> _offerAddToRecords() async {
+    final vm = context.read<ReportEditorProvider>();
+    final provider = context.read<RecordsProvider>();
+    if (!mounted) return;
+    final shouldOpen = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add this report to Records?',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Records are optional, but they make this report easier to find later in list or table form.',
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext, false),
+                        child: const Text('Not now'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.pop(sheetContext, true),
+                        icon: const Icon(Icons.library_add_outlined),
+                        label: const Text('Add to Records'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (shouldOpen != true || !mounted) return;
+    final draft = await provider.draftForReport(vm.doc);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => RecordDetailsScreen(initialEntry: draft)),
+    );
   }
 
   Future<void> _openLetterheadSheet() async {
@@ -417,6 +476,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('PDF downloaded: $pdfFileName')),
                 );
+                await _offerAddToRecords();
               },
             ),
           IconButton(

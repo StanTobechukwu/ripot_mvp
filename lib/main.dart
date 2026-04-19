@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import 'app.dart';
-import 'firebase_options.dart';
+import 'core/firebase/firebase_bootstrap.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
+  await FirebaseBootstrap.initializeIfConfigured();
   runApp(const MyApp());
 }

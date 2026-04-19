@@ -12,6 +12,7 @@ class ReportSummary {
   final String subtitle;
   final DateTime updatedAt;
   final bool hasPdf;
+  final bool isFinalized;
 
   const ReportSummary({
     required this.reportId,
@@ -19,10 +20,12 @@ class ReportSummary {
     required this.subtitle,
     required this.updatedAt,
     required this.hasPdf,
+    required this.isFinalized,
   });
 
   bool get isFinalReport => hasPdf;
   bool get isSavedWork => !hasPdf;
+  bool get canContinueEditing => !isFinalized;
 }
 
 class ReportsRepository {
@@ -30,12 +33,14 @@ class ReportsRepository {
   static const _reportPrefix = 'reports.doc.';
   static const _pdfPrefix = 'reports.pdf.';
   static const _pdfNamePrefix = 'reports.pdfname.';
+  static const _finalizedPrefix = 'reports.finalized.';
 
   Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
 
   String _reportKey(String reportId) => '$_reportPrefix$reportId';
   String _pdfKey(String reportId) => '$_pdfPrefix$reportId';
   String _pdfNameKey(String reportId) => '$_pdfNamePrefix$reportId';
+  String _finalizedKey(String reportId) => '$_finalizedPrefix$reportId';
 
   Future<List<String>> _readIndex() async {
     final prefs = await _prefs;
@@ -70,6 +75,7 @@ class ReportsRepository {
     await prefs.remove(_reportKey(reportId));
     await prefs.remove(_pdfKey(reportId));
     await prefs.remove(_pdfNameKey(reportId));
+    await prefs.remove(_finalizedKey(reportId));
     final ids = await _readIndex();
     ids.remove(reportId);
     await _writeIndex(ids);
@@ -88,6 +94,7 @@ class ReportsRepository {
         final doc = ReportCodec.reportFromJson(j);
         final updated = DateTime.parse(doc.updatedAtIso);
         final hasPdf = (prefs.getString(_pdfKey(doc.reportId)) ?? '').trim().isNotEmpty;
+        final isFinalized = prefs.getBool(_finalizedKey(doc.reportId)) ?? false;
         summaries.add(
           ReportSummary(
             reportId: doc.reportId,
@@ -95,6 +102,7 @@ class ReportsRepository {
             subtitle: _displaySubtitleFor(doc, updated),
             updatedAt: updated,
             hasPdf: hasPdf,
+            isFinalized: isFinalized,
           ),
         );
       } catch (_) {}
@@ -112,6 +120,17 @@ class ReportsRepository {
     final prefs = await _prefs;
     await prefs.setString(_pdfKey(reportId), base64Encode(bytes));
     await prefs.setString(_pdfNameKey(reportId), _pdfFileNameFor(doc));
+    await prefs.setBool(_finalizedKey(reportId), false);
+  }
+
+  Future<void> markReportAsFinal(String reportId) async {
+    final prefs = await _prefs;
+    await prefs.setBool(_finalizedKey(reportId), true);
+  }
+
+  Future<bool> isReportFinalized(String reportId) async {
+    final prefs = await _prefs;
+    return prefs.getBool(_finalizedKey(reportId)) ?? false;
   }
 
   Future<Uint8List?> loadPdfBytesForReport(String reportId) async {

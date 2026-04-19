@@ -25,15 +25,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -71,5 +65,24 @@ class DefaultFirebaseOptions {
     projectId: 'ripot-4edf7',
     storageBucket: 'ripot-4edf7.firebasestorage.app',
     iosBundleId: 'com.example.report',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyD1YyKHhACjnoBqslTvadvMEWUx3wctdoI',
+    appId: '1:802565511046:ios:8d1bb54fe3ce6bcef57e07',
+    messagingSenderId: '802565511046',
+    projectId: 'ripot-4edf7',
+    storageBucket: 'ripot-4edf7.firebasestorage.app',
+    iosBundleId: 'com.example.report',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyDT1--QOCxriKON0uAuSd-PETQi4cUBYq4',
+    appId: '1:802565511046:web:de589f4e76fd2f2df57e07',
+    messagingSenderId: '802565511046',
+    projectId: 'ripot-4edf7',
+    authDomain: 'ripot-4edf7.firebaseapp.com',
+    storageBucket: 'ripot-4edf7.firebasestorage.app',
+    measurementId: 'G-J9LK8BD5X6',
   );
 }
