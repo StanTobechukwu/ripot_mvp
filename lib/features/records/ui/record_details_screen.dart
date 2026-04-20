@@ -57,6 +57,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   Future<void> _addField() async {
     final labelController = TextEditingController();
     final hintController = TextEditingController();
+    var selectedLevel = RecordFieldLevel.general;
+    final procedureController = TextEditingController(text: _entry.valueOf(RecordFieldCatalog.procedure.key));
     final created = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -64,14 +66,44 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: labelController,
-              decoration: const InputDecoration(labelText: 'Field label'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: hintController,
-              decoration: const InputDecoration(labelText: 'Field hint (optional)'),
+            StatefulBuilder(
+              builder: (context, setDialogState) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<RecordFieldLevel>(
+                    value: selectedLevel,
+                    decoration: const InputDecoration(labelText: 'Field level'),
+                    items: const [
+                      DropdownMenuItem(value: RecordFieldLevel.general, child: Text('General field')),
+                      DropdownMenuItem(value: RecordFieldLevel.procedure, child: Text('Procedure field')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() => selectedLevel = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: labelController,
+                    decoration: const InputDecoration(labelText: 'Field label'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: hintController,
+                    decoration: const InputDecoration(labelText: 'Field hint (optional)'),
+                  ),
+                  if (selectedLevel == RecordFieldLevel.procedure) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: procedureController,
+                      decoration: const InputDecoration(
+                        labelText: 'Procedure name',
+                        hintText: 'For example: Liver Biopsy',
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
@@ -85,17 +117,27 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       final label = labelController.text.trim();
       final hint = hintController.text.trim();
       if (label.isNotEmpty) {
-        await context.read<RecordsProvider>().addCustomField(label: label, hint: hint);
+        await context.read<RecordsProvider>().addCustomField(
+          label: label,
+          hint: hint,
+          level: selectedLevel,
+          procedureValue: procedureController.text.trim(),
+        );
       }
     }
     labelController.dispose();
     hintController.dispose();
+    procedureController.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<RecordsProvider>();
-    final fields = provider.allFields;
+    final procedureValue = _controllerFor(RecordFieldCatalog.procedure.key, _entry.valueOf(RecordFieldCatalog.procedure.key)).text;
+    final fields = RecordFieldCatalog.visibleFieldsForProcedure(
+      procedureValue: procedureValue,
+      allFields: provider.allFields,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -141,6 +183,17 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          if (procedureValue.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Procedure-specific fields for: $procedureValue',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+            ),
           for (final field in fields) ...[
             _RecordValueField(field: field, controller: _controllerFor(field.key, _entry.valueOf(field.key))),
             const SizedBox(height: 12),
@@ -201,7 +254,12 @@ class _RecordValueFieldState extends State<_RecordValueField> {
                   color: theme.colorScheme.primaryContainer.withOpacity(0.45),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text('Custom', style: theme.textTheme.labelSmall),
+                child: Text(
+                  widget.field.level == RecordFieldLevel.procedure
+                      ? 'Procedure custom${(widget.field.procedureLabel ?? '').trim().isEmpty ? '' : ' • ${widget.field.procedureLabel}'}'
+                      : 'Custom',
+                  style: theme.textTheme.labelSmall,
+                ),
               ),
           ],
         ),
