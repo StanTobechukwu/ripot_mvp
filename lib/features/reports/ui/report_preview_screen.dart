@@ -116,7 +116,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   Future<void> _offerAddToRecords() async {
     final vm = context.read<ReportEditorProvider>();
     final provider = context.read<RecordsProvider>();
-    if (!mounted) return;
+    final existing = await provider.repo.loadByReportId(vm.doc.reportId);
+    if (existing != null || !mounted) return;
     final shouldOpen = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
