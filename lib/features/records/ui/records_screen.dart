@@ -205,7 +205,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 }
 
-class _RecordsTable extends StatelessWidget {
+class _RecordsTable extends StatefulWidget {
   final List<RecordSummary> rows;
   final List<RecordFieldDef> fields;
   final ValueChanged<RecordSummary> onOpen;
@@ -213,41 +213,81 @@ class _RecordsTable extends StatelessWidget {
   const _RecordsTable({required this.rows, required this.fields, required this.onOpen});
 
   @override
+  State<_RecordsTable> createState() => _RecordsTableState();
+}
+
+class _RecordsTableState extends State<_RecordsTable> {
+  late final ScrollController _horizontalController;
+  late final ScrollController _verticalController;
+
+  @override
+  void initState() {
+    super.initState();
+    _horizontalController = ScrollController();
+    _verticalController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    _verticalController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final orderedKeys = [
       ...RecordFieldCatalog.exportDefaultKeys,
-      ...fields.where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key)).map((f) => f.key),
+      ...widget.fields.where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key)).map((f) => f.key),
     ];
     final visibleFields = orderedKeys
-        .map((key) => fields.firstWhere((f) => f.key == key, orElse: () => RecordFieldDef(key: key, label: key, hint: '', isSystem: false)))
+        .map((key) => widget.fields.firstWhere((f) => f.key == key, orElse: () => RecordFieldDef(key: key, label: key, hint: '', isSystem: false)))
         .toList(growable: false);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 960),
-        child: Card(
-          clipBehavior: Clip.antiAlias,
-          child: SingleChildScrollView(
-            child: DataTable(
-              columns: [
-                ...visibleFields.map((f) => DataColumn(label: Text(f.label))),
-                const DataColumn(label: Text('Actions')),
-              ],
-              rows: rows.map((row) {
-                return DataRow(
-                  cells: [
-                    ...visibleFields.map((f) => DataCell(Text(row.values[f.key] ?? ''))),
-                    DataCell(
-                      TextButton(
-                        onPressed: () => onOpen(row),
-                        child: const Text('Open PDF'),
-                      ),
-                    ),
+    return Scrollbar(
+      controller: _horizontalController,
+      thumbVisibility: true,
+      trackVisibility: true,
+      notificationPredicate: (notification) => notification.metrics.axis == Axis.horizontal,
+      child: SingleChildScrollView(
+        controller: _horizontalController,
+        padding: const EdgeInsets.all(12),
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 960),
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            child: Scrollbar(
+              controller: _verticalController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              notificationPredicate: (notification) => notification.metrics.axis == Axis.vertical,
+              child: SingleChildScrollView(
+                controller: _verticalController,
+                child: DataTable(
+                  columns: [
+                    ...visibleFields.map((f) => DataColumn(label: Text(f.label))),
+                    const DataColumn(label: Text('Actions')),
                   ],
-                );
-              }).toList(growable: false),
+                  rows: widget.rows.map((row) {
+                    return DataRow(
+                      cells: [
+                        ...visibleFields.map((f) {
+                          final rawValue = row.values[f.key] ?? '';
+                          final displayValue = f.key == RecordFieldCatalog.reportId.key ? formatReportIdForDisplay(rawValue) : rawValue;
+                          return DataCell(Text(displayValue));
+                        }),
+                        DataCell(
+                          TextButton(
+                            onPressed: () => widget.onOpen(row),
+                            child: const Text('Open PDF'),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(growable: false),
+                ),
+              ),
             ),
           ),
         ),

@@ -1,6 +1,13 @@
 import 'dart:convert';
 
-enum RecordFieldLevel { general, procedure }
+
+String formatReportIdForDisplay(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return value;
+  if (value.startsWith('RPT-')) return value;
+  final suffix = value.length <= 6 ? value : value.substring(value.length - 6);
+  return 'RPT-$suffix';
+}
 
 class RecordFieldDef {
   final String key;
@@ -8,9 +15,6 @@ class RecordFieldDef {
   final String hint;
   final List<String> builtInSuggestions;
   final bool isSystem;
-  final RecordFieldLevel level;
-  final String? procedureKey;
-  final String? procedureLabel;
 
   const RecordFieldDef({
     required this.key,
@@ -18,19 +22,7 @@ class RecordFieldDef {
     required this.hint,
     this.builtInSuggestions = const [],
     this.isSystem = true,
-    this.level = RecordFieldLevel.general,
-    this.procedureKey,
-    this.procedureLabel,
   });
-
-  bool appliesToProcedure(String procedureValue) {
-    if (level == RecordFieldLevel.general) return true;
-    final target = (procedureKey ?? '').trim().toLowerCase();
-    final current = RecordFieldCatalog.procedureSlug(procedureValue);
-    return target.isNotEmpty && target == current;
-  }
-
-  String get levelLabel => level == RecordFieldLevel.general ? 'General' : 'Procedure';
 
   Map<String, dynamic> toJson() => {
         'key': key,
@@ -38,24 +30,16 @@ class RecordFieldDef {
         'hint': hint,
         'builtInSuggestions': builtInSuggestions,
         'isSystem': isSystem,
-        'level': level.name,
-        'procedureKey': procedureKey,
-        'procedureLabel': procedureLabel,
       };
 
   factory RecordFieldDef.fromJson(Map<String, dynamic> json) {
     final suggestions = (json['builtInSuggestions'] as List?)?.map((e) => e.toString()).toList(growable: false) ?? const <String>[];
-    final rawLevel = (json['level'] ?? 'general').toString();
-    final level = rawLevel == RecordFieldLevel.procedure.name ? RecordFieldLevel.procedure : RecordFieldLevel.general;
     return RecordFieldDef(
       key: (json['key'] ?? '').toString(),
       label: (json['label'] ?? '').toString(),
       hint: (json['hint'] ?? '').toString(),
       builtInSuggestions: suggestions,
       isSystem: (json['isSystem'] ?? false) == true,
-      level: level,
-      procedureKey: (json['procedureKey'] ?? '').toString().trim().isEmpty ? null : (json['procedureKey'] ?? '').toString(),
-      procedureLabel: (json['procedureLabel'] ?? '').toString().trim().isEmpty ? null : (json['procedureLabel'] ?? '').toString(),
     );
   }
 }
@@ -238,20 +222,6 @@ class RecordFieldCatalog {
     'patientReference',
     'doctor',
   ];
-
-  static String procedureSlug(String value) => value
-      .trim()
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-      .replaceAll(RegExp(r'_+'), '_')
-      .replaceAll(RegExp(r'^_|_$'), '');
-
-  static List<RecordFieldDef> visibleFieldsForProcedure({
-    required String procedureValue,
-    required List<RecordFieldDef> allFields,
-  }) {
-    return allFields.where((field) => field.appliesToProcedure(procedureValue)).toList(growable: false);
-  }
 
   static RecordFieldDef? byKey(String key) {
     for (final field in coreFields) {

@@ -46,17 +46,10 @@ class RecordsRepository {
     }
   }
 
-  Future<void> saveCustomField({
-    required String label,
-    String hint = '',
-    RecordFieldLevel level = RecordFieldLevel.general,
-    String? procedureValue,
-  }) async {
+  Future<void> saveCustomField({required String label, String hint = ''}) async {
     final trimmedLabel = label.trim();
     if (trimmedLabel.isEmpty) return;
     final current = await loadCustomFields();
-    final procedureLabel = (procedureValue ?? '').trim();
-    final procedureKey = level == RecordFieldLevel.procedure ? RecordFieldCatalog.procedureSlug(procedureLabel) : '';
     final slug = trimmedLabel
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
@@ -65,23 +58,14 @@ class RecordsRepository {
     var key = slug.isEmpty ? newId('field') : slug;
     final existingKeys = {...RecordFieldCatalog.coreFields.map((e) => e.key), ...current.map((e) => e.key)};
     var n = 2;
-    final baseKey = level == RecordFieldLevel.procedure && procedureKey.isNotEmpty ? '${procedureKey}_$key' : key;
-    key = baseKey;
+    final baseKey = key;
     while (existingKeys.contains(key)) {
       key = '${baseKey}_$n';
       n += 1;
     }
     final updated = [
       ...current,
-      RecordFieldDef(
-        key: key,
-        label: trimmedLabel,
-        hint: hint.trim().isEmpty ? 'Extra record field' : hint.trim(),
-        isSystem: false,
-        level: level,
-        procedureKey: procedureKey.isEmpty ? null : procedureKey,
-        procedureLabel: procedureLabel.isEmpty ? null : procedureLabel,
-      ),
+      RecordFieldDef(key: key, label: trimmedLabel, hint: hint.trim().isEmpty ? 'Extra record field' : hint.trim(), isSystem: false),
     ];
     final prefs = await _prefs;
     await prefs.setString(_customFieldsKey, jsonEncode(updated.map((e) => e.toJson()).toList(growable: false)));
