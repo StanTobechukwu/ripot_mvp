@@ -150,6 +150,7 @@ class ReportEditorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+
   Future<void> loadById(String reportId) async {
     final loaded = await repo.loadReport(reportId);
     _doc = loaded.reportLayout == ReportLayout.inline
@@ -157,6 +158,32 @@ class ReportEditorProvider extends ChangeNotifier {
         : loaded;
     _selectedNodeId = null;
     _commit(); // ✅ prune + notify (structure changed)
+  }
+
+  Future<void> duplicateFromExisting(String reportId) async {
+    final loaded = await repo.loadReport(reportId);
+    final now = nowIso();
+    _doc = ReportDoc(
+      reportId: newId('rpt'),
+      createdAtIso: now,
+      updatedAtIso: now,
+      reportTitle: loaded.reportTitle,
+      roots: loaded.roots.map((s) => s.cloneNodeTree()).toList(growable: false),
+      images: loaded.images.map((i) => ImageAttachment(id: newId('img'), filePath: i.filePath, label: i.label)).toList(growable: false),
+      placementChoice: loaded.placementChoice,
+      reportLayout: loaded.reportLayout == ReportLayout.inline ? ReportLayout.block : loaded.reportLayout,
+      indentContent: loaded.indentContent,
+      indentHierarchy: loaded.indentHierarchy,
+      showColonAfterTitlesWithContent: loaded.showColonAfterTitlesWithContent,
+      fontScale: loaded.fontScale,
+      signature: loaded.signature,
+      applyLetterhead: loaded.applyLetterhead,
+      letterheadId: loaded.letterheadId,
+      subjectInfoDef: loaded.subjectInfoDef,
+      subjectInfo: loaded.subjectInfo,
+    );
+    _selectedNodeId = null;
+    _commit();
   }
 
   Future<void> loadTemplateAndStartReport(String templateId) async {

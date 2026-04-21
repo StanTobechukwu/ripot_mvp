@@ -1,16 +1,15 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/web/file_download.dart';
 import '../../reports/data/reports_repository.dart';
-import '../../reports/providers/report_editor_provider.dart';
-import '../../reports/ui/report_editor_screen.dart';
 import '../../reports/ui/saved_pdf_viewer_screen.dart';
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
-import 'record_details_screen.dart';
+import 'record_view_screen.dart';
 
 enum RecordsViewMode { list, table }
 
@@ -33,52 +32,63 @@ class _RecordsScreenState extends State<RecordsScreen> {
     });
   }
 
-  Future<void> _editRecord(String reportId) async {
-    final editor = context.read<ReportEditorProvider>();
-    await editor.loadById(reportId);
-    if (!mounted) return;
-    final provider = context.read<RecordsProvider>();
-    final draft = await provider.draftForReport(editor.doc);
-    if (!mounted) return;
+  Future<void> _openRecordView(RecordSummary item) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => RecordDetailsScreen(initialEntry: draft)),
+      MaterialPageRoute(builder: (_) => RecordViewScreen(summary: item)),
     );
     if (!mounted) return;
-    await provider.refresh();
+    await context.read<RecordsProvider>().refresh();
   }
 
-  Future<void> _openEditableDraft(String reportId) async {
-    final editor = context.read<ReportEditorProvider>();
-    await editor.loadById(reportId);
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ReportEditorScreen()),
-    );
-  }
-
-  Future<void> _openRecordPrimary(RecordSummary item) async {
+  Future<void> _openPdf(RecordSummary item) async {
     final repo = context.read<ReportsRepository>();
     final pdfBytes = await repo.loadPdfBytesForReport(item.linkedReportId);
     final pdfFileName = await repo.pdfFileNameForReport(item.linkedReportId) ?? '${item.procedure.isEmpty ? 'record' : item.procedure}.pdf';
     if (!mounted) return;
 
-    if (pdfBytes != null && pdfBytes.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SavedPdfViewerScreen(
-            title: item.procedure.isEmpty ? 'Record PDF' : item.procedure,
-            pdfFileName: pdfFileName,
-            pdfBytesFuture: Future.value(pdfBytes),
-          ),
-        ),
+    if (pdfBytes == null || pdfBytes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No saved PDF found for this record.')),
       );
       return;
     }
 
-    await _openEditableDraft(item.linkedReportId);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SavedPdfViewerScreen(
+          title: item.procedure.isEmpty ? 'Record PDF' : item.procedure,
+          pdfFileName: pdfFileName,
+          pdfBytesFuture: Future.value(pdfBytes),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadPdfFromTable(RecordSummary item) async {
+    final repo = context.read<ReportsRepository>();
+    final pdfBytes = await repo.loadPdfBytesForReport(item.linkedReportId);
+    final pdfFileName = await repo.pdfFileNameForReport(item.linkedReportId) ?? '${item.procedure.isEmpty ? 'record' : item.procedure}.pdf';
+    if (!mounted) return;
+
+    if (pdfBytes == null || pdfBytes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No saved PDF found for this record.')),
+      );
+      return;
+    }
+
+    if (kIsWeb) {
+      await downloadBytes(bytes: pdfBytes, fileName: pdfFileName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF downloaded.')),
+      );
+      return;
+    }
+
+    await _openPdf(item);
   }
 
   Future<void> _exportTable(List<RecordSummary> records, List<RecordFieldDef> fields) async {
@@ -161,7 +171,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                               final item = rows[index];
                               return Card(
                                 child: ListTile(
-                                  leading: const CircleAvatar(child: Icon(Icons.table_rows_outlined)),
+                                  leading: const CircleAvatar(child: Icon(Icons.folder_outlined)),
                                   title: Text(
                                     item.procedure.isEmpty ? 'Untitled record' : item.procedure,
                                     overflow: TextOverflow.ellipsis,
@@ -173,23 +183,17 @@ class _RecordsScreenState extends State<RecordsScreen> {
                                       if (item.reportDate.isNotEmpty) item.reportDate,
                                     ].join(' • '),
                                   ),
-                                  onTap: () => _openRecordPrimary(item),
+                                  onTap: () => _openRecordView(item),
                                   trailing: PopupMenuButton<String>(
                                     onSelected: (value) async {
-                                      if (value == 'edit') {
-                                        await _editRecord(item.linkedReportId);
-                                      } else if (value == 'openPdf') {
-                                        await _openRecordPrimary(item);
-                                      } else if (value == 'draft') {
-                                        await _openEditableDraft(item.linkedReportId);
+                                      if (value == 'openPdf') {
+                                        await _openPdf(item);
                                       } else if (value == 'delete') {
                                         await vm.deleteRecord(item.recordEntryId);
                                       }
                                     },
                                     itemBuilder: (_) => const [
-                                      PopupMenuItem(value: 'openPdf', child: Text('Open PDF')), 
-                                      PopupMenuItem(value: 'draft', child: Text('Open editable draft')),
-                                      PopupMenuItem(value: 'edit', child: Text('Edit record details')),
+                                      PopupMenuItem(value: 'openPdf', child: Text('Open PDF')),
                                       PopupMenuItem(value: 'delete', child: Text('Delete record')),
                                     ],
                                   ),
@@ -197,7 +201,12 @@ class _RecordsScreenState extends State<RecordsScreen> {
                               );
                             },
                           )
-                        : _RecordsTable(rows: rows, fields: fields, onOpen: _openRecordPrimary),
+                        : _RecordsTable(
+                            rows: rows,
+                            fields: fields,
+                            onOpenRecord: _openRecordView,
+                            onDownloadPdf: _downloadPdfFromTable,
+                          ),
           ),
         ],
       ),
@@ -208,9 +217,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
 class _RecordsTable extends StatefulWidget {
   final List<RecordSummary> rows;
   final List<RecordFieldDef> fields;
-  final ValueChanged<RecordSummary> onOpen;
+  final ValueChanged<RecordSummary> onOpenRecord;
+  final ValueChanged<RecordSummary> onDownloadPdf;
 
-  const _RecordsTable({required this.rows, required this.fields, required this.onOpen});
+  const _RecordsTable({required this.rows, required this.fields, required this.onOpenRecord, required this.onDownloadPdf});
 
   @override
   State<_RecordsTable> createState() => _RecordsTableState();
@@ -254,7 +264,7 @@ class _RecordsTableState extends State<_RecordsTable> {
         padding: const EdgeInsets.all(12),
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 960),
+          constraints: const BoxConstraints(minWidth: 980),
           child: Card(
             clipBehavior: Clip.antiAlias,
             child: Scrollbar(
@@ -271,6 +281,7 @@ class _RecordsTableState extends State<_RecordsTable> {
                   ],
                   rows: widget.rows.map((row) {
                     return DataRow(
+                      onSelectChanged: (_) => widget.onOpenRecord(row),
                       cells: [
                         ...visibleFields.map((f) {
                           final rawValue = row.values[f.key] ?? '';
@@ -278,9 +289,19 @@ class _RecordsTableState extends State<_RecordsTable> {
                           return DataCell(Text(displayValue));
                         }),
                         DataCell(
-                          TextButton(
-                            onPressed: () => widget.onOpen(row),
-                            child: const Text('Open PDF'),
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              OutlinedButton(
+                                onPressed: () => widget.onOpenRecord(row),
+                                child: const Text('View'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => widget.onDownloadPdf(row),
+                                icon: const Icon(Icons.download_outlined),
+                                label: const Text('PDF'),
+                              ),
+                            ],
                           ),
                         ),
                       ],

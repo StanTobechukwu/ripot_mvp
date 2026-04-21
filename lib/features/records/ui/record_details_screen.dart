@@ -39,6 +39,23 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Save final record?'),
+        content: const Text(
+          'This will save the report as a final record in Ripot. The saved record becomes read-only and cannot be edited later. Future changes should be added as updates or addenda, not by changing the original record.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save Record')),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
     setState(() => _saving = true);
     final values = <String, String>{};
     for (final entry in _controllers.entries) {
@@ -133,12 +150,12 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'This step is optional. Records help you keep a searchable log in list or table form later without changing the report itself.',
+                    'Records help you keep a searchable final log in list or table form later. Once saved, the original record becomes read-only.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'You can also add extra record fields for your unit or specialty.',
+                    'You can also add extra record fields for your unit or specialty before saving.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -154,7 +171,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
           FilledButton.icon(
             onPressed: _save,
             icon: _saving ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-            label: Text(_saving ? 'Saving...' : 'Save to Records'),
+            label: Text(_saving ? 'Saving...' : 'Save Final Record'),
           ),
         ],
       ),

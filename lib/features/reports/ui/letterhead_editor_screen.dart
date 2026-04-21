@@ -1,4 +1,6 @@
 
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -34,6 +36,12 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
   late final TextEditingController _fRightC;
 
   final _picker = ImagePicker();
+
+  bool get _useDesktopFilePicker =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
 
   @override
   void initState() {
@@ -98,10 +106,21 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
   }
 
   Future<void> _pickLogo() async {
-    final x = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (x == null) return;
+    String? imported;
 
-    final imported = await xFileToPortableRef(x, fileStem: 'logo_${_model.letterheadId}');
+    if (_useDesktopFilePicker) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+      final path = (result != null && result.files.isNotEmpty) ? result.files.first.path : null;
+      if (path == null || path.trim().isEmpty) return;
+      imported = path;
+    } else {
+      final x = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (x == null) return;
+      imported = await xFileToPortableRef(x, fileStem: 'logo_${_model.letterheadId}');
+    }
 
     setState(() {
       _model = _model.copyWith(logoFilePath: imported);
