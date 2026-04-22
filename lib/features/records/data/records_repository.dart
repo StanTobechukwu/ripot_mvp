@@ -46,7 +46,7 @@ class RecordsRepository {
     }
   }
 
-  Future<void> saveCustomField({required String label, String hint = ''}) async {
+  Future<void> saveCustomField({required String label, String hint = '', String procedureScope = ''}) async {
     final trimmedLabel = label.trim();
     if (trimmedLabel.isEmpty) return;
     final current = await loadCustomFields();
@@ -65,10 +65,44 @@ class RecordsRepository {
     }
     final updated = [
       ...current,
-      RecordFieldDef(key: key, label: trimmedLabel, hint: hint.trim().isEmpty ? 'Extra record field' : hint.trim(), isSystem: false),
+      RecordFieldDef(
+        key: key,
+        label: trimmedLabel,
+        hint: hint.trim().isEmpty ? 'Extra record field' : hint.trim(),
+        isSystem: false,
+        procedureScope: procedureScope.trim(),
+      ),
     ];
     final prefs = await _prefs;
     await prefs.setString(_customFieldsKey, jsonEncode(updated.map((e) => e.toJson()).toList(growable: false)));
+  }
+
+
+  Future<void> deleteCustomField(String fieldKey) async {
+    final trimmedKey = fieldKey.trim();
+    if (trimmedKey.isEmpty) return;
+
+    final current = await loadCustomFields();
+    final updatedFields = current.where((f) => f.key != trimmedKey).toList(growable: false);
+    final prefs = await _prefs;
+    await prefs.setString(_customFieldsKey, jsonEncode(updatedFields.map((e) => e.toJson()).toList(growable: false)));
+    await prefs.remove(_vocabKey(trimmedKey));
+
+    final ids = await _readIndex();
+    for (final id in ids) {
+      final raw = prefs.getString(_recordKey(id));
+      if (raw == null || raw.trim().isEmpty) continue;
+      try {
+        final entry = RecordEntry.decode(raw);
+        if (!entry.values.containsKey(trimmedKey)) continue;
+        final values = Map<String, String>.from(entry.values)..remove(trimmedKey);
+        final updatedEntry = entry.copyWith(
+          updatedAtIso: DateTime.now().toIso8601String(),
+          values: values,
+        );
+        await prefs.setString(_recordKey(id), updatedEntry.encode());
+      } catch (_) {}
+    }
   }
 
   Future<List<RecordFieldDef>> allFields() async => [...RecordFieldCatalog.coreFields, ...await loadCustomFields()];

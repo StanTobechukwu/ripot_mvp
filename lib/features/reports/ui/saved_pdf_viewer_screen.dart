@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/web/file_download.dart';
+import '../services/pdf_actions_service.dart';
 
 class SavedPdfViewerScreen extends StatelessWidget {
   final String title;
@@ -35,14 +36,15 @@ class SavedPdfViewerScreen extends StatelessWidget {
 
           final mq = MediaQuery.of(context);
           final isDesktopWeb = kIsWeb && mq.size.width >= 900;
+          final isNativeDesktop = ripotIsNativeDesktop;
           final preview = PdfPreview(
             build: (_) async => bytes,
             pdfFileName: pdfFileName,
-            allowPrinting: true,
-            allowSharing: !isDesktopWeb,
+            allowPrinting: !isNativeDesktop,
+            allowSharing: !isDesktopWeb && !isNativeDesktop,
           );
 
-          if (!isDesktopWeb) return preview;
+          if (!isDesktopWeb && !isNativeDesktop) return preview;
 
           return Column(
             children: [
@@ -50,19 +52,81 @@ class SavedPdfViewerScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 color: const Color(0xFFF8FAFC),
-                child: Row(
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'On desktop web, use Download PDF, then share the file from your downloads.',
-                        style: TextStyle(fontSize: 12.5, color: Colors.black54),
-                      ),
+                    Text(
+                      isDesktopWeb
+                          ? 'On desktop web, use Download PDF, then share the file from your downloads.'
+                          : 'Use the Ripot buttons for Download, Print, and Share on desktop.',
+                      style: const TextStyle(fontSize: 12.5, color: Colors.black54),
                     ),
-                    const SizedBox(width: 12),
-                    FilledButton.icon(
-                      onPressed: () => downloadBytes(bytes: bytes, fileName: pdfFileName),
-                      icon: const Icon(Icons.download_outlined),
-                      label: const Text('Download PDF'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () async {
+                            try {
+                              if (kIsWeb) {
+                                await downloadBytes(bytes: bytes, fileName: pdfFileName);
+                                return;
+                              }
+                              final file = await ripotDownloadPdf(bytes: bytes, fileName: pdfFileName);
+                              if (!context.mounted) return;
+                              if (file == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Download cancelled')),
+                                );
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('PDF saved to: ${file.path}')),
+                              );
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Download failed: $e')),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.download_outlined),
+                          label: const Text('Download PDF'),
+                        ),
+                        if (isNativeDesktop) ...[
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              try {
+                                await ripotPrintPdf(bytes: bytes, fileName: pdfFileName);
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Print failed: $e')),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.print_outlined),
+                            label: const Text('Print PDF'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () async {
+                              try {
+                                await ripotSharePdf(bytes: bytes, fileName: pdfFileName);
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Share failed: $e')),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.share_outlined),
+                            label: const Text('Share PDF'),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

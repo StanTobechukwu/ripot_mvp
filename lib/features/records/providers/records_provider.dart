@@ -58,8 +58,14 @@ class RecordsProvider extends ChangeNotifier {
 
   Future<List<String>> suggestions(String fieldKey, String query) => repo.searchVocabulary(fieldKey, query);
 
-  Future<void> addCustomField({required String label, String hint = ''}) async {
-    await repo.saveCustomField(label: label, hint: hint);
+  Future<void> addCustomField({required String label, String hint = '', String procedureScope = ''}) async {
+    await repo.saveCustomField(label: label, hint: hint, procedureScope: procedureScope);
+    await refresh();
+  }
+
+  Future<void> deleteCustomField(String fieldKey) async {
+    await repo.deleteCustomField(fieldKey);
     await refresh();
   }
 }
+

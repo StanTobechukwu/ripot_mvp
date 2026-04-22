@@ -15,6 +15,7 @@ class RecordFieldDef {
   final String hint;
   final List<String> builtInSuggestions;
   final bool isSystem;
+  final String procedureScope;
 
   const RecordFieldDef({
     required this.key,
@@ -22,7 +23,15 @@ class RecordFieldDef {
     required this.hint,
     this.builtInSuggestions = const [],
     this.isSystem = true,
+    this.procedureScope = '',
   });
+
+  bool get isGlobal => procedureScope.trim().isEmpty;
+
+  bool appliesToProcedure(String procedureName) {
+    if (isGlobal) return true;
+    return procedureScope.trim().toLowerCase() == procedureName.trim().toLowerCase();
+  }
 
   Map<String, dynamic> toJson() => {
         'key': key,
@@ -30,6 +39,7 @@ class RecordFieldDef {
         'hint': hint,
         'builtInSuggestions': builtInSuggestions,
         'isSystem': isSystem,
+        'procedureScope': procedureScope,
       };
 
   factory RecordFieldDef.fromJson(Map<String, dynamic> json) {
@@ -40,6 +50,7 @@ class RecordFieldDef {
       hint: (json['hint'] ?? '').toString(),
       builtInSuggestions: suggestions,
       isSystem: (json['isSystem'] ?? false) == true,
+      procedureScope: (json['procedureScope'] ?? '').toString(),
     );
   }
 }

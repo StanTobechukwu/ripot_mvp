@@ -1,3 +1,4 @@
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -112,10 +113,27 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true,
       );
       final path = (result != null && result.files.isNotEmpty) ? result.files.first.path : null;
       if (path == null || path.trim().isEmpty) return;
-      imported = path;
+      final bytes = await File(path).readAsBytes();
+      final lower = path.toLowerCase();
+      final ext = lower.endsWith('.png')
+          ? 'png'
+          : lower.endsWith('.webp')
+              ? 'webp'
+              : lower.endsWith('.gif')
+                  ? 'gif'
+                  : 'jpg';
+      final mime = ext == 'png'
+          ? 'image/png'
+          : ext == 'webp'
+              ? 'image/webp'
+              : ext == 'gif'
+                  ? 'image/gif'
+                  : 'image/jpeg';
+      imported = await persistBytesAsRef(bytes, fileStem: 'logo_${_model.letterheadId}', extension: ext, mimeType: mime);
     } else {
       final x = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
       if (x == null) return;

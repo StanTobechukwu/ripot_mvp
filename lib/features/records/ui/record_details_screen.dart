@@ -18,6 +18,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   final _controllers = <String, TextEditingController>{};
   bool _saving = false;
 
+  String get _currentProcedure => _entry.valueOf(RecordFieldCatalog.procedure.key);
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +37,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   TextEditingController _controllerFor(String key, String initial) {
     final displayValue = key == RecordFieldCatalog.reportId.key ? formatReportIdForDisplay(initial) : initial;
     return _controllers.putIfAbsent(key, () => TextEditingController(text: displayValue));
+  }
+
+  bool _fieldVisibleForCurrentProcedure(RecordFieldDef field) {
+    return field.appliesToProcedure(_currentProcedure);
   }
 
   Future<void> _save() async {
@@ -57,7 +63,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _saving = true);
-    final values = <String, String>{};
+    final values = Map<String, String>.from(_entry.values);
     for (final entry in _controllers.entries) {
       if (entry.key == RecordFieldCatalog.reportId.key) {
         values[entry.key] = _entry.valueOf(entry.key);
@@ -76,38 +82,95 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     Navigator.pop(context);
   }
 
+  Future<void> _deleteCustomField(RecordFieldDef field) async {
+    if (field.isSystem) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete custom field?'),
+        content: Text(
+          field.isGlobal
+              ? 'Delete ${field.label} from general record fields? This removes it from saved records too.'
+              : 'Delete ${field.label} from ${field.procedureScope} record fields? This removes it from saved records too.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _controllers.remove(field.key)?.dispose();
+    final values = Map<String, String>.from(_entry.values)..remove(field.key);
+    setState(() => _entry = _entry.copyWith(values: values));
+    await context.read<RecordsProvider>().deleteCustomField(field.key);
+  }
+
   Future<void> _addField() async {
     final labelController = TextEditingController();
     final hintController = TextEditingController();
+    var saveAsGlobal = true;
+
     final created = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add new record field'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: labelController,
-              decoration: const InputDecoration(labelText: 'Field label'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: hintController,
-              decoration: const InputDecoration(labelText: 'Field hint (optional)'),
-            ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setLocalState) => AlertDialog(
+          title: const Text('Add new record field'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: labelController,
+                decoration: const InputDecoration(labelText: 'Field label'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: hintController,
+                decoration: const InputDecoration(labelText: 'Field hint (optional)'),
+              ),
+              const SizedBox(height: 16),
+              if (_currentProcedure.trim().isNotEmpty) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Apply field to',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                RadioListTile<bool>(
+                  value: true,
+                  groupValue: saveAsGlobal,
+                  onChanged: (v) => setLocalState(() => saveAsGlobal = v ?? true),
+                  title: const Text('All procedures (general field)'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                RadioListTile<bool>(
+                  value: false,
+                  groupValue: saveAsGlobal,
+                  onChanged: (v) => setLocalState(() => saveAsGlobal = v ?? true),
+                  title: Text('Only for $_currentProcedure'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
-        ],
       ),
     );
     if (created == true && mounted) {
       final label = labelController.text.trim();
       final hint = hintController.text.trim();
       if (label.isNotEmpty) {
-        await context.read<RecordsProvider>().addCustomField(label: label, hint: hint);
+        final procedureScope = saveAsGlobal ? '' : _currentProcedure.trim();
+        await context.read<RecordsProvider>().addCustomField(label: label, hint: hint, procedureScope: procedureScope);
       }
     }
     labelController.dispose();
@@ -117,7 +180,9 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<RecordsProvider>();
-    final fields = provider.allFields;
+    final allFields = provider.allFields;
+    final fields = allFields.where(_fieldVisibleForCurrentProcedure).toList(growable: false);
+    final procedureSpecificCount = allFields.where((f) => !f.isGlobal && f.appliesToProcedure(_currentProcedure)).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -155,16 +220,33 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'You can also add extra record fields for your unit or specialty before saving.',
+                    _currentProcedure.trim().isEmpty
+                        ? 'You can add extra record fields for your unit before saving.'
+                        : 'You can add extra record fields either for all procedures or specifically for $_currentProcedure.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (_currentProcedure.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _ScopeChip(label: 'General fields', count: fields.where((f) => f.isGlobal).length),
+                        _ScopeChip(label: '$_currentProcedure fields', count: procedureSpecificCount),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
           for (final field in fields) ...[
-            _RecordValueField(field: field, controller: _controllerFor(field.key, _entry.valueOf(field.key))),
+            _RecordValueField(
+              field: field,
+              controller: _controllerFor(field.key, _entry.valueOf(field.key)),
+              onDelete: field.isSystem ? null : () => _deleteCustomField(field),
+            ),
             const SizedBox(height: 12),
           ],
           const SizedBox(height: 8),
@@ -182,8 +264,9 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
 class _RecordValueField extends StatefulWidget {
   final RecordFieldDef field;
   final TextEditingController controller;
+  final VoidCallback? onDelete;
 
-  const _RecordValueField({required this.field, required this.controller});
+  const _RecordValueField({required this.field, required this.controller, this.onDelete});
 
   @override
   State<_RecordValueField> createState() => _RecordValueFieldState();
@@ -216,18 +299,33 @@ class _RecordValueFieldState extends State<_RecordValueField> {
         Row(
           children: [
             Expanded(child: Text(widget.field.label, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
-            if (!widget.field.isSystem)
+            if (!widget.field.isSystem) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primaryContainer.withOpacity(0.45),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text('Custom', style: theme.textTheme.labelSmall),
+                child: Text(widget.field.isGlobal ? 'Custom • General' : 'Custom • Procedure', style: theme.textTheme.labelSmall),
               ),
+              IconButton(
+                tooltip: 'Delete custom field',
+                onPressed: widget.onDelete,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 6),
+        if (!widget.field.isGlobal) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Applies only to ${widget.field.procedureScope}',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+        ],
         TextField(
           controller: _controller,
           decoration: InputDecoration(
@@ -259,38 +357,39 @@ class _RecordValueFieldState extends State<_RecordValueField> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: theme.colorScheme.primary.withOpacity(0.18)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Suggestions',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: options.take(8).map((s) {
-                      final selected = _controller.text.trim().toLowerCase() == s.trim().toLowerCase();
-                      return ActionChip(
-                        backgroundColor: selected ? theme.colorScheme.primary.withOpacity(0.14) : theme.colorScheme.surface,
-                        side: BorderSide(
-                          color: selected ? theme.colorScheme.primary.withOpacity(0.45) : theme.dividerColor.withOpacity(0.45),
-                        ),
-                        label: Text(s),
-                        onPressed: () => _controller.text = s,
-                      );
-                    }).toList(growable: false),
-                  ),
-                ],
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: options.take(12).map((option) {
+                  return ActionChip(
+                    label: Text(option),
+                    onPressed: () => _controller.text = option,
+                  );
+                }).toList(growable: false),
               ),
             );
           },
         ),
       ],
+    );
+  }
+}
+
+class _ScopeChip extends StatelessWidget {
+  final String label;
+  final int count;
+
+  const _ScopeChip({required this.label, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text('$label: $count'),
     );
   }
 }

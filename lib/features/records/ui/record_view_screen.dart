@@ -96,8 +96,11 @@ class _RecordViewScreenState extends State<RecordViewScreen> {
     final theme = Theme.of(context);
     final entry = _entry;
     final valueMap = entry?.values ?? widget.summary.values;
+    final procedureName = (valueMap[RecordFieldCatalog.procedure.key] ?? '').trim();
     final fieldDefs = context.watch<RecordsProvider>().allFields;
-    final visibleFields = fieldDefs.where((field) => (valueMap[field.key] ?? '').trim().isNotEmpty).toList(growable: false);
+    final visibleFields = fieldDefs
+        .where((field) => field.appliesToProcedure(procedureName) && (valueMap[field.key] ?? '').trim().isNotEmpty)
+        .toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(

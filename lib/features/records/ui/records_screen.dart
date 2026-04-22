@@ -9,6 +9,7 @@ import '../../reports/data/reports_repository.dart';
 import '../../reports/ui/saved_pdf_viewer_screen.dart';
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
+import '../../reports/services/pdf_actions_service.dart';
 import 'record_view_screen.dart';
 
 enum RecordsViewMode { list, table }
@@ -85,6 +86,28 @@ class _RecordsScreenState extends State<RecordsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('PDF downloaded.')),
       );
+      return;
+    }
+
+    if (ripotIsNativeDesktop) {
+      try {
+        final file = await ripotDownloadPdf(bytes: pdfBytes, fileName: pdfFileName);
+        if (!mounted) return;
+        if (file == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Download cancelled')),
+          );
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF saved to: ${file.path}')),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
       return;
     }
 
@@ -289,19 +312,32 @@ class _RecordsTableState extends State<_RecordsTable> {
                           return DataCell(Text(displayValue));
                         }),
                         DataCell(
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              OutlinedButton(
-                                onPressed: () => widget.onOpenRecord(row),
-                                child: const Text('View'),
+                          SizedBox(
+                            width: 190,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  SizedBox(
+                                    height: 36,
+                                    child: OutlinedButton(
+                                      onPressed: () => widget.onOpenRecord(row),
+                                      child: const Text('View'),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                                    tooltip: 'Download PDF',
+                                    onPressed: () => widget.onDownloadPdf(row),
+                                    icon: const Icon(Icons.download_outlined, size: 20),
+                                  ),
+                                ],
                               ),
-                              TextButton.icon(
-                                onPressed: () => widget.onDownloadPdf(row),
-                                icon: const Icon(Icons.download_outlined),
-                                label: const Text('PDF'),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ],
