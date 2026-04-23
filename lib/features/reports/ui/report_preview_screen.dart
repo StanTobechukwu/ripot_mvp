@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -532,7 +533,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       Text(
                         isDesktopWeb
                             ? 'On desktop web, use the download button in the preview toolbar, then share the PDF from your downloads.'
-                            : 'On desktop, use the Ripot buttons below for Download, Print, and Share.',
+                            : 'On desktop, use the Ripot buttons below for Download and Share. Use the toolbar icons above for Letterhead and Layout.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 12.5, color: Colors.black54),
                       ),
@@ -569,12 +570,19 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         final bytes = snapshot.data;
                         return Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'Toolbar: Letterhead • Layout',
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.black54),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                alignment: WrapAlignment.end,
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
                                 OutlinedButton.icon(
                                   onPressed: bytes == null
                                       ? null
@@ -590,6 +598,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 SnackBar(content: Text('PDF saved to: ${file.path}')),
                                               );
+                                              await _offerAddToRecords();
                                             } else {
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 const SnackBar(content: Text('Download cancelled')),
@@ -605,23 +614,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                   icon: const Icon(Icons.download_outlined),
                                   label: const Text('Download PDF'),
                                 ),
-                                OutlinedButton.icon(
-                                  onPressed: bytes == null
-                                      ? null
-                                      : () async {
-                                          try {
-                                            await ripotPrintPdf(bytes: bytes, fileName: pdfFileName);
-                                          } catch (e) {
-                                            if (!context.mounted) return;
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Print failed: $e')),
-                                            );
-                                          }
-                                        },
-                                  icon: const Icon(Icons.print_outlined),
-                                  label: const Text('Print PDF'),
-                                ),
-                                FilledButton.icon(
+                                FilledButton.tonalIcon(
                                   onPressed: bytes == null
                                       ? null
                                       : () async {
@@ -637,8 +630,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                   icon: const Icon(Icons.share_outlined),
                                   label: const Text('Share PDF'),
                                 ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ),
                         );
                       },

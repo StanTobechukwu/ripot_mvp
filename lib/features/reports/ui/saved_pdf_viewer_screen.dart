@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -61,7 +62,7 @@ class SavedPdfViewerScreen extends StatelessWidget {
                     Text(
                       isDesktopWeb
                           ? 'On desktop web, use Download PDF, then share the file from your downloads.'
-                          : 'Use the Ripot buttons for Download, Print, and Share on desktop.',
+                          : 'Use the Ripot buttons for Download and Share on desktop.',
                       style: const TextStyle(fontSize: 12.5, color: Colors.black54),
                     ),
                     Wrap(
@@ -97,21 +98,7 @@ class SavedPdfViewerScreen extends StatelessWidget {
                           label: const Text('Download PDF'),
                         ),
                         if (isNativeDesktop) ...[
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              try {
-                                await ripotPrintPdf(bytes: bytes, fileName: pdfFileName);
-                              } catch (e) {
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Print failed: $e')),
-                                );
-                              }
-                            },
-                            icon: const Icon(Icons.print_outlined),
-                            label: const Text('Print PDF'),
-                          ),
-                          FilledButton.icon(
+                          FilledButton.tonalIcon(
                             onPressed: () async {
                               try {
                                 await ripotSharePdf(bytes: bytes, fileName: pdfFileName);

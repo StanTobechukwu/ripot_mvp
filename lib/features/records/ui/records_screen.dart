@@ -21,8 +21,12 @@ class RecordsScreen extends StatefulWidget {
   State<RecordsScreen> createState() => _RecordsScreenState();
 }
 
+enum _RecordsSort { newestFirst, oldestFirst, procedureAZ }
+
 class _RecordsScreenState extends State<RecordsScreen> {
   RecordsViewMode _mode = RecordsViewMode.list;
+  _RecordsSort _sort = _RecordsSort.newestFirst;
+  String _procedureFilter = 'All procedures';
 
   @override
   void initState() {
@@ -136,7 +140,29 @@ class _RecordsScreenState extends State<RecordsScreen> {
   Widget build(BuildContext context) {
     final vm = context.watch<RecordsProvider>();
     final fields = vm.allFields;
-    final rows = vm.filteredRecords;
+    final procedures = <String>{};
+    for (final row in vm.records) {
+      final value = row.procedure.trim();
+      if (value.isNotEmpty) procedures.add(value);
+    }
+    final procedureOptions = ['All procedures', ...procedures.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))];
+
+    var rows = vm.filteredRecords.where((row) {
+      if (_procedureFilter == 'All procedures') return true;
+      return row.procedure.trim().toLowerCase() == _procedureFilter.trim().toLowerCase();
+    }).toList(growable: false);
+
+    rows = [...rows]..sort((a, b) {
+      switch (_sort) {
+        case _RecordsSort.oldestFirst:
+          return a.updatedAt.compareTo(b.updatedAt);
+        case _RecordsSort.procedureAZ:
+          final byProcedure = a.procedure.toLowerCase().compareTo(b.procedure.toLowerCase());
+          return byProcedure != 0 ? byProcedure : b.updatedAt.compareTo(a.updatedAt);
+        case _RecordsSort.newestFirst:
+          return b.updatedAt.compareTo(a.updatedAt);
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -163,13 +189,63 @@ class _RecordsScreenState extends State<RecordsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            child: TextField(
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search records',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: vm.setQuery,
+            child: Column(
+              children: [
+                TextField(
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Search records',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: vm.setQuery,
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<String>(
+                        value: procedureOptions.contains(_procedureFilter) ? _procedureFilter : 'All procedures',
+                        decoration: const InputDecoration(
+                          labelText: 'Procedure',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: procedureOptions
+                            .map((value) => DropdownMenuItem<String>(value: value, child: Text(value, overflow: TextOverflow.ellipsis)))
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _procedureFilter = value);
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<_RecordsSort>(
+                        value: _sort,
+                        decoration: const InputDecoration(
+                          labelText: 'Sort',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: _RecordsSort.newestFirst, child: Text('Newest first')),
+                          DropdownMenuItem(value: _RecordsSort.oldestFirst, child: Text('Oldest first')),
+                          DropdownMenuItem(value: _RecordsSort.procedureAZ, child: Text('Procedure A–Z')),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _sort = value);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -316,24 +392,28 @@ class _RecordsTableState extends State<_RecordsTable> {
                             width: 190,
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              child: Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 4,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   SizedBox(
+                                    width: 84,
                                     height: 36,
                                     child: OutlinedButton(
                                       onPressed: () => widget.onOpenRecord(row),
                                       child: const Text('View'),
                                     ),
                                   ),
-                                  IconButton(
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                                    tooltip: 'Download PDF',
-                                    onPressed: () => widget.onDownloadPdf(row),
-                                    icon: const Icon(Icons.download_outlined, size: 20),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 36,
+                                    height: 36,
+                                    child: IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                      tooltip: 'Download PDF',
+                                      onPressed: () => widget.onDownloadPdf(row),
+                                      icon: const Icon(Icons.download_outlined, size: 20),
+                                    ),
                                   ),
                                 ],
                               ),

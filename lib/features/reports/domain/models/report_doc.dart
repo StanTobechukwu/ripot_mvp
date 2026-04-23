@@ -81,7 +81,7 @@ class ReportDoc {
     this.images = const [],
     this.placementChoice = ImagePlacementChoice.attachmentsOnly,
     this.reportLayout = ReportLayout.block,
-    this.indentContent = true,
+    this.indentContent = false,
     this.indentHierarchy = true,
     this.showColonAfterTitlesWithContent = false,
     this.fontScale = 1.05,

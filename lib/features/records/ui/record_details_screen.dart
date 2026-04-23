@@ -17,8 +17,11 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   late RecordEntry _entry;
   final _controllers = <String, TextEditingController>{};
   bool _saving = false;
+  bool _procedureControllerListening = false;
 
-  String get _currentProcedure => _entry.valueOf(RecordFieldCatalog.procedure.key);
+  String get _currentProcedure =>
+      _controllers[RecordFieldCatalog.procedure.key]?.text.trim() ??
+      _entry.valueOf(RecordFieldCatalog.procedure.key);
 
   @override
   void initState() {
@@ -36,7 +39,30 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
 
   TextEditingController _controllerFor(String key, String initial) {
     final displayValue = key == RecordFieldCatalog.reportId.key ? formatReportIdForDisplay(initial) : initial;
-    return _controllers.putIfAbsent(key, () => TextEditingController(text: displayValue));
+    final controller = _controllers.putIfAbsent(key, () => TextEditingController(text: displayValue));
+    if (key == RecordFieldCatalog.procedure.key && !_procedureControllerListening) {
+      controller.addListener(() {
+        if (mounted) setState(() {});
+      });
+      _procedureControllerListening = true;
+    }
+    return controller;
+  }
+
+  void _setProcedureValue(String value) {
+    final trimmed = value.trim();
+    final current = _entry.valueOf(RecordFieldCatalog.procedure.key);
+    if (current == trimmed && (_controllers[RecordFieldCatalog.procedure.key]?.text.trim() ?? current) == trimmed) {
+      return;
+    }
+    final nextValues = Map<String, String>.from(_entry.values)
+      ..[RecordFieldCatalog.procedure.key] = trimmed;
+    _entry = _entry.copyWith(values: nextValues);
+    final controller = _controllers[RecordFieldCatalog.procedure.key];
+    if (controller != null && controller.text != trimmed) {
+      controller.text = trimmed;
+      controller.selection = TextSelection.collapsed(offset: controller.text.length);
+    }
   }
 
   bool _fieldVisibleForCurrentProcedure(RecordFieldDef field) {
@@ -110,7 +136,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   Future<void> _addField() async {
     final labelController = TextEditingController();
     final hintController = TextEditingController();
-    var saveAsGlobal = true;
+    final procedureScopeController = TextEditingController(text: _currentProcedure.trim());
+    var saveAsGlobal = _currentProcedure.trim().isEmpty;
 
     final created = await showDialog<bool>(
       context: context,
@@ -130,30 +157,56 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                 decoration: const InputDecoration(labelText: 'Field hint (optional)'),
               ),
               const SizedBox(height: 16),
-              if (_currentProcedure.trim().isNotEmpty) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Apply field to',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Apply field to',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 8),
+              RadioListTile<bool>(
+                value: true,
+                groupValue: saveAsGlobal,
+                onChanged: (v) => setLocalState(() => saveAsGlobal = v ?? true),
+                title: const Text('All procedures (general field)'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              RadioListTile<bool>(
+                value: false,
+                groupValue: saveAsGlobal,
+                onChanged: (v) => setLocalState(() => saveAsGlobal = v ?? true),
+                title: Text(
+                  procedureScopeController.text.trim().isEmpty
+                      ? 'Only for one procedure'
+                      : 'Only for ${procedureScopeController.text.trim()}',
+                ),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              if (!saveAsGlobal) ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: procedureScopeController,
+                  onChanged: (_) => setLocalState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Procedure name',
+                    hintText: 'e.g. Colonoscopy',
                   ),
                 ),
                 const SizedBox(height: 8),
-                RadioListTile<bool>(
-                  value: true,
-                  groupValue: saveAsGlobal,
-                  onChanged: (v) => setLocalState(() => saveAsGlobal = v ?? true),
-                  title: const Text('All procedures (general field)'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                RadioListTile<bool>(
-                  value: false,
-                  groupValue: saveAsGlobal,
-                  onChanged: (v) => setLocalState(() => saveAsGlobal = v ?? true),
-                  title: Text('Only for $_currentProcedure'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: RecordFieldCatalog.procedure.builtInSuggestions.map((suggestion) {
+                    final selected = procedureScopeController.text.trim().toLowerCase() == suggestion.toLowerCase();
+                    return ChoiceChip(
+                      label: Text(suggestion),
+                      selected: selected,
+                      onSelected: (_) => setLocalState(() => procedureScopeController.text = suggestion),
+                    );
+                  }).toList(growable: false),
                 ),
               ],
             ],
@@ -169,12 +222,26 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       final label = labelController.text.trim();
       final hint = hintController.text.trim();
       if (label.isNotEmpty) {
-        final procedureScope = saveAsGlobal ? '' : _currentProcedure.trim();
-        await context.read<RecordsProvider>().addCustomField(label: label, hint: hint, procedureScope: procedureScope);
+        final procedureScope = saveAsGlobal ? '' : procedureScopeController.text.trim();
+        if (!saveAsGlobal && procedureScope.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Choose or type a procedure for this field.')),
+            );
+          }
+        } else {
+          if (!saveAsGlobal) {
+            setState(() {
+              _setProcedureValue(procedureScope);
+            });
+          }
+          await context.read<RecordsProvider>().addCustomField(label: label, hint: hint, procedureScope: procedureScope);
+        }
       }
     }
     labelController.dispose();
     hintController.dispose();
+    procedureScopeController.dispose();
   }
 
   @override
