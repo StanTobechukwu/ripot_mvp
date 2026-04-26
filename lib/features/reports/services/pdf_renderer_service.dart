@@ -41,8 +41,8 @@ class PdfRendererService {
     );
 
     final metrics = PdfLayoutMetrics(
-      headerReserve: (letterhead != null) ? 90.0 : 0.0,
-      footerReserve: (letterhead != null) ? 45.0 : 0.0,
+      headerReserve: _letterheadHeaderReserve(letterhead),
+      footerReserve: _letterheadFooterReserve(letterhead),
     );
 
     final pageFormat = metrics.pageFormat;
@@ -89,7 +89,11 @@ class PdfRendererService {
     final overflowInlineToAttachments = continuedInline
         .skip(metrics.maxSpillInlineSlots)
         .toList(growable: false);
-    final double signatureReserve = estimateSignatureHeight(fontScale: fontScale) + 12;
+    final double signatureReserve = _estimateSignatureBlockHeight(
+      doc,
+      hasSignatureImage: signatureImg != null,
+      fontScale: fontScale,
+    );
 
     List<_PdfTemplate> remainingTemplates = templates;
     bool showSignatureOnPage1 = false;
@@ -106,28 +110,33 @@ class PdfRendererService {
           max(80.0, metrics.usableHeight - page1TopHeight);
 
       var page1BodyZoneHeight = availableBodyZoneHeight;
-      var page1Split = _paginateTemplates(
+      final page1Split = _paginateTemplates(
         templates,
         availableHeight: page1BodyZoneHeight,
         bodyWidth: metrics.bodyWidth,
         pageTextWidth: metrics.page1TextWidth,
       );
-      if (continuedInlinePageImages.isEmpty && page1Split.$2.isEmpty) {
-        final reservedHeight = max(80.0, availableBodyZoneHeight - signatureReserve);
-        final reservedSplit = _paginateTemplates(
-          templates,
-          availableHeight: reservedHeight,
-          bodyWidth: metrics.bodyWidth,
-          pageTextWidth: metrics.page1TextWidth,
-        );
-        if (reservedSplit.$1.isNotEmpty || templates.isEmpty) {
-          page1BodyZoneHeight = reservedHeight;
-          page1Split = reservedSplit;
-          showSignatureOnPage1 = true;
-        }
-      }
       final page1Entries = page1Split.$1;
       remainingTemplates = page1Split.$2;
+
+      // Signature is a final-flow block. If this page is truly the final
+      // content page, place it here only when it fits below the taller side
+      // of the row (text or inline images). This preserves clinical order
+      // without wasting a whole page unnecessarily.
+      final estimatedPage1RowHeight = max(
+        _entriesEstimatedHeight(page1Entries),
+        _inlineColumnEstimatedHeight(
+          page1InlineImages,
+          metrics: metrics,
+          fontScale: 1.0,
+        ),
+      ).clamp(0.0, availableBodyZoneHeight).toDouble();
+      if (continuedInlinePageImages.isEmpty &&
+          remainingTemplates.isEmpty &&
+          estimatedPage1RowHeight + signatureReserve <= availableBodyZoneHeight + 8.0) {
+        page1BodyZoneHeight = max(40.0, estimatedPage1RowHeight);
+        showSignatureOnPage1 = true;
+      }
 
       pdf.addPage(
         pw.Page(
@@ -210,28 +219,29 @@ class PdfRendererService {
 
     if (plan.inlineEnabled && continuedInlinePageImages.isNotEmpty) {
       var continuedBodyZoneHeight = metrics.usableHeight;
-      var continuedSplit = _paginateTemplates(
+      final continuedSplit = _paginateTemplates(
         remainingTemplates,
         availableHeight: continuedBodyZoneHeight,
         bodyWidth: metrics.bodyWidth,
         pageTextWidth: metrics.page1TextWidth,
       );
-      if (continuedSplit.$2.isEmpty) {
-        final reservedHeight = max(80.0, metrics.usableHeight - signatureReserve);
-        final reservedSplit = _paginateTemplates(
-          remainingTemplates,
-          availableHeight: reservedHeight,
-          bodyWidth: metrics.bodyWidth,
-          pageTextWidth: metrics.page1TextWidth,
-        );
-        if (reservedSplit.$1.isNotEmpty || remainingTemplates.isEmpty) {
-          continuedBodyZoneHeight = reservedHeight;
-          continuedSplit = reservedSplit;
-          showSignatureOnContinuedPage = true;
-        }
-      }
       final continuedEntries = continuedSplit.$1;
       remainingTemplates = continuedSplit.$2;
+
+      // Same final-flow rule for inline continuation pages.
+      final estimatedContinuedRowHeight = max(
+        _entriesEstimatedHeight(continuedEntries),
+        _inlineColumnEstimatedHeight(
+          continuedInlinePageImages,
+          metrics: metrics,
+          fontScale: 1.0,
+        ),
+      ).clamp(0.0, metrics.usableHeight).toDouble();
+      if (remainingTemplates.isEmpty &&
+          estimatedContinuedRowHeight + signatureReserve <= metrics.usableHeight + 8.0) {
+        continuedBodyZoneHeight = max(40.0, estimatedContinuedRowHeight);
+        showSignatureOnContinuedPage = true;
+      }
 
       pdf.addPage(
         pw.Page(
@@ -792,6 +802,24 @@ class PdfRendererService {
     }
   }
 
+  double _letterheadHeaderReserve(LetterheadTemplate? lh) {
+    if (lh == null) return 0.0;
+    final hasLogo = (lh.logoFilePath ?? '').trim().isNotEmpty;
+    if (!hasLogo) return 52.0;
+    if (lh.logoPlacement == LetterheadLogoPlacement.side) return 60.0;
+    return 86.0;
+  }
+
+  double _letterheadFooterReserve(LetterheadTemplate? lh) {
+    if (lh == null) return 0.0;
+    final hasFooter = lh.footerLeft.trim().isNotEmpty ||
+        lh.footerRight.trim().isNotEmpty;
+    // Do not reserve footer space when the letterhead footer is empty. The
+    // previous fixed 45pt reserve wasted page-1 space and made the signature
+    // fit test too conservative.
+    return hasFooter ? 28.0 : 0.0;
+  }
+
   pw.Widget _letterheadHeader(LetterheadTemplate lh, pw.MemoryImage? logo) {
     final align = _logoAlign(lh.logoAlign);
     final tAlign = _textAlignFromLogoAlign(lh.logoAlign);
@@ -809,9 +837,39 @@ class PdfRendererService {
       );
     }
 
-    return pw.Container(
-      padding: const pw.EdgeInsets.only(bottom: 6),
-      child: pw.Column(
+    final textBlock = pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        line(lh.headerLine1, size: 14, bold: true),
+        line(lh.headerLine2, size: 10),
+        line(lh.headerLine3, size: 10),
+      ],
+    );
+
+    pw.Widget headerContent;
+    if (logo != null && lh.logoPlacement == LetterheadLogoPlacement.side) {
+      final logoWidget = pw.Container(
+        width: 54,
+        height: 44,
+        alignment: pw.Alignment.center,
+        child: pw.Image(logo, fit: pw.BoxFit.contain),
+      );
+      headerContent = pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: lh.logoAlign == LetterheadLogoAlignment.right
+            ? [
+                pw.Expanded(child: textBlock),
+                pw.SizedBox(width: 10),
+                logoWidget,
+              ]
+            : [
+                logoWidget,
+                pw.SizedBox(width: 10),
+                pw.Expanded(child: textBlock),
+              ],
+      );
+    } else {
+      headerContent = pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           if (logo != null)
@@ -820,9 +878,17 @@ class PdfRendererService {
               height: 46,
               child: pw.Image(logo, fit: pw.BoxFit.contain),
             ),
-          line(lh.headerLine1, size: 14, bold: true),
-          line(lh.headerLine2, size: 10),
-          line(lh.headerLine3, size: 10),
+          textBlock,
+        ],
+      );
+    }
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          headerContent,
           pw.SizedBox(height: 4),
           pw.Divider(),
         ],
@@ -992,6 +1058,26 @@ class PdfRendererService {
       'Dec'
     ];
     return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
+  }
+
+  double _estimateSignatureBlockHeight(
+    ReportDoc doc, {
+    required bool hasSignatureImage,
+    required double fontScale,
+  }) {
+    final name = doc.signature.name.trim();
+    final creds = doc.signature.credentials.trim();
+    final hasNameLine = name.isNotEmpty || creds.isNotEmpty;
+
+    final roleLine = 12.0 * fontScale * 1.25;
+    final nameLine = hasNameLine ? 11.0 * fontScale * 1.25 : 0.0;
+    final dateLine = 11.0 * fontScale * 1.35;
+    final imageOrLine = hasSignatureImage ? 60.0 : 32.0;
+
+    // Mirrors _signatureBlock as closely as possible, with a small safety
+    // buffer. This is intentionally tighter than the old fixed 135pt reserve
+    // so the signature is kept on the final content page when it truly fits.
+    return 4.0 + roleLine + 6.0 + nameLine + dateLine + 10.0 + imageOrLine + 8.0;
   }
 
   pw.Widget _signatureBlock(
@@ -1185,6 +1271,7 @@ class PdfRendererService {
             _PdfEntry(
               plain: t.plainOf(t.text),
               widget: t.buildWidget(t.text),
+              height: fullHeight,
             ),
           );
           heightLeft -= fullHeight;
@@ -1199,6 +1286,7 @@ class PdfRendererService {
           _PdfEntry(
             plain: t.plainOf(t.text),
             widget: t.buildWidget(t.text),
+            height: fullHeight,
           ),
         );
         heightLeft -= fullHeight;
@@ -1225,6 +1313,7 @@ class PdfRendererService {
             _PdfEntry(
               plain: t.plainOf(''),
               widget: t.buildWidget(''),
+              height: t.measureHeight('', bodyWidth, pageTextWidth),
             ),
           );
           working.removeAt(0);
@@ -1241,6 +1330,7 @@ class PdfRendererService {
         _PdfEntry(
           plain: t.plainOf(piece),
           widget: t.buildWidget(piece),
+          height: t.measureHeight(piece, bodyWidth, pageTextWidth),
         ),
       );
       working.removeAt(0);
@@ -1558,6 +1648,28 @@ class PdfRendererService {
     return out;
   }
 
+  double _entriesEstimatedHeight(List<_PdfEntry> entries) {
+    if (entries.isEmpty) return 18.0;
+    // Used only for deciding whether the final signature can share the
+    // current inline page. _entriesBlock adds a 6pt top padding, while each
+    // entry already carries its own measured bottom padding/line height.
+    // Avoid an extra trailing buffer here; it made the fit test too
+    // conservative and pushed the signature to a new page despite visible
+    // available space.
+    return entries.fold<double>(6.0, (sum, e) => sum + e.height);
+  }
+
+  double _inlineColumnEstimatedHeight(
+    List<_PdfLoadedImage> images, {
+    required PdfLayoutMetrics metrics,
+    required double fontScale,
+  }) {
+    if (images.isEmpty) return 0.0;
+    final slotH = metrics.inlineSlotHeight * fontScale;
+    final gap = metrics.inlineSlotGap * fontScale;
+    return (images.length * slotH) + ((images.length - 1) * gap);
+  }
+
   pw.Widget _entriesBlock(
     List<_PdfEntry> entries, {
     required double contentFontSize,
@@ -1737,10 +1849,12 @@ class _PdfEntry {
   const _PdfEntry({
     required this.plain,
     required this.widget,
+    required this.height,
   });
 
   final String plain;
   final pw.Widget widget;
+  final double height;
 }
 
 class _PdfTemplate {

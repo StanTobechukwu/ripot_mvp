@@ -255,10 +255,23 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _pickLogo,
-                    icon: const Icon(Icons.upload_file_outlined),
-                    label: const Text('Choose logo'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _pickLogo,
+                        icon: const Icon(Icons.upload_file_outlined),
+                        label: const Text('Choose logo'),
+                      ),
+                      if (hasLogo) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => setState(() => _model = _model.copyWith(clearLogo: true)),
+                          icon: const Icon(Icons.clear),
+                          label: const Text('Clear logo'),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -267,17 +280,33 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
           const SizedBox(height: 12),
 
           _card(
-            title: 'Alignment',
-            child: SegmentedButton<LetterheadLogoAlignment>(
-              segments: const [
-                ButtonSegment(value: LetterheadLogoAlignment.left, label: Text('Left')),
-                ButtonSegment(value: LetterheadLogoAlignment.center, label: Text('Center')),
-                ButtonSegment(value: LetterheadLogoAlignment.right, label: Text('Right')),
+            title: 'Logo placement',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SegmentedButton<LetterheadLogoPlacement>(
+                  segments: const [
+                    ButtonSegment(value: LetterheadLogoPlacement.top, label: Text('Top')),
+                    ButtonSegment(value: LetterheadLogoPlacement.side, label: Text('Side')),
+                  ],
+                  selected: {_model.logoPlacement},
+                  onSelectionChanged: (s) {
+                    setState(() => _model = _model.copyWith(logoPlacement: s.first));
+                  },
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<LetterheadLogoAlignment>(
+                  segments: const [
+                    ButtonSegment(value: LetterheadLogoAlignment.left, label: Text('Left')),
+                    ButtonSegment(value: LetterheadLogoAlignment.center, label: Text('Center')),
+                    ButtonSegment(value: LetterheadLogoAlignment.right, label: Text('Right')),
+                  ],
+                  selected: {_model.logoAlign},
+                  onSelectionChanged: (s) {
+                    setState(() => _model = _model.copyWith(logoAlign: s.first));
+                  },
+                ),
               ],
-              selected: {_model.logoAlign},
-              onSelectionChanged: (s) {
-                setState(() => _model = _model.copyWith(logoAlign: s.first));
-              },
             ),
           ),
           const SizedBox(height: 12),
@@ -371,6 +400,35 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
       LetterheadLogoAlignment.center => CrossAxisAlignment.center,
       LetterheadLogoAlignment.right => CrossAxisAlignment.end,
     };
+    final textAlign = switch (_model.logoAlign) {
+      LetterheadLogoAlignment.left => TextAlign.left,
+      LetterheadLogoAlignment.center => TextAlign.center,
+      LetterheadLogoAlignment.right => TextAlign.right,
+    };
+
+    final logoBox = Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+      child: const Icon(Icons.image_outlined, size: 20),
+    );
+
+    final textBlock = Column(
+      crossAxisAlignment: align,
+      children: [
+        if (_h1C.text.trim().isNotEmpty)
+          Text(
+            _h1C.text.trim(),
+            textAlign: textAlign,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        if (_h2C.text.trim().isNotEmpty) Text(_h2C.text.trim(), textAlign: textAlign),
+        if (_h3C.text.trim().isNotEmpty) Text(_h3C.text.trim(), textAlign: textAlign),
+      ],
+    );
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -381,28 +439,25 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
       child: Column(
         crossAxisAlignment: align,
         children: [
-          Row(
-            mainAxisAlignment: _model.logoAlign == LetterheadLogoAlignment.left
-                ? MainAxisAlignment.start
-                : _model.logoAlign == LetterheadLogoAlignment.center
-                    ? MainAxisAlignment.center
-                    : MainAxisAlignment.end,
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                ),
-                child: const Icon(Icons.image_outlined, size: 20),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (_h1C.text.trim().isNotEmpty) Text(_h1C.text.trim(), style: const TextStyle(fontWeight: FontWeight.w800)),
-          if (_h2C.text.trim().isNotEmpty) Text(_h2C.text.trim()),
-          if (_h3C.text.trim().isNotEmpty) Text(_h3C.text.trim()),
+          if (_model.logoPlacement == LetterheadLogoPlacement.side)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: _model.logoAlign == LetterheadLogoAlignment.right
+                  ? [Expanded(child: textBlock), const SizedBox(width: 12), logoBox]
+                  : [logoBox, const SizedBox(width: 12), Expanded(child: textBlock)],
+            )
+          else ...[
+            Row(
+              mainAxisAlignment: _model.logoAlign == LetterheadLogoAlignment.left
+                  ? MainAxisAlignment.start
+                  : _model.logoAlign == LetterheadLogoAlignment.center
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.end,
+              children: [logoBox],
+            ),
+            const SizedBox(height: 8),
+            textBlock,
+          ],
           const SizedBox(height: 10),
           Divider(color: Theme.of(context).dividerColor),
           Row(

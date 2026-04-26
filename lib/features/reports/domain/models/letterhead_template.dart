@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 
 enum LetterheadLogoAlignment { left, center, right }
 
+enum LetterheadLogoPlacement { top, side }
+
 @immutable
 class LetterheadTemplate {
   final String letterheadId;
@@ -17,6 +19,7 @@ class LetterheadTemplate {
   final String footerRight; // e.g., website
 
   final LetterheadLogoAlignment logoAlign;
+  final LetterheadLogoPlacement logoPlacement;
 
   const LetterheadTemplate({
     required this.letterheadId,
@@ -28,28 +31,32 @@ class LetterheadTemplate {
     this.footerLeft = '',
     this.footerRight = '',
     this.logoAlign = LetterheadLogoAlignment.left,
+    this.logoPlacement = LetterheadLogoPlacement.top,
   });
 
   LetterheadTemplate copyWith({
     String? name,
     String? logoFilePath,
+    bool clearLogo = false,
     String? headerLine1,
     String? headerLine2,
     String? headerLine3,
     String? footerLeft,
     String? footerRight,
     LetterheadLogoAlignment? logoAlign,
+    LetterheadLogoPlacement? logoPlacement,
   }) {
     return LetterheadTemplate(
       letterheadId: letterheadId,
       name: name ?? this.name,
-      logoFilePath: logoFilePath ?? this.logoFilePath,
+      logoFilePath: clearLogo ? null : (logoFilePath ?? this.logoFilePath),
       headerLine1: headerLine1 ?? this.headerLine1,
       headerLine2: headerLine2 ?? this.headerLine2,
       headerLine3: headerLine3 ?? this.headerLine3,
       footerLeft: footerLeft ?? this.footerLeft,
       footerRight: footerRight ?? this.footerRight,
       logoAlign: logoAlign ?? this.logoAlign,
+      logoPlacement: logoPlacement ?? this.logoPlacement,
     );
   }
 
@@ -64,6 +71,7 @@ class LetterheadTemplate {
       'footerLeft': footerLeft,
       'footerRight': footerRight,
       'logoAlign': logoAlign.name,
+      'logoPlacement': logoPlacement.name,
     };
   }
 
@@ -72,6 +80,11 @@ class LetterheadTemplate {
     final align = LetterheadLogoAlignment.values.firstWhere(
       (e) => e.name == alignStr,
       orElse: () => LetterheadLogoAlignment.left,
+    );
+    final placementStr = (json['logoPlacement'] as String?) ?? 'top';
+    final placement = LetterheadLogoPlacement.values.firstWhere(
+      (e) => e.name == placementStr,
+      orElse: () => LetterheadLogoPlacement.top,
     );
 
     return LetterheadTemplate(
@@ -84,6 +97,7 @@ class LetterheadTemplate {
       footerLeft: (json['footerLeft'] as String?) ?? '',
       footerRight: (json['footerRight'] as String?) ?? '',
       logoAlign: align,
+      logoPlacement: placement,
     );
   }
 }
