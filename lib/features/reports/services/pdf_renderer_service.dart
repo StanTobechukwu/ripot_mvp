@@ -73,22 +73,26 @@ class PdfRendererService {
       metrics: metrics,
     );
 
-    final page1InlineImages = inlinePageOneImgs
+    final initialPage1InlineImages = inlinePageOneImgs
         .take(metrics.maxPage1InlineSlots)
         .toList(growable: false);
+    var page1InlineImages = initialPage1InlineImages;
 
-    final useSpecialPageOne = plan.inlineEnabled && page1InlineImages.isNotEmpty;
+    final useSpecialPageOne =
+        plan.inlineEnabled && initialPage1InlineImages.isNotEmpty;
 
     final continuedInline = <_PdfLoadedImage>[
       ...inlinePageOneImgs.skip(metrics.maxPage1InlineSlots),
       ...spillInlineImgs,
     ];
-    final continuedInlinePageImages = continuedInline
+    var continuedInlinePageImages = continuedInline
         .take(metrics.maxSpillInlineSlots)
         .toList(growable: false);
     final overflowInlineToAttachments = continuedInline
         .skip(metrics.maxSpillInlineSlots)
         .toList(growable: false);
+    final page1InlineDeferredToAttachments = <_PdfLoadedImage>[];
+    final continuedInlineDeferredToAttachments = <_PdfLoadedImage>[];
     final double signatureReserve = _estimateSignatureBlockHeight(
       doc,
       hasSignatureImage: signatureImg != null,
@@ -119,23 +123,36 @@ class PdfRendererService {
       final page1Entries = page1Split.$1;
       remainingTemplates = page1Split.$2;
 
-      // Signature is a final-flow block. If this page is truly the final
-      // content page, place it here only when it fits below the taller side
-      // of the row (text or inline images). This preserves clinical order
-      // without wasting a whole page unnecessarily.
-      final estimatedPage1RowHeight = max(
-        _entriesEstimatedHeight(page1Entries),
-        _inlineColumnEstimatedHeight(
-          page1InlineImages,
+      // Signature is final report content, not a footer. If the report text
+      // ends on page 1, inline images must give way before the signature is
+      // pushed to another page. Try the planned images first, then fewer
+      // images, and defer extras to the attachment pages.
+      final page1EntriesHeight = _entriesEstimatedHeight(page1Entries);
+      if (continuedInlinePageImages.isEmpty && remainingTemplates.isEmpty) {
+        final fitted = _fitInlineImagesBeforeSignature(
+          candidates: page1InlineImages,
+          textHeight: page1EntriesHeight,
+          availableHeight: availableBodyZoneHeight,
+          signatureReserve: signatureReserve,
           metrics: metrics,
-          fontScale: 1.0,
-        ),
-      ).clamp(0.0, availableBodyZoneHeight).toDouble();
-      if (continuedInlinePageImages.isEmpty &&
-          remainingTemplates.isEmpty &&
-          estimatedPage1RowHeight + signatureReserve <= availableBodyZoneHeight + 8.0) {
-        page1BodyZoneHeight = max(40.0, estimatedPage1RowHeight);
-        showSignatureOnPage1 = true;
+        );
+        page1InlineImages = fitted.$1;
+        page1InlineDeferredToAttachments.addAll(fitted.$2);
+
+        final estimatedPage1RowHeight = max(
+          page1EntriesHeight,
+          _inlineColumnEstimatedHeight(
+            page1InlineImages,
+            metrics: metrics,
+            fontScale: 1.0,
+          ),
+        ).clamp(0.0, availableBodyZoneHeight).toDouble();
+
+        if (estimatedPage1RowHeight + signatureReserve <=
+            availableBodyZoneHeight + 8.0) {
+          page1BodyZoneHeight = max(40.0, estimatedPage1RowHeight);
+          showSignatureOnPage1 = true;
+        }
       }
 
       pdf.addPage(
@@ -228,19 +245,35 @@ class PdfRendererService {
       final continuedEntries = continuedSplit.$1;
       remainingTemplates = continuedSplit.$2;
 
-      // Same final-flow rule for inline continuation pages.
-      final estimatedContinuedRowHeight = max(
-        _entriesEstimatedHeight(continuedEntries),
-        _inlineColumnEstimatedHeight(
-          continuedInlinePageImages,
+      // Same final-flow rule for inline continuation pages: if this is the
+      // final content page, defer excess inline images before moving the
+      // signature away from the report body.
+      final continuedEntriesHeight = _entriesEstimatedHeight(continuedEntries);
+      if (remainingTemplates.isEmpty) {
+        final fitted = _fitInlineImagesBeforeSignature(
+          candidates: continuedInlinePageImages,
+          textHeight: continuedEntriesHeight,
+          availableHeight: metrics.usableHeight,
+          signatureReserve: signatureReserve,
           metrics: metrics,
-          fontScale: 1.0,
-        ),
-      ).clamp(0.0, metrics.usableHeight).toDouble();
-      if (remainingTemplates.isEmpty &&
-          estimatedContinuedRowHeight + signatureReserve <= metrics.usableHeight + 8.0) {
-        continuedBodyZoneHeight = max(40.0, estimatedContinuedRowHeight);
-        showSignatureOnContinuedPage = true;
+        );
+        continuedInlinePageImages = fitted.$1;
+        continuedInlineDeferredToAttachments.addAll(fitted.$2);
+
+        final estimatedContinuedRowHeight = max(
+          continuedEntriesHeight,
+          _inlineColumnEstimatedHeight(
+            continuedInlinePageImages,
+            metrics: metrics,
+            fontScale: 1.0,
+          ),
+        ).clamp(0.0, metrics.usableHeight).toDouble();
+
+        if (estimatedContinuedRowHeight + signatureReserve <=
+            metrics.usableHeight + 8.0) {
+          continuedBodyZoneHeight = max(40.0, estimatedContinuedRowHeight);
+          showSignatureOnContinuedPage = true;
+        }
       }
 
       pdf.addPage(
@@ -370,6 +403,8 @@ class PdfRendererService {
     }
 
     final allAttachmentImgs = <_PdfLoadedImage>[
+      ...page1InlineDeferredToAttachments,
+      ...continuedInlineDeferredToAttachments,
       ...overflowInlineToAttachments,
       ...attachmentImgs,
     ];
@@ -1646,6 +1681,44 @@ class PdfRendererService {
     }
 
     return out;
+  }
+
+  (List<_PdfLoadedImage>, List<_PdfLoadedImage>) _fitInlineImagesBeforeSignature({
+    required List<_PdfLoadedImage> candidates,
+    required double textHeight,
+    required double availableHeight,
+    required double signatureReserve,
+    required PdfLayoutMetrics metrics,
+  }) {
+    if (candidates.isEmpty) {
+      return (<_PdfLoadedImage>[], <_PdfLoadedImage>[]);
+    }
+
+    // Inline images are useful, but the signature is the final report block.
+    // Keep as many inline images as possible while still allowing the
+    // signature to sit after the report content on the same final-content page.
+    // Images that do not fit become attachments.
+    for (var count = candidates.length; count >= 0; count--) {
+      final kept = candidates.take(count).toList(growable: false);
+      final rowHeight = max(
+        textHeight,
+        _inlineColumnEstimatedHeight(
+          kept,
+          metrics: metrics,
+          fontScale: 1.0,
+        ),
+      );
+      if (rowHeight + signatureReserve <= availableHeight + 8.0) {
+        return (
+          kept,
+          candidates.skip(count).toList(growable: false),
+        );
+      }
+    }
+
+    // If the text itself cannot leave room for the signature, keep the planned
+    // inline images and let the normal final-content page carry the signature.
+    return (candidates, <_PdfLoadedImage>[]);
   }
 
   double _entriesEstimatedHeight(List<_PdfEntry> entries) {
