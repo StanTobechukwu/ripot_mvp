@@ -39,6 +39,7 @@ class UpgradeScreen extends StatelessWidget {
                       _FeatureChip('Image labels'),
                       _FeatureChip('Custom letterhead'),
                       _FeatureChip('Custom margins'),
+                      _FeatureChip('Records table and filters'),
                       _FeatureChip('Higher limits'),
                     ],
                   ),
@@ -99,6 +100,7 @@ class _PlanComparison extends StatelessWidget {
       ['Custom margins', 'No', 'Yes'],
       ['Saved templates', '3', '20'],
       ['Saved reports', '10', '100'],
+      ['Records table and filters', 'No', 'Yes'],
       ['Images per report', '4', '12'],
     ];
 

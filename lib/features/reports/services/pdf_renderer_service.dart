@@ -14,6 +14,7 @@ import 'platforms/file_loader.dart';
 
 class PdfRendererService {
   static const double _alignedTitleWidth = 160.0;
+  static const double _fitSlack = 24.0;
   static const String _emptyDots = '..........';
 
   String _displayValue(String text, {bool suppressPlaceholder = false}) =>
@@ -57,7 +58,7 @@ class PdfRendererService {
     final spillInlineImgs = await _loadLabeledImages(
       plan.finalContent.spillInlineImages,
     );
-    final attachmentImgs = await _loadLabeledImages(
+    final plannedAttachmentImgs = await _loadLabeledImages(
       plan.attachmentPages.expand((p) => p.images).toList(),
     );
 
@@ -67,350 +68,267 @@ class PdfRendererService {
 
     final pdf = pw.Document(theme: theme);
 
+    // Hybrid sequential renderer with a true first-page inline image column:
+    // - first page keeps inline images in the right column as originally designed;
+    // - left column flows title/subject/report content and the signature as final content;
+    // - excess text continues on normal pages;
+    // - excess inline images are moved to attachments, never dropped.
+    final topWidgets = <pw.Widget>[];
+    if (showTitle) {
+      topWidgets.add(
+        pw.Text(
+          titleText,
+          style: pw.TextStyle(
+            fontSize: reportTitleFontSize,
+            fontWeight: pw.FontWeight.bold,
+            height: 1.35,
+          ),
+        ),
+      );
+      topWidgets.add(pw.SizedBox(height: 12));
+    }
+
+    if (doc.subjectInfoDef.enabled) {
+      topWidgets.add(_subjectInfoBlock(doc, fontScale: fontScale));
+      topWidgets.add(pw.SizedBox(height: 12));
+    }
+
+    final allInlineCandidates = <_PdfLoadedImage>[
+      ...inlinePageOneImgs,
+      ...spillInlineImgs,
+    ];
+
+    final pageOneInlineCandidates = plan.inlineEnabled
+        ? allInlineCandidates.take(metrics.maxPage1InlineSlots).toList()
+        : <_PdfLoadedImage>[];
+
+    final topStackHeight = _estimatePage1TopStackHeight(
+      doc,
+      fontScale: fontScale,
+      showTitle: showTitle,
+      titleFontSize: reportTitleFontSize,
+    );
+    final availableAfterTop = max(80.0, metrics.usableHeight - topStackHeight);
+
     final templates = _buildTemplates(
       doc,
       contentFontSize: contentFontSize,
       metrics: metrics,
     );
 
-    final initialPage1InlineImages = inlinePageOneImgs
-        .take(metrics.maxPage1InlineSlots)
-        .toList(growable: false);
-    var page1InlineImages = initialPage1InlineImages;
-
-    final useSpecialPageOne =
-        plan.inlineEnabled && initialPage1InlineImages.isNotEmpty;
-
-    final continuedInline = <_PdfLoadedImage>[
-      ...inlinePageOneImgs.skip(metrics.maxPage1InlineSlots),
-      ...spillInlineImgs,
-    ];
-    var continuedInlinePageImages = continuedInline
-        .take(metrics.maxSpillInlineSlots)
-        .toList(growable: false);
-    final overflowInlineToAttachments = continuedInline
-        .skip(metrics.maxSpillInlineSlots)
-        .toList(growable: false);
-    final page1InlineDeferredToAttachments = <_PdfLoadedImage>[];
-    final continuedInlineDeferredToAttachments = <_PdfLoadedImage>[];
-    final double signatureReserve = _estimateSignatureBlockHeight(
+    final signatureHeight = _estimateSignatureBlockHeight(
       doc,
       hasSignatureImage: signatureImg != null,
       fontScale: fontScale,
     );
 
+    final signatureFitSlack = _signatureFitSlack(
+      hasLetterhead: letterhead != null,
+      hasFooter: metrics.footerReserve > 0,
+      hasInlineColumn: pageOneInlineCandidates.isNotEmpty,
+      fontScale: fontScale,
+    );
+
+    // Page 1 is treated as two independent zones:
+    // - left zone: title/subject/report content + signature as final content;
+    // - right zone: inline image column only.
+    // Keep an inline image only if it fits the page and does not extend below
+    // the bottom of the signature block when both are present on page 1.
+    // Otherwise the image is moved to attachments, never dropped.
+    List<_PdfEntry> firstPageEntries = <_PdfEntry>[];
     List<_PdfTemplate> remainingTemplates = templates;
-    bool showSignatureOnPage1 = false;
-    bool showSignatureOnContinuedPage = false;
+    List<_PdfLoadedImage> pageOneInlineImages = <_PdfLoadedImage>[];
+    var canPlaceSignatureOnFirstPage = false;
 
-    if (useSpecialPageOne) {
-      final page1TopHeight = _estimatePage1TopStackHeight(
-        doc,
+    // More accurate first-page decision:
+    // 1) Lay out the left report column first using the same width that will
+    //    be used when a right-side inline image column is present.
+    // 2) Place the signature as the next left-column content block.
+    // 3) Use the resulting signature top as the right-column image boundary.
+    //    This is per-image: images that end before the signature remain inline;
+    //    the first image that enters the signature area and later images move
+    //    to attachments.
+    final bool wantsPageOneImageColumn = pageOneInlineCandidates.isNotEmpty;
+    final double leftColumnWidth = wantsPageOneImageColumn
+        ? metrics.page1TextWidth
+        : metrics.bodyWidth;
+
+    final firstPageContent = _paginateTemplates(
+      templates,
+      availableHeight: availableAfterTop,
+      bodyWidth: metrics.bodyWidth,
+      pageTextWidth: leftColumnWidth,
+    );
+
+    firstPageEntries = firstPageContent.$1;
+    remainingTemplates = firstPageContent.$2;
+
+    final firstPageTextHeight = _entriesEstimatedHeight(firstPageEntries);
+    final signatureTop = firstPageTextHeight + 6.0;
+    final signatureBottom = signatureTop + signatureHeight;
+
+    canPlaceSignatureOnFirstPage = remainingTemplates.isEmpty &&
+        signatureBottom <= availableAfterTop + signatureFitSlack;
+
+    if (wantsPageOneImageColumn) {
+      // The left report column owns the page. The right image column is
+      // secondary and is only allowed to occupy the vertical height created by
+      // the report-content portion of the left column. This keeps the signature
+      // as the immediate continuation of content in its own left-column row and
+      // prevents any inline image from extending into/under the signature area.
+      final imageColumnLimit = max(0.0, firstPageTextHeight - 2.0);
+      pageOneInlineImages = _inlineImagesThatFitWithin(
+        pageOneInlineCandidates,
+        maxHeight: imageColumnLimit,
+        metrics: metrics,
         fontScale: fontScale,
-        showTitle: showTitle,
-        titleFontSize: reportTitleFontSize,
       );
-      final availableBodyZoneHeight =
-          max(80.0, metrics.usableHeight - page1TopHeight);
+    }
 
-      var page1BodyZoneHeight = availableBodyZoneHeight;
-      final page1Split = _paginateTemplates(
+    if (firstPageEntries.isEmpty && templates.isNotEmpty) {
+      final fallback = _paginateTemplates(
         templates,
-        availableHeight: page1BodyZoneHeight,
+        availableHeight: availableAfterTop,
         bodyWidth: metrics.bodyWidth,
-        pageTextWidth: metrics.page1TextWidth,
+        pageTextWidth: metrics.bodyWidth,
       );
-      final page1Entries = page1Split.$1;
-      remainingTemplates = page1Split.$2;
-
-      // Signature is final report content, not a footer. If the report text
-      // ends on page 1, inline images must give way before the signature is
-      // pushed to another page. Try the planned images first, then fewer
-      // images, and defer extras to the attachment pages.
-      final page1EntriesHeight = _entriesEstimatedHeight(page1Entries);
-      if (continuedInlinePageImages.isEmpty && remainingTemplates.isEmpty) {
-        final fitted = _fitInlineImagesBeforeSignature(
-          candidates: page1InlineImages,
-          textHeight: page1EntriesHeight,
-          availableHeight: availableBodyZoneHeight,
-          signatureReserve: signatureReserve,
-          metrics: metrics,
-        );
-        page1InlineImages = fitted.$1;
-        page1InlineDeferredToAttachments.addAll(fitted.$2);
-
-        final estimatedPage1RowHeight = max(
-          page1EntriesHeight,
-          _inlineColumnEstimatedHeight(
-            page1InlineImages,
-            metrics: metrics,
-            fontScale: 1.0,
-          ),
-        ).clamp(0.0, availableBodyZoneHeight).toDouble();
-
-        if (estimatedPage1RowHeight + signatureReserve <=
-            availableBodyZoneHeight + 8.0) {
-          page1BodyZoneHeight = max(40.0, estimatedPage1RowHeight);
-          showSignatureOnPage1 = true;
-        }
-      }
-
-      pdf.addPage(
-        pw.Page(
-          theme: theme,
-          pageFormat: pageFormat,
-          margin: pw.EdgeInsets.all(pageMargin),
-          build: (_) {
-            final topWidgets = <pw.Widget>[];
-            if (letterhead != null) {
-              topWidgets.add(_letterheadHeader(letterhead, logo));
-            }
-            if (showTitle) {
-              topWidgets.add(
-                pw.Text(
-                  titleText,
-                  style: pw.TextStyle(
-                    fontSize: reportTitleFontSize,
-                    fontWeight: pw.FontWeight.bold,
-                    height: 1.35,
-                  ),
-                ),
-              );
-              topWidgets.add(pw.SizedBox(height: 12));
-            }
-            if (doc.subjectInfoDef.enabled) {
-              topWidgets.add(_subjectInfoBlock(doc, fontScale: fontScale));
-              topWidgets.add(pw.SizedBox(height: 12));
-            }
-
-            final footerWidgets = <pw.Widget>[];
-            if (letterhead != null) {
-              footerWidgets.add(_letterheadFooter(letterhead));
-            }
-            if (attachmentImgs.isEmpty && showSignatureOnContinuedPage) {
-              if (footerWidgets.isNotEmpty) footerWidgets.add(pw.SizedBox(height: 4));
-              if (showRipotBranding) footerWidgets.add(_ripotBranding());
-            }
-
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                ...topWidgets,
-                pw.SizedBox(
-                  height: page1BodyZoneHeight,
-                  child: pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Expanded(
-                        child: _entriesBlock(
-                          page1Entries,
-                          contentFontSize: contentFontSize,
-                        ),
-                      ),
-                      pw.SizedBox(width: metrics.inlineToTextGap),
-                      pw.SizedBox(
-                        width: metrics.inlineColumnWidth,
-                        child: _inlineColumnFixed(
-                          page1InlineImages,
-                          fontScale: 1.0,
-                          metrics: metrics,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (showSignatureOnPage1) ...[
-                  pw.SizedBox(height: 12),
-                  _signatureBlock(doc, signatureImg, fontScale: fontScale),
-                ],
-                if (footerWidgets.isNotEmpty) ...[
-                  pw.Spacer(),
-                  ...footerWidgets,
-                ],
-              ],
-            );
-          },
-        ),
-      );
+      firstPageEntries = fallback.$1;
+      remainingTemplates = fallback.$2;
+      pageOneInlineImages = <_PdfLoadedImage>[];
+      final fallbackHeight = _entriesEstimatedHeight(firstPageEntries);
+      canPlaceSignatureOnFirstPage = remainingTemplates.isEmpty &&
+          fallbackHeight + 6.0 + signatureHeight <= availableAfterTop + signatureFitSlack;
     }
 
-    if (plan.inlineEnabled && continuedInlinePageImages.isNotEmpty) {
-      var continuedBodyZoneHeight = metrics.usableHeight;
-      final continuedSplit = _paginateTemplates(
-        remainingTemplates,
-        availableHeight: continuedBodyZoneHeight,
-        bodyWidth: metrics.bodyWidth,
-        pageTextWidth: metrics.page1TextWidth,
-      );
-      final continuedEntries = continuedSplit.$1;
-      remainingTemplates = continuedSplit.$2;
+    final hasPageOneImageColumn = pageOneInlineImages.isNotEmpty;
+    final firstPageTextWidth = hasPageOneImageColumn ? metrics.page1TextWidth : metrics.bodyWidth;
 
-      // Same final-flow rule for inline continuation pages: if this is the
-      // final content page, defer excess inline images before moving the
-      // signature away from the report body.
-      final continuedEntriesHeight = _entriesEstimatedHeight(continuedEntries);
-      if (remainingTemplates.isEmpty) {
-        final fitted = _fitInlineImagesBeforeSignature(
-          candidates: continuedInlinePageImages,
-          textHeight: continuedEntriesHeight,
-          availableHeight: metrics.usableHeight,
-          signatureReserve: signatureReserve,
-          metrics: metrics,
-        );
-        continuedInlinePageImages = fitted.$1;
-        continuedInlineDeferredToAttachments.addAll(fitted.$2);
+    final inlineToAttachments = <_PdfLoadedImage>[
+      ...pageOneInlineCandidates.skip(pageOneInlineImages.length),
+      ...allInlineCandidates.skip(pageOneInlineCandidates.length),
+    ];
 
-        final estimatedContinuedRowHeight = max(
-          continuedEntriesHeight,
-          _inlineColumnEstimatedHeight(
-            continuedInlinePageImages,
-            metrics: metrics,
-            fontScale: 1.0,
-          ),
-        ).clamp(0.0, metrics.usableHeight).toDouble();
+    final attachmentImgs = <_PdfLoadedImage>[
+      ...inlineToAttachments,
+      ...plannedAttachmentImgs,
+    ];
 
-        if (estimatedContinuedRowHeight + signatureReserve <=
-            metrics.usableHeight + 8.0) {
-          continuedBodyZoneHeight = max(40.0, estimatedContinuedRowHeight);
-          showSignatureOnContinuedPage = true;
-        }
-      }
-
-      pdf.addPage(
-        pw.Page(
-          theme: theme,
-          pageFormat: pageFormat,
-          margin: pw.EdgeInsets.all(pageMargin),
-          build: (_) {
-            final footerWidgets = <pw.Widget>[];
-            if (letterhead != null) {
-              footerWidgets.add(_letterheadFooter(letterhead));
-            }
-            if (attachmentImgs.isEmpty && showSignatureOnContinuedPage) {
-              if (footerWidgets.isNotEmpty) footerWidgets.add(pw.SizedBox(height: 4));
-              if (showRipotBranding) footerWidgets.add(_ripotBranding());
-            }
-
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                pw.SizedBox(
-                  height: continuedBodyZoneHeight,
-                  child: pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Expanded(
-                        child: _entriesBlock(
-                          continuedEntries,
-                          contentFontSize: contentFontSize,
-                        ),
-                      ),
-                      pw.SizedBox(width: metrics.inlineToTextGap),
-                      pw.SizedBox(
-                        width: metrics.inlineColumnWidth,
-                        child: _inlineColumnFixed(
-                          continuedInlinePageImages,
-                          fontScale: 1.0,
-                          metrics: metrics,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (showSignatureOnContinuedPage) ...[
-                  pw.SizedBox(height: 12),
-                  _signatureBlock(doc, signatureImg, fontScale: fontScale),
-                ],
-                if (footerWidgets.isNotEmpty) ...[
-                  pw.Spacer(),
-                  ...footerWidgets,
-                ],
-              ],
-            );
-          },
-        ),
-      );
+    final hasMoreContentPages = remainingTemplates.isNotEmpty || !canPlaceSignatureOnFirstPage;
+    final firstPageFooterParts = <pw.Widget>[];
+    if (letterhead != null) {
+      firstPageFooterParts.add(_letterheadFooter(letterhead));
+    }
+    final showFirstPageBranding = !hasMoreContentPages && attachmentImgs.isEmpty && showRipotBranding;
+    if (showFirstPageBranding) {
+      if (firstPageFooterParts.isNotEmpty) firstPageFooterParts.add(pw.SizedBox(height: 4));
+      firstPageFooterParts.add(_ripotBranding());
     }
 
-    final signatureAlreadyRendered = showSignatureOnPage1 || showSignatureOnContinuedPage;
-
-    final bodyWidgets = <pw.Widget>[];
-    if (!useSpecialPageOne) {
-      if (showTitle) {
-        bodyWidgets.add(
-          pw.Text(
-            titleText,
-            style: pw.TextStyle(
-              fontSize: reportTitleFontSize,
-              fontWeight: pw.FontWeight.bold,
-              height: 1.35,
-            ),
-          ),
-        );
-        bodyWidgets.add(pw.SizedBox(height: 12));
-      }
-
-      if (doc.subjectInfoDef.enabled) {
-        bodyWidgets.add(_subjectInfoBlock(doc, fontScale: fontScale));
-        bodyWidgets.add(pw.SizedBox(height: 12));
-      }
-
-      bodyWidgets.addAll(
-        _buildBodyWidgets(
-          doc,
-          contentFontSize: contentFontSize,
-        ),
-      );
-    } else {
-      bodyWidgets.addAll(_templatesToWidgets(remainingTemplates));
-    }
-
-    if (!signatureAlreadyRendered) {
-      bodyWidgets.add(pw.SizedBox(height: 12));
-      bodyWidgets.add(_signatureBlock(doc, signatureImg, fontScale: fontScale));
-    }
-
-    if (bodyWidgets.isNotEmpty) {
-      pdf.addPage(
-        pw.MultiPage(
+    pdf.addPage(
+      pw.Page(
         theme: theme,
         pageFormat: pageFormat,
         margin: pw.EdgeInsets.all(pageMargin),
-        header: (_) => (!useSpecialPageOne && letterhead != null)
-            ? _letterheadHeader(letterhead, logo)
-            : pw.SizedBox(),
-        footer: (context) {
-          final footerParts = <pw.Widget>[];
-          if (!useSpecialPageOne && letterhead != null) {
-            footerParts.add(_letterheadFooter(letterhead));
-          }
-          final showBranding = attachmentImgs.isEmpty &&
-              context.pageNumber == context.pagesCount;
-          if (showBranding) {
-            if (footerParts.isNotEmpty) footerParts.add(pw.SizedBox(height: 4));
-            if (showRipotBranding) footerParts.add(_ripotBranding());
-          }
-          if (footerParts.isEmpty) return pw.SizedBox();
+        build: (_) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: footerParts,
+            children: [
+              if (letterhead != null)
+                pw.SizedBox(
+                  height: metrics.headerReserve,
+                  child: _letterheadHeader(letterhead, logo),
+                ),
+              ...topWidgets,
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.SizedBox(
+                    width: firstPageTextWidth,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        _entriesBlock(
+                          firstPageEntries,
+                          contentFontSize: contentFontSize,
+                        ),
+                        if (canPlaceSignatureOnFirstPage) ...[
+                          pw.SizedBox(height: 12),
+                          _signatureBlock(doc, signatureImg, fontScale: fontScale),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (hasPageOneImageColumn) ...[
+                    pw.SizedBox(width: metrics.inlineToTextGap),
+                    pw.SizedBox(
+                      width: metrics.inlineColumnWidth,
+                      child: _inlineColumnFixed(
+                        pageOneInlineImages,
+                        fontScale: fontScale,
+                        metrics: metrics,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (firstPageFooterParts.isNotEmpty) ...[
+                pw.Spacer(),
+                pw.SizedBox(
+                  height: metrics.footerReserve + (showFirstPageBranding ? 18.0 : 0.0),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: firstPageFooterParts,
+                  ),
+                ),
+              ],
+            ],
           );
         },
-        build: (_) => bodyWidgets,
       ),
     );
+
+    if (remainingTemplates.isNotEmpty || !canPlaceSignatureOnFirstPage) {
+      final continuationWidgets = <pw.Widget>[
+        ..._templatesToWidgets(remainingTemplates),
+        pw.SizedBox(height: 12),
+        _signatureBlock(doc, signatureImg, fontScale: fontScale),
+      ];
+
+      pdf.addPage(
+        pw.MultiPage(
+          theme: theme,
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.all(pageMargin),
+          header: (_) => letterhead != null
+              ? _letterheadHeader(letterhead, logo)
+              : pw.SizedBox(),
+          footer: (context) {
+            final footerParts = <pw.Widget>[];
+            if (letterhead != null) {
+              footerParts.add(_letterheadFooter(letterhead));
+            }
+            final showBranding = attachmentImgs.isEmpty &&
+                context.pageNumber == context.pagesCount &&
+                showRipotBranding;
+            if (showBranding) {
+              if (footerParts.isNotEmpty) footerParts.add(pw.SizedBox(height: 4));
+              footerParts.add(_ripotBranding());
+            }
+            if (footerParts.isEmpty) return pw.SizedBox();
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              mainAxisSize: pw.MainAxisSize.min,
+              children: footerParts,
+            );
+          },
+          build: (_) => continuationWidgets,
+        ),
+      );
     }
 
-    final allAttachmentImgs = <_PdfLoadedImage>[
-      ...page1InlineDeferredToAttachments,
-      ...continuedInlineDeferredToAttachments,
-      ...overflowInlineToAttachments,
-      ...attachmentImgs,
-    ];
-
-    if (allAttachmentImgs.isNotEmpty) {
-      final chunks = chunked(allAttachmentImgs, metrics.attachmentImagesPerPage);
+    if (attachmentImgs.isNotEmpty) {
+      final chunks = chunked(attachmentImgs, metrics.attachmentImagesPerPage);
       for (int i = 0; i < chunks.length; i++) {
         final chunk = chunks[i];
         final isLastAttachmentPage = i == chunks.length - 1;
@@ -424,15 +342,19 @@ class PdfRendererService {
               if (letterhead != null) {
                 footerChildren.add(_letterheadFooter(letterhead));
               }
-              if (isLastAttachmentPage) {
+              if (isLastAttachmentPage && showRipotBranding) {
                 if (footerChildren.isNotEmpty) footerChildren.add(pw.SizedBox(height: 4));
-                if (showRipotBranding) footerChildren.add(_ripotBranding());
+                footerChildren.add(_ripotBranding());
               }
 
               return pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  if (letterhead != null) _letterheadHeader(letterhead, logo),
+                  if (letterhead != null)
+                    pw.SizedBox(
+                      height: metrics.headerReserve,
+                      child: _letterheadHeader(letterhead, logo),
+                    ),
                   pw.Text(
                     'Image Attachments',
                     style: pw.TextStyle(
@@ -444,7 +366,14 @@ class PdfRendererService {
                   _attachmentsGridFixed(chunk, metrics: metrics),
                   if (footerChildren.isNotEmpty) ...[
                     pw.Spacer(),
-                    ...footerChildren,
+                    pw.SizedBox(
+                      height: metrics.footerReserve + (isLastAttachmentPage && showRipotBranding ? 18.0 : 0.0),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: footerChildren,
+                      ),
+                    ),
                   ],
                 ],
               );
@@ -534,7 +463,7 @@ class PdfRendererService {
 
     final titleStyle = pw.TextStyle(
       fontSize: titleFontSize,
-      fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+      fontWeight: (s.indent == 0 || s.style.bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
     );
 
     final titleAlign = switch (s.style.align) {
@@ -582,7 +511,9 @@ class PdfRendererService {
     pw.Widget inlineWidget(String text, {required bool aligned, required bool showLabel}) {
       final inlineTitleStyle = pw.TextStyle(
         fontSize: contentFontSize,
-        fontWeight: pw.FontWeight.normal,
+        fontWeight: (s.indent == 0 || s.style.bold)
+            ? pw.FontWeight.bold
+            : pw.FontWeight.normal,
       );
       final trimmed = text.trim();
       final colon = doc.showColonAfterTitlesWithContent;
@@ -730,6 +661,51 @@ class PdfRendererService {
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: rows,
     );
+  }
+
+
+  List<pw.Widget> _inlineImageFlowWidgets(
+    List<_PdfLoadedImage> images, {
+    required String heading,
+    required double fontScale,
+    required PdfLayoutMetrics metrics,
+  }) {
+    if (images.isEmpty) return const <pw.Widget>[];
+
+    final widgets = <pw.Widget>[
+      pw.Text(
+        heading,
+        style: pw.TextStyle(
+          fontSize: 12.0 * fontScale,
+          fontWeight: pw.FontWeight.bold,
+        ),
+      ),
+      pw.SizedBox(height: 8),
+    ];
+
+    for (int i = 0; i < images.length; i += 2) {
+      final left = images[i];
+      final right = (i + 1 < images.length) ? images[i + 1] : null;
+      widgets.add(
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(child: _inlineImageCell(left, metrics: metrics)),
+            pw.SizedBox(width: 10),
+            pw.Expanded(
+              child: right == null
+                  ? pw.SizedBox(height: metrics.inlineSlotHeight)
+                  : _inlineImageCell(right, metrics: metrics),
+            ),
+          ],
+        ),
+      );
+      if (i + 2 < images.length) {
+        widgets.add(pw.SizedBox(height: 10));
+      }
+    }
+
+    return widgets;
   }
 
   pw.Widget _inlineImageCell(
@@ -1107,12 +1083,13 @@ class PdfRendererService {
     final roleLine = 12.0 * fontScale * 1.25;
     final nameLine = hasNameLine ? 11.0 * fontScale * 1.25 : 0.0;
     final dateLine = 11.0 * fontScale * 1.35;
-    final imageOrLine = hasSignatureImage ? 60.0 : 32.0;
+    final imageOrLine = hasSignatureImage ? 56.0 : 30.0;
 
-    // Mirrors _signatureBlock as closely as possible, with a small safety
-    // buffer. This is intentionally tighter than the old fixed 135pt reserve
-    // so the signature is kept on the final content page when it truly fits.
-    return 4.0 + roleLine + 6.0 + nameLine + dateLine + 10.0 + imageOrLine + 8.0;
+    // Mirrors _signatureBlock as closely as possible. Keep this estimate tight:
+    // an over-large reserve was the main reason the signature jumped to the
+    // next page despite visible space. The actual widget remains the source of
+    // truth at render time; this is only a pre-flight guard to avoid overflow.
+    return 4.0 + roleLine + 6.0 + nameLine + dateLine + 8.0 + imageOrLine;
   }
 
   pw.Widget _signatureBlock(
@@ -1129,53 +1106,57 @@ class PdfRendererService {
 
     return pw.Padding(
       padding: const pw.EdgeInsets.only(top: 4),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            role,
-            style: pw.TextStyle(
-              fontSize: 12 * fontScale,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          pw.SizedBox(height: 6),
-          if (name.isNotEmpty || creds.isNotEmpty)
+      child: pw.Container(
+        alignment: pw.Alignment.center,
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
             pw.Text(
-              creds.isEmpty ? name : '$name ($creds)',
-              style: pw.TextStyle(fontSize: 11 * fontScale),
+              role,
+              style: pw.TextStyle(
+                fontSize: 12 * fontScale,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
-          pw.Text(
-            signedDate,
-            style: pw.TextStyle(
-              fontSize: 11 * fontScale,
-              lineSpacing: 1.4,
+            pw.SizedBox(height: 6),
+            if (name.isNotEmpty || creds.isNotEmpty)
+              pw.Text(
+                creds.isEmpty ? name : '$name ($creds)',
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(fontSize: 11 * fontScale),
+              ),
+            pw.Text(
+              signedDate,
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                fontSize: 11 * fontScale,
+                lineSpacing: 1.4,
+              ),
             ),
-          ),
-          pw.SizedBox(height: 10),
-          if (signature != null)
-            pw.SizedBox(
-              height: 60,
-              child: pw.Image(signature, fit: pw.BoxFit.contain),
-            )
-          else
-            pw.Container(
-              height: 32,
-              width: 180,
-              decoration: const pw.BoxDecoration(
-                border: pw.Border(
-                  bottom: pw.BorderSide(
-                    width: 1,
-                    color: PdfColors.black,
+            pw.SizedBox(height: 10),
+            if (signature != null)
+              pw.SizedBox(
+                height: 60,
+                child: pw.Image(signature, fit: pw.BoxFit.contain),
+              )
+            else
+              pw.Container(
+                height: 32,
+                width: 180,
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    bottom: pw.BorderSide(
+                      width: 1,
+                      color: PdfColors.black,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
-
   int _estimateWrappedLines(
     String text, {
     required int charsPerLine,
@@ -1406,7 +1387,7 @@ class PdfRendererService {
 
       final blockTitleStyle = pw.TextStyle(
         fontSize: blockTitleSize,
-        fontWeight: s.style.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        fontWeight: (s.indent == 0 || s.style.bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
       );
 
       final titleAlign = switch (s.style.align) {
@@ -1455,7 +1436,9 @@ class PdfRendererService {
       pw.Widget inlineWidget(String text, {required bool aligned, required bool showLabel}) {
         final inlineTitleStyle = pw.TextStyle(
           fontSize: contentFontSize,
-          fontWeight: pw.FontWeight.normal,
+          fontWeight: (s.indent == 0 || s.style.bold)
+              ? pw.FontWeight.bold
+              : pw.FontWeight.normal,
         );
 
         final trimmed = text.trim();
@@ -1683,6 +1666,62 @@ class PdfRendererService {
     return out;
   }
 
+
+  List<_PdfLoadedImage> _inlineImagesThatFitWithin(
+    List<_PdfLoadedImage> candidates, {
+    required double maxHeight,
+    required PdfLayoutMetrics metrics,
+    required double fontScale,
+  }) {
+    final kept = <_PdfLoadedImage>[];
+    var usedHeight = 0.0;
+    final slotHeight = metrics.inlineSlotHeight * fontScale;
+    final gap = metrics.inlineSlotGap * fontScale;
+
+    for (final image in candidates) {
+      final nextHeight = usedHeight == 0.0
+          ? slotHeight
+          : usedHeight + gap + slotHeight;
+
+      if (nextHeight > maxHeight + _fitSlack) {
+        break;
+      }
+
+      kept.add(image);
+      usedHeight = nextHeight;
+    }
+
+    return kept;
+  }
+
+  List<_PdfLoadedImage> _inlineImagesThatEndBefore(
+    List<_PdfLoadedImage> candidates, {
+    required double maxBottom,
+    required double pageBottom,
+    required PdfLayoutMetrics metrics,
+    required double fontScale,
+  }) {
+    final kept = <_PdfLoadedImage>[];
+    var usedHeight = 0.0;
+
+    for (final image in candidates) {
+      final nextHeight = usedHeight == 0.0
+          ? metrics.inlineSlotHeight
+          : usedHeight + metrics.inlineSlotGap + metrics.inlineSlotHeight;
+
+      final crossesSignature = nextHeight > maxBottom + _fitSlack;
+      final crossesPage = nextHeight > pageBottom + _fitSlack;
+      if (crossesSignature || crossesPage) {
+        break;
+      }
+
+      kept.add(image);
+      usedHeight = nextHeight;
+    }
+
+    return kept;
+  }
+
   (List<_PdfLoadedImage>, List<_PdfLoadedImage>) _fitInlineImagesBeforeSignature({
     required List<_PdfLoadedImage> candidates,
     required double textHeight,
@@ -1708,7 +1747,7 @@ class PdfRendererService {
           fontScale: 1.0,
         ),
       );
-      if (rowHeight + signatureReserve <= availableHeight + 8.0) {
+      if (rowHeight + signatureReserve <= availableHeight + _fitSlack) {
         return (
           kept,
           candidates.skip(count).toList(growable: false),
@@ -1716,9 +1755,38 @@ class PdfRendererService {
       }
     }
 
-    // If the text itself cannot leave room for the signature, keep the planned
-    // inline images and let the normal final-content page carry the signature.
-    return (candidates, <_PdfLoadedImage>[]);
+    // If the text itself cannot leave room for the signature, inline images
+    // should not compete for that already-tight final-content space. Defer
+    // them to attachment pages so every selected image remains visible and
+    // the signature can follow the report body.
+    return (<_PdfLoadedImage>[], candidates);
+  }
+
+  (List<_PdfLoadedImage>, List<_PdfLoadedImage>) _fitInlineImagesWithinHeight({
+    required List<_PdfLoadedImage> candidates,
+    required double availableHeight,
+    required PdfLayoutMetrics metrics,
+  }) {
+    if (candidates.isEmpty) {
+      return (<_PdfLoadedImage>[], <_PdfLoadedImage>[]);
+    }
+
+    for (var count = candidates.length; count >= 0; count--) {
+      final kept = candidates.take(count).toList(growable: false);
+      final imageHeight = _inlineColumnEstimatedHeight(
+        kept,
+        metrics: metrics,
+        fontScale: 1.0,
+      );
+      if (imageHeight <= availableHeight + _fitSlack) {
+        return (
+          kept,
+          candidates.skip(count).toList(growable: false),
+        );
+      }
+    }
+
+    return (<_PdfLoadedImage>[], candidates);
   }
 
   double _entriesEstimatedHeight(List<_PdfEntry> entries) {
@@ -1729,7 +1797,24 @@ class PdfRendererService {
     // Avoid an extra trailing buffer here; it made the fit test too
     // conservative and pushed the signature to a new page despite visible
     // available space.
-    return entries.fold<double>(6.0, (sum, e) => sum + e.height);
+    return entries.fold<double>(0.0, (sum, e) => sum + e.height);
+  }
+
+  double _signatureFitSlack({
+    required bool hasLetterhead,
+    required bool hasFooter,
+    required bool hasInlineColumn,
+    required double fontScale,
+  }) {
+    // This is not extra layout space. It is only a tolerance for the
+    // pre-flight fit check, because the final pdf widget tree uses real
+    // rendering metrics. The signature itself remains inside the left
+    // content column; the right image column should not push it away.
+    var slack = 72.0 * fontScale;
+    if (hasLetterhead) slack += 10.0;
+    if (hasFooter) slack += 10.0;
+    if (hasInlineColumn) slack += 8.0;
+    return slack.clamp(60.0, 110.0);
   }
 
   double _inlineColumnEstimatedHeight(

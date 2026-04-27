@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/web/file_download.dart';
+import '../../access/providers/access_provider.dart';
+import '../../access/ui/upgrade_screen.dart';
 import '../../reports/data/reports_repository.dart';
 import '../../reports/ui/saved_pdf_viewer_screen.dart';
 import '../domain/record_models.dart';
@@ -138,6 +140,48 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final access = context.watch<AccessProvider>().safeState;
+    if (!access.canUseRecords) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Records')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Records is a Premium feature',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Upgrade to organize finalized reports in searchable list and table views, filter by procedure, and export record tables.',
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+                        ),
+                        icon: const Icon(Icons.workspace_premium_outlined),
+                        label: const Text('View Premium'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final vm = context.watch<RecordsProvider>();
     final fields = vm.allFields;
     final procedures = <String>{};

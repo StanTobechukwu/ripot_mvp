@@ -1239,7 +1239,7 @@ floatingActionButton: _editorMode
   HeadingLevel.h4 => 12,
 };
 
-    final FontWeight fw = s.style.bold ? FontWeight.w700 : FontWeight.w600;
+    final FontWeight fw = (s.indent == 0 || s.style.bold) ? FontWeight.w700 : FontWeight.w600;
 
     final Alignment titleAlign = switch (s.style.align) {
       TitleAlign.left => Alignment.centerLeft,

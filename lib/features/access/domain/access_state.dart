@@ -56,6 +56,7 @@ class AccessState {
   bool get canUseCustomMargins => isPremiumLike;
   bool get canUseAdvancedLayout => isPremiumLike;
   bool get canUsePremiumTemplates => isPremiumLike;
+  bool get canUseRecords => isPremiumLike;
 
   String get badgeLabel {
     switch (plan) {

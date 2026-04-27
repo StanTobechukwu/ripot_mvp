@@ -357,6 +357,42 @@ class _RecordValueFieldState extends State<_RecordValueField> {
 
   void _onChanged() => setState(() {});
 
+  bool get _allowsMultipleSuggestions {
+    final key = widget.field.key.toLowerCase();
+    final label = widget.field.label.toLowerCase();
+    return key.contains('indication') ||
+        key.contains('symptom') ||
+        key.contains('finding') ||
+        key.contains('diagnosis') ||
+        label.contains('indication') ||
+        label.contains('symptom') ||
+        label.contains('finding') ||
+        label.contains('diagnosis');
+  }
+
+  void _applySuggestion(String option) {
+    final trimmed = option.trim();
+    if (trimmed.isEmpty) return;
+    if (!_allowsMultipleSuggestions) {
+      _controller.text = trimmed;
+      _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
+      return;
+    }
+    final existing = _controller.text.trim();
+    if (existing.isEmpty) {
+      _controller.text = trimmed;
+    } else {
+      final parts = existing
+          .split(RegExp(r'[,;\n]+'))
+          .map((e) => e.trim().toLowerCase())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      if (parts.contains(trimmed.toLowerCase())) return;
+      _controller.text = '$existing, $trimmed';
+    }
+    _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -412,7 +448,10 @@ class _RecordValueFieldState extends State<_RecordValueField> {
         ),
         const SizedBox(height: 10),
         FutureBuilder<List<String>>(
-          future: context.read<RecordsProvider>().suggestions(widget.field.key, _controller.text),
+          future: context.read<RecordsProvider>().suggestions(
+            widget.field.key,
+            _allowsMultipleSuggestions ? '' : _controller.text,
+          ),
           builder: (context, snapshot) {
             final options = snapshot.data ?? widget.field.builtInSuggestions;
             if (options.isEmpty) return const SizedBox.shrink();
@@ -430,7 +469,7 @@ class _RecordValueFieldState extends State<_RecordValueField> {
                 children: options.take(12).map((option) {
                   return ActionChip(
                     label: Text(option),
-                    onPressed: () => _controller.text = option,
+                    onPressed: () => _applySuggestion(option),
                   );
                 }).toList(growable: false),
               ),

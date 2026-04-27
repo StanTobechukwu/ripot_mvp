@@ -116,6 +116,56 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
 
   Future<void> _offerAddToRecords() async {
+    final access = context.read<AccessProvider>().safeState;
+    if (!access.canUseRecords) {
+      if (!mounted) return;
+      final shouldUpgrade = await showModalBottomSheet<bool>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Records is a Premium feature',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Your PDF has been saved. Upgrade to add finalized reports to searchable Records tables and procedure filters.',
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext, false),
+                        child: const Text('Not now'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.pop(sheetContext, true),
+                        icon: const Icon(Icons.workspace_premium_outlined),
+                        label: const Text('View Premium'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (shouldUpgrade == true && mounted) {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+      }
+      return;
+    }
     final vm = context.read<ReportEditorProvider>();
     final provider = context.read<RecordsProvider>();
     final existing = await provider.repo.loadByReportId(vm.doc.reportId);
