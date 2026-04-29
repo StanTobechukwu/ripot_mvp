@@ -122,12 +122,76 @@ class PdfRendererService {
       fontScale: fontScale,
     );
 
-    final signatureFitSlack = _signatureFitSlack(
+    final signatureFitRelief = _signatureFitRelief(
       hasLetterhead: letterhead != null,
       hasFooter: metrics.footerReserve > 0,
       hasInlineColumn: pageOneInlineCandidates.isNotEmpty,
       fontScale: fontScale,
     );
+
+    // Stable default path: use the complex first-page right-column renderer
+    // only when inline images are actually selected. Attachment-only and
+    // no-image reports use MultiPage so content and signature flow naturally.
+    if (pageOneInlineCandidates.isEmpty && spillInlineImgs.isEmpty) {
+      final bodyWidgets = <pw.Widget>[
+        ...topWidgets,
+        ..._templatesToWidgets(templates),
+        pw.SizedBox(height: 6),
+        _signatureBlock(doc, signatureImg, fontScale: fontScale),
+      ];
+
+      pdf.addPage(
+        pw.MultiPage(
+          theme: theme,
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.all(pageMargin),
+          header: (_) => letterhead != null
+              ? _letterheadHeader(letterhead, logo)
+              : pw.SizedBox(),
+          footer: (context) => _pageFooter(
+            letterhead: letterhead,
+            showBranding: plannedAttachmentImgs.isEmpty &&
+                context.pageNumber == context.pagesCount &&
+                showRipotBranding,
+          ),
+          build: (_) => bodyWidgets,
+        ),
+      );
+
+      if (plannedAttachmentImgs.isNotEmpty) {
+        final chunks = chunked(plannedAttachmentImgs, metrics.attachmentImagesPerPage);
+        for (int i = 0; i < chunks.length; i++) {
+          final isLast = i == chunks.length - 1;
+          pdf.addPage(
+            pw.MultiPage(
+              theme: theme,
+              pageFormat: pageFormat,
+              margin: pw.EdgeInsets.all(pageMargin),
+              header: (_) => letterhead != null
+                  ? _letterheadHeader(letterhead, logo)
+                  : pw.SizedBox(),
+              footer: (_) => _pageFooter(
+                letterhead: letterhead,
+                showBranding: isLast && showRipotBranding,
+              ),
+              build: (_) => [
+                pw.Text(
+                  'Image Attachments',
+                  style: pw.TextStyle(
+                    fontSize: 18 * fontScale,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                _attachmentsGridFixed(chunks[i], metrics: metrics),
+              ],
+            ),
+          );
+        }
+      }
+
+      return pdf.save();
+    }
 
     // Page 1 is treated as two independent zones:
     // - left zone: title/subject/report content + signature as final content;
@@ -168,7 +232,12 @@ class PdfRendererService {
     final signatureBottom = signatureTop + signatureHeight;
 
     canPlaceSignatureOnFirstPage = remainingTemplates.isEmpty &&
-        signatureBottom <= availableAfterTop + signatureFitSlack;
+        _signatureFitsAvailableSpace(
+          contentHeight: firstPageTextHeight,
+          signatureHeight: signatureHeight,
+          availableHeight: availableAfterTop,
+          estimateRelief: signatureFitRelief,
+        );
 
     if (wantsPageOneImageColumn) {
       // The left report column owns the page. The right image column is
@@ -197,7 +266,12 @@ class PdfRendererService {
       pageOneInlineImages = <_PdfLoadedImage>[];
       final fallbackHeight = _entriesEstimatedHeight(firstPageEntries);
       canPlaceSignatureOnFirstPage = remainingTemplates.isEmpty &&
-          fallbackHeight + 6.0 + signatureHeight <= availableAfterTop + signatureFitSlack;
+          _signatureFitsAvailableSpace(
+            contentHeight: fallbackHeight,
+            signatureHeight: signatureHeight,
+            availableHeight: availableAfterTop,
+            estimateRelief: signatureFitRelief,
+          );
     }
 
     final hasPageOneImageColumn = pageOneInlineImages.isNotEmpty;
@@ -252,7 +326,7 @@ class PdfRendererService {
                           contentFontSize: contentFontSize,
                         ),
                         if (canPlaceSignatureOnFirstPage) ...[
-                          pw.SizedBox(height: 12),
+                          pw.SizedBox(height: 6),
                           _signatureBlock(doc, signatureImg, fontScale: fontScale),
                         ],
                       ],
@@ -291,7 +365,7 @@ class PdfRendererService {
     if (remainingTemplates.isNotEmpty || !canPlaceSignatureOnFirstPage) {
       final continuationWidgets = <pw.Widget>[
         ..._templatesToWidgets(remainingTemplates),
-        pw.SizedBox(height: 12),
+        pw.SizedBox(height: 6),
         _signatureBlock(doc, signatureImg, fontScale: fontScale),
       ];
 
@@ -392,6 +466,26 @@ class PdfRendererService {
     return templates
         .map((t) => t.buildWidget(t.text))
         .toList(growable: false);
+  }
+
+  pw.Widget _pageFooter({
+    required LetterheadTemplate? letterhead,
+    required bool showBranding,
+  }) {
+    final parts = <pw.Widget>[];
+    if (letterhead != null) {
+      parts.add(_letterheadFooter(letterhead));
+    }
+    if (showBranding) {
+      if (parts.isNotEmpty) parts.add(pw.SizedBox(height: 4));
+      parts.add(_ripotBranding());
+    }
+    if (parts.isEmpty) return pw.SizedBox();
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      mainAxisSize: pw.MainAxisSize.min,
+      children: parts,
+    );
   }
 
   double _estimatePage1TopStackHeight(
@@ -1076,20 +1170,17 @@ class PdfRendererService {
     required bool hasSignatureImage,
     required double fontScale,
   }) {
-    final name = doc.signature.name.trim();
-    final creds = doc.signature.credentials.trim();
-    final hasNameLine = name.isNotEmpty || creds.isNotEmpty;
-
+    // Compact signature block:
+    // Endoscopist
+    // Name (credentials) - date
+    // [smaller signature image]
+    // Keep this budget aligned with _signatureBlock so the fit decision does
+    // not reserve a tall two-line name/date block that wastes page space.
     final roleLine = 12.0 * fontScale * 1.25;
-    final nameLine = hasNameLine ? 11.0 * fontScale * 1.25 : 0.0;
-    final dateLine = 11.0 * fontScale * 1.35;
-    final imageOrLine = hasSignatureImage ? 56.0 : 30.0;
+    final metaLine = 11.0 * fontScale * 1.25;
+    final imageOrLine = hasSignatureImage ? 48.0 : 24.0;
 
-    // Mirrors _signatureBlock as closely as possible. Keep this estimate tight:
-    // an over-large reserve was the main reason the signature jumped to the
-    // next page despite visible space. The actual widget remains the source of
-    // truth at render time; this is only a pre-flight guard to avoid overflow.
-    return 4.0 + roleLine + 6.0 + nameLine + dateLine + 8.0 + imageOrLine;
+    return 3.0 + roleLine + 3.0 + metaLine + 6.0 + imageOrLine;
   }
 
   pw.Widget _signatureBlock(
@@ -1103,13 +1194,20 @@ class PdfRendererService {
     final name = doc.signature.name.trim();
     final creds = doc.signature.credentials.trim();
     final signedDate = _formatSignedDate(doc.updatedAtIso);
+    final namePart = name.isEmpty
+        ? ''
+        : creds.isEmpty
+            ? name
+            : '$name ($creds)';
+    final metaLine = namePart.isEmpty ? signedDate : '$namePart - $signedDate';
 
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(top: 4),
+      padding: const pw.EdgeInsets.only(top: 3),
       child: pw.Container(
         alignment: pw.Alignment.center,
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.center,
+          mainAxisSize: pw.MainAxisSize.min,
           children: [
             pw.Text(
               role,
@@ -1118,31 +1216,22 @@ class PdfRendererService {
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
-            pw.SizedBox(height: 6),
-            if (name.isNotEmpty || creds.isNotEmpty)
-              pw.Text(
-                creds.isEmpty ? name : '$name ($creds)',
-                textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(fontSize: 11 * fontScale),
-              ),
+            pw.SizedBox(height: 3),
             pw.Text(
-              signedDate,
+              metaLine,
               textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(
-                fontSize: 11 * fontScale,
-                lineSpacing: 1.4,
-              ),
+              style: pw.TextStyle(fontSize: 11 * fontScale),
             ),
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 6),
             if (signature != null)
               pw.SizedBox(
-                height: 60,
+                height: 48,
                 child: pw.Image(signature, fit: pw.BoxFit.contain),
               )
             else
               pw.Container(
-                height: 32,
-                width: 180,
+                height: 24,
+                width: 170,
                 decoration: const pw.BoxDecoration(
                   border: pw.Border(
                     bottom: pw.BorderSide(
@@ -1800,21 +1889,41 @@ class PdfRendererService {
     return entries.fold<double>(0.0, (sum, e) => sum + e.height);
   }
 
-  double _signatureFitSlack({
+
+  bool _signatureFitsAvailableSpace({
+    required double contentHeight,
+    required double signatureHeight,
+    required double availableHeight,
+    required double estimateRelief,
+  }) {
+    // Balanced terminal fit rule:
+    // 1) small base safety margin;
+    // 2) dynamic extra margin only when signature is near the page bottom;
+    // 3) tiny estimate relief to avoid wasting obvious visible space.
+    final remainingWithoutMargin = availableHeight - contentHeight - signatureHeight;
+    const baseSafetyMargin = 6.0;
+    final dynamicMargin = remainingWithoutMargin < 14.0 ? 4.0 : 0.0;
+    return contentHeight +
+            signatureHeight +
+            baseSafetyMargin +
+            dynamicMargin <=
+        availableHeight + estimateRelief;
+  }
+
+  double _signatureFitRelief({
     required bool hasLetterhead,
     required bool hasFooter,
     required bool hasInlineColumn,
     required double fontScale,
   }) {
-    // This is not extra layout space. It is only a tolerance for the
-    // pre-flight fit check, because the final pdf widget tree uses real
-    // rendering metrics. The signature itself remains inside the left
-    // content column; the right image column should not push it away.
-    var slack = 72.0 * fontScale;
-    if (hasLetterhead) slack += 10.0;
-    if (hasFooter) slack += 10.0;
-    if (hasInlineColumn) slack += 8.0;
-    return slack.clamp(60.0, 110.0);
+    // Small tolerance for estimation drift only. Keep this intentionally tiny:
+    // large slack allowed the signature to sit in the unstable terminal zone
+    // and caused white/blank previews.
+    var relief = 3.0 * fontScale;
+    if (hasLetterhead) relief += 1.5;
+    if (hasFooter) relief += 1.5;
+    if (hasInlineColumn) relief += 1.0;
+    return relief.clamp(3.0, 8.0);
   }
 
   double _inlineColumnEstimatedHeight(
