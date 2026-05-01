@@ -2428,7 +2428,7 @@ class _ImagesManagerState extends State<_ImagesManager> {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(vm.doc.placementChoice == ImagePlacementChoice.attachmentsOnly ? '6 images per attachment page' : 'Max images in this mode: ${vm.doc.maxImages}'),
+            child: Text(vm.doc.placementChoice == ImagePlacementChoice.attachmentsOnly ? '8 images per attachment page' : 'Max images in this mode: ${vm.doc.maxImages}'),
           ),
           const SizedBox(height: 12),
           Padding(

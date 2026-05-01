@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'ripot-4edf7.firebasestorage.app',
     measurementId: 'G-J9LK8BD5X6',
   );
+
 }

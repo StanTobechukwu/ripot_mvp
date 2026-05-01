@@ -304,7 +304,7 @@ class PdfRendererService {
         pageFormat: pageFormat,
         margin: pw.EdgeInsets.all(pageMargin),
         build: (_) {
-          return pw.Column(
+          final mainContent = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               if (letterhead != null)
@@ -345,18 +345,41 @@ class PdfRendererService {
                   ],
                 ],
               ),
-              if (firstPageFooterParts.isNotEmpty) ...[
-                pw.Spacer(),
-                pw.SizedBox(
-                  height: metrics.footerReserve + (showFirstPageBranding ? 18.0 : 0.0),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                    mainAxisSize: pw.MainAxisSize.min,
-                    children: firstPageFooterParts,
+            ],
+          );
+
+          if (firstPageFooterParts.isEmpty) return mainContent;
+
+          // Keep the stable inline layout unchanged, but give the footer a real
+          // fixed page-bottom area. A plain Stack can size itself to the content
+          // height, which makes the footer disappear on page 1 in some inline
+          // layouts. This SizedBox anchors the footer to the physical page body.
+          final pageBodyHeight = pageFormat.height - (pageMargin * 2);
+          return pw.SizedBox(
+            height: pageBodyHeight,
+            child: pw.Stack(
+              children: [
+                pw.Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: mainContent,
+                ),
+                pw.Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: pw.Container(
+                    color: PdfColors.white,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      mainAxisSize: pw.MainAxisSize.min,
+                      children: firstPageFooterParts,
+                    ),
                   ),
                 ),
               ],
-            ],
+            ),
           );
         },
       ),
@@ -421,7 +444,7 @@ class PdfRendererService {
                 footerChildren.add(_ripotBranding());
               }
 
-              return pw.Column(
+              final mainContent = pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   if (letterhead != null)
@@ -438,9 +461,19 @@ class PdfRendererService {
                   ),
                   pw.SizedBox(height: 12),
                   _attachmentsGridFixed(chunk, metrics: metrics),
-                  if (footerChildren.isNotEmpty) ...[
-                    pw.Spacer(),
-                    pw.SizedBox(
+                ],
+              );
+
+              if (footerChildren.isEmpty) return mainContent;
+
+              return pw.Stack(
+                children: [
+                  mainContent,
+                  pw.Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: pw.SizedBox(
                       height: metrics.footerReserve + (isLastAttachmentPage && showRipotBranding ? 18.0 : 0.0),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -448,7 +481,7 @@ class PdfRendererService {
                         children: footerChildren,
                       ),
                     ),
-                  ],
+                  ),
                 ],
               );
             },
@@ -2020,7 +2053,9 @@ class PdfRendererService {
     final slots = metrics.attachmentImagesPerPage;
     const cols = 2;
     const gap = 10.0;
-    const cellHeight = 190.0;
+    // Slightly taller and a little narrower than before so more of each
+    // attachment image is visible while preserving the 2 x 4 grid.
+    const cellHeight = 144.0;
 
     pw.Widget cell(_PdfLoadedImage entry) {
       return pw.SizedBox(
@@ -2058,7 +2093,7 @@ class PdfRendererService {
 
       rows.add(
         pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 10),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 26),
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [

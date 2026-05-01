@@ -732,10 +732,8 @@ void setSubjectInfoHeading(String heading) {
   // =========================
 
   void setPlacementChoice(ImagePlacementChoice choice) {
-    if (choice == ImagePlacementChoice.attachmentsOnly && _doc.images.length > 8) {
-      throw Exception('Attachments-only mode allows max 8 images. Remove some images first.');
-    }
-
+    // Attachment mode paginates images in groups of 8 per page; it is not an
+    // 8-image-per-report limit. Keep existing images when switching modes.
     _doc = _doc.copyWith(
       placementChoice: choice,
       updatedAtIso: nowIso(),
