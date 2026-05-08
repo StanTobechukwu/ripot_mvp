@@ -120,7 +120,7 @@ class ReportsRepository {
     final prefs = await _prefs;
     await prefs.setString(_pdfKey(reportId), base64Encode(bytes));
     await prefs.setString(_pdfNameKey(reportId), _pdfFileNameFor(doc));
-    await prefs.setBool(_finalizedKey(reportId), false);
+    await prefs.setBool(_finalizedKey(reportId), true);
   }
 
   Future<void> markReportAsFinal(String reportId) async {

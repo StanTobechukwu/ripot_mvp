@@ -67,6 +67,29 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     return repo.pdfFileNameForDoc(doc);
   }
 
+  Future<bool> _confirmFinalizePdf() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Save final PDF?'),
+        content: const Text(
+          'This will finalize the report as a PDF. The saved version will open as a PDF, not an editable draft.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save PDF'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
   Future<void> _onSavePressed() async {
     if (_saving) return;
 
@@ -93,6 +116,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       }
       return;
     }
+
+    final shouldContinue = await _confirmFinalizePdf();
+    if (!shouldContinue || !mounted) return;
 
     setState(() => _saving = true);
 
@@ -187,7 +213,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Records are optional, but they make this report easier to find later in list or table form.',
+                  'The PDF has been saved. Records are optional, but they make this final report easier to find later in list or table form.',
                 ),
                 const SizedBox(height: 16),
                 Row(

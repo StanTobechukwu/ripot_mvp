@@ -507,8 +507,18 @@ _disposeLater(controller);
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Save template as'),
-        content: const Text(
-          'Choose whether to save just the structure, or include the current text content.',
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose whether to save just the structure, or include the current text content.',
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Template sync saves reusable structure only, such as section titles and layout settings. Do not include private details in template names or section titles.',
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -1927,7 +1937,7 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
         title: const Text('Images'),
         subtitle: Text(
           'Selected: ${vm.doc.images.length} • '
-          'Mode: ${vm.doc.placementChoice == ImagePlacementChoice.inlinePage1 ? "Inline enabled (up to 12 total)" : "Attachments only (6 per page)"}',
+          'Mode: ${vm.doc.placementChoice == ImagePlacementChoice.inlinePage1 ? "Inline enabled (up to 12 total)" : "Attachments only (8 per page)"}',
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _openImagesManager(context, vm),

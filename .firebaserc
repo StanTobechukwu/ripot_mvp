@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "ripot-4edf7"
-  }
+  },
+  "targets": {
+    "ripot-4edf7": {
+      "hosting": {
+        "webapp": [
+          "ripot-web"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
