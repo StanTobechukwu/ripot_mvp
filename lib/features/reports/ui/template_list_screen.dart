@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/templates_repository.dart';
 import '../providers/template_list_provider.dart';
 import '../providers/report_editor_provider.dart';
+import '../providers/reports_list_provider.dart';
 import 'report_editor_screen.dart';
 import 'template_editor_screen.dart';
 
@@ -90,6 +91,7 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
                       );
                       if (!context.mounted) return;
                       await context.read<TemplateListProvider>().load();
+                      await context.read<ReportsListProvider>().refresh();
                       return;
                     }
 

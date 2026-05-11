@@ -12,6 +12,7 @@ import 'report_editor_screen.dart';
 import 'saved_pdf_viewer_screen.dart';
 import 'template_list_screen.dart';
 import '../../records/ui/records_screen.dart';
+import '../../../core/navigation/app_route_observer.dart';
 
 class ReportsListScreen extends StatefulWidget {
   const ReportsListScreen({super.key});
@@ -20,14 +21,50 @@ class ReportsListScreen extends StatefulWidget {
   State<ReportsListScreen> createState() => _ReportsListScreenState();
 }
 
-class _ReportsListScreenState extends State<ReportsListScreen> {
+class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
+  bool _routeObserverSubscribed = false;
+
+  Future<void> _refreshReports() async {
+    if (!mounted) return;
+    await context.read<ReportsListProvider>().refresh();
+  }
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<ReportsListProvider>().refresh();
+      _refreshReports();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeObserverSubscribed) return;
+    final route = ModalRoute.of(context);
+    if (route is ModalRoute<dynamic>) {
+      appRouteObserver.subscribe(this, route);
+      _routeObserverSubscribed = true;
+    }
+  }
+
+  @override
+  void didPopNext() {
+    // Called when a screen above My Reports is popped.
+    // This catches nested flows such as:
+    // My Reports → Templates → Template editor/report → Save → back to My Reports.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshReports();
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_routeObserverSubscribed) {
+      appRouteObserver.unsubscribe(this);
+    }
+    super.dispose();
   }
 
   Future<void> _openPdf(BuildContext context, ReportSummary report) async {
@@ -60,7 +97,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     if (!context.mounted) return;
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
     if (!context.mounted) return;
-    await context.read<ReportsListProvider>().refresh();
+    await _refreshReports();
   }
 
   Future<void> _handleOpen(BuildContext context, ReportSummary report) async {
@@ -71,11 +108,13 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     await _openPdf(context, report);
   }
 
-  void _openTemplates(BuildContext context) {
-    Navigator.push(
+  Future<void> _openTemplates(BuildContext context) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const TemplatesListScreen()),
     );
+    if (!context.mounted) return;
+    await _refreshReports();
   }
 
   void _openRecords(BuildContext context) {
@@ -138,7 +177,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           IconButton(
             icon: const Icon(Icons.library_books_outlined),
             tooltip: 'Templates',
-            onPressed: () => _openTemplates(context),
+            onPressed: () async => _openTemplates(context),
           ),
           if (width >= 980)
             IconButton(
@@ -189,7 +228,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           context.read<ReportEditorProvider>().newReport();
           await Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
           if (!context.mounted) return;
-          await context.read<ReportsListProvider>().refresh();
+          await _refreshReports();
         },
         icon: const Icon(Icons.add),
         label: const Text('New Report'),

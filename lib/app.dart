@@ -13,6 +13,7 @@ import 'features/reports/ui/reports_list_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/records/data/records_repository.dart';
 import 'features/records/providers/records_provider.dart';
+import 'core/navigation/app_route_observer.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -69,6 +70,7 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
           useMaterial3: true,
         ),
+        navigatorObservers: [appRouteObserver],
         home: const ReportsListScreen(),
       ),
     );
