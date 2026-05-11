@@ -388,7 +388,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               final layout = vm.doc.reportLayout;
               final indentContent = vm.doc.indentContent;
               final indentHierarchy = vm.doc.indentHierarchy;
-              final applyIndentation = indentContent || indentHierarchy;
               final showColonAfterTitlesWithContent = vm.doc.showColonAfterTitlesWithContent;
               final scale = vm.doc.fontScale;
 
@@ -404,83 +403,68 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
                   RadioListTile<ReportLayout>(
                     value: ReportLayout.block,
                     groupValue: layout,
                     onChanged: (v) {
                       if (v != null) vm.setReportLayout(v);
                     },
-                    title: const Text(
-                      'Block (section title on its own line)',
-                    ),
+                    title: const Text('Block'),
                     dense: true,
+                    contentPadding: EdgeInsets.zero,
                   ),
-
+                  RadioListTile<ReportLayout>(
+                    value: ReportLayout.inline,
+                    groupValue: layout,
+                    onChanged: (v) {
+                      if (v != null) vm.setReportLayout(v);
+                    },
+                    title: const Text('Inline'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
                   RadioListTile<ReportLayout>(
                     value: ReportLayout.aligned,
                     groupValue: layout,
                     onChanged: (v) {
                       if (v != null) vm.setReportLayout(v);
                     },
-                    title: const Text('Aligned (two-column style)'),
+                    title: const Text('Aligned'),
                     dense: true,
+                    contentPadding: EdgeInsets.zero,
                   ),
-
-                  if (layout == ReportLayout.block || layout == ReportLayout.aligned) ...[
-                    const Divider(height: 24),
-                    SwitchListTile(
-                      value: applyIndentation,
-                      onChanged: (enabled) {
-                        if (enabled) {
-                          vm.setIndentHierarchy(true);
-                          if (layout == ReportLayout.block) {
-                            vm.setIndentContent(true);
-                          }
-                        } else {
-                          vm.setIndentHierarchy(false);
-                          vm.setIndentContent(false);
-                        }
-                      },
-                      title: const Text('Apply indentation'),
-                      dense: true,
-                    ),
-                    if (applyIndentation) ...[
-                      if (layout == ReportLayout.block)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 12),
-                          child: CheckboxListTile(
-                            value: indentContent,
-                            onChanged: (v) => vm.setIndentContent(v ?? false),
-                            title: const Text('Content'),
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            controlAffinity: ListTileControlAffinity.leading,
-                          ),
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12),
-                        child: CheckboxListTile(
-                          value: indentHierarchy,
-                          onChanged: (v) => vm.setIndentHierarchy(v ?? false),
-                          title: const Text('Hierarchy / subsections'),
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          controlAffinity: ListTileControlAffinity.leading,
-                        ),
-                      ),
-                    ],
-                    const Divider(height: 24),
-                    SwitchListTile(
-                      value: showColonAfterTitlesWithContent,
-                      onChanged: vm.setShowColonAfterTitlesWithContent,
-                      title: const Text('Show colons'),
-                      dense: true,
-                    ),
-                    const Divider(height: 24),
-                  ],
+                  const Divider(height: 24),
+                  const Text(
+                    'Text style',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  CheckboxListTile(
+                    value: showColonAfterTitlesWithContent,
+                    onChanged: (v) => vm.setShowColonAfterTitlesWithContent(v ?? false),
+                    title: const Text('Show colons'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                  CheckboxListTile(
+                    value: indentHierarchy,
+                    onChanged: (v) => vm.setIndentHierarchy(v ?? false),
+                    title: const Text('Indent hierarchy'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                  CheckboxListTile(
+                    value: indentContent,
+                    onChanged: (v) => vm.setIndentContent(v ?? false),
+                    title: const Text('Indent content'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                  const Divider(height: 24),
 
                   const Text(
                     'Global font size',
@@ -498,9 +482,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   Padding(
                     padding: const EdgeInsets.only(left: 4),
                     child: Text(
-                      layout == ReportLayout.aligned
-                          ? 'Applies to aligned layout too'
-                          : 'Applies to the current layout',
+                      'Applies to the current layout',
                       style: const TextStyle(fontSize: 12, color: Colors.black54),
                     ),
                   ),

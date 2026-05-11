@@ -13,6 +13,7 @@ import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
 import '../../reports/services/pdf_actions_service.dart';
 import 'record_view_screen.dart';
+import 'record_details_screen.dart';
 
 enum RecordsViewMode { list, table }
 
@@ -46,6 +47,26 @@ class _RecordsScreenState extends State<RecordsScreen> {
     );
     if (!mounted) return;
     await context.read<RecordsProvider>().refresh();
+  }
+
+
+  Future<void> _editRecordDetails(RecordSummary item) async {
+    final provider = context.read<RecordsProvider>();
+    final entry = await provider.repo.loadByRecordId(item.recordEntryId);
+    if (!mounted) return;
+    if (entry == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Record details could not be loaded.')),
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => RecordDetailsScreen(initialEntry: entry)),
+    );
+    if (!mounted) return;
+    await provider.refresh();
   }
 
   Future<void> _openPdf(RecordSummary item) async {
@@ -331,12 +352,15 @@ class _RecordsScreenState extends State<RecordsScreen> {
                                     onSelected: (value) async {
                                       if (value == 'openPdf') {
                                         await _openPdf(item);
+                                      } else if (value == 'edit') {
+                                        await _editRecordDetails(item);
                                       } else if (value == 'delete') {
                                         await vm.deleteRecord(item.recordEntryId);
                                       }
                                     },
                                     itemBuilder: (_) => const [
                                       PopupMenuItem(value: 'openPdf', child: Text('Open PDF')),
+                                      PopupMenuItem(value: 'edit', child: Text('Edit details')),
                                       PopupMenuItem(value: 'delete', child: Text('Delete record')),
                                     ],
                                   ),

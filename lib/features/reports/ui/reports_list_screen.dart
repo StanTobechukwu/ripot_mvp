@@ -13,8 +13,22 @@ import 'saved_pdf_viewer_screen.dart';
 import 'template_list_screen.dart';
 import '../../records/ui/records_screen.dart';
 
-class ReportsListScreen extends StatelessWidget {
+class ReportsListScreen extends StatefulWidget {
   const ReportsListScreen({super.key});
+
+  @override
+  State<ReportsListScreen> createState() => _ReportsListScreenState();
+}
+
+class _ReportsListScreenState extends State<ReportsListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<ReportsListProvider>().refresh();
+    });
+  }
 
   Future<void> _openPdf(BuildContext context, ReportSummary report) async {
     final repo = context.read<ReportsRepository>();
@@ -44,7 +58,9 @@ class ReportsListScreen extends StatelessWidget {
   Future<void> _openEditor(BuildContext context, String reportId) async {
     await context.read<ReportEditorProvider>().loadById(reportId);
     if (!context.mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
+    if (!context.mounted) return;
+    await context.read<ReportsListProvider>().refresh();
   }
 
   Future<void> _handleOpen(BuildContext context, ReportSummary report) async {
@@ -120,11 +136,6 @@ class ReportsListScreen extends StatelessWidget {
         title: const SizedBox.shrink(),
         actions: [
           IconButton(
-            tooltip: 'Reload reports',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => listVm.refresh(),
-          ),
-          IconButton(
             icon: const Icon(Icons.library_books_outlined),
             tooltip: 'Templates',
             onPressed: () => _openTemplates(context),
@@ -171,9 +182,14 @@ class ReportsListScreen extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 6,
+        onPressed: () async {
           context.read<ReportEditorProvider>().newReport();
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
+          if (!context.mounted) return;
+          await context.read<ReportsListProvider>().refresh();
         },
         icon: const Icon(Icons.add),
         label: const Text('New Report'),
@@ -215,14 +231,14 @@ class ReportsListScreen extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final r = listVm.reports[i];
                     final accent = r.hasPdf
-                        ? Theme.of(context).colorScheme.primaryContainer
-                        : Theme.of(context).colorScheme.surfaceContainerHighest;
+                        ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.34)
+                        : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.55);
                     final icon = r.hasPdf ? Icons.description_outlined : Icons.edit_note_outlined;
                     final badgeText = r.hasPdf
-                        ? (r.isFinalized ? 'Final PDF' : 'Report')
+                        ? (r.isFinalized ? 'PDF Report' : 'Report')
                         : 'Saved work';
                     return Card(
-                      color: accent.withOpacity(r.hasPdf ? 0.55 : 0.45),
+                      color: accent,
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: Theme.of(context).colorScheme.surface,

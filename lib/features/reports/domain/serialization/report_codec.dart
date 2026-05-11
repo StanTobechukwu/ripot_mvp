@@ -74,9 +74,7 @@ class ReportCodec {
       layoutName,
       fallback: ReportLayout.block,
     );
-    final reportLayout = decodedLayout == ReportLayout.inline
-        ? ReportLayout.block
-        : decodedLayout;
+    final reportLayout = decodedLayout;
 
     final indentContent = (j['indentContent'] as bool?) ?? true;
     final indentHierarchy = (j['indentHierarchy'] as bool?) ?? true;

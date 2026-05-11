@@ -940,31 +940,6 @@ _disposeLater(titleC);
               );
             },
           ),
-          IconButton(
-            tooltip: 'Preview',
-            icon: const Icon(Icons.preview_outlined),
-            onPressed: () {
-              _unfocusNow();
-              vm.ensureFormReady();
-              _schedulePruneControllers(vm);
-
-              final errs = _validateSubjectInfo(vm);
-              if (errs.isNotEmpty) {
-                setState(() => _subjectErrors = errs);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please complete required Subject Info fields.'),
-                  ),
-                );
-                return;
-              }
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReportPreviewScreen()),
-              );
-            },
-          ),
           if (_editorMode)
             IconButton(
               tooltip: 'Save as template',
@@ -1015,6 +990,31 @@ _disposeLater(titleC);
                 );
               },
             ),
+          IconButton(
+            tooltip: 'Preview',
+            icon: const Icon(Icons.arrow_forward_rounded),
+            onPressed: () {
+              _unfocusNow();
+              vm.ensureFormReady();
+              _schedulePruneControllers(vm);
+
+              final errs = _validateSubjectInfo(vm);
+              if (errs.isNotEmpty) {
+                setState(() => _subjectErrors = errs);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please complete required Subject Info fields.'),
+                  ),
+                );
+                return;
+              }
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReportPreviewScreen()),
+              );
+            },
+          ),
         ],
       ),
 floatingActionButton: _editorMode

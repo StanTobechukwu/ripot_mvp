@@ -7,6 +7,7 @@ import '../../reports/ui/report_editor_screen.dart';
 import '../../reports/ui/saved_pdf_viewer_screen.dart';
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
+import 'record_details_screen.dart';
 
 class RecordViewScreen extends StatefulWidget {
   final RecordSummary summary;
@@ -71,6 +72,26 @@ class _RecordViewScreenState extends State<RecordViewScreen> {
       context,
       MaterialPageRoute(builder: (_) => const ReportEditorScreen()),
     );
+  }
+
+
+  Future<void> _editRecordDetails() async {
+    final entry = _entry;
+    if (entry == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Record details are still loading.')),
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => RecordDetailsScreen(initialEntry: entry)),
+    );
+    if (!mounted) return;
+    await _load();
+    if (!mounted) return;
+    await context.read<RecordsProvider>().refresh();
   }
 
   Future<void> _deleteRecord() async {
@@ -152,12 +173,12 @@ class _RecordViewScreenState extends State<RecordViewScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  widget.summary.procedure.isEmpty ? 'Saved Record' : widget.summary.procedure,
+                                  procedureName.isEmpty ? 'Saved Record' : procedureName,
                                   style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  widget.summary.diagnosis.isEmpty ? 'Final clinical record stored in Ripot.' : widget.summary.diagnosis,
+                                  (valueMap[RecordFieldCatalog.diagnosis.key] ?? '').trim().isEmpty ? 'PDF Report stored in Ripot.' : (valueMap[RecordFieldCatalog.diagnosis.key] ?? '').trim(),
                                   style: theme.textTheme.bodyMedium,
                                 ),
                               ],
@@ -171,13 +192,13 @@ class _RecordViewScreenState extends State<RecordViewScreen> {
                         runSpacing: 10,
                         children: [
                           _InfoChip(icon: Icons.badge_outlined, label: 'ID', value: formatReportIdForDisplay(valueMap[RecordFieldCatalog.reportId.key] ?? '')),
-                          _InfoChip(icon: Icons.calendar_today_outlined, label: 'Date', value: widget.summary.reportDate),
-                          _InfoChip(icon: Icons.person_outline, label: 'Reference', value: widget.summary.patientReference),
+                          _InfoChip(icon: Icons.calendar_today_outlined, label: 'Date', value: valueMap[RecordFieldCatalog.reportDate.key] ?? ''),
+                          _InfoChip(icon: Icons.person_outline, label: 'Reference', value: valueMap[RecordFieldCatalog.patientReference.key] ?? ''),
                         ].where((chip) => chip.value.trim().isNotEmpty).toList(growable: false),
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'This record is read-only. Open the PDF for printing or sharing. Use Duplicate to create a new report from this record.',
+                        'The PDF Report is final. Record details are editable for organization and search only.',
                         style: theme.textTheme.bodySmall,
                       ),
                     ],
@@ -194,7 +215,7 @@ class _RecordViewScreenState extends State<RecordViewScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.lock_outline, color: theme.colorScheme.primary),
+                            Icon(Icons.tune_outlined, color: theme.colorScheme.primary),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -209,6 +230,12 @@ class _RecordViewScreenState extends State<RecordViewScreen> {
                           onPressed: _openPdf,
                           icon: const Icon(Icons.picture_as_pdf_outlined),
                           label: const Text('Open PDF'),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: _editRecordDetails,
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Edit Record Details'),
                         ),
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
@@ -241,7 +268,7 @@ class _RecordViewScreenState extends State<RecordViewScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Saved details are shown below for review only.',
+                          'Saved details help organize and find this PDF Report. Editing them will not change the saved PDF.',
                           style: theme.textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 16),

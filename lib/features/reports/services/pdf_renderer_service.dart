@@ -653,34 +653,43 @@ class PdfRendererService {
               lineSpacing: 1.6,
             );
 
+      if (!aligned) {
+        final inlinePrefix = showLabel
+            ? (doc.showColonAfterTitlesWithContent ? '${s.title}: ' : '${s.title} ')
+            : '';
+        return pw.Padding(
+          padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
+          child: pw.RichText(
+            text: pw.TextSpan(
+              children: [
+                if (inlinePrefix.isNotEmpty)
+                  pw.TextSpan(text: inlinePrefix, style: inlineTitleStyle),
+                pw.TextSpan(text: value, style: valueStyle),
+              ],
+            ),
+          ),
+        );
+      }
+
       final titleCell = showLabel
-          ? (aligned
-              ? pw.SizedBox(
-                  width: _alignedTitleWidth,
-                  child: pw.Align(
-                    alignment: titleAlign,
-                    child: pw.Text(
-                      label,
-                      textAlign: titleTextAlign,
-                      style: inlineTitleStyle,
-                    ),
-                  ),
-                )
-              : pw.Container(
-                  alignment: titleAlign,
-                  child: pw.Text(
-                    label,
-                    textAlign: titleTextAlign,
-                    style: inlineTitleStyle,
-                  ),
-                ))
-          : (aligned ? pw.SizedBox(width: _alignedTitleWidth) : pw.SizedBox());
+          ? pw.SizedBox(
+              width: _alignedTitleWidth,
+              child: pw.Align(
+                alignment: titleAlign,
+                child: pw.Text(
+                  label,
+                  textAlign: titleTextAlign,
+                  style: inlineTitleStyle,
+                ),
+              ),
+            )
+          : pw.SizedBox(width: _alignedTitleWidth);
 
       final approxTitleCharsPerLine = max(8, (_alignedTitleWidth / (contentFontSize * 0.62)).floor());
-      final titleLines = aligned && showLabel
+      final titleLines = showLabel
           ? _estimateWrappedLines(label, charsPerLine: approxTitleCharsPerLine)
           : 1;
-      final valueTopPad = aligned && showLabel && titleLines > 1
+      final valueTopPad = showLabel && titleLines > 1
           ? (titleLines - 1) * contentFontSize * 1.15
           : 0.0;
 
@@ -690,7 +699,7 @@ class PdfRendererService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             titleCell,
-            if (showLabel || aligned) pw.SizedBox(width: 10),
+            pw.SizedBox(width: 10),
             pw.Expanded(
               child: pw.Padding(
                 padding: pw.EdgeInsets.only(top: valueTopPad),
@@ -1574,34 +1583,43 @@ class PdfRendererService {
                 lineSpacing: 1.6,
               );
 
+        if (!aligned) {
+          final inlinePrefix = showLabel
+              ? (doc.showColonAfterTitlesWithContent ? '${s.title}: ' : '${s.title} ')
+              : '';
+          return pw.Padding(
+            padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
+            child: pw.RichText(
+              text: pw.TextSpan(
+                children: [
+                  if (inlinePrefix.isNotEmpty)
+                    pw.TextSpan(text: inlinePrefix, style: inlineTitleStyle),
+                  pw.TextSpan(text: value, style: valueStyle),
+                ],
+              ),
+            ),
+          );
+        }
+
         final titleCell = showLabel
-            ? (aligned
-                ? pw.SizedBox(
-                    width: _alignedTitleWidth,
-                    child: pw.Align(
-                      alignment: titleAlign,
-                      child: pw.Text(
-                        label,
-                        textAlign: titleTextAlign,
-                        style: inlineTitleStyle,
-                      ),
-                    ),
-                  )
-                : pw.Container(
-                    alignment: titleAlign,
-                    child: pw.Text(
-                      label,
-                      textAlign: titleTextAlign,
-                      style: inlineTitleStyle,
-                    ),
-                  ))
-            : (aligned ? pw.SizedBox(width: _alignedTitleWidth) : pw.SizedBox());
+            ? pw.SizedBox(
+                width: _alignedTitleWidth,
+                child: pw.Align(
+                  alignment: titleAlign,
+                  child: pw.Text(
+                    label,
+                    textAlign: titleTextAlign,
+                    style: inlineTitleStyle,
+                  ),
+                ),
+              )
+            : pw.SizedBox(width: _alignedTitleWidth);
 
         final approxTitleCharsPerLine = max(8, (_alignedTitleWidth / (contentFontSize * 0.62)).floor());
-        final titleLines = aligned && showLabel
+        final titleLines = showLabel
             ? _estimateWrappedLines(label, charsPerLine: approxTitleCharsPerLine)
             : 1;
-        final valueTopPad = aligned && showLabel && titleLines > 1
+        final valueTopPad = showLabel && titleLines > 1
             ? (titleLines - 1) * contentFontSize * 1.15
             : 0.0;
 
@@ -1611,7 +1629,7 @@ class PdfRendererService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               titleCell,
-              if (showLabel || aligned) pw.SizedBox(width: 10),
+              pw.SizedBox(width: 10),
               pw.Expanded(
                 child: pw.Padding(
                   padding: pw.EdgeInsets.only(top: valueTopPad),
@@ -1689,7 +1707,7 @@ class PdfRendererService {
             showLabel: showLabel,
           ),
           plainOf: (piece) => showLabel
-              ? '${indentText(s.indent)}${s.title}: $piece\n\n'
+              ? '${indentText(s.indent)}${s.title}${doc.showColonAfterTitlesWithContent ? ':' : ''} $piece\n\n'
               : '${indentText(s.indent)}$piece\n\n',
           continueWith: (remainingText) => makeInlineTemplate(remainingText, showLabel: false),
         );
@@ -1774,7 +1792,7 @@ class PdfRendererService {
             fixedHeight: contentFontSize * 1.32 + 8,
             measureHeight: (_, __, ___) => contentFontSize * 1.32 + 8,
             buildWidget: (_) => inlineWidget('', aligned: doc.reportLayout == ReportLayout.aligned, showLabel: true),
-            plainOf: (_) => '${indentText(s.indent)}${s.title}: \n\n',
+            plainOf: (_) => '${indentText(s.indent)}${s.title}${doc.showColonAfterTitlesWithContent ? ':' : ''} \n\n',
             continueWith: null,
           ),
         );

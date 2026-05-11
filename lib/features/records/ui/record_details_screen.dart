@@ -75,13 +75,13 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Save final record?'),
+        title: const Text('Save record details?'),
         content: const Text(
-          'This will save the report as a final record in Ripot. The saved record becomes read-only and cannot be edited later. Future changes should be added as updates or addenda, not by changing the original record.',
+          'This saves searchable record details for the PDF Report. Editing these details will not change the saved PDF.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save Record')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save Details')),
         ],
       ),
     );
@@ -282,7 +282,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Records help you keep a searchable final log in list or table form later. Once saved, the original record becomes read-only.',
+                    'Records help you organize and find PDF Reports in list or table form. Editing record details will not change the saved PDF.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 10),
@@ -320,7 +320,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
           FilledButton.icon(
             onPressed: _save,
             icon: _saving ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-            label: Text(_saving ? 'Saving...' : 'Save Final Record'),
+            label: Text(_saving ? 'Saving...' : 'Save Details'),
           ),
         ],
       ),

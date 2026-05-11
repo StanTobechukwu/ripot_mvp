@@ -153,9 +153,7 @@ class ReportEditorProvider extends ChangeNotifier {
 
   Future<void> loadById(String reportId) async {
     final loaded = await repo.loadReport(reportId);
-    _doc = loaded.reportLayout == ReportLayout.inline
-        ? loaded.copyWith(reportLayout: ReportLayout.block, updatedAtIso: loaded.updatedAtIso)
-        : loaded;
+    _doc = loaded;
     _selectedNodeId = null;
     _commit(); // ✅ prune + notify (structure changed)
   }
@@ -171,7 +169,7 @@ class ReportEditorProvider extends ChangeNotifier {
       roots: loaded.roots.map((s) => s.cloneNodeTree()).toList(growable: false),
       images: loaded.images.map((i) => ImageAttachment(id: newId('img'), filePath: i.filePath, label: i.label)).toList(growable: false),
       placementChoice: loaded.placementChoice,
-      reportLayout: loaded.reportLayout == ReportLayout.inline ? ReportLayout.block : loaded.reportLayout,
+      reportLayout: loaded.reportLayout,
       indentContent: loaded.indentContent,
       indentHierarchy: loaded.indentHierarchy,
       showColonAfterTitlesWithContent: loaded.showColonAfterTitlesWithContent,
@@ -746,12 +744,8 @@ void setSubjectInfoHeading(String heading) {
   // =========================
 
   void setReportLayout(ReportLayout layout) {
-    final effectiveLayout = layout == ReportLayout.inline
-        ? ReportLayout.block
-        : layout;
-
     _doc = _doc.copyWith(
-      reportLayout: effectiveLayout,
+      reportLayout: layout,
       updatedAtIso: nowIso(),
     );
     notifyListeners();

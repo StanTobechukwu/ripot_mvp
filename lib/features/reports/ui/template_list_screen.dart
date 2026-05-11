@@ -7,8 +7,22 @@ import '../providers/report_editor_provider.dart';
 import 'report_editor_screen.dart';
 import 'template_editor_screen.dart';
 
-class TemplatesListScreen extends StatelessWidget {
+class TemplatesListScreen extends StatefulWidget {
   const TemplatesListScreen({super.key});
+
+  @override
+  State<TemplatesListScreen> createState() => _TemplatesListScreenState();
+}
+
+class _TemplatesListScreenState extends State<TemplatesListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<TemplateListProvider>().load();
+    });
+  }
 
   Future<_TemplateOpenChoice?> _askOpenChoice(BuildContext context) {
     return showDialog<_TemplateOpenChoice>(
@@ -44,12 +58,6 @@ class TemplatesListScreen extends StatelessWidget {
       appBar: AppBar(
         centerTitle: true,
         title: const Text('Templates'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => listVm.load(),
-          ),
-        ],
       ),
       body: Builder(
         builder: (_) {
@@ -76,20 +84,24 @@ class TemplatesListScreen extends StatelessWidget {
                       final template = await repo.loadTemplate(t.templateId);
                       context.read<ReportEditorProvider>().newReportFromTemplate(template);
                       if (!context.mounted) return;
-                      Navigator.push(
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const ReportEditorScreen()),
                       );
+                      if (!context.mounted) return;
+                      await context.read<TemplateListProvider>().load();
                       return;
                     }
 
                     if (!context.mounted) return;
-                    Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => TemplateEditorScreen(templateId: t.templateId),
                       ),
                     );
+                    if (!context.mounted) return;
+                    await context.read<TemplateListProvider>().load();
                   },
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline),
