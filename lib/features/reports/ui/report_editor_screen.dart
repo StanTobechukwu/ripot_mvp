@@ -73,11 +73,15 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   late final SafeTextController _roleTitleC;
   late final SafeTextController _signerNameC;
   late final SafeTextController _credentialsC;
+  late final SafeTextController _assistantLabelC;
+  late final SafeTextController _assistantNameC;
   late final SafeTextController _reportTitleC;
 
   late final SafeFocusNode _roleTitleF;
   late final SafeFocusNode _signerNameF;
   late final SafeFocusNode _credentialsF;
+  late final SafeFocusNode _assistantLabelF;
+  late final SafeFocusNode _assistantNameF;
   late final SafeFocusNode _reportTitleF;
 
   bool _hintShown = false;
@@ -109,11 +113,15 @@ void initState() {
   _roleTitleC = SafeTextController();
   _signerNameC = SafeTextController();
   _credentialsC = SafeTextController();
+  _assistantLabelC = SafeTextController();
+  _assistantNameC = SafeTextController();
   _reportTitleC = SafeTextController();
 
   _roleTitleF = SafeFocusNode();
   _signerNameF = SafeFocusNode();
   _credentialsF = SafeFocusNode();
+  _assistantLabelF = SafeFocusNode();
+  _assistantNameF = SafeFocusNode();
   _reportTitleF = SafeFocusNode();
 
   _focusManagerListener = () {
@@ -124,6 +132,8 @@ void initState() {
         _roleTitleF.hasFocus ||
         _signerNameF.hasFocus ||
         _credentialsF.hasFocus ||
+        _assistantLabelF.hasFocus ||
+        _assistantNameF.hasFocus ||
         _subjectFocus.values.any((f) => f.hasFocus) ||
         _contentFocus.values.any((f) => f.hasFocus);
 
@@ -174,11 +184,15 @@ void initState() {
     if (!_roleTitleC.isDisposed) _roleTitleC.dispose();
     if (!_signerNameC.isDisposed) _signerNameC.dispose();
     if (!_credentialsC.isDisposed) _credentialsC.dispose();
+    if (!_assistantLabelC.isDisposed) _assistantLabelC.dispose();
+    if (!_assistantNameC.isDisposed) _assistantNameC.dispose();
     if (!_reportTitleC.isDisposed) _reportTitleC.dispose();
 
     if (!_roleTitleF.isDisposed) _roleTitleF.dispose();
     if (!_signerNameF.isDisposed) _signerNameF.dispose();
     if (!_credentialsF.isDisposed) _credentialsF.dispose();
+    if (!_assistantLabelF.isDisposed) _assistantLabelF.dispose();
+    if (!_assistantNameF.isDisposed) _assistantNameF.dispose();
     if (!_reportTitleF.isDisposed) _reportTitleF.dispose();
 
     super.dispose();
@@ -324,6 +338,16 @@ void initState() {
 
     final creds = vm.doc.signature.credentials;
     if (!_credentialsF.hasFocus && _credentialsC.text != creds) _credentialsC.text = creds;
+
+    final assistantLabel = vm.doc.signature.assistantLabel;
+    if (!_assistantLabelF.hasFocus && _assistantLabelC.text != assistantLabel) {
+      _assistantLabelC.text = assistantLabel;
+    }
+
+    final assistantName = vm.doc.signature.assistantName;
+    if (!_assistantNameF.hasFocus && _assistantNameC.text != assistantName) {
+      _assistantNameC.text = assistantName;
+    }
   }
 
   Map<String, String> _validateSubjectInfo(ReportEditorProvider vm) {
@@ -1418,7 +1442,30 @@ floatingActionButton: _editorMode
     );
   }
 
+
+  String _formatReportDate(DateTime dt) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
+  }
+
+  Future<void> _pickReportDate(ReportEditorProvider vm) async {
+    final current = DateTime.tryParse(vm.doc.reportDateIso) ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (!mounted || picked == null) return;
+    vm.setReportDate(picked);
+  }
+
   Widget _reportTitleCard(ReportEditorProvider vm) {
+    final reportDate = DateTime.tryParse(vm.doc.reportDateIso) ?? DateTime.now();
+
     return _card(
       title: 'Report',
       emphasized: true,
@@ -1453,7 +1500,15 @@ floatingActionButton: _editorMode
             ),
             onChanged: vm.setReportTitle,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: _gap),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_today_outlined),
+            title: const Text('Report date'),
+            subtitle: Text(_formatReportDate(reportDate)),
+            trailing: const Icon(Icons.edit_calendar_outlined),
+            onTap: () => _pickReportDate(vm),
+          ),
         ],
       ),
     );
@@ -1965,7 +2020,7 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
         TextField(
           key: const ValueKey('signer-role'),
           decoration: const InputDecoration(
-            labelText: 'Title (e.g., Reporter, Endoscopist, Radiologist)',
+            labelText: 'Title (optional, e.g., Endoscopist)',
             border: OutlineInputBorder(),
             isDense: true,
           ),
@@ -1996,6 +2051,40 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
           controller: _credentialsC,
           focusNode: _credentialsF,
           onChanged: (v) => vm.updateSigner(credentials: v),
+        ),
+        const SizedBox(height: _gap),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextField(
+                key: const ValueKey('assistant-label'),
+                decoration: const InputDecoration(
+                  labelText: 'Assistant label (optional)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                controller: _assistantLabelC,
+                focusNode: _assistantLabelF,
+                onChanged: (v) => vm.updateSigner(assistantLabel: v),
+              ),
+            ),
+            const SizedBox(width: _gap),
+            Expanded(
+              flex: 3,
+              child: TextField(
+                key: const ValueKey('assistant-name'),
+                decoration: const InputDecoration(
+                  labelText: 'Assistant name (optional)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                controller: _assistantNameC,
+                focusNode: _assistantNameF,
+                onChanged: (v) => vm.updateSigner(assistantName: v),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: _gap),
         Row(

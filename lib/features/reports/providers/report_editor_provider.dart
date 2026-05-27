@@ -410,7 +410,25 @@ void setSubjectInfoHeading(String heading) {
   // =========================
 
   void setReportTitle(String v) {
-    _doc = _doc.copyWith(reportTitle: v);
+    _doc = _doc.copyWith(reportTitle: v, updatedAtIso: nowIso());
+    notifyListeners();
+  }
+
+  void setReportDate(DateTime date) {
+    final current = DateTime.tryParse(_doc.reportDateIso) ?? DateTime.now();
+    final normalized = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      current.hour,
+      current.minute,
+      current.second,
+    ).toIso8601String();
+
+    _doc = _doc.copyWith(
+      reportDateIso: normalized,
+      updatedAtIso: nowIso(),
+    );
     notifyListeners();
   }
 
@@ -827,12 +845,20 @@ void setSubjectInfoHeading(String heading) {
   }
 
 
-  void updateSigner({String? roleTitle, String? name, String? credentials}) {
+  void updateSigner({
+    String? roleTitle,
+    String? name,
+    String? credentials,
+    String? assistantLabel,
+    String? assistantName,
+  }) {
     _doc = _doc.copyWith(
       signature: _doc.signature.copyWith(
         roleTitle: roleTitle,
         name: name,
         credentials: credentials,
+        assistantLabel: assistantLabel,
+        assistantName: assistantName,
       ),
       updatedAtIso: nowIso(),
     );

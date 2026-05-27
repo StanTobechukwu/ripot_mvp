@@ -15,6 +15,7 @@ class ReportCodec {
 
         // ✅ NEW: report title
         'reportTitle': doc.reportTitle,
+        'reportDateIso': doc.reportDateIso,
 
         // ✅ letterhead
         'applyLetterhead': doc.applyLetterhead,
@@ -46,6 +47,8 @@ class ReportCodec {
           'roleTitle': doc.signature.roleTitle,
           'name': doc.signature.name,
           'credentials': doc.signature.credentials,
+          'assistantLabel': doc.signature.assistantLabel,
+          'assistantName': doc.signature.assistantName,
           'signatureFilePath': doc.signature.signatureFilePath,
         },
       };
@@ -82,6 +85,9 @@ class ReportCodec {
 
     // ✅ NEW: report title (migration-safe)
     final reportTitle = (j['reportTitle'] as String?) ?? '';
+
+    // Required report/procedure date. Older reports fall back safely.
+    final reportDateIso = (j['reportDateIso'] as String?) ?? createdAtIso;
 
     // ✅ subject info def (schema)
     final defJson = j['subjectInfoDef'];
@@ -121,11 +127,13 @@ class ReportCodec {
         : <String, dynamic>{};
 
     final signature = SignatureBlock(
-      roleTitle: (sig['roleTitle'] as String?)?.trim().isNotEmpty == true
-          ? (sig['roleTitle'] as String)
-          : 'Reporter',
+      roleTitle: (sig['roleTitle'] as String?) ?? '',
       name: (sig['name'] as String?) ?? '',
       credentials: (sig['credentials'] as String?) ?? '',
+      assistantLabel: (sig['assistantLabel'] as String?)?.trim().isNotEmpty == true
+          ? (sig['assistantLabel'] as String)
+          : 'Assistant',
+      assistantName: (sig['assistantName'] as String?) ?? '',
       signatureFilePath: sig['signatureFilePath'] as String?,
     );
 
@@ -142,6 +150,7 @@ class ReportCodec {
 
       // ✅ NEW
       reportTitle: reportTitle,
+      reportDateIso: reportDateIso,
 
       placementChoice: placementChoice,
       reportLayout: reportLayout,

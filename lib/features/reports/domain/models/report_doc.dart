@@ -43,6 +43,10 @@ class ReportDoc {
 
   final String reportTitle;
 
+  /// Required report/procedure date. Auto-filled on new reports and rendered
+  /// near the report title, independent of Subject Info.
+  final String reportDateIso;
+
   final List<SectionNode> roots;
   final List<ImageAttachment> images;
   final ImagePlacementChoice placementChoice;
@@ -77,6 +81,7 @@ class ReportDoc {
     required this.createdAtIso,
     required this.updatedAtIso,
     this.reportTitle = '',
+    String? reportDateIso,
     this.roots = const [],
     this.images = const [],
     this.placementChoice = ImagePlacementChoice.attachmentsOnly,
@@ -90,7 +95,8 @@ class ReportDoc {
     this.letterheadId,
     SubjectInfoBlockDef? subjectInfoDef,
     SubjectInfoValues? subjectInfo,
-  })  : subjectInfoDef = subjectInfoDef ?? SubjectInfoBlockDef.kDefaults,
+  })  : reportDateIso = reportDateIso ?? createdAtIso,
+        subjectInfoDef = subjectInfoDef ?? SubjectInfoBlockDef.kDefaults,
         subjectInfo = subjectInfo ?? const SubjectInfoValues({});
 
   int get maxImages =>
@@ -100,6 +106,7 @@ class ReportDoc {
     String? createdAtIso,
     String? updatedAtIso,
     String? reportTitle,
+    String? reportDateIso,
     List<SectionNode>? roots,
     List<ImageAttachment>? images,
     ImagePlacementChoice? placementChoice,
@@ -119,6 +126,7 @@ class ReportDoc {
       createdAtIso: createdAtIso ?? this.createdAtIso,
       updatedAtIso: updatedAtIso ?? this.updatedAtIso,
       reportTitle: reportTitle ?? this.reportTitle,
+      reportDateIso: reportDateIso ?? this.reportDateIso,
       roots: roots ?? this.roots,
       images: images ?? this.images,
       placementChoice: placementChoice ?? this.placementChoice,
@@ -174,12 +182,16 @@ class SignatureBlock {
   final String roleTitle;
   final String name;
   final String credentials;
+  final String assistantLabel;
+  final String assistantName;
   final String? signatureFilePath;
 
   const SignatureBlock({
     this.roleTitle = '',
     this.name = '',
     this.credentials = '',
+    this.assistantLabel = 'Assistant',
+    this.assistantName = '',
     this.signatureFilePath,
   });
 
@@ -187,12 +199,16 @@ class SignatureBlock {
     String? roleTitle,
     String? name,
     String? credentials,
+    String? assistantLabel,
+    String? assistantName,
     Object? signatureFilePath = _unsetSignaturePath,
   }) {
     return SignatureBlock(
       roleTitle: roleTitle ?? this.roleTitle,
       name: name ?? this.name,
       credentials: credentials ?? this.credentials,
+      assistantLabel: assistantLabel ?? this.assistantLabel,
+      assistantName: assistantName ?? this.assistantName,
       signatureFilePath: identical(signatureFilePath, _unsetSignaturePath)
           ? this.signatureFilePath
           : signatureFilePath as String?,

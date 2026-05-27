@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -101,49 +102,73 @@ class _TemplateEditorBody extends StatelessWidget {
 
   Future<void> _showSectionActions(BuildContext context, SectionNode section) async {
     final vm = context.read<TemplateEditorProvider>();
+    final useResponsiveSheet = kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux;
+
+    Widget sheetContent(BuildContext ctx) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.subdirectory_arrow_right),
+            title: const Text('Add subsection'),
+            onTap: () => Navigator.pop(ctx, 'add_sub'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Style section'),
+            onTap: () => Navigator.pop(ctx, 'style'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.arrow_upward),
+            title: const Text('Move up'),
+            onTap: () => Navigator.pop(ctx, 'up'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.arrow_downward),
+            title: const Text('Move down'),
+            onTap: () => Navigator.pop(ctx, 'down'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.edit),
+            title: const Text('Edit title'),
+            onTap: () => Navigator.pop(ctx, 'rename'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: const Text('Delete section'),
+            onTap: () => Navigator.pop(ctx, 'delete'),
+          ),
+        ],
+      );
+    }
+
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.subdirectory_arrow_right),
-              title: const Text('Add subsection'),
-              onTap: () => Navigator.pop(ctx, 'add_sub'),
+      isScrollControlled: useResponsiveSheet,
+      builder: (ctx) {
+        if (!useResponsiveSheet) {
+          return SafeArea(child: sheetContent(ctx));
+        }
+
+        final availableHeight = MediaQuery.of(ctx).size.height;
+        return SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: availableHeight * 0.85),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: sheetContent(ctx),
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.tune),
-              title: const Text('Style section'),
-              onTap: () => Navigator.pop(ctx, 'style'),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.arrow_upward),
-              title: const Text('Move up'),
-              onTap: () => Navigator.pop(ctx, 'up'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.arrow_downward),
-              title: const Text('Move down'),
-              onTap: () => Navigator.pop(ctx, 'down'),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit title'),
-              onTap: () => Navigator.pop(ctx, 'rename'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('Delete section'),
-              onTap: () => Navigator.pop(ctx, 'delete'),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
     if (!context.mounted || action == null) return;
 
