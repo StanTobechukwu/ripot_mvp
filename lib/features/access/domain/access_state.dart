@@ -4,6 +4,9 @@ enum RipotPlan { free, trial, premium }
 
 @immutable
 class AccessState {
+  static const int defaultEarlyAccessDurationDays = 84;
+  static const int defaultStandardTrialDays = 7;
+
   final String installationId;
   final RipotPlan plan;
   final bool isEarlyUser;
@@ -13,6 +16,15 @@ class AccessState {
   final bool hasUsedTrial;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// Remote-controllable access settings. Defaults are deliberately safe so the
+  /// app still works when Firebase/Firestore is unavailable.
+  final bool earlyAccessEnabled;
+  final int earlyAccessDurationDays;
+  final DateTime? earlyAccessCutoffAt;
+  final bool premiumBillingEnabled;
+  final String? premiumMessageTitle;
+  final String? premiumMessageBody;
 
   const AccessState({
     required this.installationId,
@@ -24,6 +36,12 @@ class AccessState {
     this.trialEndsAt,
     this.premiumStartedAt,
     this.hasUsedTrial = false,
+    this.earlyAccessEnabled = true,
+    this.earlyAccessDurationDays = defaultEarlyAccessDurationDays,
+    this.earlyAccessCutoffAt,
+    this.premiumBillingEnabled = false,
+    this.premiumMessageTitle,
+    this.premiumMessageBody,
   });
 
   factory AccessState.initial({required String installationId, bool isEarlyUser = true}) {
@@ -37,14 +55,49 @@ class AccessState {
     );
   }
 
+  int get trialLengthDays {
+    if (!isEarlyUser) return defaultStandardTrialDays;
+    if (!earlyAccessEnabled) return defaultStandardTrialDays;
+    return earlyAccessDurationDays <= 0 ? defaultEarlyAccessDurationDays : earlyAccessDurationDays;
+  }
+
+  DateTime? get effectiveTrialEndsAt {
+    final startAt = trialStartAt;
+    if (isEarlyUser && earlyAccessEnabled && startAt != null) {
+      return startAt.add(Duration(days: trialLengthDays));
+    }
+    return trialEndsAt;
+  }
+
   bool get isTrialActive {
     if (plan != RipotPlan.trial) return false;
-    final endsAt = trialEndsAt;
+    final endsAt = effectiveTrialEndsAt;
     if (endsAt == null) return false;
     return DateTime.now().isBefore(endsAt);
   }
 
   bool get isPremiumLike => plan == RipotPlan.premium || isTrialActive;
+
+  bool get canActivatePremiumTrial {
+    if (plan == RipotPlan.premium || isPremiumLike) return false;
+    if (isEarlyUser && earlyAccessEnabled) return true;
+    return !hasUsedTrial;
+  }
+
+  bool get hadTrialButExpired => hasUsedTrial && !isPremiumLike && plan != RipotPlan.premium;
+
+  int get daysRemaining {
+    final endsAt = effectiveTrialEndsAt;
+    if (!isPremiumLike || endsAt == null) return 0;
+    final diff = endsAt.difference(DateTime.now()).inDays;
+    return diff < 0 ? 0 : diff + 1;
+  }
+
+  String get trialEndDateLabel {
+    final endsAt = effectiveTrialEndsAt;
+    if (endsAt == null) return '';
+    return _dateOnly(endsAt);
+  }
 
   int get maxSavedReports => isPremiumLike ? 100 : 10;
   int get maxSavedTemplates => isPremiumLike ? 20 : 3;
@@ -69,8 +122,6 @@ class AccessState {
     }
   }
 
-  int get trialLengthDays => isEarlyUser ? 21 : 7;
-
   AccessState copyWith({
     RipotPlan? plan,
     bool? isEarlyUser,
@@ -79,6 +130,12 @@ class AccessState {
     Object? premiumStartedAt = _unset,
     bool? hasUsedTrial,
     DateTime? updatedAt,
+    bool? earlyAccessEnabled,
+    int? earlyAccessDurationDays,
+    Object? earlyAccessCutoffAt = _unset,
+    bool? premiumBillingEnabled,
+    Object? premiumMessageTitle = _unset,
+    Object? premiumMessageBody = _unset,
   }) {
     return AccessState(
       installationId: installationId,
@@ -92,6 +149,18 @@ class AccessState {
       hasUsedTrial: hasUsedTrial ?? this.hasUsedTrial,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      earlyAccessEnabled: earlyAccessEnabled ?? this.earlyAccessEnabled,
+      earlyAccessDurationDays: earlyAccessDurationDays ?? this.earlyAccessDurationDays,
+      earlyAccessCutoffAt: identical(earlyAccessCutoffAt, _unset)
+          ? this.earlyAccessCutoffAt
+          : earlyAccessCutoffAt as DateTime?,
+      premiumBillingEnabled: premiumBillingEnabled ?? this.premiumBillingEnabled,
+      premiumMessageTitle: identical(premiumMessageTitle, _unset)
+          ? this.premiumMessageTitle
+          : premiumMessageTitle as String?,
+      premiumMessageBody: identical(premiumMessageBody, _unset)
+          ? this.premiumMessageBody
+          : premiumMessageBody as String?,
     );
   }
 
@@ -101,11 +170,17 @@ class AccessState {
       'plan': plan.name,
       'isEarlyUser': isEarlyUser,
       'trialStartAtIso': trialStartAt?.toIso8601String(),
-      'trialEndsAtIso': trialEndsAt?.toIso8601String(),
+      'trialEndsAtIso': effectiveTrialEndsAt?.toIso8601String(),
       'premiumStartedAtIso': premiumStartedAt?.toIso8601String(),
       'hasUsedTrial': hasUsedTrial,
       'createdAtIso': createdAt.toIso8601String(),
       'updatedAtIso': updatedAt.toIso8601String(),
+      'earlyAccessEnabled': earlyAccessEnabled,
+      'earlyAccessDurationDays': earlyAccessDurationDays,
+      'earlyAccessCutoffAtIso': earlyAccessCutoffAt?.toIso8601String(),
+      'premiumBillingEnabled': premiumBillingEnabled,
+      'premiumMessageTitle': premiumMessageTitle,
+      'premiumMessageBody': premiumMessageBody,
     };
   }
 
@@ -131,8 +206,30 @@ class AccessState {
       hasUsedTrial: (json['hasUsedTrial'] as bool?) ?? false,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      earlyAccessEnabled: (json['earlyAccessEnabled'] as bool?) ?? true,
+      earlyAccessDurationDays: _intFromJson(
+        json['earlyAccessDurationDays'],
+        fallback: defaultEarlyAccessDurationDays,
+      ),
+      earlyAccessCutoffAt: DateTime.tryParse((json['earlyAccessCutoffAtIso'] as String?) ?? ''),
+      premiumBillingEnabled: (json['premiumBillingEnabled'] as bool?) ?? false,
+      premiumMessageTitle: json['premiumMessageTitle'] as String?,
+      premiumMessageBody: json['premiumMessageBody'] as String?,
     );
   }
+}
+
+int _intFromJson(Object? value, {required int fallback}) {
+  if (value is int) return value;
+  if (value is num) return value.round();
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}
+
+String _dateOnly(DateTime value) {
+  final local = value.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${local.year}-${two(local.month)}-${two(local.day)}';
 }
 
 const Object _unset = Object();

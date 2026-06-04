@@ -42,19 +42,27 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     LetterheadTemplate? letterhead;
 
-    if (access.canUseLetterhead && vm.doc.applyLetterhead && vm.doc.letterheadId != null) {
+    if (access.canUseLetterhead &&
+        vm.doc.letterheadMode == LetterheadMode.digital &&
+        vm.doc.letterheadId != null) {
       letterhead = await repo.loadLetterhead(vm.doc.letterheadId!);
     }
 
+    final isPrePrinted = access.canUseLetterhead && vm.doc.letterheadMode == LetterheadMode.prePrinted;
     final metrics = PdfLayoutMetrics(
-      headerReserve: letterhead != null ? 90.0 : 0.0,
-      footerReserve: letterhead != null ? 45.0 : 0.0,
+      headerReserve: isPrePrinted
+          ? vm.doc.prePrintedTopSpacing.points
+          : (letterhead != null ? 90.0 : 0.0),
+      footerReserve: isPrePrinted && vm.doc.reservePrePrintedFooter
+          ? 50.0
+          : (letterhead != null ? 45.0 : 0.0),
     );
     final plan = _planBuilder.build(vm.doc, metrics: metrics);
 
     return _renderer.generatePdfBytes(
       doc: vm.doc,
       plan: plan,
+      layoutMetrics: metrics,
       letterhead: letterhead,
       showRipotBranding: !access.canRemoveBranding,
     );
@@ -243,10 +251,16 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (shouldOpen != true || !mounted) return;
     final draft = await provider.draftForReport(vm.doc);
     if (!mounted) return;
-    await Navigator.push(
+    final saved = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => RecordDetailsScreen(initialEntry: draft)),
     );
+    if (!mounted) return;
+    if (saved == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report added to Records.')),
+      );
+    }
   }
 
   Future<void> _openLetterheadSheet() async {
@@ -257,7 +271,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Premium feature'),
-          content: const Text('Custom letterhead is available in Premium Trial and Premium.'),
+          content: const Text('Letterhead options are available in Premium Trial and Premium.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
             FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
@@ -272,78 +286,168 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     final vm = context.read<ReportEditorProvider>();
     final repo = context.read<LetterheadsRepository>();
-
     final templates = await repo.loadAll();
 
     if (!mounted) return;
 
     const addToken = '__add__';
     const manageToken = '__manage__';
-    const noneToken = '__none__';
-    String tempSelected = vm.doc.letterheadId ?? noneToken;
 
-    debugPrint(
-  'letterhead open -> id=${vm.doc.letterheadId}, apply=${vm.doc.applyLetterhead}',
-);
-
-
-
+    LetterheadMode? expandedMode = vm.doc.letterheadMode == LetterheadMode.none
+        ? null
+        : vm.doc.letterheadMode;
 
     final result = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (sheetContext) {
-        
-
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final doc = context.watch<ReportEditorProvider>().doc;
+            const childIndent = 64.0;
+            const childRightPadding = 16.0;
+            const childContentPadding = EdgeInsets.only(left: childIndent, right: childRightPadding);
             return SafeArea(
               child: ListView(
                 shrinkWrap: true,
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                 children: [
-                  const SizedBox(height: 12),
                   const Center(
                     child: Text(
-                      'Select Letterhead',
+                      'Letterhead',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  const Divider(),
-                  RadioListTile<String>(
-                    value: noneToken,
-                    groupValue: tempSelected,
+                  const SizedBox(height: 8),
+                  RadioListTile<LetterheadMode>(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    value: LetterheadMode.none,
+                    groupValue: doc.letterheadMode,
                     title: const Text('None'),
                     onChanged: (value) {
                       if (value == null) return;
-                      setModalState(() => tempSelected = value);
-                      vm.setLetterhead(null);
+                      vm.setLetterheadMode(value);
+                      setModalState(() => expandedMode = null);
                     },
                   ),
-                  ...templates.map(
-                    (t) => RadioListTile<String>(
-                      value: t.letterheadId,
-                      groupValue: tempSelected,
-                      title: Text(t.name),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setModalState(() => tempSelected = value);
-                        vm.setLetterhead(value);
-                      },
+                  RadioListTile<LetterheadMode>(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    value: LetterheadMode.digital,
+                    groupValue: doc.letterheadMode,
+                    title: const Text('Digital letterhead'),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      vm.setLetterheadMode(value);
+                      setModalState(() => expandedMode = value);
+                    },
+                  ),
+                  if (doc.letterheadMode == LetterheadMode.digital && expandedMode == LetterheadMode.digital) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(childIndent, 4, childRightPadding, 4),
+                      child: Text(
+                        'Saved digital letterheads',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
                     ),
+                    if (templates.isEmpty)
+                      ListTile(
+                        dense: true,
+                        contentPadding: childContentPadding,
+                        title: Text('No saved digital letterheads yet'),
+                      ),
+                    ...templates.map(
+                      (t) => RadioListTile<String>(
+                        dense: true,
+                        contentPadding: childContentPadding,
+                        value: t.letterheadId,
+                        groupValue: doc.letterheadId,
+                        title: Text(t.name),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          vm.setLetterhead(value);
+                        },
+                      ),
+                    ),
+                    const Divider(indent: childIndent, endIndent: childRightPadding),
+                    ListTile(
+                      dense: true,
+                      contentPadding: childContentPadding,
+                      leading: const Icon(Icons.add),
+                      title: const Text('Add new letterhead'),
+                      onTap: () => Navigator.pop(sheetContext, addToken),
+                    ),
+                    ListTile(
+                      dense: true,
+                      contentPadding: childContentPadding,
+                      leading: const Icon(Icons.settings_outlined),
+                      title: const Text('Manage letterheads'),
+                      onTap: () => Navigator.pop(sheetContext, manageToken),
+                    ),
+                  ],
+                  RadioListTile<LetterheadMode>(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    value: LetterheadMode.prePrinted,
+                    groupValue: doc.letterheadMode,
+                    title: const Text(
+                      'Pre-printed letter paper',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      vm.setLetterheadMode(value);
+                      setModalState(() => expandedMode = value);
+                    },
                   ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.add),
-                    title: const Text('Add new letterhead'),
-                    onTap: () => Navigator.pop(sheetContext, addToken),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.settings_outlined),
-                    title: const Text('Manage letterheads'),
-                    onTap: () => Navigator.pop(sheetContext, manageToken),
-                  ),
+                  if (doc.letterheadMode == LetterheadMode.prePrinted && expandedMode == LetterheadMode.prePrinted) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(childIndent, 0, childRightPadding, 8),
+                      child: Text(
+                        'Uses pre-printed paper. No digital header/footer will be drawn.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(childIndent, 6, childRightPadding, 0),
+                      child: Text(
+                        'Top safe space',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    ...PrePrintedTopSpacing.values.map(
+                      (spacing) => RadioListTile<PrePrintedTopSpacing>(
+                        dense: true,
+                        contentPadding: childContentPadding,
+                        value: spacing,
+                        groupValue: doc.prePrintedTopSpacing,
+                        title: Text('${spacing.label} (${spacing.points.toStringAsFixed(0)} pt)'),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          vm.setPrePrintedTopSpacing(value);
+                        },
+                      ),
+                    ),
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: childContentPadding,
+                      value: doc.reservePrePrintedFooter,
+                      onChanged: (value) => vm.setReservePrePrintedFooter(value ?? false),
+                      title: const Text(
+                        'Reserve bottom/footer safe space',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        'Adds 50 pt on every page.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                  ],
                 ],
               ),
             );
@@ -567,7 +671,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 ),
                 child: PdfPreview(
                   key: ValueKey(
-                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.indentHierarchy}-${vm.doc.showColonAfterTitlesWithContent}-${vm.doc.fontScale}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}-${vm.doc.updatedAtIso}",
+                    "preview-${vm.doc.reportLayout}-${vm.doc.indentContent}-${vm.doc.indentHierarchy}-${vm.doc.showColonAfterTitlesWithContent}-${vm.doc.fontScale}-${vm.doc.letterheadMode}-${vm.doc.applyLetterhead}-${vm.doc.letterheadId}-${vm.doc.prePrintedTopSpacing}-${vm.doc.reservePrePrintedFooter}-${vm.doc.updatedAtIso}",
                   ),
                   build: (_) => _buildBytes(),
                   pdfFileName: pdfFileName,

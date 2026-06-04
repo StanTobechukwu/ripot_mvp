@@ -193,7 +193,7 @@ class _RecordViewScreenState extends State<RecordViewScreen> {
                         children: [
                           _InfoChip(icon: Icons.badge_outlined, label: 'ID', value: formatReportIdForDisplay(valueMap[RecordFieldCatalog.reportId.key] ?? '')),
                           _InfoChip(icon: Icons.calendar_today_outlined, label: 'Date', value: valueMap[RecordFieldCatalog.reportDate.key] ?? ''),
-                          _InfoChip(icon: Icons.person_outline, label: 'Reference', value: valueMap[RecordFieldCatalog.patientReference.key] ?? ''),
+                          _InfoChip(icon: Icons.person_outline, label: 'Subject ID', value: valueMap[RecordFieldCatalog.patientReference.key] ?? ''),
                         ].where((chip) => chip.value.trim().isNotEmpty).toList(growable: false),
                       ),
                       const SizedBox(height: 18),

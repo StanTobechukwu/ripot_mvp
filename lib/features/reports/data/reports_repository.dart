@@ -123,6 +123,18 @@ class ReportsRepository {
     await prefs.setBool(_finalizedKey(reportId), true);
   }
 
+  Future<void> importPdfBytesForReport(
+    String reportId,
+    Uint8List bytes, {
+    required String fileName,
+  }) async {
+    final prefs = await _prefs;
+    if (reportId.trim().isEmpty || bytes.isEmpty) return;
+    await prefs.setString(_pdfKey(reportId), base64Encode(bytes));
+    await prefs.setString(_pdfNameKey(reportId), fileName.trim().isEmpty ? 'Ripot_Report.pdf' : fileName.trim());
+    await prefs.setBool(_finalizedKey(reportId), true);
+  }
+
   Future<void> markReportAsFinal(String reportId) async {
     final prefs = await _prefs;
     await prefs.setBool(_finalizedKey(reportId), true);

@@ -84,18 +84,18 @@ class SubjectInfoBlockDef {
     enabled: true,
     columns: 2,
     schemaVersion: 1,
-    heading: 'Patient Info',
+    heading: 'Subject Info',
     fields: [
       SubjectFieldDef(
         key: SubjectFieldKeys.subjectName,
-        title: 'Patient Name',
+        title: 'Subject Name',
         required: true,
         order: 0,
         isSystem: true,
       ),
       SubjectFieldDef(
         key: SubjectFieldKeys.subjectId,
-        title: 'Hospital ID',
+        title: 'Subject ID',
         required: false,
         order: 1,
         isSystem: true,

@@ -18,8 +18,11 @@ class ReportCodec {
         'reportDateIso': doc.reportDateIso,
 
         // ✅ letterhead
+        'letterheadMode': doc.letterheadMode.name,
         'applyLetterhead': doc.applyLetterhead,
         'letterheadId': doc.letterheadId,
+        'prePrintedTopSpacing': doc.prePrintedTopSpacing.name,
+        'reservePrePrintedFooter': doc.reservePrePrintedFooter,
 
         // ✅ subject info schema + values
         'subjectInfoDef': doc.subjectInfoDef.toJson(),
@@ -142,6 +145,19 @@ class ReportCodec {
     final letterheadIdRaw = (j['letterheadId'] as String?)?.trim();
     final letterheadId =
         (letterheadIdRaw == null || letterheadIdRaw.isEmpty) ? null : letterheadIdRaw;
+    final letterheadModeName = (j['letterheadMode'] as String?) ??
+        (applyLetterhead && letterheadId != null ? LetterheadMode.digital.name : LetterheadMode.none.name);
+    final letterheadMode = _safeEnumByName<LetterheadMode>(
+      LetterheadMode.values,
+      letterheadModeName,
+      fallback: LetterheadMode.none,
+    );
+    final prePrintedTopSpacing = _safeEnumByName<PrePrintedTopSpacing>(
+      PrePrintedTopSpacing.values,
+      (j['prePrintedTopSpacing'] as String?) ?? PrePrintedTopSpacing.medium.name,
+      fallback: PrePrintedTopSpacing.medium,
+    );
+    final reservePrePrintedFooter = (j['reservePrePrintedFooter'] as bool?) ?? false;
 
     return ReportDoc(
       reportId: (j['reportId'] as String?) ?? 'unknown',
@@ -164,8 +180,11 @@ class ReportCodec {
       signature: signature,
 
       // ✅ letterhead
-      applyLetterhead: applyLetterhead,
+      letterheadMode: letterheadMode,
+      applyLetterhead: letterheadMode == LetterheadMode.digital && letterheadId != null,
       letterheadId: letterheadId,
+      prePrintedTopSpacing: prePrintedTopSpacing,
+      reservePrePrintedFooter: reservePrePrintedFooter,
     );
   }
 

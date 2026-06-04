@@ -47,7 +47,7 @@ class ReportEditorScreen extends StatefulWidget {
   State<ReportEditorScreen> createState() => _ReportEditorScreenState();
 }
 
-class _ReportEditorScreenState extends State<ReportEditorScreen> {
+class _ReportEditorScreenState extends State<ReportEditorScreen> with WidgetsBindingObserver {
   // ✅ TEMP FIX:
   // Disable pruning + runtime disposal of controllers to stop:
   // - "TextEditingController was used after being disposed"
@@ -109,6 +109,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
  @override
 void initState() {
   super.initState();
+  WidgetsBinding.instance.addObserver(this);
 
   _roleTitleC = SafeTextController();
   _signerNameC = SafeTextController();
@@ -153,6 +154,7 @@ void initState() {
 }
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     FocusManager.instance.removeListener(_focusManagerListener);
     // pending (won't be used while _enablePruning=false, but safe)
     for (final c in _pendingDisposeControllers) {
@@ -203,6 +205,71 @@ void initState() {
   // ✅ Global unfocus to prevent IME holding old EditableText during structural changes
   void _unfocusNow() {
     FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _autoSaveCurrentDraft();
+    }
+  }
+
+  Future<void> _autoSaveCurrentDraft() async {
+    if (!mounted) return;
+    final vm = context.read<ReportEditorProvider>();
+    if (!vm.hasUnsavedChanges) return;
+    try {
+      await vm.autoSaveDraft();
+    } catch (_) {
+      // Silent safety save only. Explicit Save still shows user-visible feedback.
+    }
+  }
+
+  Future<bool> _confirmLeaveEditor() async {
+    _unfocusNow();
+    final vm = context.read<ReportEditorProvider>();
+    if (!vm.hasUnsavedChanges) return true;
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Save current report?'),
+        content: const Text(
+          'You have unsaved changes. Do you want to save your progress before leaving?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'discard'),
+            child: const Text('Discard'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'keep'),
+            child: const Text('Keep editing'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, 'save'),
+            child: const Text('Save progress'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return false;
+    if (action == 'save') {
+      await vm.save();
+      return true;
+    }
+    return action == 'discard';
+  }
+
+  Future<void> _handleBackFromEditor() async {
+    final canLeave = await _confirmLeaveEditor();
+    if (!mounted || !canLeave) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   bool get _isAnyEditorFieldFocused {
@@ -936,18 +1003,15 @@ _disposeLater(titleC);
     final outlineMinHeight = MediaQuery.of(context).size.height * 0.42;
     final hasSelection = vm.selectedNodeId != null;
 
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: _confirmLeaveEditor,
+      child: Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: IconButton(
           tooltip: 'Back',
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            _unfocusNow();
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            }
-          },
+          onPressed: _handleBackFromEditor,
         ),
         toolbarHeight: 56,
         titleSpacing: 0,
@@ -1250,6 +1314,7 @@ floatingActionButton: _editorMode
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -2528,6 +2593,13 @@ class _ImagesManagerState extends State<_ImagesManager> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(vm.doc.placementChoice == ImagePlacementChoice.attachmentsOnly ? '8 images per attachment page' : 'Max images in this mode: ${vm.doc.maxImages}'),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: Text(
+              'Endoscopy workflow: MediCap → clean USB flash drive → Mac/phone via USB-C adapter → import into Ripot.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
           ),
           const SizedBox(height: 12),
           Padding(

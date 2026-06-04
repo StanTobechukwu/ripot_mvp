@@ -23,6 +23,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       _controllers[RecordFieldCatalog.procedure.key]?.text.trim() ??
       _entry.valueOf(RecordFieldCatalog.procedure.key);
 
+  bool get _isExistingRecord => _entry.createdAtIso != _entry.updatedAtIso;
+
   @override
   void initState() {
     super.initState();
@@ -75,13 +77,13 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Save record details?'),
+        title: Text(_isExistingRecord ? 'Update record details?' : 'Save to Records?'),
         content: const Text(
           'This saves searchable record details for the PDF Report. Editing these details will not change the saved PDF.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save Details')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(_isExistingRecord ? 'Update Record' : 'Save to Records')),
         ],
       ),
     );
@@ -97,15 +99,26 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         values[entry.key] = entry.value.text.trim();
       }
     }
-    final provider = context.read<RecordsProvider>();
-    await provider.saveRecord(
-      _entry.copyWith(
-        updatedAtIso: DateTime.now().toIso8601String(),
-        values: values,
-      ),
-    );
-    if (!mounted) return;
-    Navigator.pop(context);
+    try {
+      final provider = context.read<RecordsProvider>();
+      await provider.saveRecord(
+        _entry.copyWith(
+          updatedAtIso: DateTime.now().toIso8601String(),
+          values: values,
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isExistingRecord ? 'Record details updated.' : 'Saved to Records.')),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save record details: $e')),
+      );
+    }
   }
 
   Future<void> _deleteCustomField(RecordFieldDef field) async {
@@ -277,7 +290,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                     children: [
                       const Icon(Icons.library_add_check_outlined),
                       const SizedBox(width: 10),
-                      Text('Save to Records', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(_isExistingRecord ? 'Update Record Details' : 'Save to Records', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -320,7 +333,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
           FilledButton.icon(
             onPressed: _save,
             icon: _saving ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-            label: Text(_saving ? 'Saving...' : 'Save Details'),
+            label: Text(_saving ? 'Saving...' : (_isExistingRecord ? 'Update Record' : 'Save to Records')),
           ),
         ],
       ),

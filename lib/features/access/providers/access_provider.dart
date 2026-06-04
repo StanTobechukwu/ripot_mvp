@@ -23,21 +23,36 @@ class AccessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startTrial() async {
+  Future<bool> activatePremiumTrial() async {
     final current = safeState;
-    if (current.hasUsedTrial || current.isPremiumLike) return;
+    if (!current.canActivatePremiumTrial) return false;
+
     final now = DateTime.now();
+    var startAt = current.trialStartAt ?? now;
+    var endsAt = startAt.add(Duration(days: current.trialLengthDays));
+
+    // Existing users who were blocked by an older, shorter trial should not
+    // remain stuck. If their historical trial window is already outside the
+    // current early-access window, give them a fresh configured window.
+    if (current.isEarlyUser && endsAt.isBefore(now)) {
+      startAt = now;
+      endsAt = now.add(Duration(days: current.trialLengthDays));
+    }
+
     final next = current.copyWith(
       plan: RipotPlan.trial,
-      trialStartAt: now,
-      trialEndsAt: now.add(Duration(days: current.trialLengthDays)),
+      trialStartAt: startAt,
+      trialEndsAt: endsAt,
       hasUsedTrial: true,
       updatedAt: now,
     );
     _state = next;
     notifyListeners();
     await repo.save(next);
+    return true;
   }
+
+  Future<bool> startTrial() => activatePremiumTrial();
 
   Future<void> markPremium() async {
     final now = DateTime.now();

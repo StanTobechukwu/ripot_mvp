@@ -1,8 +1,13 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:archive/archive.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/web/file_download.dart';
 import '../../access/providers/access_provider.dart';
@@ -14,6 +19,57 @@ import '../providers/records_provider.dart';
 import '../../reports/services/pdf_actions_service.dart';
 import 'record_view_screen.dart';
 import 'record_details_screen.dart';
+import '../data/records_repository.dart';
+
+
+class _CsvPreviewScreen extends StatelessWidget {
+  final String csvText;
+  final String fileName;
+
+  const _CsvPreviewScreen({required this.csvText, required this.fileName});
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = Uint8List.fromList(utf8.encode(csvText));
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(fileName),
+        actions: [
+          IconButton(
+            tooltip: 'Share CSV',
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () async {
+              if (kIsWeb) {
+                final datePart = fileName
+                    .replaceFirst('Ripot_Records_', '')
+                    .replaceFirst('.csv', '');
+                await Share.shareXFiles(
+                  [XFile.fromData(bytes, name: fileName, mimeType: 'text/csv')],
+                  subject: 'Ripot records export - $datePart',
+                  text: 'Attached is the Ripot records CSV export.',
+                );
+                return;
+              }
+              await ripotShareCsv(bytes: bytes, fileName: fileName);
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              csvText,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 enum RecordsViewMode { list, table }
 
@@ -30,6 +86,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
   RecordsViewMode _mode = RecordsViewMode.list;
   _RecordsSort _sort = _RecordsSort.newestFirst;
   String _procedureFilter = 'All procedures';
+  String _facilityFilter = 'All facilities';
 
   @override
   void initState() {
@@ -141,22 +198,338 @@ class _RecordsScreenState extends State<RecordsScreen> {
     await _openPdf(item);
   }
 
-  Future<void> _exportTable(List<RecordSummary> records, List<RecordFieldDef> fields) async {
-    final keys = [
-      ...RecordFieldCatalog.exportDefaultKeys,
-      ...fields.where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key)).map((f) => f.key),
-    ];
-    final visibleFields = keys.map((key) => fields.firstWhere((f) => f.key == key, orElse: () => RecordFieldDef(key: key, label: key, hint: '', isSystem: false))).toList(growable: false);
-    String esc(String v) => '"${v.replaceAll('"', '""')}"';
-    final buffer = StringBuffer();
-    buffer.writeln(visibleFields.map((f) => esc(f.label)).join(','));
-    for (final row in records) {
-      buffer.writeln(visibleFields.map((f) => esc(row.values[f.key] ?? '')).join(','));
+  String _todayCsvFileName() {
+    final now = DateTime.now();
+    final date = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return 'Ripot_Records_$date.csv';
+  }
+
+  String _todayPackageFileName() {
+    final now = DateTime.now();
+    final date = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return 'Ripot_Records_Backup_$date.zip';
+  }
+
+  Future<void> _shareCsv({required Uint8List bytes, required String fileName}) async {
+    final datePart = fileName.replaceFirst('Ripot_Records_', '').replaceFirst('.csv', '');
+    if (kIsWeb) {
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, name: fileName, mimeType: 'text/csv')],
+        subject: 'Ripot records export - $datePart',
+        text: 'Attached is the Ripot records CSV export.',
+      );
+      return;
     }
-    final bytes = utf8.encode(buffer.toString());
-    await downloadBytes(bytes: bytes, fileName: 'ripot_records.csv');
+    await ripotShareCsv(bytes: bytes, fileName: fileName);
+  }
+
+  Future<void> _sharePackage({required Uint8List bytes, required String fileName}) async {
+    if (kIsWeb) {
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, name: fileName, mimeType: 'application/zip')],
+        subject: fileName,
+        text: 'Attached is a Ripot records package. Import it from Records > Import / Merge in Ripot.',
+      );
+      return;
+    }
+    await ripotShareRecordsPackage(bytes: bytes, fileName: fileName);
+  }
+
+  Future<void> _openCsvPreview({required String csvText, required String fileName}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => _CsvPreviewScreen(csvText: csvText, fileName: fileName)),
+    );
+  }
+
+  Future<String?> _showExportChoice() {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Export records', style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              const Text('Export the currently filtered records. Use CSV for metadata-only merging, or Records Package to include saved PDFs.'),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.table_chart_outlined),
+                title: const Text('Export as CSV'),
+                subtitle: const Text('Record list only. Best for analysis and metadata merge.'),
+                onTap: () => Navigator.pop(sheetContext, 'csv'),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text('Export as Records Package'),
+                subtitle: const Text('Record list plus available PDF reports.'),
+                onTap: () => Navigator.pop(sheetContext, 'package'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showExportDoneSheet({
+    required String title,
+    required String fileName,
+    required String helper,
+    required VoidCallback onOpen,
+    required Future<void> Function() onShare,
+  }) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(fileName),
+              const SizedBox(height: 6),
+              Text(helper, style: Theme.of(sheetContext).textTheme.bodySmall),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(sheetContext, 'open'),
+                      icon: const Icon(Icons.visibility_outlined),
+                      label: const Text('Open'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => Navigator.pop(sheetContext, 'share'),
+                      icon: const Icon(Icons.share_outlined),
+                      label: const Text('Share'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Records table exported as CSV.')));
+    if (action == 'open') {
+      onOpen();
+    } else if (action == 'share') {
+      try {
+        await onShare();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: $e')));
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported: $fileName')));
+    }
+  }
+
+  Future<void> _exportRecords(List<RecordSummary> records, List<RecordFieldDef> fields) async {
+    final choice = await _showExportChoice();
+    if (!mounted || choice == null) return;
+    if (choice == 'csv') {
+      await _exportCsv(records, fields);
+    } else if (choice == 'package') {
+      await _exportRecordsPackage(records, fields);
+    }
+  }
+
+  Future<void> _exportCsv(List<RecordSummary> records, List<RecordFieldDef> fields) async {
+    final csvText = context.read<RecordsProvider>().repo.buildRipotCsv(records: records, fields: fields);
+    final bytes = Uint8List.fromList(utf8.encode(csvText));
+    final fileName = _todayCsvFileName();
+    if (kIsWeb) {
+      await downloadBytes(bytes: bytes, fileName: fileName);
+    } else {
+      await ripotDownloadCsv(bytes: bytes, fileName: fileName);
+    }
+    if (!mounted) return;
+    await _showExportDoneSheet(
+      title: 'CSV exported',
+      fileName: fileName,
+      helper: 'Open with Excel, Google Sheets, Numbers, or another spreadsheet app to view columns properly.',
+      onOpen: () => _openCsvPreview(csvText: csvText, fileName: fileName),
+      onShare: () => _shareCsv(bytes: bytes, fileName: fileName),
+    );
+  }
+
+  Future<Uint8List> _buildRecordsPackage(List<RecordSummary> records, List<RecordFieldDef> fields) async {
+    final csvText = context.read<RecordsProvider>().repo.buildRipotCsv(records: records, fields: fields);
+    final reportsRepo = context.read<ReportsRepository>();
+    final now = DateTime.now().toIso8601String();
+    final archive = Archive();
+    final manifest = jsonEncode({
+      'app': 'Ripot',
+      'exportType': 'recordsPackage',
+      'exportVersion': 1,
+      'exportedAtIso': now,
+      'recordCount': records.length,
+    });
+    archive.addFile(ArchiveFile.string('manifest.json', manifest));
+    archive.addFile(ArchiveFile.string('records.csv', csvText));
+    for (final row in records) {
+      final pdfBytes = await reportsRepo.loadPdfBytesForReport(row.linkedReportId);
+      if (pdfBytes == null || pdfBytes.isEmpty) continue;
+      final pdfName = await reportsRepo.pdfFileNameForReport(row.linkedReportId) ?? '${row.recordEntryId}.pdf';
+      final safeName = pdfName.replaceAll(RegExp(r'[^A-Za-z0-9._ -]'), '_');
+      archive.addFile(ArchiveFile('pdfs/${row.recordEntryId}__$safeName', pdfBytes.length, pdfBytes));
+    }
+    final zipped = ZipEncoder().encode(archive);
+    if (zipped == null) throw Exception('Could not create records package.');
+    return Uint8List.fromList(zipped);
+  }
+
+  Future<void> _exportRecordsPackage(List<RecordSummary> records, List<RecordFieldDef> fields) async {
+    final bytes = await _buildRecordsPackage(records, fields);
+    final fileName = _todayPackageFileName();
+    if (kIsWeb) {
+      await downloadBytes(bytes: bytes, fileName: fileName);
+    } else {
+      await ripotDownloadRecordsPackage(bytes: bytes, fileName: fileName);
+    }
+    if (!mounted) return;
+    await _showExportDoneSheet(
+      title: 'Records package exported',
+      fileName: fileName,
+      helper: 'This package contains the record list and available PDF reports. Keep it as backup or share it with another Ripot user.',
+      onOpen: () {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Package saved. Use a file manager to view the ZIP.')));
+      },
+      onShare: () => _sharePackage(bytes: bytes, fileName: fileName),
+    );
+  }
+
+  Future<void> _importOrMerge() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Import / Merge records', style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              const Text('Merge only files exported from Ripot. CSV imports record details only. Records Package imports record details and available PDFs.'),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.table_chart_outlined),
+                title: const Text('Merge Ripot Records CSV'),
+                subtitle: const Text('Record details only.'),
+                onTap: () => Navigator.pop(sheetContext, 'csv'),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text('Merge Records Package'),
+                subtitle: const Text('Record details and PDFs.'),
+                onTap: () => Navigator.pop(sheetContext, 'package'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'csv') {
+      await _mergeCsvFile();
+    } else if (choice == 'package') {
+      await _mergePackageFile();
+    }
+  }
+
+  Future<PlatformFile?> _pickFile(List<String> extensions) async {
+    final picked = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: extensions, withData: true);
+    if (picked == null || picked.files.isEmpty) return null;
+    return picked.files.first;
+  }
+
+  Future<void> _mergeCsvFile() async {
+    try {
+      final file = await _pickFile(['csv']);
+      if (!mounted || file == null) return;
+      final bytes = file.bytes;
+      if (bytes == null || bytes.isEmpty) throw Exception('The selected file could not be read.');
+      final csvText = utf8.decode(bytes);
+      final result = await context.read<RecordsProvider>().repo.mergeRipotCsv(csvText);
+      if (!mounted) return;
+      await context.read<RecordsProvider>().refresh();
+      _showMergeResult(result, includePdfs: false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Merge failed: $e')));
+    }
+  }
+
+  Future<void> _mergePackageFile() async {
+    try {
+      final file = await _pickFile(['zip']);
+      if (!mounted || file == null) return;
+      final bytes = file.bytes;
+      if (bytes == null || bytes.isEmpty) throw Exception('The selected package could not be read.');
+      final archive = ZipDecoder().decodeBytes(bytes);
+      final manifestFile = archive.findFile('manifest.json');
+      final csvFile = archive.findFile('records.csv');
+      if (manifestFile == null || csvFile == null) {
+        throw const FormatException('This package does not look like a Ripot records package.');
+      }
+      final manifest = jsonDecode(utf8.decode(List<int>.from(manifestFile.content as List))) as Map<String, dynamic>;
+      if (manifest['app'] != 'Ripot' || manifest['exportType'] != 'recordsPackage') {
+        throw const FormatException('This package does not look like a Ripot records package.');
+      }
+      final csvText = utf8.decode(List<int>.from(csvFile.content as List));
+      final recordsRepo = context.read<RecordsProvider>().repo;
+      final reportsRepo = context.read<ReportsRepository>();
+      final result = await recordsRepo.mergeRipotCsv(csvText);
+      var importedPdfs = 0;
+      for (final item in archive.files) {
+        if (!item.isFile || !item.name.startsWith('pdfs/') || !item.name.toLowerCase().endsWith('.pdf')) continue;
+        final name = item.name.split('/').last;
+        final separator = name.indexOf('__');
+        if (separator <= 0) continue;
+        final recordId = name.substring(0, separator);
+        final entry = await recordsRepo.loadByRecordId(recordId);
+        if (entry == null) continue;
+        final content = Uint8List.fromList(List<int>.from(item.content as List));
+        final pdfName = name.substring(separator + 2);
+        await reportsRepo.importPdfBytesForReport(entry.linkedReportId, content, fileName: pdfName);
+        importedPdfs += 1;
+      }
+      if (!mounted) return;
+      await context.read<RecordsProvider>().refresh();
+      _showMergeResult(result, includePdfs: true, importedPdfs: importedPdfs);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Package merge failed: $e')));
+    }
+  }
+
+  void _showMergeResult(RecordsMergeResult result, {required bool includePdfs, int importedPdfs = 0}) {
+    final pdfLine = includePdfs ? '\nPDF reports imported: $importedPdfs' : '';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Merge complete. Imported: ${result.imported}, Updated: ${result.updated}, Duplicates skipped: ${result.duplicatesSkipped}$pdfLine'),
+      ),
+    );
   }
 
   @override
@@ -206,15 +579,21 @@ class _RecordsScreenState extends State<RecordsScreen> {
     final vm = context.watch<RecordsProvider>();
     final fields = vm.allFields;
     final procedures = <String>{};
+    final facilities = <String>{};
     for (final row in vm.records) {
-      final value = row.procedure.trim();
-      if (value.isNotEmpty) procedures.add(value);
+      final procedure = row.procedure.trim();
+      if (procedure.isNotEmpty) procedures.add(procedure);
+      final facility = (row.values[RecordFieldCatalog.facility.key] ?? '').trim();
+      if (facility.isNotEmpty) facilities.add(facility);
     }
     final procedureOptions = ['All procedures', ...procedures.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))];
+    final facilityOptions = ['All facilities', ...facilities.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))];
 
     var rows = vm.filteredRecords.where((row) {
-      if (_procedureFilter == 'All procedures') return true;
-      return row.procedure.trim().toLowerCase() == _procedureFilter.trim().toLowerCase();
+      final procedureMatches = _procedureFilter == 'All procedures' || row.procedure.trim().toLowerCase() == _procedureFilter.trim().toLowerCase();
+      final facility = (row.values[RecordFieldCatalog.facility.key] ?? '').trim();
+      final facilityMatches = _facilityFilter == 'All facilities' || facility.toLowerCase() == _facilityFilter.trim().toLowerCase();
+      return procedureMatches && facilityMatches;
     }).toList(growable: false);
 
     rows = [...rows]..sort((a, b) {
@@ -242,12 +621,16 @@ class _RecordsScreenState extends State<RecordsScreen> {
             onSelectionChanged: (value) => setState(() => _mode = value.first),
           ),
           const SizedBox(width: 8),
-          if (_mode == RecordsViewMode.table)
-            IconButton(
-              tooltip: 'Export table',
-              onPressed: rows.isEmpty ? null : () => _exportTable(rows, fields),
-              icon: const Icon(Icons.download_outlined),
-            ),
+          IconButton(
+            tooltip: 'Import / Merge',
+            onPressed: _importOrMerge,
+            icon: const Icon(Icons.file_upload_outlined),
+          ),
+          IconButton(
+            tooltip: 'Export records',
+            onPressed: rows.isEmpty ? null : () => _exportRecords(rows, fields),
+            icon: const Icon(Icons.download_outlined),
+          ),
         ],
       ),
       body: Column(
@@ -285,6 +668,24 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() => _procedureFilter = value);
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<String>(
+                        value: facilityOptions.contains(_facilityFilter) ? _facilityFilter : 'All facilities',
+                        decoration: const InputDecoration(
+                          labelText: 'Facility',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: facilityOptions
+                            .map((value) => DropdownMenuItem<String>(value: value, child: Text(value, overflow: TextOverflow.ellipsis)))
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _facilityFilter = value);
                         },
                       ),
                     ),
@@ -343,7 +744,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                                   subtitle: Text(
                                     [
                                       if (item.diagnosis.isNotEmpty) item.diagnosis,
-                                      if (item.patientReference.isNotEmpty) 'Ref: ${item.patientReference}',
+                                      if (item.patientReference.isNotEmpty) 'Subject ID: ${item.patientReference}',
                                       if (item.reportDate.isNotEmpty) item.reportDate,
                                     ].join(' • '),
                                   ),

@@ -144,6 +144,11 @@ class RecordFieldCatalog {
     label: 'Report Date',
     hint: 'Date the report was finalized',
   );
+  static const subjectName = RecordFieldDef(
+    key: 'subjectName',
+    label: 'Subject Name',
+    hint: 'Subject name or privacy-safe reference',
+  );
   static const procedure = RecordFieldDef(
     key: 'procedure',
     label: 'Procedure',
@@ -191,28 +196,34 @@ class RecordFieldCatalog {
   static const gender = RecordFieldDef(
     key: 'gender',
     label: 'Gender',
-    hint: 'Patient gender',
+    hint: 'Subject gender, if relevant',
     builtInSuggestions: ['Male', 'Female'],
   );
   static const age = RecordFieldDef(
     key: 'age',
     label: 'Age',
-    hint: 'Patient age',
+    hint: 'Subject age, if relevant',
   );
   static const patientReference = RecordFieldDef(
     key: 'patientReference',
-    label: 'Patient Reference',
-    hint: 'Hospital card number, initials, or other local reference',
+    label: 'Subject ID',
+    hint: 'Subject identifier, initials, or other local reference',
   );
   static const doctor = RecordFieldDef(
     key: 'doctor',
     label: 'Doctor',
     hint: 'Consultant / operator / endoscopist',
   );
+  static const facility = RecordFieldDef(
+    key: 'facility',
+    label: 'Facility',
+    hint: 'Hospital, clinic, centre, or practice location',
+  );
 
   static const coreFields = <RecordFieldDef>[
     reportId,
     reportDate,
+    subjectName,
     procedure,
     indication,
     diagnosis,
@@ -220,11 +231,13 @@ class RecordFieldCatalog {
     age,
     patientReference,
     doctor,
+    facility,
   ];
 
   static const exportDefaultKeys = <String>[
     'reportId',
     'reportDate',
+    'subjectName',
     'procedure',
     'indication',
     'diagnosis',
@@ -232,6 +245,7 @@ class RecordFieldCatalog {
     'age',
     'patientReference',
     'doctor',
+    'facility',
   ];
 
   static RecordFieldDef? byKey(String key) {

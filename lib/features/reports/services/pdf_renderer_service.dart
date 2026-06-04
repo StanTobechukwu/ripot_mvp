@@ -29,6 +29,7 @@ class PdfRendererService {
   Future<Uint8List> generatePdfBytes({
     required ReportDoc doc,
     required PdfPlan plan,
+    PdfLayoutMetrics? layoutMetrics,
     LetterheadTemplate? letterhead,
     bool showRipotBranding = true,
   }) async {
@@ -41,13 +42,25 @@ class PdfRendererService {
       bold: pw.Font.helveticaBold(),
     );
 
-    final metrics = PdfLayoutMetrics(
+    final metrics = layoutMetrics ?? PdfLayoutMetrics(
       headerReserve: _letterheadHeaderReserve(letterhead),
       footerReserve: _letterheadFooterReserve(letterhead),
     );
 
     final pageFormat = metrics.pageFormat;
     final pageMargin = metrics.pageMargin;
+    final usesSafePageMargins = doc.letterheadMode == LetterheadMode.prePrinted;
+    final pageMargins = usesSafePageMargins
+        ? pw.EdgeInsets.fromLTRB(
+            pageMargin,
+            pageMargin + metrics.headerReserve,
+            pageMargin,
+            pageMargin + metrics.footerReserve,
+          )
+        : pw.EdgeInsets.all(pageMargin);
+    final pageBodyHeight = usesSafePageMargins
+        ? pageFormat.height - (pageMargin * 2) - metrics.headerReserve - metrics.footerReserve
+        : pageFormat.height - (pageMargin * 2);
 
     final titleText = plan.title.trim();
     final bool showTitle = titleText.isNotEmpty;
@@ -142,7 +155,7 @@ class PdfRendererService {
         pw.MultiPage(
           theme: theme,
           pageFormat: pageFormat,
-          margin: pw.EdgeInsets.all(pageMargin),
+          margin: pageMargins,
           header: (_) => letterhead != null
               ? _letterheadHeader(letterhead, logo)
               : pw.SizedBox(),
@@ -164,7 +177,7 @@ class PdfRendererService {
             pw.MultiPage(
               theme: theme,
               pageFormat: pageFormat,
-              margin: pw.EdgeInsets.all(pageMargin),
+              margin: pageMargins,
               header: (_) => letterhead != null
                   ? _letterheadHeader(letterhead, logo)
                   : pw.SizedBox(),
@@ -300,7 +313,7 @@ class PdfRendererService {
       pw.Page(
         theme: theme,
         pageFormat: pageFormat,
-        margin: pw.EdgeInsets.all(pageMargin),
+        margin: pageMargins,
         build: (_) {
           final mainContent = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -352,7 +365,6 @@ class PdfRendererService {
           // fixed page-bottom area. A plain Stack can size itself to the content
           // height, which makes the footer disappear on page 1 in some inline
           // layouts. This SizedBox anchors the footer to the physical page body.
-          final pageBodyHeight = pageFormat.height - (pageMargin * 2);
           return pw.SizedBox(
             height: pageBodyHeight,
             child: pw.Stack(
@@ -394,7 +406,7 @@ class PdfRendererService {
         pw.MultiPage(
           theme: theme,
           pageFormat: pageFormat,
-          margin: pw.EdgeInsets.all(pageMargin),
+          margin: pageMargins,
           header: (_) => letterhead != null
               ? _letterheadHeader(letterhead, logo)
               : pw.SizedBox(),
@@ -431,7 +443,7 @@ class PdfRendererService {
           pw.Page(
             theme: theme,
             pageFormat: pageFormat,
-            margin: pw.EdgeInsets.all(pageMargin),
+            margin: pageMargins,
             build: (_) {
               final footerChildren = <pw.Widget>[];
               if (letterhead != null) {

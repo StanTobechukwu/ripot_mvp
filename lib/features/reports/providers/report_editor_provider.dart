@@ -36,7 +36,19 @@ class ReportEditorProvider extends ChangeNotifier {
   // disposal races during rebuilds.
   // =========================================================
 
-  void _commit() => notifyListeners();
+  bool _hasUnsavedChanges = false;
+
+  bool get hasUnsavedChanges => _hasUnsavedChanges;
+
+  void _markDirty() {
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
+
+  void _commit({bool dirty = true}) {
+    if (dirty) _hasUnsavedChanges = true;
+    notifyListeners();
+  }
 
   // =========================
   // Getters
@@ -114,7 +126,8 @@ class ReportEditorProvider extends ChangeNotifier {
   void newReport() {
     _doc = _newEmptyDoc();
     _selectedNodeId = null;
-    _commit(); // ✅ prune + notify
+    _hasUnsavedChanges = false;
+    _commit(dirty: false); // ✅ prune + notify
   }
 
   void newReportFromTemplate(TemplateDoc template) {
@@ -141,12 +154,22 @@ class ReportEditorProvider extends ChangeNotifier {
     );
 
     _selectedNodeId = null;
+    _hasUnsavedChanges = true;
     _commit(); // ✅ prune + notify
   }
 
   Future<void> save() async {
     _doc = _doc.copyWith(updatedAtIso: nowIso());
     await repo.saveReport(_doc);
+    _hasUnsavedChanges = false;
+    notifyListeners();
+  }
+
+  Future<void> autoSaveDraft() async {
+    if (!_hasUnsavedChanges) return;
+    _doc = _doc.copyWith(updatedAtIso: nowIso());
+    await repo.saveReport(_doc);
+    _hasUnsavedChanges = false;
     notifyListeners();
   }
 
@@ -155,7 +178,8 @@ class ReportEditorProvider extends ChangeNotifier {
     final loaded = await repo.loadReport(reportId);
     _doc = loaded;
     _selectedNodeId = null;
-    _commit(); // ✅ prune + notify (structure changed)
+    _hasUnsavedChanges = false;
+    _commit(dirty: false); // ✅ prune + notify (structure changed)
   }
 
   Future<void> duplicateFromExisting(String reportId) async {
@@ -175,12 +199,16 @@ class ReportEditorProvider extends ChangeNotifier {
       showColonAfterTitlesWithContent: loaded.showColonAfterTitlesWithContent,
       fontScale: loaded.fontScale,
       signature: loaded.signature,
+      letterheadMode: loaded.letterheadMode,
       applyLetterhead: loaded.applyLetterhead,
       letterheadId: loaded.letterheadId,
+      prePrintedTopSpacing: loaded.prePrintedTopSpacing,
+      reservePrePrintedFooter: loaded.reservePrePrintedFooter,
       subjectInfoDef: loaded.subjectInfoDef,
       subjectInfo: loaded.subjectInfo,
     );
     _selectedNodeId = null;
+    _hasUnsavedChanges = true;
     _commit();
   }
 
@@ -242,7 +270,7 @@ class ReportEditorProvider extends ChangeNotifier {
       subjectInfo: _doc.subjectInfo.copyWithValue(fieldKey, value),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void setSubjectInfoEnabled(bool enabled) {
@@ -250,7 +278,7 @@ class ReportEditorProvider extends ChangeNotifier {
       subjectInfoDef: _doc.subjectInfoDef.copyWith(enabled: enabled),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void setSubjectInfoColumns(int columns) {
@@ -258,7 +286,7 @@ class ReportEditorProvider extends ChangeNotifier {
       subjectInfoDef: _doc.subjectInfoDef.copyWith(columns: columns),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void addSubjectField({String title = 'New field', bool required = false}) {
@@ -279,7 +307,7 @@ class ReportEditorProvider extends ChangeNotifier {
       subjectInfo: _doc.subjectInfo.copyWithValue(key, ''),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
 void setSubjectInfoHeading(String heading) {
@@ -288,7 +316,7 @@ void setSubjectInfoHeading(String heading) {
       heading: heading.trim(),
     ),
   );
-  notifyListeners();
+  _markDirty();
 }
   void removeSubjectField(String fieldKey) {
     final fields = _doc.subjectInfoDef.fields;
@@ -315,7 +343,7 @@ void setSubjectInfoHeading(String heading) {
       subjectInfo: SubjectInfoValues(nextValues),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void renameSubjectField(String fieldKey, String title) {
@@ -330,7 +358,7 @@ void setSubjectInfoHeading(String heading) {
       subjectInfoDef: _doc.subjectInfoDef.copyWith(fields: nextFields),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void toggleSubjectRequired(String fieldKey, bool required) {
@@ -342,7 +370,7 @@ void setSubjectInfoHeading(String heading) {
       subjectInfoDef: _doc.subjectInfoDef.copyWith(fields: nextFields),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void reorderSubjectFields(int oldIndex, int newIndex) {
@@ -364,7 +392,7 @@ void setSubjectInfoHeading(String heading) {
       subjectInfoDef: _doc.subjectInfoDef.copyWith(fields: resequenced),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   int _nextOrder(List<SubjectFieldDef> fields) {
@@ -411,7 +439,7 @@ void setSubjectInfoHeading(String heading) {
 
   void setReportTitle(String v) {
     _doc = _doc.copyWith(reportTitle: v, updatedAtIso: nowIso());
-    notifyListeners();
+    _markDirty();
   }
 
   void setReportDate(DateTime date) {
@@ -429,7 +457,7 @@ void setSubjectInfoHeading(String heading) {
       reportDateIso: normalized,
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   // =========================
@@ -646,7 +674,7 @@ void setSubjectInfoHeading(String heading) {
       ),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void updateSectionStyle(String sectionId, TitleStyle style) {
@@ -658,7 +686,7 @@ void setSubjectInfoHeading(String heading) {
       ),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void updateContent(String contentId, String text) {
@@ -666,7 +694,7 @@ void setSubjectInfoHeading(String heading) {
       roots: _updateContentTree(_doc.roots, contentId, text),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   // =========================
@@ -754,7 +782,7 @@ void setSubjectInfoHeading(String heading) {
       placementChoice: choice,
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   // =========================
@@ -766,7 +794,7 @@ void setSubjectInfoHeading(String heading) {
       reportLayout: layout,
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void setFontScale(double scale) {
@@ -776,7 +804,7 @@ void setSubjectInfoHeading(String heading) {
       fontScale: clamped,
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void setIndentContent(bool enabled) {
@@ -784,7 +812,7 @@ void setSubjectInfoHeading(String heading) {
       indentContent: enabled,
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void setIndentHierarchy(bool enabled) {
@@ -792,7 +820,7 @@ void setSubjectInfoHeading(String heading) {
       indentHierarchy: enabled,
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void setShowColonAfterTitlesWithContent(bool enabled) {
@@ -800,7 +828,7 @@ void setSubjectInfoHeading(String heading) {
       showColonAfterTitlesWithContent: enabled,
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void addImages(List<String> filePaths) {
@@ -819,7 +847,7 @@ void setSubjectInfoHeading(String heading) {
       images: [..._doc.images, ...newImgs],
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void removeImage(String imageId) {
@@ -827,7 +855,7 @@ void setSubjectInfoHeading(String heading) {
       images: _doc.images.where((i) => i.id != imageId).toList(),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void updateImageLabel(String imageId, String label) {
@@ -841,7 +869,7 @@ void setSubjectInfoHeading(String heading) {
           .toList(),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
 
@@ -862,7 +890,7 @@ void setSubjectInfoHeading(String heading) {
       ),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
   }
 
   void setSignatureFilePath(String? path) {
@@ -870,16 +898,46 @@ void setSubjectInfoHeading(String heading) {
       signature: _doc.signature.copyWith(signatureFilePath: path),
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
+  }
+
+  void setLetterheadMode(LetterheadMode mode) {
+    final nextLetterheadId = mode == LetterheadMode.digital ? _doc.letterheadId : null;
+    _doc = _doc.copyWith(
+      letterheadMode: mode,
+      letterheadId: nextLetterheadId,
+      applyLetterhead: mode == LetterheadMode.digital && nextLetterheadId != null,
+      updatedAtIso: nowIso(),
+    );
+    _markDirty();
   }
 
   void setLetterhead(String? id) {
     _doc = _doc.copyWith(
+      letterheadMode: id == null ? LetterheadMode.none : LetterheadMode.digital,
       letterheadId: id,
       applyLetterhead: id != null,
       updatedAtIso: nowIso(),
     );
-    notifyListeners();
+    _markDirty();
+  }
+
+  void setPrePrintedTopSpacing(PrePrintedTopSpacing spacing) {
+    _doc = _doc.copyWith(
+      letterheadMode: LetterheadMode.prePrinted,
+      prePrintedTopSpacing: spacing,
+      updatedAtIso: nowIso(),
+    );
+    _markDirty();
+  }
+
+  void setReservePrePrintedFooter(bool enabled) {
+    _doc = _doc.copyWith(
+      letterheadMode: LetterheadMode.prePrinted,
+      reservePrePrintedFooter: enabled,
+      updatedAtIso: nowIso(),
+    );
+    _markDirty();
   }
 
   // =========================================================

@@ -29,6 +29,42 @@ enum ReportLayout {
   aligned,
 }
 
+enum LetterheadMode {
+  none,
+  digital,
+  prePrinted,
+}
+
+enum PrePrintedTopSpacing {
+  small,
+  medium,
+  large,
+}
+
+extension PrePrintedTopSpacingPoints on PrePrintedTopSpacing {
+  double get points {
+    switch (this) {
+      case PrePrintedTopSpacing.small:
+        return 80.0;
+      case PrePrintedTopSpacing.medium:
+        return 110.0;
+      case PrePrintedTopSpacing.large:
+        return 140.0;
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case PrePrintedTopSpacing.small:
+        return 'Small';
+      case PrePrintedTopSpacing.medium:
+        return 'Medium';
+      case PrePrintedTopSpacing.large:
+        return 'Large';
+    }
+  }
+}
+
 // =========================================================
 // Model
 // =========================================================
@@ -73,8 +109,14 @@ class ReportDoc {
   final SubjectInfoBlockDef subjectInfoDef;
   final SubjectInfoValues subjectInfo;
 
+  /// Letterhead selection lives under Letterhead settings, not general layout.
+  /// Digital mode draws the saved header/footer. Pre-printed mode draws no
+  /// header/footer and only reserves safe printable space.
+  final LetterheadMode letterheadMode;
   final bool applyLetterhead;
   final String? letterheadId;
+  final PrePrintedTopSpacing prePrintedTopSpacing;
+  final bool reservePrePrintedFooter;
 
   const ReportDoc({
     required this.reportId,
@@ -91,8 +133,11 @@ class ReportDoc {
     this.showColonAfterTitlesWithContent = false,
     this.fontScale = 1.05,
     this.signature = const SignatureBlock(),
+    this.letterheadMode = LetterheadMode.none,
     this.applyLetterhead = false,
     this.letterheadId,
+    this.prePrintedTopSpacing = PrePrintedTopSpacing.medium,
+    this.reservePrePrintedFooter = false,
     SubjectInfoBlockDef? subjectInfoDef,
     SubjectInfoValues? subjectInfo,
   })  : reportDateIso = reportDateIso ?? createdAtIso,
@@ -118,8 +163,11 @@ class ReportDoc {
     SignatureBlock? signature,
     SubjectInfoBlockDef? subjectInfoDef,
     SubjectInfoValues? subjectInfo,
+    LetterheadMode? letterheadMode,
     bool? applyLetterhead,
     Object? letterheadId = _unset,
+    PrePrintedTopSpacing? prePrintedTopSpacing,
+    bool? reservePrePrintedFooter,
   }) {
     return ReportDoc(
       reportId: reportId,
@@ -138,10 +186,13 @@ class ReportDoc {
       signature: signature ?? this.signature,
       subjectInfoDef: subjectInfoDef ?? this.subjectInfoDef,
       subjectInfo: subjectInfo ?? this.subjectInfo,
+      letterheadMode: letterheadMode ?? this.letterheadMode,
       applyLetterhead: applyLetterhead ?? this.applyLetterhead,
       letterheadId: identical(letterheadId, _unset)
           ? this.letterheadId
           : letterheadId as String?,
+      prePrintedTopSpacing: prePrintedTopSpacing ?? this.prePrintedTopSpacing,
+      reservePrePrintedFooter: reservePrePrintedFooter ?? this.reservePrePrintedFooter,
     );
   }
 }

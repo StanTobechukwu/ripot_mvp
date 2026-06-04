@@ -8,6 +8,23 @@ import '../../reports/domain/models/report_doc.dart';
 import '../../reports/domain/models/nodes.dart';
 import '../domain/record_models.dart';
 
+
+class RecordsMergeResult {
+  final int imported;
+  final int updated;
+  final int duplicatesSkipped;
+  final int invalidRows;
+
+  const RecordsMergeResult({
+    required this.imported,
+    required this.updated,
+    required this.duplicatesSkipped,
+    required this.invalidRows,
+  });
+
+  int get totalChanged => imported + updated;
+}
+
 class RecordsRepository {
   static const _recordsIndexKey = 'records.index';
   static const _recordPrefix = 'records.doc.';
@@ -205,6 +222,156 @@ class RecordsRepository {
     await prefs.setStringList(_vocabKey(fieldKey), capped);
   }
 
+
+  String buildRipotCsv({required List<RecordSummary> records, required List<RecordFieldDef> fields}) {
+    final orderedKeys = [
+      ...RecordFieldCatalog.exportDefaultKeys,
+      ...fields.where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key)).map((f) => f.key),
+    ];
+    final fieldKeys = <String>[];
+    for (final key in orderedKeys) {
+      if (!fieldKeys.contains(key)) fieldKeys.add(key);
+    }
+
+    String esc(String value) => '"${value.replaceAll('"', '""')}"';
+    final buffer = StringBuffer();
+    final headers = <String>[
+      'ripotExportVersion',
+      'ripotRecordId',
+      'ripotLinkedReportId',
+      'ripotCreatedAtIso',
+      'ripotUpdatedAtIso',
+      ...fieldKeys,
+    ];
+    buffer.writeln(headers.map(esc).join(','));
+    for (final row in records) {
+      final entryValues = row.values;
+      final cells = <String>[
+        '1',
+        row.recordEntryId,
+        row.linkedReportId,
+        '',
+        row.updatedAt.toIso8601String(),
+        ...fieldKeys.map((key) => key == RecordFieldCatalog.reportDate.key ? _csvDate(entryValues[key] ?? '') : (entryValues[key] ?? '')),
+      ];
+      buffer.writeln(cells.map(esc).join(','));
+    }
+    return buffer.toString();
+  }
+
+  Future<RecordsMergeResult> mergeRipotCsv(String csvText) async {
+    final rows = _parseCsv(csvText);
+    if (rows.isEmpty) {
+      throw const FormatException('The selected file is empty.');
+    }
+    final headers = rows.first.map((e) => e.trim()).toList(growable: false);
+    final hasMarker = headers.contains('ripotExportVersion') && headers.contains('ripotRecordId');
+    if (!hasMarker) {
+      throw const FormatException('This file does not look like a Ripot records export. Please select a CSV exported from Ripot.');
+    }
+
+    var imported = 0;
+    var updated = 0;
+    var duplicatesSkipped = 0;
+    var invalidRows = 0;
+
+    for (final row in rows.skip(1)) {
+      final map = <String, String>{};
+      for (var i = 0; i < headers.length; i += 1) {
+        map[headers[i]] = i < row.length ? row[i] : '';
+      }
+      final recordId = (map['ripotRecordId'] ?? '').trim();
+      if (recordId.isEmpty) {
+        invalidRows += 1;
+        continue;
+      }
+      final linkedReportId = (map['ripotLinkedReportId'] ?? map[RecordFieldCatalog.reportId.key] ?? '').trim();
+      final importedUpdatedAt = (map['ripotUpdatedAtIso'] ?? '').trim();
+      final updatedAt = DateTime.tryParse(importedUpdatedAt) ?? DateTime.now();
+      final createdAtIso = (map['ripotCreatedAtIso'] ?? '').trim().isNotEmpty
+          ? (map['ripotCreatedAtIso'] ?? '').trim()
+          : updatedAt.toIso8601String();
+      final values = <String, String>{};
+      for (final header in headers) {
+        if (header.startsWith('ripot')) continue;
+        values[header] = (map[header] ?? '').trim();
+      }
+      if ((values[RecordFieldCatalog.reportId.key] ?? '').trim().isEmpty && linkedReportId.isNotEmpty) {
+        values[RecordFieldCatalog.reportId.key] = linkedReportId;
+      }
+      final incoming = RecordEntry(
+        recordEntryId: recordId,
+        linkedReportId: linkedReportId.isEmpty ? recordId : linkedReportId,
+        createdAtIso: createdAtIso,
+        updatedAtIso: updatedAt.toIso8601String(),
+        values: values,
+      );
+
+      final existing = await loadByRecordId(recordId);
+      if (existing == null) {
+        await saveRecord(incoming);
+        imported += 1;
+      } else {
+        final existingUpdatedAt = DateTime.tryParse(existing.updatedAtIso) ?? DateTime.fromMillisecondsSinceEpoch(0);
+        if (updatedAt.isAfter(existingUpdatedAt)) {
+          await saveRecord(incoming.copyWith(createdAtIso: existing.createdAtIso.isNotEmpty ? existing.createdAtIso : incoming.createdAtIso));
+          updated += 1;
+        } else {
+          duplicatesSkipped += 1;
+        }
+      }
+    }
+
+    return RecordsMergeResult(
+      imported: imported,
+      updated: updated,
+      duplicatesSkipped: duplicatesSkipped,
+      invalidRows: invalidRows,
+    );
+  }
+
+  String _csvDate(String value) {
+    final parsed = DateTime.tryParse(value.trim());
+    if (parsed == null) return value.trim();
+    return '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
+  }
+
+  List<List<String>> _parseCsv(String text) {
+    final rows = <List<String>>[];
+    final currentRow = <String>[];
+    final current = StringBuffer();
+    var inQuotes = false;
+    for (var i = 0; i < text.length; i += 1) {
+      final char = text[i];
+      if (char == '"') {
+        if (inQuotes && i + 1 < text.length && text[i + 1] == '"') {
+          current.write('"');
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char == ',' && !inQuotes) {
+        currentRow.add(current.toString());
+        current.clear();
+      } else if ((char == '\n' || char == '\r') && !inQuotes) {
+        if (char == '\r' && i + 1 < text.length && text[i + 1] == '\n') i += 1;
+        currentRow.add(current.toString());
+        current.clear();
+        if (currentRow.any((cell) => cell.trim().isNotEmpty)) {
+          rows.add(List<String>.from(currentRow));
+        }
+        currentRow.clear();
+      } else {
+        current.write(char);
+      }
+    }
+    currentRow.add(current.toString());
+    if (currentRow.any((cell) => cell.trim().isNotEmpty)) {
+      rows.add(List<String>.from(currentRow));
+    }
+    return rows;
+  }
+
   Future<RecordEntry> buildDraftForReport(ReportDoc doc) async {
     final existing = await loadByReportId(doc.reportId);
     if (existing != null) return existing;
@@ -218,6 +385,8 @@ class RecordsRepository {
       values: {
         RecordFieldCatalog.reportId.key: doc.reportId,
         RecordFieldCatalog.reportDate.key: _inferDate(doc),
+        RecordFieldCatalog.subjectName.key: _inferSubjectName(doc),
+        RecordFieldCatalog.patientReference.key: _inferSubjectId(doc),
         RecordFieldCatalog.procedure.key: _inferProcedure(doc),
         RecordFieldCatalog.diagnosis.key: _inferDiagnosis(doc),
         RecordFieldCatalog.doctor.key: _inferDoctor(doc),
@@ -227,10 +396,15 @@ class RecordsRepository {
   }
 
   String _inferDate(ReportDoc doc) {
-    final date = doc.updatedAtIso.isNotEmpty ? DateTime.tryParse(doc.updatedAtIso) : null;
+    final rawDate = doc.reportDateIso.trim().isNotEmpty ? doc.reportDateIso : doc.updatedAtIso;
+    final date = rawDate.isNotEmpty ? DateTime.tryParse(rawDate) : null;
     if (date == null) return '';
     return date.toIso8601String().split('T').first;
   }
+
+  String _inferSubjectName(ReportDoc doc) => doc.subjectInfo.valueOf('subjectName');
+
+  String _inferSubjectId(ReportDoc doc) => doc.subjectInfo.valueOf('subjectId');
 
   String _inferProcedure(ReportDoc doc) {
     final title = doc.reportTitle.trim();

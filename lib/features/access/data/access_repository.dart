@@ -25,12 +25,14 @@ class AccessRepository {
 
   Future<AccessState> load() async {
     final prefs = await _prefs;
+    final config = await _loadRemoteConfigSafely();
     final raw = prefs.getString(_stateKey);
     if (raw != null && raw.trim().isNotEmpty) {
       try {
         final state = AccessState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-        final normalized = _normalizeState(state);
-        if (normalized != state) {
+        final configured = _normalizeState(_applyConfig(state, config));
+        final normalized = _normalizeState(await _applyRemoteEntitlementSafely(configured));
+        if (jsonEncode(normalized.toJson()) != jsonEncode(state.toJson())) {
           await save(normalized);
         }
         return normalized;
@@ -38,7 +40,10 @@ class AccessRepository {
     }
 
     final installationId = await getOrCreateInstallationId();
-    final state = AccessState.initial(installationId: installationId, isEarlyUser: true);
+    final configured = _normalizeState(
+      _applyConfig(AccessState.initial(installationId: installationId, isEarlyUser: true), config),
+    );
+    final state = _normalizeState(await _applyRemoteEntitlementSafely(configured));
     await save(state);
     return state;
   }
@@ -58,6 +63,98 @@ class AccessRepository {
       );
     }
     return state;
+  }
+
+  AccessState _applyConfig(AccessState state, _AccessRemoteConfig config) {
+    final cutoff = config.earlyAccessCutoffAt;
+    final qualifiesByDate = cutoff == null || !state.createdAt.toLocal().isAfter(cutoff.toLocal());
+    final isEarlyUser = config.earlyAccessEnabled && qualifiesByDate;
+    return state.copyWith(
+      isEarlyUser: isEarlyUser,
+      earlyAccessEnabled: config.earlyAccessEnabled,
+      earlyAccessDurationDays: config.earlyAccessDurationDays,
+      earlyAccessCutoffAt: cutoff,
+      premiumBillingEnabled: config.premiumBillingEnabled,
+      premiumMessageTitle: config.premiumMessageTitle,
+      premiumMessageBody: config.premiumMessageBody,
+      updatedAt: state.updatedAt,
+    );
+  }
+
+
+  Future<AccessState> _applyRemoteEntitlementSafely(AccessState state) async {
+    if (Firebase.apps.isEmpty) return state;
+    try {
+      final identity = await SyncIdentityResolver().resolve();
+      final snap = await FirebaseFirestore.instance.collection('ripot_user_access').doc(identity.documentKey).get();
+      final data = snap.data();
+      if (data == null) return state;
+
+      var next = state;
+      final forceEarlyAccess = data['adminEarlyAccessEligible'];
+      if (forceEarlyAccess is bool) {
+        next = next.copyWith(isEarlyUser: forceEarlyAccess);
+      }
+
+      final duration = data['adminEarlyAccessDurationDays'];
+      if (duration != null) {
+        next = next.copyWith(
+          earlyAccessDurationDays: _intFromJson(
+            duration,
+            fallback: next.earlyAccessDurationDays,
+          ),
+        );
+      }
+
+      final adminTrialEndsAt = _dateFromJson(data['adminTrialEndsAtIso'] ?? data['adminTrialEndsAt']);
+      if (adminTrialEndsAt != null && adminTrialEndsAt.isAfter(DateTime.now())) {
+        next = next.copyWith(
+          plan: RipotPlan.trial,
+          trialStartAt: next.trialStartAt ?? DateTime.now(),
+          trialEndsAt: adminTrialEndsAt,
+          hasUsedTrial: true,
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      final overridePlan = _stringOrNull(data['adminPlanOverride'])?.toLowerCase();
+      if (overridePlan == 'premium') {
+        next = next.copyWith(
+          plan: RipotPlan.premium,
+          premiumStartedAt: next.premiumStartedAt ?? DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+      } else if (overridePlan == 'free') {
+        next = next.copyWith(
+          plan: RipotPlan.free,
+          updatedAt: DateTime.now(),
+        );
+      } else if (overridePlan == 'trial' && adminTrialEndsAt != null) {
+        next = next.copyWith(
+          plan: RipotPlan.trial,
+          trialStartAt: next.trialStartAt ?? DateTime.now(),
+          trialEndsAt: adminTrialEndsAt,
+          hasUsedTrial: true,
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      return next;
+    } catch (_) {
+      return state;
+    }
+  }
+
+  Future<_AccessRemoteConfig> _loadRemoteConfigSafely() async {
+    if (Firebase.apps.isEmpty) return const _AccessRemoteConfig.defaults();
+    try {
+      final snap = await FirebaseFirestore.instance.collection('ripot_app_config').doc('access').get();
+      final data = snap.data();
+      if (data == null) return const _AccessRemoteConfig.defaults();
+      return _AccessRemoteConfig.fromJson(data);
+    } catch (_) {
+      return const _AccessRemoteConfig.defaults();
+    }
   }
 
   Future<void> _syncToFirestore(AccessState state) async {
@@ -109,3 +206,64 @@ class AccessRepository {
   }
 }
 
+class _AccessRemoteConfig {
+  final bool earlyAccessEnabled;
+  final int earlyAccessDurationDays;
+  final DateTime? earlyAccessCutoffAt;
+  final bool premiumBillingEnabled;
+  final String? premiumMessageTitle;
+  final String? premiumMessageBody;
+
+  const _AccessRemoteConfig({
+    required this.earlyAccessEnabled,
+    required this.earlyAccessDurationDays,
+    this.earlyAccessCutoffAt,
+    required this.premiumBillingEnabled,
+    this.premiumMessageTitle,
+    this.premiumMessageBody,
+  });
+
+  const _AccessRemoteConfig.defaults()
+      : earlyAccessEnabled = true,
+        earlyAccessDurationDays = AccessState.defaultEarlyAccessDurationDays,
+        earlyAccessCutoffAt = null,
+        premiumBillingEnabled = false,
+        premiumMessageTitle = null,
+        premiumMessageBody = null;
+
+  factory _AccessRemoteConfig.fromJson(Map<String, dynamic> json) {
+    return _AccessRemoteConfig(
+      earlyAccessEnabled: (json['earlyAccessEnabled'] as bool?) ?? true,
+      earlyAccessDurationDays: _intFromJson(
+        json['earlyAccessDurationDays'],
+        fallback: AccessState.defaultEarlyAccessDurationDays,
+      ),
+      earlyAccessCutoffAt: _dateFromJson(
+        json['earlyAccessCutoffDateIso'] ?? json['earlyAccessCutoffAtIso'] ?? json['earlyAccessCutoffDate'],
+      ),
+      premiumBillingEnabled: (json['premiumBillingEnabled'] as bool?) ?? false,
+      premiumMessageTitle: _stringOrNull(json['premiumMessageTitle']),
+      premiumMessageBody: _stringOrNull(json['premiumMessageBody']),
+    );
+  }
+}
+
+int _intFromJson(Object? value, {required int fallback}) {
+  if (value is int) return value;
+  if (value is num) return value.round();
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}
+
+DateTime? _dateFromJson(Object? value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  if (value is String) return DateTime.tryParse(value);
+  return null;
+}
+
+String? _stringOrNull(Object? value) {
+  final text = value?.toString().trim();
+  if (text == null || text.isEmpty) return null;
+  return text;
+}
