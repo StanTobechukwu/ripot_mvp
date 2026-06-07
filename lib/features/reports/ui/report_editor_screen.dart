@@ -1890,6 +1890,17 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
                                 ),
                               ),
                             ),
+                            if (section.addToRecords) ...[
+                              const SizedBox(width: 6),
+                              Tooltip(
+                                message: 'Added to Records',
+                                child: Icon(
+                                  Icons.fact_check_outlined,
+                                  size: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                         if (section.collapsed && sectionHasContent)
@@ -1948,7 +1959,7 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
                         value: 'style',
                         child: ListTile(
                           leading: Icon(Icons.tune),
-                          title: Text('Style section'),
+                          title: Text('Edit section'),
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
@@ -2032,6 +2043,7 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
     final res = await showModalBottomSheet<_SectionEditResult>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheetContext) => _SectionEditSheet(section: section),
     );
     if (!mounted) return;
@@ -2043,6 +2055,9 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
       }
       if (res.style != null) {
         vm.updateSectionStyle(section.id, res.style!);
+      }
+      if (res.addToRecords != null) {
+        vm.setSectionAddToRecords(section.id, res.addToRecords!);
       }
       _schedulePruneControllers(vm);
     });
@@ -2239,9 +2254,9 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
             else
               child,
           ],
+          ),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -2326,7 +2341,7 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
       children: [
         const ListTile(
           title: Text('Subject Fields'),
-          subtitle: Text('Add, rename, reorder, set required.'),
+          subtitle: Text('Add, rename, reorder. Subject fields are automatically added to Records.'),
         ),
         ConstrainedBox(
           constraints: BoxConstraints(
@@ -2353,6 +2368,7 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
                   spacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
+                    const Text('Required'),
                     Checkbox(
                       value: f.required,
                       onChanged: (v) {
@@ -2398,7 +2414,8 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
 class _SectionEditResult {
   final String? rename;
   final TitleStyle? style;
-  const _SectionEditResult({this.rename, this.style});
+  final bool? addToRecords;
+  const _SectionEditResult({this.rename, this.style, this.addToRecords});
 }
 
 class _SectionEditSheet extends StatefulWidget {
@@ -2428,6 +2445,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   late HeadingLevel _level;
   late bool _bold;
   late TitleAlign _align;
+  late bool _addToRecords;
 
   @override
   void initState() {
@@ -2436,6 +2454,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _level = widget.section.style.level;
     _bold = widget.section.style.bold;
     _align = widget.section.style.align;
+    _addToRecords = widget.section.addToRecords;
   }
 
   @override
@@ -2446,10 +2465,15 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 40 + bottomInset),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const ListTile(title: Text('Edit section')),
@@ -2462,6 +2486,14 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
               ),
             ),
             const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Formatting',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -2501,7 +2533,21 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
               title: const Text('Bold title'),
               contentPadding: EdgeInsets.zero,
             ),
-            const SizedBox(height: 8),
+
+            const SizedBox(height: 4),
+            Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
+              child: CheckboxListTile(
+                value: _addToRecords,
+                onChanged: (v) => setState(() => _addToRecords = v ?? false),
+                title: const Text('Add this section to Records'),
+                subtitle: const Text('Will be included if the report is saved to Records.'),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+            const SizedBox(height: 12),
+
             FilledButton(
               onPressed: () {
                 Navigator.pop(
@@ -2513,6 +2559,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                       bold: _bold,
                       align: _align,
                     ),
+                    addToRecords: _addToRecords,
                   ),
                 );
               },
@@ -2521,7 +2568,8 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

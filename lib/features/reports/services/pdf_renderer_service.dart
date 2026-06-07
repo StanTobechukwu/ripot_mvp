@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../domain/models/letterhead_template.dart';
 import '../domain/models/nodes.dart';
 import '../domain/models/report_doc.dart';
+import '../domain/models/subject_info_def.dart';
 import '../domain/pdf/pdf_estimates.dart';
 import '../domain/pdf/pdf_layout_metrics.dart';
 import '../domain/pdf/pdf_plan.dart';
@@ -99,7 +100,7 @@ class PdfRendererService {
       topWidgets.add(pw.SizedBox(height: 12));
     }
 
-    if (doc.subjectInfoDef.enabled) {
+    if (_hasFilledSubjectInfo(doc)) {
       topWidgets.add(_subjectInfoBlock(doc, fontScale: fontScale));
       topWidgets.add(pw.SizedBox(height: 12));
     }
@@ -590,13 +591,13 @@ class PdfRendererService {
     if (showTitle || doc.reportDateIso.trim().isNotEmpty) {
       h += (titleFontSize * 1.35) + 12;
     }
-    if (doc.subjectInfoDef.enabled) {
+    if (_hasFilledSubjectInfo(doc)) {
       final def = doc.subjectInfoDef;
-      final fieldCount = def.orderedFields.length;
+      final fieldCount = _filledSubjectInfoFields(doc).length;
       final rows = def.columns == 2
           ? (fieldCount / 2).ceil().clamp(1, 1000)
           : fieldCount.clamp(1, 1000);
-      final headingH = def.heading.trim().isEmpty ? 0.0 : (12.4 * fontScale) + 8;
+      final headingH = _visibleSubjectInfoHeading(doc).isEmpty ? 0.0 : (12.4 * fontScale) + 8;
       final rowH = 24.0 * fontScale;
       h += 20 + headingH + (rows * rowH) + 12;
     }
@@ -1011,9 +1012,9 @@ class PdfRendererService {
   double _letterheadHeaderReserve(LetterheadTemplate? lh) {
     if (lh == null) return 0.0;
     final hasLogo = (lh.logoFilePath ?? '').trim().isNotEmpty;
-    if (!hasLogo) return 52.0;
-    if (lh.logoPlacement == LetterheadLogoPlacement.side) return 60.0;
-    return 86.0;
+    if (!hasLogo) return 36.0;
+    if (lh.logoPlacement == LetterheadLogoPlacement.side) return 56.0;
+    return 78.0;
   }
 
   double _letterheadFooterReserve(LetterheadTemplate? lh) {
@@ -1090,12 +1091,12 @@ class PdfRendererService {
     }
 
     return pw.Container(
-      padding: const pw.EdgeInsets.only(bottom: 6),
+      padding: const pw.EdgeInsets.only(bottom: 2),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           headerContent,
-          pw.SizedBox(height: 4),
+          pw.SizedBox(height: 2),
           pw.Divider(),
         ],
       ),
@@ -1134,12 +1135,29 @@ class PdfRendererService {
     );
   }
 
+  bool _hasFilledSubjectInfo(ReportDoc doc) => _filledSubjectInfoFields(doc).isNotEmpty;
+
+  String _visibleSubjectInfoHeading(ReportDoc doc) {
+    final heading = doc.subjectInfoDef.heading.trim();
+    // "Subject Info" is the editor's default label. Do not render it as a
+    // report/PDF heading unless the user changes the title to a custom value.
+    return heading.toLowerCase() == 'subject info' ? '' : heading;
+  }
+
+  List<SubjectFieldDef> _filledSubjectInfoFields(ReportDoc doc) {
+    if (!doc.subjectInfoDef.enabled) return const <SubjectFieldDef>[];
+    return doc.subjectInfoDef.orderedFields
+        .where((f) => doc.subjectInfo.valueOf(f.key).trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
   pw.Widget _subjectInfoBlock(
     ReportDoc doc, {
     required double fontScale,
   }) {
     final def = doc.subjectInfoDef;
-    final fields = def.orderedFields;
+    final heading = _visibleSubjectInfoHeading(doc);
+    final fields = _filledSubjectInfoFields(doc);
     final base = 10.5 * fontScale;
 
     if (fields.isEmpty) {
@@ -1231,9 +1249,9 @@ class PdfRendererService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          if (def.heading.trim().isNotEmpty) ...[
+          if (heading.isNotEmpty) ...[
             pw.Text(
-              def.heading.trim(),
+              heading,
               style: pw.TextStyle(
                 fontSize: 12.4 * fontScale,
                 fontWeight: pw.FontWeight.bold,

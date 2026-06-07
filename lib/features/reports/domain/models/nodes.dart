@@ -41,6 +41,9 @@ class SectionNode extends Node {
   final TitleStyle style;
   final List<Node> children;
 
+  /// When true, this section's content is copied into Records when the report is saved.
+  final bool addToRecords;
+
   /// ✅ indentation level for this section (0,1,2...)
   final int indent;
 
@@ -50,6 +53,7 @@ class SectionNode extends Node {
     this.collapsed = false,
     this.style = const TitleStyle(),
     this.children = const [],
+    this.addToRecords = false,
     this.indent = 0,
   });
 
@@ -58,6 +62,7 @@ class SectionNode extends Node {
     bool? collapsed,
     TitleStyle? style,
     List<Node>? children,
+    bool? addToRecords,
     int? indent,
   }) {
     return SectionNode(
@@ -66,6 +71,7 @@ class SectionNode extends Node {
       collapsed: collapsed ?? this.collapsed,
       style: style ?? this.style,
       children: children ?? this.children,
+      addToRecords: addToRecords ?? this.addToRecords,
       indent: indent ?? this.indent,
     );
   }
@@ -121,6 +127,7 @@ extension TemplateClone on SectionNode {
       title: title,
       collapsed: collapsed,
       style: style,
+      addToRecords: addToRecords,
       indent: indent,
       children: outChildren,
     );
@@ -133,6 +140,7 @@ extension ReportClone on SectionNode {
       title: title,
       collapsed: collapsed,
       style: style,
+      addToRecords: addToRecords,
       indent: indent,
       children: children.map((n) {
         if (n is SectionNode) return n.cloneNodeTree();

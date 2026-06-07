@@ -644,15 +644,44 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 await _offerAddToRecords();
               },
             ),
-          IconButton(
-            icon: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-            onPressed: _saving ? null : _onSavePressed,
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Tooltip(
+              message: 'Save final PDF',
+              child: Material(
+                color: _saving
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.45)
+                    : Theme.of(context).colorScheme.primary,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _saving ? null : _onSavePressed,
+                  child: SizedBox(
+                    width: 42,
+                    height: 42,
+                    child: Center(
+                      child: _saving
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              Icons.save_outlined,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              size: 23,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

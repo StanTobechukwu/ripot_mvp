@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/ids.dart';
 import '../../../core/utils/time.dart';
@@ -17,6 +19,8 @@ import '../domain/models/subject_info_value.dart';
 class ReportEditorProvider extends ChangeNotifier {
   final ReportsRepository repo;
   final TemplatesRepository templatesRepo;
+
+  static const String _savedSignaturePrefsKey = 'reports.savedSignatureBlock';
 
   late ReportDoc _doc;
 
@@ -128,6 +132,7 @@ class ReportEditorProvider extends ChangeNotifier {
     _selectedNodeId = null;
     _hasUnsavedChanges = false;
     _commit(dirty: false); // ✅ prune + notify
+    _applySavedSignatureToCurrentReportIfEmpty();
   }
 
   void newReportFromTemplate(TemplateDoc template) {
@@ -148,7 +153,7 @@ class ReportEditorProvider extends ChangeNotifier {
       roots: hydrated,
       images: const [],
       placementChoice: ImagePlacementChoice.attachmentsOnly,
-      signature: const SignatureBlock(),
+      signature: template.signature,
       subjectInfoDef: template.subjectInfo,
       subjectInfo: SubjectInfoValues.emptyFromDef(template.subjectInfo),
     );
@@ -156,6 +161,9 @@ class ReportEditorProvider extends ChangeNotifier {
     _selectedNodeId = null;
     _hasUnsavedChanges = true;
     _commit(); // ✅ prune + notify
+    if (_isEmptySignature(template.signature)) {
+      _applySavedSignatureToCurrentReportIfEmpty(preserveDirty: true);
+    }
   }
 
   Future<void> save() async {
@@ -205,7 +213,7 @@ class ReportEditorProvider extends ChangeNotifier {
       prePrintedTopSpacing: loaded.prePrintedTopSpacing,
       reservePrePrintedFooter: loaded.reservePrePrintedFooter,
       subjectInfoDef: loaded.subjectInfoDef,
-      subjectInfo: loaded.subjectInfo,
+      subjectInfo: SubjectInfoValues.emptyFromDef(loaded.subjectInfoDef),
     );
     _selectedNodeId = null;
     _hasUnsavedChanges = true;
@@ -428,6 +436,7 @@ void setSubjectInfoHeading(String heading) {
           .map((r) => r.toTemplateNode(includeContent: includeContent))
           .toList(growable: false),
       subjectInfo: _doc.subjectInfoDef,
+      signature: _doc.signature,
     );
 
     await templatesRepo.saveTemplate(t);
@@ -689,6 +698,18 @@ void setSubjectInfoHeading(String heading) {
     _markDirty();
   }
 
+  void setSectionAddToRecords(String sectionId, bool value) {
+    _doc = _doc.copyWith(
+      roots: _updateSectionTree(
+        _doc.roots,
+        sectionId,
+        (s) => s.copyWith(addToRecords: value),
+      ),
+      updatedAtIso: nowIso(),
+    );
+    _markDirty();
+  }
+
   void updateContent(String contentId, String text) {
     _doc = _doc.copyWith(
       roots: _updateContentTree(_doc.roots, contentId, text),
@@ -890,6 +911,7 @@ void setSubjectInfoHeading(String heading) {
       ),
       updatedAtIso: nowIso(),
     );
+    _persistCurrentSignatureBlock();
     _markDirty();
   }
 
@@ -898,7 +920,69 @@ void setSubjectInfoHeading(String heading) {
       signature: _doc.signature.copyWith(signatureFilePath: path),
       updatedAtIso: nowIso(),
     );
+    _persistCurrentSignatureBlock();
     _markDirty();
+  }
+
+  bool _isEmptySignature(SignatureBlock signature) {
+    return signature.roleTitle.trim().isEmpty &&
+        signature.name.trim().isEmpty &&
+        signature.credentials.trim().isEmpty &&
+        signature.assistantName.trim().isEmpty &&
+        (signature.signatureFilePath ?? '').trim().isEmpty;
+  }
+
+  Future<void> _applySavedSignatureToCurrentReportIfEmpty({bool preserveDirty = false}) async {
+    final currentReportId = _doc.reportId;
+    if (!_isEmptySignature(_doc.signature)) return;
+    final saved = await _loadSavedSignatureBlock();
+    if (saved == null || _isEmptySignature(saved)) return;
+    if (_doc.reportId != currentReportId) return;
+    final wasDirty = _hasUnsavedChanges;
+    _doc = _doc.copyWith(signature: saved, updatedAtIso: nowIso());
+    _hasUnsavedChanges = preserveDirty ? wasDirty : false;
+    notifyListeners();
+  }
+
+  Future<SignatureBlock?> _loadSavedSignatureBlock() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_savedSignaturePrefsKey);
+      if (raw == null || raw.trim().isEmpty) return null;
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      return SignatureBlock(
+        roleTitle: (j['roleTitle'] as String?) ?? '',
+        name: (j['name'] as String?) ?? '',
+        credentials: (j['credentials'] as String?) ?? '',
+        assistantLabel: (j['assistantLabel'] as String?)?.trim().isNotEmpty == true
+            ? (j['assistantLabel'] as String)
+            : 'Assistant',
+        assistantName: (j['assistantName'] as String?) ?? '',
+        signatureFilePath: j['signatureFilePath'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _persistCurrentSignatureBlock() async {
+    try {
+      final s = _doc.signature;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _savedSignaturePrefsKey,
+        jsonEncode({
+          'roleTitle': s.roleTitle,
+          'name': s.name,
+          'credentials': s.credentials,
+          'assistantLabel': s.assistantLabel,
+          'assistantName': s.assistantName,
+          'signatureFilePath': s.signatureFilePath,
+        }),
+      );
+    } catch (_) {
+      // Signature persistence must never block report editing.
+    }
   }
 
   void setLetterheadMode(LetterheadMode mode) {

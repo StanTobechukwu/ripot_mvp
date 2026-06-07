@@ -74,17 +74,17 @@ class ReportCodec {
       fallback: ImagePlacementChoice.attachmentsOnly,
     );
 
-    final layoutName = (j['reportLayout'] as String?) ?? ReportLayout.block.name;
+    final layoutName = (j['reportLayout'] as String?) ?? ReportLayout.inline.name;
     final decodedLayout = _safeEnumByName<ReportLayout>(
       ReportLayout.values,
       layoutName,
-      fallback: ReportLayout.block,
+      fallback: ReportLayout.inline,
     );
     final reportLayout = decodedLayout;
 
     final indentContent = (j['indentContent'] as bool?) ?? true;
     final indentHierarchy = (j['indentHierarchy'] as bool?) ?? true;
-    final showColonAfterTitlesWithContent = (j['showColonAfterTitlesWithContent'] as bool?) ?? false;
+    final showColonAfterTitlesWithContent = (j['showColonAfterTitlesWithContent'] as bool?) ?? true;
 
     // ✅ NEW: report title (migration-safe)
     final reportTitle = (j['reportTitle'] as String?) ?? '';
@@ -199,6 +199,7 @@ class ReportCodec {
         'collapsed': s.collapsed,
         'style': styleToJson(s.style),
         'children': s.children.map(nodeToJson).toList(),
+        'addToRecords': s.addToRecords,
         'indent': s.indent,
       };
 
@@ -215,6 +216,7 @@ class ReportCodec {
             .whereType<Map>()
             .map((e) => nodeFromJson(Map<String, dynamic>.from(e)))
             .toList(),
+        addToRecords: (j['addToRecords'] as bool?) ?? false,
         indent: (j['indent'] as int?) ?? 0,
       );
 

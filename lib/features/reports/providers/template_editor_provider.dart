@@ -120,6 +120,7 @@ class TemplateEditorProvider extends ChangeNotifier {
           .map((r) => r.toTemplateNode(includeContent: includeContent))
           .toList(growable: false),
       subjectInfo: _template.subjectInfo,
+      signature: _template.signature,
     );
   }
 
@@ -185,6 +186,14 @@ class TemplateEditorProvider extends ChangeNotifier {
   void updateSectionStyle(String sectionId, TitleStyle style) {
     _template = _template.copyWith(
       roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(style: style)),
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void setSectionAddToRecords(String sectionId, bool value) {
+    _template = _template.copyWith(
+      roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(addToRecords: value)),
       updatedAt: DateTime.now(),
     );
     notifyListeners();

@@ -84,7 +84,7 @@ class SubjectInfoBlockDef {
     enabled: true,
     columns: 2,
     schemaVersion: 1,
-    heading: 'Subject Info',
+    heading: '',
     fields: [
       SubjectFieldDef(
         key: SubjectFieldKeys.subjectName,

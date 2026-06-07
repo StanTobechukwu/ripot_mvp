@@ -17,9 +17,9 @@ import '../../reports/ui/saved_pdf_viewer_screen.dart';
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
 import '../../reports/services/pdf_actions_service.dart';
+import '../data/records_repository.dart';
 import 'record_view_screen.dart';
 import 'record_details_screen.dart';
-import '../data/records_repository.dart';
 
 
 class _CsvPreviewScreen extends StatelessWidget {
@@ -85,7 +85,7 @@ enum _RecordsSort { newestFirst, oldestFirst, procedureAZ }
 class _RecordsScreenState extends State<RecordsScreen> {
   RecordsViewMode _mode = RecordsViewMode.list;
   _RecordsSort _sort = _RecordsSort.newestFirst;
-  String _procedureFilter = 'All procedures';
+  String _procedureFilter = 'All report types';
   String _facilityFilter = 'All facilities';
 
   @override
@@ -95,6 +95,47 @@ class _RecordsScreenState extends State<RecordsScreen> {
       if (!mounted) return;
       context.read<RecordsProvider>().refresh();
     });
+  }
+
+  String _compactFilterLabel(String value, {int maxChars = 22}) {
+    final trimmed = value.trim();
+    if (trimmed.length <= maxChars) return trimmed;
+    return '${trimmed.substring(0, maxChars).trimRight()}…';
+  }
+
+
+  bool _isSubjectRecordKey(String key) {
+    return key == RecordFieldCatalog.subjectName.key ||
+        key == RecordFieldCatalog.patientReference.key ||
+        key == RecordFieldCatalog.age.key ||
+        key == RecordFieldCatalog.gender.key ||
+        key.startsWith('subject_');
+  }
+
+  List<RecordFieldDef> _fieldsForTable(List<RecordFieldDef> baseFields, List<RecordSummary> rows) {
+    final baseByKey = <String, RecordFieldDef>{for (final field in baseFields) field.key: field};
+    final byKey = <String, RecordFieldDef>{
+      for (final field in RecordFieldCatalog.coreFields) field.key: field,
+    };
+
+    for (final row in rows) {
+      for (final entry in row.values.entries) {
+        final key = entry.key.trim();
+        if (key.isEmpty || entry.value.trim().isEmpty || byKey.containsKey(key)) continue;
+        final label = row.fieldLabels[key]?.trim();
+        final base = baseByKey[key];
+        byKey[key] = RecordFieldDef(
+          key: key,
+          label: label?.isNotEmpty == true ? label! : (base?.label ?? key),
+          hint: base?.hint ?? 'Record value',
+          builtInSuggestions: base?.builtInSuggestions ?? const <String>[],
+          isSystem: base?.isSystem ?? _isSubjectRecordKey(key),
+          procedureScope: base?.procedureScope ?? '',
+        );
+      }
+    }
+
+    return byKey.values.toList(growable: false);
   }
 
   Future<void> _openRecordView(RecordSummary item) async {
@@ -556,7 +597,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Upgrade to organize finalized reports in searchable list and table views, filter by procedure, and export record tables.',
+                        'Upgrade to organize finalized reports in searchable list and table views, filter by report type, and export record tables.',
                       ),
                       const SizedBox(height: 16),
                       FilledButton.icon(
@@ -577,7 +618,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
       );
     }
     final vm = context.watch<RecordsProvider>();
-    final fields = vm.allFields;
+    final baseFields = vm.allFields;
     final procedures = <String>{};
     final facilities = <String>{};
     for (final row in vm.records) {
@@ -586,11 +627,11 @@ class _RecordsScreenState extends State<RecordsScreen> {
       final facility = (row.values[RecordFieldCatalog.facility.key] ?? '').trim();
       if (facility.isNotEmpty) facilities.add(facility);
     }
-    final procedureOptions = ['All procedures', ...procedures.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))];
+    final procedureOptions = ['All report types', ...procedures.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))];
     final facilityOptions = ['All facilities', ...facilities.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))];
 
     var rows = vm.filteredRecords.where((row) {
-      final procedureMatches = _procedureFilter == 'All procedures' || row.procedure.trim().toLowerCase() == _procedureFilter.trim().toLowerCase();
+      final procedureMatches = _procedureFilter == 'All report types' || row.procedure.trim().toLowerCase() == _procedureFilter.trim().toLowerCase();
       final facility = (row.values[RecordFieldCatalog.facility.key] ?? '').trim();
       final facilityMatches = _facilityFilter == 'All facilities' || facility.toLowerCase() == _facilityFilter.trim().toLowerCase();
       return procedureMatches && facilityMatches;
@@ -607,6 +648,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
           return b.updatedAt.compareTo(a.updatedAt);
       }
     });
+
+    final tableFields = _fieldsForTable(baseFields, rows);
 
     return Scaffold(
       appBar: AppBar(
@@ -628,7 +671,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
           ),
           IconButton(
             tooltip: 'Export records',
-            onPressed: rows.isEmpty ? null : () => _exportRecords(rows, fields),
+            onPressed: rows.isEmpty ? null : () => _exportRecords(rows, tableFields),
             icon: const Icon(Icons.download_outlined),
           ),
         ],
@@ -656,14 +699,21 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     SizedBox(
                       width: 220,
                       child: DropdownButtonFormField<String>(
-                        value: procedureOptions.contains(_procedureFilter) ? _procedureFilter : 'All procedures',
+                        isExpanded: true,
+                        value: procedureOptions.contains(_procedureFilter) ? _procedureFilter : 'All report types',
                         decoration: const InputDecoration(
-                          labelText: 'Procedure',
+                          labelText: 'Procedure / Report Type',
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
                         items: procedureOptions
-                            .map((value) => DropdownMenuItem<String>(value: value, child: Text(value, overflow: TextOverflow.ellipsis)))
+                            .map((value) => DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Tooltip(
+                                    message: value,
+                                    child: Text(_compactFilterLabel(value), overflow: TextOverflow.ellipsis),
+                                  ),
+                                ))
                             .toList(growable: false),
                         onChanged: (value) {
                           if (value == null) return;
@@ -674,6 +724,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     SizedBox(
                       width: 220,
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         value: facilityOptions.contains(_facilityFilter) ? _facilityFilter : 'All facilities',
                         decoration: const InputDecoration(
                           labelText: 'Facility',
@@ -692,6 +743,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     SizedBox(
                       width: 220,
                       child: DropdownButtonFormField<_RecordsSort>(
+                        isExpanded: true,
                         value: _sort,
                         decoration: const InputDecoration(
                           labelText: 'Sort',
@@ -699,9 +751,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
                           isDense: true,
                         ),
                         items: const [
-                          DropdownMenuItem(value: _RecordsSort.newestFirst, child: Text('Newest first')),
-                          DropdownMenuItem(value: _RecordsSort.oldestFirst, child: Text('Oldest first')),
-                          DropdownMenuItem(value: _RecordsSort.procedureAZ, child: Text('Procedure A–Z')),
+                          DropdownMenuItem(value: _RecordsSort.newestFirst, child: Text('Newest first', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: _RecordsSort.oldestFirst, child: Text('Oldest first', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: _RecordsSort.procedureAZ, child: Text('Report type A–Z', overflow: TextOverflow.ellipsis)),
                         ],
                         onChanged: (value) {
                           if (value == null) return;
@@ -771,7 +823,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                           )
                         : _RecordsTable(
                             rows: rows,
-                            fields: fields,
+                            fields: tableFields,
                             onOpenRecord: _openRecordView,
                             onDownloadPdf: _downloadPdfFromTable,
                           ),

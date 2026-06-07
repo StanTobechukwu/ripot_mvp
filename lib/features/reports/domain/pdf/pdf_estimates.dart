@@ -3,6 +3,11 @@ import 'dart:math';
 import '../models/report_doc.dart';
 import 'pdf_layout_metrics.dart';
 
+String visibleSubjectInfoHeading(ReportDoc doc) {
+  final heading = doc.subjectInfoDef.heading.trim();
+  return heading.toLowerCase() == 'subject info' ? '' : heading;
+}
+
 String effectiveReportTitle(ReportDoc doc) {
   final title = doc.reportTitle.trim();
   return title;
@@ -23,13 +28,15 @@ double estimateSubjectInfoHeight(
   required double fontScale,
 }) {
   final def = doc.subjectInfoDef;
-  final fields = def.orderedFields;
+  final fields = def.orderedFields
+      .where((f) => doc.subjectInfo.valueOf(f.key).trim().isNotEmpty)
+      .toList(growable: false);
   if (!def.enabled || fields.isEmpty) return 0.0;
 
   final cols = max(1, def.columns);
   final rows = (fields.length / cols).ceil();
 
-  final headerHeight = def.heading.trim().isEmpty
+  final headerHeight = visibleSubjectInfoHeading(doc).isEmpty
       ? 0.0
       : (12.4 * fontScale) + 8.0;
 

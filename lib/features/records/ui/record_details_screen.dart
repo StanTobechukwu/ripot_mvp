@@ -71,6 +71,96 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     return field.appliesToProcedure(_currentProcedure);
   }
 
+  static final _protectedRecordKeys = <String>{
+    RecordFieldCatalog.reportId.key,
+    RecordFieldCatalog.reportDate.key,
+  };
+
+  void _disposeControllerLater(String key) {
+    final controller = _controllers.remove(key);
+    if (controller == null) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+  }
+
+  bool _isSubjectRecordKey(String key) {
+    return key == RecordFieldCatalog.subjectName.key ||
+        key == RecordFieldCatalog.patientReference.key ||
+        key == RecordFieldCatalog.age.key ||
+        key == RecordFieldCatalog.gender.key ||
+        key.startsWith('subject_');
+  }
+
+  int _fieldSortRank(RecordFieldDef field) {
+    final key = field.key;
+    if (key == RecordFieldCatalog.reportId.key) return 0;
+    if (key == RecordFieldCatalog.reportDate.key) return 1;
+    if (_isSubjectRecordKey(key)) return 2;
+    if (key == RecordFieldCatalog.procedure.key) return 3;
+    if (key == RecordFieldCatalog.facility.key) return 4;
+    if (!field.isSystem && field.isGlobal) return 5;
+    if (!field.isSystem && !field.isGlobal) return 6;
+    if (key == RecordFieldCatalog.doctor.key) return 8;
+    return 7;
+  }
+
+  List<RecordFieldDef> _fieldsForEntry(List<RecordFieldDef> baseFields) {
+    final byKey = <String, RecordFieldDef>{};
+
+    for (final field in baseFields) {
+      final isProtected = _protectedRecordKeys.contains(field.key);
+      final hasValue = _entry.values.containsKey(field.key);
+      final isUserAddedRecordField = !field.isSystem;
+      // Keep Record Details focused. Show protected system fields always.
+      // Show user-added fields because this is the place to complete optional
+      // all-report-type / Procedure-Report-Type fields. Hide unused factory
+      // fields so the main details screen does not feel like a blank form.
+      if (!isProtected && !hasValue && !isUserAddedRecordField) continue;
+
+      final labelOverride = _entry.fieldLabels[field.key]?.trim();
+      byKey[field.key] = RecordFieldDef(
+        key: field.key,
+        label: labelOverride?.isNotEmpty == true ? labelOverride! : field.label,
+        hint: field.hint,
+        builtInSuggestions: field.builtInSuggestions,
+        isSystem: field.isSystem,
+        procedureScope: field.procedureScope,
+      );
+    }
+
+    for (final item in _entry.values.entries) {
+      final key = item.key.trim();
+      if (key.isEmpty || byKey.containsKey(key)) continue;
+      final label = (_entry.fieldLabels[key]?.trim().isNotEmpty == true)
+          ? _entry.fieldLabels[key]!.trim()
+          : key;
+      byKey[key] = RecordFieldDef(
+        key: key,
+        label: label,
+        hint: 'Record value',
+        isSystem: _isSubjectRecordKey(key),
+      );
+    }
+
+    final out = byKey.values.toList(growable: false);
+    out.sort((a, b) {
+      final rank = _fieldSortRank(a).compareTo(_fieldSortRank(b));
+      if (rank != 0) return rank;
+      return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+    });
+    return out;
+  }
+
+  void _removeFieldFromThisRecord(RecordFieldDef field) {
+    if (_protectedRecordKeys.contains(field.key)) return;
+    final values = Map<String, String>.from(_entry.values)..remove(field.key);
+    final labels = Map<String, String>.from(_entry.fieldLabels)..remove(field.key);
+    _disposeControllerLater(field.key);
+    setState(() => _entry = _entry.copyWith(values: values, fieldLabels: labels));
+  }
+
   Future<void> _save() async {
     if (_saving) return;
 
@@ -105,6 +195,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         _entry.copyWith(
           updatedAtIso: DateTime.now().toIso8601String(),
           values: values,
+          fieldLabels: _entry.fieldLabels,
         ),
       );
       if (!mounted) return;
@@ -121,7 +212,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     }
   }
 
-  Future<void> _deleteCustomField(RecordFieldDef field) async {
+
+  Future<void> _deleteCustomFieldDefinition(RecordFieldDef field) async {
     if (field.isSystem) return;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -140,9 +232,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     );
     if (confirmed != true || !mounted) return;
 
-    _controllers.remove(field.key)?.dispose();
+    _disposeControllerLater(field.key);
     final values = Map<String, String>.from(_entry.values)..remove(field.key);
-    setState(() => _entry = _entry.copyWith(values: values));
+    final labels = Map<String, String>.from(_entry.fieldLabels)..remove(field.key);
+    setState(() => _entry = _entry.copyWith(values: values, fieldLabels: labels));
     await context.read<RecordsProvider>().deleteCustomField(field.key);
   }
 
@@ -157,9 +250,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setLocalState) => AlertDialog(
           title: const Text('Add new record field'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               TextField(
                 controller: labelController,
                 decoration: const InputDecoration(labelText: 'Field label'),
@@ -182,7 +276,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                 value: true,
                 groupValue: saveAsGlobal,
                 onChanged: (v) => setLocalState(() => saveAsGlobal = v ?? true),
-                title: const Text('All procedures (general field)'),
+                title: const Text('All report types (general field)'),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -192,7 +286,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                 onChanged: (v) => setLocalState(() => saveAsGlobal = v ?? true),
                 title: Text(
                   procedureScopeController.text.trim().isEmpty
-                      ? 'Only for one procedure'
+                      ? 'Only for this report type'
                       : 'Only for ${procedureScopeController.text.trim()}',
                 ),
                 dense: true,
@@ -204,8 +298,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   controller: procedureScopeController,
                   onChanged: (_) => setLocalState(() {}),
                   decoration: const InputDecoration(
-                    labelText: 'Procedure name',
-                    hintText: 'e.g. Colonoscopy',
+                    labelText: 'Procedure / Report Type',
+                    hintText: 'e.g. Colonoscopy or Site inspection',
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -222,7 +316,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   }).toList(growable: false),
                 ),
               ],
-            ],
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -239,7 +334,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         if (!saveAsGlobal && procedureScope.isEmpty) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Choose or type a procedure for this field.')),
+              const SnackBar(content: Text('Choose or type a report type for this field.')),
             );
           }
         } else {
@@ -261,7 +356,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<RecordsProvider>();
     final allFields = provider.allFields;
-    final fields = allFields.where(_fieldVisibleForCurrentProcedure).toList(growable: false);
+    final fields = _fieldsForEntry(allFields).where(_fieldVisibleForCurrentProcedure).toList(growable: false);
     final procedureSpecificCount = allFields.where((f) => !f.isGlobal && f.appliesToProcedure(_currentProcedure)).length;
 
     return Scaffold(
@@ -302,7 +397,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   Text(
                     _currentProcedure.trim().isEmpty
                         ? 'You can add extra record fields for your unit before saving.'
-                        : 'You can add extra record fields either for all procedures or specifically for $_currentProcedure.',
+                        : 'You can add extra record fields either for all report types or specifically for $_currentProcedure.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (_currentProcedure.trim().isNotEmpty) ...[
@@ -323,9 +418,15 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
           const SizedBox(height: 16),
           for (final field in fields) ...[
             _RecordValueField(
+              key: ValueKey('record-field-${field.key}'),
               field: field,
+              currentProcedure: _currentProcedure,
               controller: _controllerFor(field.key, _entry.valueOf(field.key)),
-              onDelete: field.isSystem ? null : () => _deleteCustomField(field),
+              onDelete: _protectedRecordKeys.contains(field.key)
+                  ? null
+                  : (!field.isSystem && provider.allFields.any((f) => f.key == field.key)
+                      ? () => _deleteCustomFieldDefinition(field)
+                      : () => _removeFieldFromThisRecord(field)),
             ),
             const SizedBox(height: 12),
           ],
@@ -343,10 +444,17 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
 
 class _RecordValueField extends StatefulWidget {
   final RecordFieldDef field;
+  final String currentProcedure;
   final TextEditingController controller;
   final VoidCallback? onDelete;
 
-  const _RecordValueField({required this.field, required this.controller, this.onDelete});
+  const _RecordValueField({
+    super.key,
+    required this.field,
+    required this.currentProcedure,
+    required this.controller,
+    this.onDelete,
+  });
 
   @override
   State<_RecordValueField> createState() => _RecordValueFieldState();
@@ -422,10 +530,15 @@ class _RecordValueFieldState extends State<_RecordValueField> {
                   color: theme.colorScheme.primaryContainer.withOpacity(0.45),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text(widget.field.isGlobal ? 'Custom • General' : 'Custom • Procedure', style: theme.textTheme.labelSmall),
+                child: Text(
+                  widget.field.isGlobal
+                      ? 'Custom (General)'
+                      : 'Custom (${widget.field.procedureScope.trim().isEmpty ? 'This report type' : widget.field.procedureScope.trim()})',
+                  style: theme.textTheme.labelSmall,
+                ),
               ),
               IconButton(
-                tooltip: 'Delete custom field',
+                tooltip: 'Delete field',
                 onPressed: widget.onDelete,
                 icon: const Icon(Icons.delete_outline),
               ),
@@ -433,15 +546,6 @@ class _RecordValueFieldState extends State<_RecordValueField> {
           ],
         ),
         const SizedBox(height: 6),
-        if (!widget.field.isGlobal) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
-              'Applies only to ${widget.field.procedureScope}',
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-        ],
         TextField(
           controller: _controller,
           decoration: InputDecoration(
@@ -464,6 +568,9 @@ class _RecordValueFieldState extends State<_RecordValueField> {
           future: context.read<RecordsProvider>().suggestions(
             widget.field.key,
             _allowsMultipleSuggestions ? '' : _controller.text,
+            procedure: widget.field.key == RecordFieldCatalog.procedure.key
+                ? ''
+                : widget.currentProcedure,
           ),
           builder: (context, snapshot) {
             final options = snapshot.data ?? widget.field.builtInSuggestions;

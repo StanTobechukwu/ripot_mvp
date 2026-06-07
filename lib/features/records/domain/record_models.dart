@@ -61,6 +61,7 @@ class RecordEntry {
   final String createdAtIso;
   final String updatedAtIso;
   final Map<String, String> values;
+  final Map<String, String> fieldLabels;
 
   const RecordEntry({
     required this.recordEntryId,
@@ -68,6 +69,7 @@ class RecordEntry {
     required this.createdAtIso,
     required this.updatedAtIso,
     required this.values,
+    this.fieldLabels = const <String, String>{},
   });
 
   String valueOf(String key) => values[key]?.trim() ?? '';
@@ -78,6 +80,7 @@ class RecordEntry {
     String? createdAtIso,
     String? updatedAtIso,
     Map<String, String>? values,
+    Map<String, String>? fieldLabels,
   }) {
     return RecordEntry(
       recordEntryId: recordEntryId ?? this.recordEntryId,
@@ -85,6 +88,7 @@ class RecordEntry {
       createdAtIso: createdAtIso ?? this.createdAtIso,
       updatedAtIso: updatedAtIso ?? this.updatedAtIso,
       values: values ?? this.values,
+      fieldLabels: fieldLabels ?? this.fieldLabels,
     );
   }
 
@@ -94,16 +98,19 @@ class RecordEntry {
         'createdAtIso': createdAtIso,
         'updatedAtIso': updatedAtIso,
         'values': values,
+        'fieldLabels': fieldLabels,
       };
 
   factory RecordEntry.fromJson(Map<String, dynamic> json) {
     final rawValues = (json['values'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final rawLabels = (json['fieldLabels'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
     return RecordEntry(
       recordEntryId: (json['recordEntryId'] ?? '') as String,
       linkedReportId: (json['linkedReportId'] ?? '') as String,
       createdAtIso: (json['createdAtIso'] ?? '') as String,
       updatedAtIso: (json['updatedAtIso'] ?? '') as String,
       values: rawValues.map((key, value) => MapEntry(key, (value ?? '').toString())),
+      fieldLabels: rawLabels.map((key, value) => MapEntry(key, (value ?? '').toString())),
     );
   }
 
@@ -120,6 +127,7 @@ class RecordSummary {
   final String patientReference;
   final DateTime updatedAt;
   final Map<String, String> values;
+  final Map<String, String> fieldLabels;
 
   const RecordSummary({
     required this.recordEntryId,
@@ -130,6 +138,7 @@ class RecordSummary {
     required this.patientReference,
     required this.updatedAt,
     required this.values,
+    this.fieldLabels = const <String, String>{},
   });
 }
 
@@ -151,8 +160,8 @@ class RecordFieldCatalog {
   );
   static const procedure = RecordFieldDef(
     key: 'procedure',
-    label: 'Procedure',
-    hint: 'Select or type the procedure',
+    label: 'Procedure / Report Type',
+    hint: 'Select or type the procedure or report type',
     builtInSuggestions: [
       'Upper GI Endoscopy',
       'Colonoscopy',

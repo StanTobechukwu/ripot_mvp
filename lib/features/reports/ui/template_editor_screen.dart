@@ -119,7 +119,7 @@ class _TemplateEditorBody extends StatelessWidget {
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.tune),
-            title: const Text('Style section'),
+            title: const Text('Edit section'),
             onTap: () => Navigator.pop(ctx, 'style'),
           ),
           const Divider(height: 1),
@@ -186,6 +186,7 @@ class _TemplateEditorBody extends StatelessWidget {
         if (res != null) {
           if ((res.rename ?? '').trim().isNotEmpty) vm.renameSection(section.id, res.rename!.trim());
           if (res.style != null) vm.updateSectionStyle(section.id, res.style!);
+          if (res.addToRecords != null) vm.setSectionAddToRecords(section.id, res.addToRecords!);
         }
         break;
       case 'up':
@@ -225,6 +226,17 @@ class _TemplateEditorBody extends StatelessWidget {
                     Icon(section.collapsed ? Icons.chevron_right : Icons.expand_more),
                     const SizedBox(width: 6),
                     Expanded(child: Text(section.title, style: const TextStyle(fontWeight: FontWeight.w600))),
+                    if (section.addToRecords) ...[
+                      Tooltip(
+                        message: 'Added to Records',
+                        child: Icon(
+                          Icons.fact_check_outlined,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     IconButton(
                       icon: const Icon(Icons.more_vert),
                       onPressed: () => _showSectionActions(context, section),
@@ -296,7 +308,8 @@ class _TemplateEditorBody extends StatelessWidget {
 class _SectionEditResult {
   final String? rename;
   final TitleStyle? style;
-  const _SectionEditResult({this.rename, this.style});
+  final bool? addToRecords;
+  const _SectionEditResult({this.rename, this.style, this.addToRecords});
 }
 
 class _SectionEditSheet extends StatefulWidget {
@@ -312,6 +325,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   late HeadingLevel _level;
   late bool _bold;
   late TitleAlign _align;
+  late bool _addToRecords;
 
   @override
   void initState() {
@@ -320,6 +334,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _level = widget.section.style.level;
     _bold = widget.section.style.bold;
     _align = widget.section.style.align;
+    _addToRecords = widget.section.addToRecords;
   }
 
   @override
@@ -333,12 +348,20 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const ListTile(title: Text('Style section')),
+            const ListTile(title: Text('Edit section')),
             TextField(
               controller: _title,
               decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder(), isDense: true),
             ),
             const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Formatting',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -366,10 +389,26 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
               title: const Text('Bold title'),
               contentPadding: EdgeInsets.zero,
             ),
+
+            const SizedBox(height: 4),
+            Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
+              child: CheckboxListTile(
+                value: _addToRecords,
+                onChanged: (v) => setState(() => _addToRecords = v ?? false),
+                title: const Text('Add this section to Records'),
+                subtitle: const Text('Will be included if the report is saved to Records.'),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+            const SizedBox(height: 12),
+
             FilledButton(
               onPressed: () => Navigator.pop(context, _SectionEditResult(
                 rename: _title.text.trim(),
                 style: widget.section.style.copyWith(level: _level, bold: _bold, align: _align),
+                addToRecords: _addToRecords,
               )),
               child: const Text('Apply'),
             ),

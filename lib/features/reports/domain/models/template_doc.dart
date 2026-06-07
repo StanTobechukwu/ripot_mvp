@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'nodes.dart';
+import 'report_doc.dart';
 import 'subject_info_def.dart';
 
 @immutable
@@ -9,6 +10,7 @@ class TemplateDoc {
   final String name;
   final List<SectionNode> roots;
   final SubjectInfoBlockDef subjectInfo;
+  final SignatureBlock signature;
 
   const TemplateDoc({
     required this.templateId,
@@ -16,6 +18,7 @@ class TemplateDoc {
     required this.name,
     required this.roots,
     SubjectInfoBlockDef? subjectInfo,
+    this.signature = const SignatureBlock(),
   }) : subjectInfo = subjectInfo ?? SubjectInfoBlockDef.kDefaults;
 
   TemplateDoc copyWith({
@@ -23,6 +26,7 @@ class TemplateDoc {
     String? name,
     List<SectionNode>? roots,
     SubjectInfoBlockDef? subjectInfo,
+    SignatureBlock? signature,
   }) {
     return TemplateDoc(
       templateId: templateId,
@@ -30,6 +34,7 @@ class TemplateDoc {
       name: name ?? this.name,
       roots: roots ?? this.roots,
       subjectInfo: subjectInfo ?? this.subjectInfo,
+      signature: signature ?? this.signature,
     );
   }
 }

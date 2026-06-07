@@ -9,6 +9,14 @@ import '../../reports/domain/models/nodes.dart';
 import '../domain/record_models.dart';
 
 
+
+class _RecordBuildData {
+  const _RecordBuildData({required this.values, required this.labels});
+
+  final Map<String, String> values;
+  final Map<String, String> labels;
+}
+
 class RecordsMergeResult {
   final int imported;
   final int updated;
@@ -37,6 +45,16 @@ class RecordsRepository {
   String _recordKey(String recordEntryId) => '$_recordPrefix$recordEntryId';
   String _recordLinkKey(String reportId) => '$_recordLinkPrefix$reportId';
   String _vocabKey(String fieldKey) => '$_vocabPrefix$fieldKey';
+
+  String _scopedVocabKey(String fieldKey, String procedure) {
+    final normalizedProcedure = procedure.trim().toLowerCase();
+    if (normalizedProcedure.isEmpty) return _vocabKey(fieldKey);
+    final safeProcedure = normalizedProcedure
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_\$'), '');
+    return '$_vocabPrefix${fieldKey.trim()}::${safeProcedure.isEmpty ? 'general' : safeProcedure}';
+  }
 
   Future<List<String>> _readIndex() async {
     final prefs = await _prefs;
@@ -144,6 +162,7 @@ class RecordsRepository {
             patientReference: entry.valueOf(RecordFieldCatalog.patientReference.key),
             updatedAt: DateTime.tryParse(entry.updatedAtIso) ?? DateTime.now(),
             values: entry.values,
+            fieldLabels: entry.fieldLabels,
           ),
         );
       } catch (_) {}
@@ -181,11 +200,20 @@ class RecordsRepository {
     ids.insert(0, entry.recordEntryId);
     await _writeIndex(ids);
 
-    final allFieldsList = await allFields();
-    for (final field in allFieldsList) {
-      final value = entry.valueOf(field.key);
+    final procedure = entry.valueOf(RecordFieldCatalog.procedure.key);
+    for (final item in entry.values.entries) {
+      if (item.key == RecordFieldCatalog.reportId.key ||
+          item.key == RecordFieldCatalog.reportDate.key) {
+        continue;
+      }
+      final value = item.value.trim();
       if (value.isEmpty) continue;
-      await saveVocabularyValue(field.key, value);
+      await saveVocabularyValue(
+        item.key,
+        value,
+        label: entry.fieldLabels[item.key],
+        procedure: item.key == RecordFieldCatalog.procedure.key ? '' : procedure,
+      );
     }
   }
 
@@ -201,32 +229,120 @@ class RecordsRepository {
     await _writeIndex(ids);
   }
 
-  Future<List<String>> searchVocabulary(String fieldKey, String query) async {
+  Future<List<String>> searchVocabulary(
+    String fieldKey,
+    String query, {
+    String procedure = '',
+  }) async {
     final prefs = await _prefs;
-    final saved = prefs.getStringList(_vocabKey(fieldKey)) ?? <String>[];
+    final scopedSaved = prefs.getStringList(_scopedVocabKey(fieldKey, procedure)) ?? <String>[];
+    // Compatibility fallback: older versions saved suggestions globally by field key.
+    // Show them only when no procedure-specific suggestions exist yet.
+    final legacySaved = scopedSaved.isEmpty
+        ? (prefs.getStringList(_vocabKey(fieldKey)) ?? <String>[])
+        : const <String>[];
     final builtIn = (RecordFieldCatalog.byKey(fieldKey)?.builtInSuggestions ?? const <String>[]);
-    final merged = <String>{...builtIn, ...saved}.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final cleanedSaved = <String>{};
+    for (final item in [...scopedSaved, ...legacySaved]) {
+      cleanedSaved.addAll(_vocabularyCandidatesFor(fieldKey, item));
+    }
+    final merged = <String>{...builtIn, ...cleanedSaved}.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) return merged;
     return merged.where((v) => v.toLowerCase().contains(trimmed)).toList(growable: false);
   }
 
-  Future<void> saveVocabularyValue(String fieldKey, String value) async {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return;
+  Future<void> saveVocabularyValue(
+    String fieldKey,
+    String value, {
+    String? label,
+    String procedure = '',
+  }) async {
+    final candidates = _vocabularyCandidatesFor(fieldKey, value, label: label);
+    if (candidates.isEmpty) return;
+
     final prefs = await _prefs;
-    final existing = prefs.getStringList(_vocabKey(fieldKey)) ?? <String>[];
-    existing.removeWhere((e) => e.toLowerCase() == trimmed.toLowerCase());
-    existing.insert(0, trimmed);
+    final key = _scopedVocabKey(fieldKey, procedure);
+    final existing = prefs.getStringList(key) ?? <String>[];
+
+    for (final candidate in candidates.reversed) {
+      existing.removeWhere((e) => _sameVocabularyValue(e, candidate));
+      existing.insert(0, candidate);
+    }
+
     final capped = existing.take(100).toList(growable: false);
-    await prefs.setStringList(_vocabKey(fieldKey), capped);
+    await prefs.setStringList(key, capped);
+  }
+
+  List<String> _vocabularyCandidatesFor(String fieldKey, String value, {String? label}) {
+    final trimmed = _normalizeVocabularyValue(value);
+    if (trimmed.isEmpty) return const <String>[];
+
+    // If a user separates values with commas/semicolons, keep the full value in
+    // the saved record but learn the individual short parts as suggestions.
+    // This keeps suggestion chips useful for fields such as Indication,
+    // Diagnosis, Findings, etc., without forcing the user to configure a type.
+    final hasSeparators = trimmed.contains(RegExp(r'[,;]'));
+    final shouldSplit = hasSeparators && _isListLikeVocabularyField(fieldKey, label: label);
+    final rawCandidates = shouldSplit
+        ? trimmed.split(RegExp(r'[,;]+')).map(_normalizeVocabularyValue)
+        : <String>[trimmed];
+
+    final out = <String>[];
+    final seen = <String>{};
+    for (final candidate in rawCandidates) {
+      if (candidate.isEmpty) continue;
+      // Suggestions should stay short and reusable. Long sentence-like values
+      // can remain in Records, but should not clutter future suggestions.
+      if (_wordCount(candidate) > 6) continue;
+      final key = candidate.toLowerCase();
+      if (seen.add(key)) out.add(candidate);
+    }
+    return out;
+  }
+
+  bool _isListLikeVocabularyField(String fieldKey, {String? label}) {
+    final key = '${fieldKey.trim()} ${label ?? ''}'.toLowerCase();
+    return key.contains('indication') ||
+        key.contains('diagnosis') ||
+        key.contains('diagnoses') ||
+        key.contains('finding') ||
+        key.contains('symptom') ||
+        key.contains('complaint') ||
+        key.contains('comorbid') ||
+        key.contains('medication') ||
+        key.contains('impression');
+  }
+
+  String _normalizeVocabularyValue(String value) {
+    return value
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'^[,;\s]+|[,;\s]+$'), '');
+  }
+
+  bool _sameVocabularyValue(String a, String b) {
+    return _normalizeVocabularyValue(a).toLowerCase() ==
+        _normalizeVocabularyValue(b).toLowerCase();
+  }
+
+  int _wordCount(String value) {
+    return RegExp(r"[A-Za-z0-9%+\-/]+", unicode: true).allMatches(value).length;
   }
 
 
   String buildRipotCsv({required List<RecordSummary> records, required List<RecordFieldDef> fields}) {
+    final dynamicKeys = <String>[];
+    for (final row in records) {
+      for (final key in row.values.keys) {
+        if (!dynamicKeys.contains(key)) dynamicKeys.add(key);
+      }
+    }
     final orderedKeys = [
       ...RecordFieldCatalog.exportDefaultKeys,
       ...fields.where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key)).map((f) => f.key),
+      ...dynamicKeys,
     ];
     final fieldKeys = <String>[];
     for (final key in orderedKeys) {
@@ -373,27 +489,149 @@ class RecordsRepository {
   }
 
   Future<RecordEntry> buildDraftForReport(ReportDoc doc) async {
-    final existing = await loadByReportId(doc.reportId);
-    if (existing != null) return existing;
-
     final now = nowIso();
-    final created = RecordEntry(
+    final derived = _recordValuesForReport(doc);
+    final existing = await loadByReportId(doc.reportId);
+
+    if (existing != null) {
+      final mergedValues = Map<String, String>.from(existing.values);
+      final mergedLabels = Map<String, String>.from(existing.fieldLabels);
+
+      // Refresh system/template-derived values from the current report so newly
+      // ticked Add-to-Records sections appear when editing an existing record.
+      // Manual custom fields that do not conflict with these keys are preserved.
+      for (final entry in derived.values.entries) {
+        if (entry.value.trim().isEmpty) continue;
+        mergedValues[entry.key] = entry.value;
+      }
+      for (final entry in derived.labels.entries) {
+        if (entry.value.trim().isEmpty) continue;
+        mergedLabels[entry.key] = entry.value;
+      }
+
+      return existing.copyWith(values: mergedValues, fieldLabels: mergedLabels);
+    }
+
+    return RecordEntry(
       recordEntryId: newId('rec'),
       linkedReportId: doc.reportId,
       createdAtIso: now,
       updatedAtIso: now,
-      values: {
-        RecordFieldCatalog.reportId.key: doc.reportId,
-        RecordFieldCatalog.reportDate.key: _inferDate(doc),
-        RecordFieldCatalog.subjectName.key: _inferSubjectName(doc),
-        RecordFieldCatalog.patientReference.key: _inferSubjectId(doc),
-        RecordFieldCatalog.procedure.key: _inferProcedure(doc),
-        RecordFieldCatalog.diagnosis.key: _inferDiagnosis(doc),
-        RecordFieldCatalog.doctor.key: _inferDoctor(doc),
-      },
+      values: derived.values,
+      fieldLabels: derived.labels,
     );
-    return created;
   }
+
+  _RecordBuildData _recordValuesForReport(ReportDoc doc) {
+    final values = <String, String>{
+      RecordFieldCatalog.reportId.key: doc.reportId,
+      RecordFieldCatalog.reportDate.key: _inferDate(doc),
+      RecordFieldCatalog.procedure.key: _inferProcedure(doc),
+      RecordFieldCatalog.doctor.key: _inferDoctor(doc),
+    };
+    final labels = <String, String>{
+      RecordFieldCatalog.reportId.key: RecordFieldCatalog.reportId.label,
+      RecordFieldCatalog.reportDate.key: RecordFieldCatalog.reportDate.label,
+      RecordFieldCatalog.procedure.key: RecordFieldCatalog.procedure.label,
+      RecordFieldCatalog.doctor.key: RecordFieldCatalog.doctor.label,
+    };
+
+    // Subject Info is inherently record-like, so every filled Subject Info field
+    // is copied automatically using the user's visible field title.
+    if (doc.subjectInfoDef.enabled) {
+      for (final field in doc.subjectInfoDef.orderedFields) {
+        final value = doc.subjectInfo.valueOf(field.key).trim();
+        if (value.isEmpty) continue;
+
+        final key = _recordKeyForSubjectField(field.key, field.title);
+        values[key] = value;
+        labels[key] = field.title.trim().isEmpty ? key : field.title.trim();
+
+        // Keep core summary keys populated without forcing their default labels
+        // into the Record Details UI.
+        if (field.key == 'subjectName') {
+          values[RecordFieldCatalog.subjectName.key] = value;
+          labels[RecordFieldCatalog.subjectName.key] = field.title.trim().isEmpty
+              ? RecordFieldCatalog.subjectName.label
+              : field.title.trim();
+        } else if (field.key == 'subjectId') {
+          values[RecordFieldCatalog.patientReference.key] = value;
+          labels[RecordFieldCatalog.patientReference.key] = field.title.trim().isEmpty
+              ? RecordFieldCatalog.patientReference.label
+              : field.title.trim();
+        }
+      }
+    }
+
+    // Explicit template/outline mappings are trusted. Old guessing is not used
+    // once the user has chosen Add to Records on sections.
+    for (final root in doc.roots) {
+      _collectExplicitRecordFields(root, values, labels);
+    }
+
+    return _RecordBuildData(values: values, labels: labels);
+  }
+
+  String _recordKeyForSubjectField(String fieldKey, String title) {
+    if (fieldKey == 'subjectName') return RecordFieldCatalog.subjectName.key;
+    if (fieldKey == 'subjectId') return RecordFieldCatalog.patientReference.key;
+
+    final normalized = title.trim().toLowerCase();
+    if (normalized == 'age') return RecordFieldCatalog.age.key;
+    if (normalized == 'sex' || normalized == 'gender') return RecordFieldCatalog.gender.key;
+
+    return 'subject_${fieldKey.trim().isEmpty ? _slug(title) : fieldKey}';
+  }
+
+  String _recordKeyForSectionTitle(SectionNode section) {
+    final normalized = section.title.trim().toLowerCase();
+    if (normalized == 'procedure' || normalized == 'report type') {
+      return RecordFieldCatalog.procedure.key;
+    }
+    if (normalized == 'indication' || normalized == 'indications') {
+      return RecordFieldCatalog.indication.key;
+    }
+    if (normalized == 'diagnosis' || normalized == 'diagnoses' || normalized == 'impression') {
+      return RecordFieldCatalog.diagnosis.key;
+    }
+    if (normalized == 'doctor' || normalized == 'operator' || normalized == 'consultant') {
+      return RecordFieldCatalog.doctor.key;
+    }
+    final slug = _slug(section.title);
+    return 'section_$slug';
+  }
+
+  String _slug(String value) {
+    final slug = value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    return slug.isEmpty ? newId('field') : slug;
+  }
+
+  void _collectExplicitRecordFields(
+    SectionNode section,
+    Map<String, String> values,
+    Map<String, String> labels,
+  ) {
+    if (section.addToRecords) {
+      final key = _recordKeyForSectionTitle(section);
+      final value = _firstNonEmptyContent(section).trim();
+      // A template-selected field should be available in Record Details even
+      // when the report section has not been filled yet. Empty values are kept
+      // out of table suggestions/columns by the UI and vocabulary logic.
+      values[key] = value;
+      labels[key] = section.title.trim().isEmpty ? key : section.title.trim();
+    }
+
+    for (final child in section.children) {
+      if (child is SectionNode) {
+        _collectExplicitRecordFields(child, values, labels);
+      }
+    }
+  }
+
 
   String _inferDate(ReportDoc doc) {
     final rawDate = doc.reportDateIso.trim().isNotEmpty ? doc.reportDateIso : doc.updatedAtIso;
@@ -409,10 +647,6 @@ class RecordsRepository {
   String _inferProcedure(ReportDoc doc) {
     final title = doc.reportTitle.trim();
     if (title.isNotEmpty) return title;
-    for (final root in doc.roots) {
-      final rootTitle = root.title.trim();
-      if (rootTitle.isNotEmpty) return rootTitle;
-    }
     return '';
   }
 

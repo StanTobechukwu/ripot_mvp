@@ -142,7 +142,7 @@ class UpgradeScreen extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           Text(
-            'Reports remain on-device. Only account, trial, premium status, and structure-only template sync should go to Firebase.',
+            'Privacy note: Your reports remain on your device. Only basic account, subscription, and template information may be synced securely.',
             style: theme.textTheme.bodySmall,
           ),
         ],

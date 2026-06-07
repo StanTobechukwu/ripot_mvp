@@ -1,6 +1,7 @@
 import '../models/nodes.dart';
 import '../models/template_doc.dart';
 import '../models/subject_info_def.dart';
+import '../models/report_doc.dart';
 
 class TemplateCodec {
   static Map<String, dynamic> templateToJson(TemplateDoc t) => {
@@ -9,6 +10,7 @@ class TemplateCodec {
         'name': t.name,
         'roots': t.roots.map(_sectionToJson).toList(),
         'subjectInfo': t.subjectInfo.toJson(),
+        'signature': _signatureToJson(t.signature),
       };
 
   static TemplateDoc templateFromJson(Map<String, dynamic> j) {
@@ -22,6 +24,31 @@ class TemplateCodec {
           .toList(),
       subjectInfo:
           SubjectInfoBlockDef.fromJson(j['subjectInfo'] as Map<String, dynamic>?),
+      signature: _signatureFromJson((j['signature'] as Map?)?.cast<String, dynamic>()),
+    );
+  }
+
+
+  static Map<String, dynamic> _signatureToJson(SignatureBlock s) => {
+        'roleTitle': s.roleTitle,
+        'name': s.name,
+        'credentials': s.credentials,
+        'assistantLabel': s.assistantLabel,
+        'assistantName': s.assistantName,
+        'signatureFilePath': s.signatureFilePath,
+      };
+
+  static SignatureBlock _signatureFromJson(Map<String, dynamic>? json) {
+    final j = json ?? const <String, dynamic>{};
+    return SignatureBlock(
+      roleTitle: (j['roleTitle'] as String?) ?? '',
+      name: (j['name'] as String?) ?? '',
+      credentials: (j['credentials'] as String?) ?? '',
+      assistantLabel: (j['assistantLabel'] as String?)?.trim().isNotEmpty == true
+          ? (j['assistantLabel'] as String)
+          : 'Assistant',
+      assistantName: (j['assistantName'] as String?) ?? '',
+      signatureFilePath: j['signatureFilePath'] as String?,
     );
   }
 
@@ -33,6 +60,7 @@ class TemplateCodec {
         'title': s.title,
         'collapsed': s.collapsed,
         'style': _styleToJson(s.style),
+        'addToRecords': s.addToRecords,
         'indent': s.indent, // ✅ added
         'children': s.children.map(_nodeToJson).toList(),
       };
@@ -42,6 +70,7 @@ class TemplateCodec {
         title: (j['title'] as String?) ?? '',
         collapsed: (j['collapsed'] as bool?) ?? false,
         style: _styleFromJson((j['style'] as Map?)?.cast<String, dynamic>() ?? {}),
+        addToRecords: (j['addToRecords'] as bool?) ?? false,
         indent: (j['indent'] as int?) ?? 0, // ✅ added
         children: ((j['children'] as List?) ?? const [])
             .map((e) => _nodeFromJson(e as Map<String, dynamic>))
