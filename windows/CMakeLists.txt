@@ -1,4 +1,5 @@
-# Project-level configuration.
+
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)# Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
 project(report LANGUAGES CXX)
 
