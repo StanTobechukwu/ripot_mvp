@@ -37,39 +37,98 @@ class TemplateEditorScreen extends StatelessWidget {
   }
 }
 
+enum _UnsavedTemplateAction { save, discard, cancel }
+
 class _TemplateEditorBody extends StatelessWidget {
   const _TemplateEditorBody();
 
-  Future<void> _save(BuildContext context) async {
+  Future<bool> _save(BuildContext context, {bool showSnackBar = true}) async {
     final repo = context.read<TemplatesRepository>();
     final vm = context.read<TemplateEditorProvider>();
     final access = context.read<AccessProvider>().safeState;
-    final templates = await repo.listTemplates();
-    final isExisting = templates.any((t) => t.templateId == vm.template.templateId);
-    if (!isExisting && templates.length >= access.maxSavedTemplates) {
-      if (!context.mounted) return;
-      final open = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Template limit reached'),
-          content: Text('Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
-          ],
-        ),
-      );
-      if (open == true && context.mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+
+    try {
+      final templates = await repo.listTemplates();
+      final isExisting = templates.any((t) => t.templateId == vm.template.templateId);
+      if (!isExisting && templates.length >= access.maxSavedTemplates) {
+        if (!context.mounted) return false;
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Template limit reached'),
+            content: Text('Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
+            ],
+          ),
+        );
+        if (open == true && context.mounted) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+        }
+        return false;
       }
+
+      final doc = vm.buildForSave(name: vm.template.name, includeContent: false);
+      await repo.saveTemplate(doc);
+      vm.markSaved();
+      if (!context.mounted) return true;
+      if (showSnackBar) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template updated')),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save template: $e')),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _handleAttemptedExit(BuildContext context) async {
+    final vm = context.read<TemplateEditorProvider>();
+    if (!vm.hasUnsavedChanges) {
+      Navigator.of(context).pop();
       return;
     }
-    final doc = vm.buildForSave(name: vm.template.name, includeContent: false);
-    await repo.saveTemplate(doc);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Template updated')),
+
+    final action = await showDialog<_UnsavedTemplateAction>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Save template changes?'),
+        content: const Text('You have unsaved changes in this template.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, _UnsavedTemplateAction.cancel),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, _UnsavedTemplateAction.discard),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, _UnsavedTemplateAction.save),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
+
+    if (!context.mounted || action == null || action == _UnsavedTemplateAction.cancel) return;
+
+    if (action == _UnsavedTemplateAction.discard) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    final saved = await _save(context, showSnackBar: false);
+    if (saved && context.mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<String?> _promptText(
@@ -98,6 +157,21 @@ class _TemplateEditorBody extends StatelessWidget {
     );
     final trimmed = (result ?? '').trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+
+  List<SectionNode> _allSectionsExcept(List<SectionNode> roots, String excludedId) {
+    final out = <SectionNode>[];
+    void walk(SectionNode section) {
+      if (section.id != excludedId) out.add(section);
+      for (final child in section.children.whereType<SectionNode>()) {
+        walk(child);
+      }
+    }
+    for (final root in roots) {
+      walk(root);
+    }
+    return out;
   }
 
   Future<void> _showSectionActions(BuildContext context, SectionNode section) async {
@@ -181,12 +255,21 @@ class _TemplateEditorBody extends StatelessWidget {
         final res = await showModalBottomSheet<_SectionEditResult>(
           context: context,
           showDragHandle: true,
-          builder: (_) => _SectionEditSheet(section: section),
+          isScrollControlled: true,
+          builder: (_) => _SectionEditSheet(section: section, possibleParents: _allSectionsExcept(vm.template.roots, section.id)),
         );
         if (res != null) {
           if ((res.rename ?? '').trim().isNotEmpty) vm.renameSection(section.id, res.rename!.trim());
           if (res.style != null) vm.updateSectionStyle(section.id, res.style!);
-          if (res.addToRecords != null) vm.setSectionAddToRecords(section.id, res.addToRecords!);
+          vm.updateSectionFieldSettings(
+            section.id,
+            inputType: res.inputType,
+            options: res.options,
+            showInPdf: res.showInPdf,
+            addToRecords: res.addToRecords,
+            conditionalParentSectionId: res.conditionalParentSectionId,
+            conditionalEquals: res.conditionalEquals,
+          );
         }
         break;
       case 'up':
@@ -256,50 +339,60 @@ class _TemplateEditorBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<TemplateEditorProvider>();
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text(vm.template.name),
-        actions: [
-          IconButton(
-            tooltip: 'Save',
-            icon: const Icon(Icons.save_outlined),
-            onPressed: () => _save(context),
+    return PopScope(
+      canPop: !vm.hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleAttemptedExit(context);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: true,
+          title: Text(vm.template.name),
+          leading: BackButton(
+            onPressed: () => _handleAttemptedExit(context),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final title = await _promptText(context, 'New top-level section');
-          if (title != null) vm.addTopLevelSection(title);
-        },
-        child: const Icon(Icons.add),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const SubjectInfoTemplateEditor(),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Sections', style: TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  if (vm.template.roots.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('No sections yet. Use + to add the first section.'),
-                    )
-                  else
-                    ...vm.template.roots.map((s) => _sectionTile(context, s)),
-                ],
+          actions: [
+            IconButton(
+              tooltip: 'Save',
+              icon: const Icon(Icons.save_outlined),
+              onPressed: () => _save(context),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            final title = await _promptText(context, 'New top-level section');
+            if (title != null) vm.addTopLevelSection(title);
+          },
+          child: const Icon(Icons.add),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const SubjectInfoTemplateEditor(),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Sections', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    if (vm.template.roots.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text('No sections yet. Use + to add the first section.'),
+                      )
+                    else
+                      ...vm.template.roots.map((s) => _sectionTile(context, s)),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -308,13 +401,28 @@ class _TemplateEditorBody extends StatelessWidget {
 class _SectionEditResult {
   final String? rename;
   final TitleStyle? style;
+  final FieldInputType? inputType;
+  final List<String>? options;
+  final bool? showInPdf;
   final bool? addToRecords;
-  const _SectionEditResult({this.rename, this.style, this.addToRecords});
+  final String? conditionalParentSectionId;
+  final String? conditionalEquals;
+  const _SectionEditResult({
+    this.rename,
+    this.style,
+    this.inputType,
+    this.options,
+    this.showInPdf,
+    this.addToRecords,
+    this.conditionalParentSectionId,
+    this.conditionalEquals,
+  });
 }
 
 class _SectionEditSheet extends StatefulWidget {
   final SectionNode section;
-  const _SectionEditSheet({required this.section});
+  final List<SectionNode> possibleParents;
+  const _SectionEditSheet({required this.section, this.possibleParents = const []});
 
   @override
   State<_SectionEditSheet> createState() => _SectionEditSheetState();
@@ -325,7 +433,13 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   late HeadingLevel _level;
   late bool _bold;
   late TitleAlign _align;
+  late FieldInputType _inputType;
+  late final TextEditingController _options;
+  late bool _showInPdf;
   late bool _addToRecords;
+  late bool _useCondition;
+  late String _conditionParentId;
+  late final TextEditingController _conditionEquals;
 
   @override
   void initState() {
@@ -334,85 +448,215 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _level = widget.section.style.level;
     _bold = widget.section.style.bold;
     _align = widget.section.style.align;
+    _inputType = widget.section.inputType;
+    _options = TextEditingController(text: widget.section.options.join('\n'));
+    _showInPdf = widget.section.showInPdf;
     _addToRecords = widget.section.addToRecords;
+    _useCondition = widget.section.hasCondition;
+    _conditionParentId = widget.section.conditionalParentSectionId;
+    if (_conditionParentId.isEmpty && widget.possibleParents.isNotEmpty) {
+      _conditionParentId = widget.possibleParents.first.id;
+    }
+    _conditionEquals = TextEditingController(text: widget.section.conditionalEquals);
   }
 
   @override
-  void dispose() { _title.dispose(); super.dispose(); }
+  void dispose() {
+    _title.dispose();
+    _options.dispose();
+    _conditionEquals.dispose();
+    super.dispose();
+  }
+
+  List<String> _parsedOptions() {
+    return _options.text
+        .split(RegExp(r'[\n,;]+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final maxHeight = MediaQuery.of(context).size.height * 0.88;
+
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(title: Text('Edit section')),
-            TextField(
-              controller: _title,
-              decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder(), isDense: true),
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Formatting',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: DropdownButtonFormField<HeadingLevel>(
-                    initialValue: _level,
-                    decoration: const InputDecoration(labelText: 'Size', border: OutlineInputBorder(), isDense: true),
-                    items: HeadingLevel.values.map((h) => DropdownMenuItem(value: h, child: Text(h.name.toUpperCase()))).toList(),
-                    onChanged: (v) => setState(() => _level = v ?? _level),
+                const ListTile(
+                  title: Text('Edit section'),
+                  subtitle: Text('These settings affect this template field in future reports.'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                TextField(
+                  controller: _title,
+                  decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder(), isDense: true),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Formatting',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<TitleAlign>(
-                    initialValue: _align,
-                    decoration: const InputDecoration(labelText: 'Align', border: OutlineInputBorder(), isDense: true),
-                    items: TitleAlign.values.map((a) => DropdownMenuItem(value: a, child: Text(a.name))).toList(),
-                    onChanged: (v) => setState(() => _align = v ?? _align),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<HeadingLevel>(
+                        initialValue: _level,
+                        decoration: const InputDecoration(labelText: 'Size', border: OutlineInputBorder(), isDense: true),
+                        items: HeadingLevel.values.map((h) => DropdownMenuItem(value: h, child: Text(h.name.toUpperCase()))).toList(),
+                        onChanged: (v) => setState(() => _level = v ?? _level),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<TitleAlign>(
+                        initialValue: _align,
+                        decoration: const InputDecoration(labelText: 'Align', border: OutlineInputBorder(), isDense: true),
+                        items: TitleAlign.values.map((a) => DropdownMenuItem(value: a, child: Text(a.name))).toList(),
+                        onChanged: (v) => setState(() => _align = v ?? _align),
+                      ),
+                    ),
+                  ],
+                ),
+                SwitchListTile(
+                  value: _bold,
+                  onChanged: (v) => setState(() => _bold = v),
+                  title: const Text('Bold title'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                const Divider(height: 24),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Field behavior',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<FieldInputType>(
+                  initialValue: _inputType,
+                  decoration: const InputDecoration(
+                    labelText: 'Input type',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: FieldInputType.values
+                      .map((type) => DropdownMenuItem(value: type, child: Text(type.label)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _inputType = v ?? _inputType),
+                ),
+                if (_inputType != FieldInputType.freeText) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _options,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: _inputType == FieldInputType.yesNo ? 'Options' : 'Options / suggestions',
+                      hintText: _inputType == FieldInputType.yesNo ? 'Yes and No are used automatically' : 'One option per line, or comma-separated',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    enabled: _inputType != FieldInputType.yesNo,
+                  ),
+                ],
+                const SizedBox(height: 4),
+                SwitchListTile(
+                  value: _showInPdf,
+                  onChanged: (v) => setState(() => _showInPdf = v),
+                  title: const Text('Show in PDF'),
+                  subtitle: const Text('Turn off only for internal fields that should not print.'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                CheckboxListTile(
+                  value: _addToRecords,
+                  onChanged: (v) => setState(() => _addToRecords = v ?? false),
+                  title: const Text('Save to Records'),
+                  subtitle: const Text('Store this field as searchable/exportable data.'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                const Divider(height: 24),
+                SwitchListTile(
+                  value: _useCondition,
+                  onChanged: widget.possibleParents.isEmpty
+                      ? null
+                      : (v) => setState(() => _useCondition = v),
+                  title: const Text('Show conditionally'),
+                  subtitle: Text(
+                    widget.possibleParents.isEmpty
+                        ? 'Add another field first to use it as the parent.'
+                        : 'Example: show Biopsy Site only when Biopsy Taken is Yes.',
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                if (_useCondition && widget.possibleParents.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: widget.possibleParents.any((s) => s.id == _conditionParentId)
+                        ? _conditionParentId
+                        : widget.possibleParents.first.id,
+                    decoration: const InputDecoration(
+                      labelText: 'Parent field',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: widget.possibleParents
+                        .map((section) => DropdownMenuItem<String>(
+                              value: section.id,
+                              child: Text(section.title, overflow: TextOverflow.ellipsis),
+                            ))
+                        .toList(growable: false),
+                    onChanged: (value) => setState(() => _conditionParentId = value ?? ''),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _conditionEquals,
+                    decoration: const InputDecoration(
+                      labelText: 'Show when parent value is',
+                      hintText: 'e.g. Yes or Abnormal',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      final options = _inputType == FieldInputType.yesNo
+                          ? const <String>['Yes', 'No']
+                          : _parsedOptions();
+                      Navigator.pop(context, _SectionEditResult(
+                        rename: _title.text.trim(),
+                        style: widget.section.style.copyWith(level: _level, bold: _bold, align: _align),
+                        inputType: _inputType,
+                        options: options,
+                        showInPdf: _showInPdf,
+                        addToRecords: _addToRecords,
+                        conditionalParentSectionId: _useCondition ? _conditionParentId : '',
+                        conditionalEquals: _useCondition ? _conditionEquals.text.trim() : '',
+                      ));
+                    },
+                    child: const Text('Apply'),
                   ),
                 ),
               ],
             ),
-            SwitchListTile(
-              value: _bold,
-              onChanged: (v) => setState(() => _bold = v),
-              title: const Text('Bold title'),
-              contentPadding: EdgeInsets.zero,
-            ),
-
-            const SizedBox(height: 4),
-            Card(
-              elevation: 0,
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
-              child: CheckboxListTile(
-                value: _addToRecords,
-                onChanged: (v) => setState(() => _addToRecords = v ?? false),
-                title: const Text('Add this section to Records'),
-                subtitle: const Text('Will be included if the report is saved to Records.'),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            FilledButton(
-              onPressed: () => Navigator.pop(context, _SectionEditResult(
-                rename: _title.text.trim(),
-                style: widget.section.style.copyWith(level: _level, bold: _bold, align: _align),
-                addToRecords: _addToRecords,
-              )),
-              child: const Text('Apply'),
-            ),
-          ],
+          ),
         ),
       ),
     );

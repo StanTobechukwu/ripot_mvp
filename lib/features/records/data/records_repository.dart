@@ -11,10 +11,11 @@ import '../domain/record_models.dart';
 
 
 class _RecordBuildData {
-  const _RecordBuildData({required this.values, required this.labels});
+  const _RecordBuildData({required this.values, required this.labels, required this.sources});
 
   final Map<String, String> values;
   final Map<String, String> labels;
+  final Map<String, String> sources;
 }
 
 class RecordsMergeResult {
@@ -39,6 +40,7 @@ class RecordsRepository {
   static const _recordLinkPrefix = 'records.byreport.';
   static const _vocabPrefix = 'records.vocab.';
   static const _customFieldsKey = 'records.custom_fields';
+  static const _registriesKey = 'records.registries';
 
   Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
 
@@ -66,6 +68,223 @@ class RecordsRepository {
     await prefs.setStringList(_recordsIndexKey, ids);
   }
 
+  Future<List<RecordRegistry>> loadRegistries() async {
+    final prefs = await _prefs;
+    final raw = prefs.getString(_registriesKey);
+    if (raw == null || raw.trim().isEmpty) return <RecordRegistry>[];
+    try {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      return decoded
+          .map((e) => RecordRegistry.fromJson((e as Map).cast<String, dynamic>()))
+          .where((registry) => registry.registryId.trim().isNotEmpty && registry.title.trim().isNotEmpty)
+          .toList(growable: false);
+    } catch (_) {
+      return <RecordRegistry>[];
+    }
+  }
+
+  Future<void> _saveRegistries(List<RecordRegistry> registries) async {
+    final prefs = await _prefs;
+    await prefs.setString(
+      _registriesKey,
+      jsonEncode(registries.map((e) => e.toJson()).toList(growable: false)),
+    );
+  }
+
+  Future<RecordRegistry> createRegistry({required String title, String description = ''}) async {
+    final trimmedTitle = title.trim();
+    if (trimmedTitle.isEmpty) {
+      throw ArgumentError('Registry title is required.');
+    }
+    final registries = await loadRegistries();
+    final registry = RecordRegistry(
+      registryId: newId('reg'),
+      title: trimmedTitle,
+      description: description.trim(),
+      createdAtIso: DateTime.now().toIso8601String(),
+    );
+    await _saveRegistries([...registries, registry]);
+    return registry;
+  }
+
+
+  Future<void> updateRegistry({
+    required String registryId,
+    required String title,
+    String description = '',
+  }) async {
+    final trimmedRegistryId = registryId.trim();
+    final trimmedTitle = title.trim();
+    if (trimmedRegistryId.isEmpty || trimmedTitle.isEmpty) return;
+    final registries = await loadRegistries();
+    final updated = registries.map((registry) {
+      if (registry.registryId != trimmedRegistryId) return registry;
+      return registry.copyWith(
+        title: trimmedTitle,
+        description: description.trim(),
+      );
+    }).toList(growable: false);
+    await _saveRegistries(updated);
+  }
+
+  Future<void> addRegistryField({
+    required String registryId,
+    required String label,
+    String hint = '',
+    List<String> suggestions = const <String>[],
+    String conditionalOnFieldKey = '',
+    String conditionalEquals = '',
+  }) async {
+    final trimmedLabel = label.trim();
+    final trimmedRegistryId = registryId.trim();
+    if (trimmedRegistryId.isEmpty || trimmedLabel.isEmpty) return;
+    final registries = await loadRegistries();
+    final updated = <RecordRegistry>[];
+    for (final registry in registries) {
+      if (registry.registryId != trimmedRegistryId) {
+        updated.add(registry);
+        continue;
+      }
+      final baseSlug = _slug(trimmedLabel);
+      final existingSameConcept = registry.fields.any((field) =>
+          field.label.trim().toLowerCase() == trimmedLabel.toLowerCase());
+      if (existingSameConcept) {
+        updated.add(registry);
+        continue;
+      }
+      final existingKeys = {
+        ...RecordFieldCatalog.coreFields.map((e) => e.key),
+        ...registry.fields.map((e) => e.key),
+      };
+      var key = 'registry_${trimmedRegistryId}_$baseSlug';
+      var n = 2;
+      while (existingKeys.contains(key)) {
+        key = 'registry_${trimmedRegistryId}_${baseSlug}_$n';
+        n += 1;
+      }
+      final cleanedSuggestions = suggestions
+          .map((e) => _normalizeVocabularyValue(e))
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+      updated.add(registry.copyWith(fields: [
+        ...registry.fields,
+        RecordFieldDef(
+          key: key,
+          label: trimmedLabel,
+          hint: hint.trim().isEmpty ? 'Registry field' : hint.trim(),
+          builtInSuggestions: cleanedSuggestions,
+          isSystem: false,
+          registryId: trimmedRegistryId,
+          conditionalOnFieldKey: conditionalOnFieldKey.trim(),
+          conditionalEquals: conditionalEquals.trim(),
+        ),
+      ]));
+    }
+    await _saveRegistries(updated);
+  }
+
+
+  Future<void> updateRegistryField({
+    required String registryId,
+    required String fieldKey,
+    required String label,
+    String hint = '',
+    List<String> suggestions = const <String>[],
+    String conditionalOnFieldKey = '',
+    String conditionalEquals = '',
+  }) async {
+    final trimmedRegistryId = registryId.trim();
+    final trimmedFieldKey = fieldKey.trim();
+    final trimmedLabel = label.trim();
+    if (trimmedRegistryId.isEmpty || trimmedFieldKey.isEmpty || trimmedLabel.isEmpty) return;
+    final cleanedSuggestions = suggestions
+        .map((e) => _normalizeVocabularyValue(e))
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final registries = await loadRegistries();
+    final updated = registries.map((registry) {
+      if (registry.registryId != trimmedRegistryId) return registry;
+      final nextFields = registry.fields.map((field) {
+        if (field.key != trimmedFieldKey) return field;
+        return field.copyWith(
+          label: trimmedLabel,
+          hint: hint.trim().isEmpty ? field.hint : hint.trim(),
+          builtInSuggestions: cleanedSuggestions,
+          conditionalOnFieldKey: conditionalOnFieldKey.trim(),
+          conditionalEquals: conditionalEquals.trim(),
+        );
+      }).toList(growable: false);
+      return registry.copyWith(fields: nextFields);
+    }).toList(growable: false);
+    await _saveRegistries(updated);
+  }
+
+  Future<void> deleteRegistryField({
+    required String registryId,
+    required String fieldKey,
+  }) async {
+    final trimmedRegistryId = registryId.trim();
+    final trimmedFieldKey = fieldKey.trim();
+    if (trimmedRegistryId.isEmpty || trimmedFieldKey.isEmpty) return;
+    final registries = await loadRegistries();
+    final updated = registries.map((registry) {
+      if (registry.registryId != trimmedRegistryId) return registry;
+      return registry.copyWith(
+        fields: registry.fields.where((field) => field.key != trimmedFieldKey).toList(growable: false),
+      );
+    }).toList(growable: false);
+    await _saveRegistries(updated);
+  }
+
+
+  Future<void> deleteRegistry(String registryId) async {
+    final trimmedRegistryId = registryId.trim();
+    if (trimmedRegistryId.isEmpty) return;
+    final registries = await loadRegistries();
+    final updatedRegistries = registries.where((r) => r.registryId != trimmedRegistryId).toList(growable: false);
+    await _saveRegistries(updatedRegistries);
+
+    final prefs = await _prefs;
+    final ids = await _readIndex();
+    for (final id in ids) {
+      final raw = prefs.getString(_recordKey(id));
+      if (raw == null || raw.trim().isEmpty) continue;
+      try {
+        final entry = RecordEntry.decode(raw);
+        if (!entry.registryIds.contains(trimmedRegistryId)) continue;
+        final updatedEntry = entry.copyWith(
+          updatedAtIso: DateTime.now().toIso8601String(),
+          registryIds: entry.registryIds.where((rid) => rid != trimmedRegistryId).toList(growable: false),
+        );
+        await prefs.setString(_recordKey(id), updatedEntry.encode());
+      } catch (_) {}
+    }
+  }
+
+  Future<void> assignRecordToRegistry({required String recordEntryId, required String registryId}) async {
+    final trimmedRegistryId = registryId.trim();
+    if (trimmedRegistryId.isEmpty) return;
+    final existing = await loadByRecordId(recordEntryId);
+    if (existing == null) return;
+    if (existing.registryIds.contains(trimmedRegistryId)) return;
+    await saveRecord(existing.copyWith(
+      updatedAtIso: DateTime.now().toIso8601String(),
+      registryIds: [...existing.registryIds, trimmedRegistryId],
+    ));
+  }
+
+  Future<void> removeRecordFromRegistry({required String recordEntryId, required String registryId}) async {
+    final existing = await loadByRecordId(recordEntryId);
+    if (existing == null) return;
+    final nextRegistries = existing.registryIds.where((id) => id != registryId).toList(growable: false);
+    await saveRecord(existing.copyWith(
+      updatedAtIso: DateTime.now().toIso8601String(),
+      registryIds: nextRegistries,
+    ));
+  }
+
   Future<List<RecordFieldDef>> loadCustomFields() async {
     final prefs = await _prefs;
     final raw = prefs.getString(_customFieldsKey);
@@ -91,7 +310,12 @@ class RecordsRepository {
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
     var key = slug.isEmpty ? newId('field') : slug;
-    final existingKeys = {...RecordFieldCatalog.coreFields.map((e) => e.key), ...current.map((e) => e.key)};
+    final existingFields = [...RecordFieldCatalog.coreFields, ...current];
+    final existingSameConcept = existingFields.any((field) =>
+        field.key.trim().toLowerCase() == key.toLowerCase() ||
+        field.label.trim().toLowerCase() == trimmedLabel.toLowerCase());
+    if (existingSameConcept) return;
+    final existingKeys = existingFields.map((e) => e.key).toSet();
     var n = 2;
     final baseKey = key;
     while (existingKeys.contains(key)) {
@@ -113,7 +337,50 @@ class RecordsRepository {
   }
 
 
-  Future<void> deleteCustomField(String fieldKey) async {
+  Future<void> updateCustomField({
+    required String fieldKey,
+    required String label,
+    String hint = '',
+    String procedureScope = '',
+    List<String>? suggestions,
+  }) async {
+    final trimmedKey = fieldKey.trim();
+    final trimmedLabel = label.trim();
+    if (trimmedKey.isEmpty || trimmedLabel.isEmpty) return;
+    final current = await loadCustomFields();
+    final updated = current.map((field) {
+      if (field.key != trimmedKey) return field;
+      return field.copyWith(
+        label: trimmedLabel,
+        hint: hint.trim().isEmpty ? field.hint : hint.trim(),
+        procedureScope: procedureScope.trim(),
+        builtInSuggestions: suggestions ?? field.builtInSuggestions,
+      );
+    }).toList(growable: false);
+    final prefs = await _prefs;
+    await prefs.setString(_customFieldsKey, jsonEncode(updated.map((e) => e.toJson()).toList(growable: false)));
+
+    final ids = await _readIndex();
+    for (final id in ids) {
+      final raw = prefs.getString(_recordKey(id));
+      if (raw == null || raw.trim().isEmpty) continue;
+      try {
+        final entry = RecordEntry.decode(raw);
+        if (!entry.values.containsKey(trimmedKey) && !entry.fieldLabels.containsKey(trimmedKey)) continue;
+        final labels = Map<String, String>.from(entry.fieldLabels)..[trimmedKey] = trimmedLabel;
+        final updatedEntry = entry.copyWith(
+          updatedAtIso: DateTime.now().toIso8601String(),
+          fieldLabels: labels,
+        );
+        await prefs.setString(_recordKey(id), updatedEntry.encode());
+      } catch (_) {
+        // Keep corrupt or legacy records untouched.
+      }
+    }
+  }
+
+
+  Future<void> deleteCustomField(String fieldKey, {bool deleteSavedValues = false}) async {
     final trimmedKey = fieldKey.trim();
     if (trimmedKey.isEmpty) return;
 
@@ -123,6 +390,8 @@ class RecordsRepository {
     await prefs.setString(_customFieldsKey, jsonEncode(updatedFields.map((e) => e.toJson()).toList(growable: false)));
     await prefs.remove(_vocabKey(trimmedKey));
 
+    if (!deleteSavedValues) return;
+
     final ids = await _readIndex();
     for (final id in ids) {
       final raw = prefs.getString(_recordKey(id));
@@ -131,16 +400,25 @@ class RecordsRepository {
         final entry = RecordEntry.decode(raw);
         if (!entry.values.containsKey(trimmedKey)) continue;
         final values = Map<String, String>.from(entry.values)..remove(trimmedKey);
+        final labels = Map<String, String>.from(entry.fieldLabels)..remove(trimmedKey);
         final updatedEntry = entry.copyWith(
           updatedAtIso: DateTime.now().toIso8601String(),
           values: values,
+          fieldLabels: labels,
         );
         await prefs.setString(_recordKey(id), updatedEntry.encode());
       } catch (_) {}
     }
   }
 
-  Future<List<RecordFieldDef>> allFields() async => [...RecordFieldCatalog.coreFields, ...await loadCustomFields()];
+  Future<List<RecordFieldDef>> allFields() async {
+    final registries = await loadRegistries();
+    return [
+      ...RecordFieldCatalog.coreFields,
+      ...await loadCustomFields(),
+      ...registries.expand((registry) => registry.fields),
+    ];
+  }
 
   Future<List<RecordSummary>> listRecords() async {
     final prefs = await _prefs;
@@ -163,6 +441,8 @@ class RecordsRepository {
             updatedAt: DateTime.tryParse(entry.updatedAtIso) ?? DateTime.now(),
             values: entry.values,
             fieldLabels: entry.fieldLabels,
+            fieldSources: entry.fieldSources,
+            registryIds: entry.registryIds,
           ),
         );
       } catch (_) {}
@@ -201,6 +481,8 @@ class RecordsRepository {
     await _writeIndex(ids);
 
     final procedure = entry.valueOf(RecordFieldCatalog.procedure.key);
+    final fields = await allFields();
+    final fieldByKey = {for (final field in fields) field.key: field};
     for (final item in entry.values.entries) {
       if (item.key == RecordFieldCatalog.reportId.key ||
           item.key == RecordFieldCatalog.reportDate.key) {
@@ -208,10 +490,19 @@ class RecordsRepository {
       }
       final value = item.value.trim();
       if (value.isEmpty) continue;
+      final field = fieldByKey[item.key];
+      // Do not learn patient names, free-form custom values, or registry values as persistent suggestions.
+      // Suggestions should come from built-ins, procedure/report-type vocabulary, or short list-like clinical fields.
+      if (field?.isRegistryField == true) continue;
+      final label = entry.fieldLabels[item.key] ?? field?.label;
+      final shouldLearn = item.key == RecordFieldCatalog.procedure.key ||
+          (field?.builtInSuggestions.isNotEmpty == true) ||
+          _isListLikeVocabularyField(item.key, label: label);
+      if (!shouldLearn) continue;
       await saveVocabularyValue(
         item.key,
         value,
-        label: entry.fieldLabels[item.key],
+        label: label,
         procedure: item.key == RecordFieldCatalog.procedure.key ? '' : procedure,
       );
     }
@@ -279,14 +570,13 @@ class RecordsRepository {
     final trimmed = _normalizeVocabularyValue(value);
     if (trimmed.isEmpty) return const <String>[];
 
-    // If a user separates values with commas/semicolons, keep the full value in
-    // the saved record but learn the individual short parts as suggestions.
-    // This keeps suggestion chips useful for fields such as Indication,
-    // Diagnosis, Findings, etc., without forcing the user to configure a type.
-    final hasSeparators = trimmed.contains(RegExp(r'[,;]'));
-    final shouldSplit = hasSeparators && _isListLikeVocabularyField(fieldKey, label: label);
+    // List-like fields may be entered as comma-separated text, semicolon lists,
+    // new lines, bullets, or numbered lists. Keep the full value in the saved
+    // record, but learn the individual short entries as future suggestions.
+    final shouldSplit = _isListLikeVocabularyField(fieldKey, label: label) &&
+        trimmed.contains(RegExp(r'[,;\n\r]|(?:^|\s)\d+[\.)]\s+|(?:^|\s)[•\-]\s+'));
     final rawCandidates = shouldSplit
-        ? trimmed.split(RegExp(r'[,;]+')).map(_normalizeVocabularyValue)
+        ? _splitListLikeVocabulary(trimmed)
         : <String>[trimmed];
 
     final out = <String>[];
@@ -300,6 +590,18 @@ class RecordsRepository {
       if (seen.add(key)) out.add(candidate);
     }
     return out;
+  }
+
+  List<String> _splitListLikeVocabulary(String value) {
+    final normalized = value
+        .replaceAll(RegExp(r'\r\n?'), '\n')
+        .replaceAll(RegExp(r'(?m)^\s*\d+[\.)]\s+'), '')
+        .replaceAll(RegExp(r'(?m)^\s*[•\-]\s+'), '');
+    return normalized
+        .split(RegExp(r'[,;\n]+|\s+\d+[\.)]\s+|\s+[•\-]\s+'))
+        .map(_normalizeVocabularyValue)
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
   }
 
   bool _isListLikeVocabularyField(String fieldKey, {String? label}) {
@@ -357,6 +659,7 @@ class RecordsRepository {
       'ripotLinkedReportId',
       'ripotCreatedAtIso',
       'ripotUpdatedAtIso',
+      'ripotRegistryIds',
       ...fieldKeys,
     ];
     buffer.writeln(headers.map(esc).join(','));
@@ -368,6 +671,7 @@ class RecordsRepository {
         row.linkedReportId,
         '',
         row.updatedAt.toIso8601String(),
+        row.registryIds.join(';'),
         ...fieldKeys.map((key) => key == RecordFieldCatalog.reportDate.key ? _csvDate(entryValues[key] ?? '') : (entryValues[key] ?? '')),
       ];
       buffer.writeln(cells.map(esc).join(','));
@@ -415,12 +719,18 @@ class RecordsRepository {
       if ((values[RecordFieldCatalog.reportId.key] ?? '').trim().isEmpty && linkedReportId.isNotEmpty) {
         values[RecordFieldCatalog.reportId.key] = linkedReportId;
       }
+      final registryIds = (map['ripotRegistryIds'] ?? '')
+          .split(RegExp(r'[;,]+'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
       final incoming = RecordEntry(
         recordEntryId: recordId,
         linkedReportId: linkedReportId.isEmpty ? recordId : linkedReportId,
         createdAtIso: createdAtIso,
         updatedAtIso: updatedAt.toIso8601String(),
         values: values,
+        registryIds: registryIds,
       );
 
       final existing = await loadByRecordId(recordId);
@@ -496,6 +806,7 @@ class RecordsRepository {
     if (existing != null) {
       final mergedValues = Map<String, String>.from(existing.values);
       final mergedLabels = Map<String, String>.from(existing.fieldLabels);
+      final mergedSources = Map<String, String>.from(existing.fieldSources);
 
       // Refresh system/template-derived values from the current report so newly
       // ticked Add-to-Records sections appear when editing an existing record.
@@ -508,8 +819,12 @@ class RecordsRepository {
         if (entry.value.trim().isEmpty) continue;
         mergedLabels[entry.key] = entry.value;
       }
+      for (final entry in derived.sources.entries) {
+        if (entry.value.trim().isEmpty) continue;
+        mergedSources[entry.key] = entry.value;
+      }
 
-      return existing.copyWith(values: mergedValues, fieldLabels: mergedLabels);
+      return existing.copyWith(values: mergedValues, fieldLabels: mergedLabels, fieldSources: mergedSources);
     }
 
     return RecordEntry(
@@ -519,6 +834,7 @@ class RecordsRepository {
       updatedAtIso: now,
       values: derived.values,
       fieldLabels: derived.labels,
+      fieldSources: derived.sources,
     );
   }
 
@@ -535,6 +851,12 @@ class RecordsRepository {
       RecordFieldCatalog.procedure.key: RecordFieldCatalog.procedure.label,
       RecordFieldCatalog.doctor.key: RecordFieldCatalog.doctor.label,
     };
+    final sources = <String, String>{
+      RecordFieldCatalog.reportId.key: 'template',
+      RecordFieldCatalog.reportDate.key: 'template',
+      RecordFieldCatalog.procedure.key: 'template',
+      RecordFieldCatalog.doctor.key: 'template',
+    };
 
     // Subject Info is inherently record-like, so every filled Subject Info field
     // is copied automatically using the user's visible field title.
@@ -546,6 +868,7 @@ class RecordsRepository {
         final key = _recordKeyForSubjectField(field.key, field.title);
         values[key] = value;
         labels[key] = field.title.trim().isEmpty ? key : field.title.trim();
+        sources[key] = 'template';
 
         // Keep core summary keys populated without forcing their default labels
         // into the Record Details UI.
@@ -554,11 +877,13 @@ class RecordsRepository {
           labels[RecordFieldCatalog.subjectName.key] = field.title.trim().isEmpty
               ? RecordFieldCatalog.subjectName.label
               : field.title.trim();
+          sources[RecordFieldCatalog.subjectName.key] = 'template';
         } else if (field.key == 'subjectId') {
           values[RecordFieldCatalog.patientReference.key] = value;
           labels[RecordFieldCatalog.patientReference.key] = field.title.trim().isEmpty
               ? RecordFieldCatalog.patientReference.label
               : field.title.trim();
+          sources[RecordFieldCatalog.patientReference.key] = 'template';
         }
       }
     }
@@ -566,10 +891,10 @@ class RecordsRepository {
     // Explicit template/outline mappings are trusted. Old guessing is not used
     // once the user has chosen Add to Records on sections.
     for (final root in doc.roots) {
-      _collectExplicitRecordFields(root, values, labels);
+      _collectExplicitRecordFields(root, values, labels, sources, doc.roots);
     }
 
-    return _RecordBuildData(values: values, labels: labels);
+    return _RecordBuildData(values: values, labels: labels, sources: sources);
   }
 
   String _recordKeyForSubjectField(String fieldKey, String title) {
@@ -594,11 +919,30 @@ class RecordsRepository {
     if (normalized == 'diagnosis' || normalized == 'diagnoses' || normalized == 'impression') {
       return RecordFieldCatalog.diagnosis.key;
     }
-    if (normalized == 'doctor' || normalized == 'operator' || normalized == 'consultant') {
+    if (normalized == 'biopsy' || normalized == 'biopsy taken') {
+      return RecordFieldCatalog.biopsyTaken.key;
+    }
+    if (normalized == 'histology' || normalized == 'histology result' || normalized == 'pathology' || normalized == 'pathology result') {
+      return RecordFieldCatalog.histologyResult.key;
+    }
+    if (normalized == 'intervention' || normalized == 'therapy' || normalized == 'intervention therapy' || normalized == 'intervention / therapy') {
+      return RecordFieldCatalog.intervention.key;
+    }
+    if (normalized == 'complication' || normalized == 'complications') {
+      return RecordFieldCatalog.complications.key;
+    }
+    if (normalized == 'recommendation' || normalized == 'recommendations') {
+      return RecordFieldCatalog.recommendations.key;
+    }
+    if (normalized == 'facility' || normalized == 'hospital' || normalized == 'centre' || normalized == 'center') {
+      return RecordFieldCatalog.facility.key;
+    }
+    if (normalized == 'doctor' || normalized == 'operator' || normalized == 'consultant' || normalized == 'endoscopist') {
       return RecordFieldCatalog.doctor.key;
     }
-    final slug = _slug(section.title);
-    return 'section_$slug';
+    // Default to the clean slug so a future template field can link/merge
+    // with an existing custom record field that used the same label.
+    return _slug(section.title);
   }
 
   String _slug(String value) {
@@ -610,11 +954,33 @@ class RecordsRepository {
     return slug.isEmpty ? newId('field') : slug;
   }
 
+
+  SectionNode? _findSectionById(List<SectionNode> roots, String id) {
+    for (final section in roots) {
+      if (section.id == id) return section;
+      final found = _findSectionById(section.children.whereType<SectionNode>().toList(growable: false), id);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  bool _sectionConditionAllows(SectionNode section, List<SectionNode> roots) {
+    if (!section.hasCondition) return true;
+    final parent = _findSectionById(roots, section.conditionalParentSectionId);
+    if (parent == null) return true;
+    final parentValue = _firstNonEmptyContent(parent).trim().toLowerCase();
+    final expected = section.conditionalEquals.trim().toLowerCase();
+    return expected.isEmpty || parentValue == expected;
+  }
+
   void _collectExplicitRecordFields(
     SectionNode section,
     Map<String, String> values,
     Map<String, String> labels,
+    Map<String, String> sources,
+    List<SectionNode> roots,
   ) {
+    if (!_sectionConditionAllows(section, roots)) return;
     if (section.addToRecords) {
       final key = _recordKeyForSectionTitle(section);
       final value = _firstNonEmptyContent(section).trim();
@@ -623,11 +989,12 @@ class RecordsRepository {
       // out of table suggestions/columns by the UI and vocabulary logic.
       values[key] = value;
       labels[key] = section.title.trim().isEmpty ? key : section.title.trim();
+      sources[key] = 'template';
     }
 
     for (final child in section.children) {
       if (child is SectionNode) {
-        _collectExplicitRecordFields(child, values, labels);
+        _collectExplicitRecordFields(child, values, labels, sources, roots);
       }
     }
   }

@@ -13,14 +13,28 @@ class TemplateEditorProvider extends ChangeNotifier {
 
   TemplateEditorProvider(this._template);
 
+  bool _hasUnsavedChanges = false;
+
   TemplateDoc get template => _template;
   SubjectInfoBlockDef get subjectInfo => _template.subjectInfo;
+  bool get hasUnsavedChanges => _hasUnsavedChanges;
+
+  void markSaved() {
+    if (!_hasUnsavedChanges) return;
+    _hasUnsavedChanges = false;
+    notifyListeners();
+  }
+
+  void _markDirty() {
+    _hasUnsavedChanges = true;
+  }
 
   // ---------- block settings ----------
   void toggleSubjectInfo(bool enabled) {
     _template = _template.copyWith(
       subjectInfo: subjectInfo.copyWith(enabled: enabled),
     );
+    _markDirty();
     notifyListeners();
   }
 
@@ -28,6 +42,7 @@ class TemplateEditorProvider extends ChangeNotifier {
     _template = _template.copyWith(
       subjectInfo: subjectInfo.copyWith(heading: heading.trim()),
     );
+    _markDirty();
     notifyListeners();
   }
   void setSubjectInfoColumns(int columns) {
@@ -35,6 +50,7 @@ class TemplateEditorProvider extends ChangeNotifier {
   _template = _template.copyWith(
     subjectInfo: subjectInfo.copyWith(columns: safe),
   );
+  _markDirty();
   notifyListeners();
 }
 
@@ -129,6 +145,7 @@ class TemplateEditorProvider extends ChangeNotifier {
     _template = _template.copyWith(
       subjectInfo: subjectInfo.copyWith(fields: fields),
     );
+    _markDirty();
     notifyListeners();
   }
 
@@ -153,6 +170,7 @@ class TemplateEditorProvider extends ChangeNotifier {
       roots: [..._template.roots, SectionNode(id: newId('sec'), title: t, indent: 0)],
       updatedAt: DateTime.now(),
     );
+    _markDirty();
     notifyListeners();
   }
 
@@ -170,6 +188,7 @@ class TemplateEditorProvider extends ChangeNotifier {
       ),
       updatedAt: DateTime.now(),
     );
+    _markDirty();
     notifyListeners();
   }
 
@@ -180,6 +199,7 @@ class TemplateEditorProvider extends ChangeNotifier {
       roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(title: t)),
       updatedAt: DateTime.now(),
     );
+    _markDirty();
     notifyListeners();
   }
 
@@ -188,15 +208,40 @@ class TemplateEditorProvider extends ChangeNotifier {
       roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(style: style)),
       updatedAt: DateTime.now(),
     );
+    _markDirty();
+    notifyListeners();
+  }
+
+  void updateSectionFieldSettings(
+    String sectionId, {
+    FieldInputType? inputType,
+    List<String>? options,
+    bool? showInPdf,
+    bool? addToRecords,
+    String? conditionalParentSectionId,
+    String? conditionalEquals,
+  }) {
+    _template = _template.copyWith(
+      roots: _updateTree(
+        _template.roots,
+        sectionId,
+        (s) => s.copyWith(
+          inputType: inputType,
+          options: options,
+          showInPdf: showInPdf,
+          addToRecords: addToRecords,
+          conditionalParentSectionId: conditionalParentSectionId,
+          conditionalEquals: conditionalEquals,
+        ),
+      ),
+      updatedAt: DateTime.now(),
+    );
+    _markDirty();
     notifyListeners();
   }
 
   void setSectionAddToRecords(String sectionId, bool value) {
-    _template = _template.copyWith(
-      roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(addToRecords: value)),
-      updatedAt: DateTime.now(),
-    );
-    notifyListeners();
+    updateSectionFieldSettings(sectionId, addToRecords: value);
   }
 
   void toggleCollapsed(String sectionId) {
@@ -212,6 +257,7 @@ class TemplateEditorProvider extends ChangeNotifier {
       roots: _deleteNode(_template.roots, sectionId),
       updatedAt: DateTime.now(),
     );
+    _markDirty();
     notifyListeners();
   }
 
@@ -220,6 +266,7 @@ class TemplateEditorProvider extends ChangeNotifier {
       roots: _moveSectionAmongSiblings(_template.roots, sectionId, -1),
       updatedAt: DateTime.now(),
     );
+    _markDirty();
     notifyListeners();
   }
 
@@ -228,6 +275,7 @@ class TemplateEditorProvider extends ChangeNotifier {
       roots: _moveSectionAmongSiblings(_template.roots, sectionId, 1),
       updatedAt: DateTime.now(),
     );
+    _markDirty();
     notifyListeners();
   }
 

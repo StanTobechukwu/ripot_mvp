@@ -69,6 +69,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> with WidgetsBin
   final Map<String, SafeTextController> _contentControllers = {};
   final Map<String, SafeFocusNode> _contentFocus = {};
 
+  // Per-report escape hatch: a structured field can be temporarily written as
+  // free text in the Report Editor without changing the template definition.
+  // This is intentionally session/document-instance level UI state, not a
+  // template setting.
+  final Set<String> _freeTextOverrideContentIds = {};
+
   // Keeps typing stable for Signer fields.
   late final SafeTextController _roleTitleC;
   late final SafeTextController _signerNameC;
@@ -198,6 +204,48 @@ void initState() {
     if (!_reportTitleF.isDisposed) _reportTitleF.dispose();
 
     super.dispose();
+  }
+
+
+  SectionNode? _findSectionById(List<SectionNode> roots, String id) {
+    for (final section in roots) {
+      if (section.id == id) return section;
+      final found = _findSectionById(section.children.whereType<SectionNode>().toList(growable: false), id);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  String _sectionFirstContentValue(SectionNode section) {
+    for (final child in section.children) {
+      if (child is ContentNode) {
+        final controller = _contentControllers[child.id];
+        final text = (controller != null && !controller.isDisposed) ? controller.text : child.text;
+        if (text.trim().isNotEmpty) return text.trim();
+      } else if (child is SectionNode) {
+        final nested = _sectionFirstContentValue(child);
+        if (nested.trim().isNotEmpty) return nested.trim();
+      }
+    }
+    return '';
+  }
+
+  bool _sectionConditionAllows(ReportEditorProvider vm, SectionNode section) {
+    if (!section.hasCondition) return true;
+    final parent = _findSectionById(vm.doc.roots, section.conditionalParentSectionId);
+    if (parent == null) return true;
+    final parentValue = _sectionFirstContentValue(parent).trim().toLowerCase();
+    final expected = section.conditionalEquals.trim().toLowerCase();
+    if (expected.isEmpty) return true;
+    if (parentValue == expected) return true;
+    // Multi-select structured values are stored as semicolon-separated values.
+    // Allow conditions to target one selected value without being affected by
+    // commas that may appear inside report-ready phrases.
+    return parentValue
+        .split(';')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .contains(expected);
   }
 
   Color _accent(BuildContext context) => Theme.of(context).colorScheme.primary;
@@ -1303,6 +1351,7 @@ floatingActionButton: _editorMode
                         )
                       : Column(
                           children: vm.doc.roots
+                              .where((s) => _sectionConditionAllows(vm, s))
                               .map((s) => _formSection(context, vm, s))
                               .toList(growable: false),
                         ),
@@ -1321,7 +1370,8 @@ floatingActionButton: _editorMode
   // ---------------- Form Mode UI ----------------
 
   Widget _formSection(BuildContext context, ReportEditorProvider vm, SectionNode s) {
-    final sectionChildren = s.children.whereType<SectionNode>().toList(growable: false);
+    if (!_sectionConditionAllows(vm, s)) return const SizedBox.shrink();
+    final sectionChildren = s.children.whereType<SectionNode>().where((child) => _sectionConditionAllows(vm, child)).toList(growable: false);
     final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
 
     // Form Mode is intentionally fixed to the block-style entry layout.
@@ -1368,7 +1418,229 @@ floatingActionButton: _editorMode
       );
     }
 
+    List<String> fieldOptions() {
+      if (s.inputType == FieldInputType.yesNo) return const ['Yes', 'No'];
+      final cleaned = s.options
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+      return cleaned;
+    }
+
+    Widget structuredField(ContentNode node, {required String hint}) {
+      final options = fieldOptions();
+      final hasFreeTextOverride = _freeTextOverrideContentIds.contains(node.id);
+
+      Widget freeTextField({String? helperText, bool allowReturnToOptions = true}) {
+        final c = _contentControllerFor(node.id, node.text);
+        final f = _contentFocusFor(node.id);
+        return Padding(
+          padding: EdgeInsets.only(left: contentIndentPx),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                key: ValueKey("content-form-${node.id}"),
+                controller: c,
+                focusNode: f,
+                maxLines: null,
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  hintText: hint,
+                  helperText: helperText,
+                  isDense: true,
+                ),
+                onChanged: (v) => vm.updateContent(node.id, v),
+              ),
+              if (allowReturnToOptions && options.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                  onPressed: () {
+                    _unfocusNow();
+                    setState(() => _freeTextOverrideContentIds.remove(node.id));
+                  },
+                  icon: const Icon(Icons.tune, size: 16),
+                  label: const Text('Use structured options'),
+                ),
+              ],
+            ],
+          ),
+        );
+      }
+
+      // A structured field should render as structured by default. Free text is
+      // available only as a deliberate user override, not as the normal path.
+      if (hasFreeTextOverride) {
+        return freeTextField();
+      }
+
+      // Defensive fallback: if a structured field has no resolvable options
+      // configured, use free text so the Report Editor never gets stuck on
+      // "Preparing field...". This is different from the user override above.
+      if (options.isEmpty) {
+        return freeTextField(
+          helperText: 'No options configured; using free text for this report.',
+          allowReturnToOptions: false,
+        );
+      }
+
+      final current = node.text.trim();
+      final isMulti = s.inputType == FieldInputType.multiSelect;
+      // Multi-select values are stored using semicolons. Do not split on commas:
+      // report-ready suggestions may legitimately contain commas.
+      final selected = current
+          .split(';')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+
+      Future<void> openStructuredPicker() async {
+        _unfocusNow();
+        await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (sheetContext) {
+            final theme = Theme.of(sheetContext);
+            var sheetSelected = <String>{...selected};
+
+            void writeMulti() {
+              vm.updateContent(node.id, sheetSelected.join('; '));
+            }
+
+            return SafeArea(
+              child: StatefulBuilder(
+                builder: (context, setSheetState) {
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          s.title,
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isMulti ? 'Select one or more options' : 'Select one option',
+                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+                        ),
+                        const SizedBox(height: 14),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 360),
+                          child: SingleChildScrollView(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: options.map((option) {
+                                final selectedNow = isMulti ? sheetSelected.contains(option) : current == option;
+                                if (isMulti) {
+                                  return FilterChip(
+                                    label: Text(option),
+                                    selected: selectedNow,
+                                    onSelected: (_) {
+                                      setSheetState(() {
+                                        if (sheetSelected.contains(option)) {
+                                          sheetSelected.remove(option);
+                                        } else {
+                                          sheetSelected.add(option);
+                                        }
+                                      });
+                                      writeMulti();
+                                    },
+                                  );
+                                }
+                                return ChoiceChip(
+                                  label: Text(option),
+                                  selected: selectedNow,
+                                  onSelected: (_) {
+                                    _freeTextOverrideContentIds.remove(node.id);
+                                    vm.updateContent(node.id, option);
+                                    Navigator.of(sheetContext).pop();
+                                  },
+                                );
+                              }).toList(growable: false),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: () {
+                                Navigator.of(sheetContext).pop();
+                                setState(() => _freeTextOverrideContentIds.add(node.id));
+                              },
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              label: const Text('Use free text'),
+                            ),
+                            const Spacer(),
+                            if (current.isNotEmpty)
+                              TextButton(
+                                onPressed: () {
+                                  _freeTextOverrideContentIds.remove(node.id);
+                                  vm.updateContent(node.id, '');
+                                  Navigator.of(sheetContext).pop();
+                                },
+                                child: const Text('Clear'),
+                              ),
+                            FilledButton(
+                              onPressed: () => Navigator.of(sheetContext).pop(),
+                              child: Text(isMulti ? 'Done' : 'Close'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      }
+
+      final valueText = current.isEmpty ? 'Tap to enter finding' : current;
+      final isPlaceholder = current.isEmpty;
+
+      return Padding(
+        padding: EdgeInsets.only(left: contentIndentPx),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: openStructuredPicker,
+          child: InputDecorator(
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              isDense: true,
+              suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            child: Text(
+              valueText,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isPlaceholder ? Colors.black45 : null,
+                    fontStyle: isPlaceholder ? FontStyle.italic : FontStyle.normal,
+                  ),
+            ),
+          ),
+        ),
+      );
+    }
+
     Widget contentField(ContentNode node, {required String hint}) {
+      if (s.inputType != FieldInputType.freeText) {
+        return structuredField(node, hint: hint);
+      }
       final c = _contentControllerFor(node.id, node.text);
       final f = _contentFocusFor(node.id);
 
@@ -1467,6 +1739,18 @@ floatingActionButton: _editorMode
     final node = contentChildren.isNotEmpty ? contentChildren.first : null;
 
     if (node == null) {
+      // Older templates or unusual section-as-field combinations can reach the
+      // editor without a ContentNode. Repair the document after the current
+      // frame instead of leaving the user stuck on "Preparing field...".
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        vm.ensureSectionContent(s.id);
+      });
+
+      final fallbackId = '${s.id}_content_fallback';
+      final c = _contentControllerFor(fallbackId, '');
+      final f = _contentFocusFor(fallbackId);
+
       return Padding(
         padding: const EdgeInsets.only(bottom: _bigGap),
         child: Column(
@@ -1475,12 +1759,17 @@ floatingActionButton: _editorMode
             titleOnly(),
             Padding(
               padding: EdgeInsets.only(left: contentIndentPx),
-              child: const SizedBox(
-                height: 44,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text("Preparing field…"),
+              child: TextField(
+                key: ValueKey("content-form-fallback-${s.id}"),
+                controller: c,
+                focusNode: f,
+                maxLines: null,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: "Enter text…",
+                  isDense: true,
                 ),
+                enabled: false,
               ),
             ),
           ],
@@ -2056,9 +2345,6 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
       if (res.style != null) {
         vm.updateSectionStyle(section.id, res.style!);
       }
-      if (res.addToRecords != null) {
-        vm.setSectionAddToRecords(section.id, res.addToRecords!);
-      }
       _schedulePruneControllers(vm);
     });
   }
@@ -2414,8 +2700,7 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
 class _SectionEditResult {
   final String? rename;
   final TitleStyle? style;
-  final bool? addToRecords;
-  const _SectionEditResult({this.rename, this.style, this.addToRecords});
+  const _SectionEditResult({this.rename, this.style});
 }
 
 class _SectionEditSheet extends StatefulWidget {
@@ -2445,7 +2730,6 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   late HeadingLevel _level;
   late bool _bold;
   late TitleAlign _align;
-  late bool _addToRecords;
 
   @override
   void initState() {
@@ -2454,7 +2738,6 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _level = widget.section.style.level;
     _bold = widget.section.style.bold;
     _align = widget.section.style.align;
-    _addToRecords = widget.section.addToRecords;
   }
 
   @override
@@ -2472,7 +2755,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
           maxHeight: MediaQuery.of(context).size.height * 0.88,
         ),
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 40 + bottomInset),
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 20 + bottomInset),
           child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2535,18 +2818,19 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
             ),
 
             const SizedBox(height: 4),
-            Card(
-              elevation: 0,
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
-              child: CheckboxListTile(
-                value: _addToRecords,
-                onChanged: (v) => setState(() => _addToRecords = v ?? false),
-                title: const Text('Add this section to Records'),
-                subtitle: const Text('Will be included if the report is saved to Records.'),
-                controlAffinity: ListTileControlAffinity.leading,
+            if (widget.section.addToRecords) ...[
+              Card(
+                elevation: 0,
+                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.22),
+                child: const ListTile(
+                  dense: true,
+                  leading: Icon(Icons.fact_check_outlined),
+                  title: Text('Saved to Records'),
+                  subtitle: Text('Change this in Template Editor → Field settings.'),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
+            ],
 
             FilledButton(
               onPressed: () {
@@ -2559,7 +2843,6 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                       bold: _bold,
                       align: _align,
                     ),
-                    addToRecords: _addToRecords,
                   ),
                 );
               },

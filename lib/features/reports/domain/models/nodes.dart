@@ -9,6 +9,23 @@ sealed class Node {
 enum HeadingLevel { h1, h2, h3, h4 }
 enum TitleAlign { left, center, right }
 
+enum FieldInputType { freeText, yesNo, singleSelect, multiSelect }
+
+extension FieldInputTypeLabel on FieldInputType {
+  String get label {
+    switch (this) {
+      case FieldInputType.freeText:
+        return 'Free text';
+      case FieldInputType.yesNo:
+        return 'Yes / No';
+      case FieldInputType.singleSelect:
+        return 'Single select';
+      case FieldInputType.multiSelect:
+        return 'Multi-select';
+    }
+  }
+}
+
 @immutable
 class TitleStyle {
   final HeadingLevel level;
@@ -41,8 +58,27 @@ class SectionNode extends Node {
   final TitleStyle style;
   final List<Node> children;
 
+  /// Input type used by Report Editor for this section's content.
+  final FieldInputType inputType;
+
+  /// Options/suggestions used by structured inputs.
+  final List<String> options;
+
+  /// When false, this field is hidden from the final PDF but can still be used for records.
+  final bool showInPdf;
+
   /// When true, this section's content is copied into Records when the report is saved.
   final bool addToRecords;
+
+  /// Optional simple conditional display rule for this section.
+  /// The section is shown only when the parent section's first content value
+  /// equals [conditionalEquals]. This is intentionally limited to one parent
+  /// and one expected value so the template remains simple.
+  final String conditionalParentSectionId;
+  final String conditionalEquals;
+
+  bool get hasCondition =>
+      conditionalParentSectionId.trim().isNotEmpty && conditionalEquals.trim().isNotEmpty;
 
   /// ✅ indentation level for this section (0,1,2...)
   final int indent;
@@ -53,7 +89,12 @@ class SectionNode extends Node {
     this.collapsed = false,
     this.style = const TitleStyle(),
     this.children = const [],
+    this.inputType = FieldInputType.freeText,
+    this.options = const [],
+    this.showInPdf = true,
     this.addToRecords = false,
+    this.conditionalParentSectionId = '',
+    this.conditionalEquals = '',
     this.indent = 0,
   });
 
@@ -62,7 +103,12 @@ class SectionNode extends Node {
     bool? collapsed,
     TitleStyle? style,
     List<Node>? children,
+    FieldInputType? inputType,
+    List<String>? options,
+    bool? showInPdf,
     bool? addToRecords,
+    String? conditionalParentSectionId,
+    String? conditionalEquals,
     int? indent,
   }) {
     return SectionNode(
@@ -71,7 +117,12 @@ class SectionNode extends Node {
       collapsed: collapsed ?? this.collapsed,
       style: style ?? this.style,
       children: children ?? this.children,
+      inputType: inputType ?? this.inputType,
+      options: options ?? this.options,
+      showInPdf: showInPdf ?? this.showInPdf,
       addToRecords: addToRecords ?? this.addToRecords,
+      conditionalParentSectionId: conditionalParentSectionId ?? this.conditionalParentSectionId,
+      conditionalEquals: conditionalEquals ?? this.conditionalEquals,
       indent: indent ?? this.indent,
     );
   }
@@ -127,7 +178,12 @@ extension TemplateClone on SectionNode {
       title: title,
       collapsed: collapsed,
       style: style,
+      inputType: inputType,
+      options: options,
+      showInPdf: showInPdf,
       addToRecords: addToRecords,
+      conditionalParentSectionId: conditionalParentSectionId,
+      conditionalEquals: conditionalEquals,
       indent: indent,
       children: outChildren,
     );
@@ -140,7 +196,12 @@ extension ReportClone on SectionNode {
       title: title,
       collapsed: collapsed,
       style: style,
+      inputType: inputType,
+      options: options,
+      showInPdf: showInPdf,
       addToRecords: addToRecords,
+      conditionalParentSectionId: conditionalParentSectionId,
+      conditionalEquals: conditionalEquals,
       indent: indent,
       children: children.map((n) {
         if (n is SectionNode) return n.cloneNodeTree();

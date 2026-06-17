@@ -199,7 +199,12 @@ class ReportCodec {
         'collapsed': s.collapsed,
         'style': styleToJson(s.style),
         'children': s.children.map(nodeToJson).toList(),
+        'inputType': s.inputType.name,
+        'options': s.options,
+        'showInPdf': s.showInPdf,
         'addToRecords': s.addToRecords,
+        'conditionalParentSectionId': s.conditionalParentSectionId,
+        'conditionalEquals': s.conditionalEquals,
         'indent': s.indent,
       };
 
@@ -216,7 +221,12 @@ class ReportCodec {
             .whereType<Map>()
             .map((e) => nodeFromJson(Map<String, dynamic>.from(e)))
             .toList(),
+        inputType: _fieldInputTypeFromJson(j['inputType'] as String?),
+        options: ((j['options'] as List?) ?? const []).map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList(growable: false),
+        showInPdf: (j['showInPdf'] as bool?) ?? true,
         addToRecords: (j['addToRecords'] as bool?) ?? false,
+        conditionalParentSectionId: (j['conditionalParentSectionId'] as String?) ?? '',
+        conditionalEquals: (j['conditionalEquals'] as String?) ?? '',
         indent: (j['indent'] as int?) ?? 0,
       );
 
@@ -303,4 +313,13 @@ class ReportCodec {
       return fallback;
     }
   }
+
+  static FieldInputType _fieldInputTypeFromJson(String? name) {
+    if (name == null || name.trim().isEmpty) return FieldInputType.freeText;
+    for (final value in FieldInputType.values) {
+      if (value.name == name) return value;
+    }
+    return FieldInputType.freeText;
+  }
+
 }

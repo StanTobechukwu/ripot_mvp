@@ -27,6 +27,56 @@ class PdfRendererService {
       );
 
 
+  SectionNode? _findSectionById(List<SectionNode> roots, String id) {
+    for (final section in roots) {
+      if (section.id == id) return section;
+      final found = _findSectionById(section.children.whereType<SectionNode>().toList(growable: false), id);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  String _sectionFirstContentValue(SectionNode section) {
+    for (final child in section.children) {
+      if (child is ContentNode) {
+        final text = child.text.trim();
+        if (text.isNotEmpty) return text;
+      } else if (child is SectionNode) {
+        final nested = _sectionFirstContentValue(child);
+        if (nested.isNotEmpty) return nested;
+      }
+    }
+    return '';
+  }
+
+  bool _sectionConditionAllows(ReportDoc doc, SectionNode section) {
+    if (!section.hasCondition) return true;
+    final parent = _findSectionById(doc.roots, section.conditionalParentSectionId);
+    if (parent == null) return true;
+    final parentValue = _sectionFirstContentValue(parent).trim().toLowerCase();
+    final expected = section.conditionalEquals.trim().toLowerCase();
+    if (expected.isEmpty) return true;
+    if (parentValue == expected) return true;
+    // Multi-select structured values are stored as semicolon-separated values.
+    // Allow conditions to target one selected value without being affected by
+    // commas that may appear inside report-ready phrases.
+    return parentValue
+        .split(';')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .contains(expected);
+  }
+
+
+
+  bool _sectionHasAnyPdfOutput(ReportDoc doc, SectionNode section) {
+    if (!_sectionConditionAllows(doc, section)) return false;
+    if (section.showInPdf) return true;
+    return section.children
+        .whereType<SectionNode>()
+        .any((child) => _sectionHasAnyPdfOutput(doc, child));
+  }
+
   Future<Uint8List> generatePdfBytes({
     required ReportDoc doc,
     required PdfPlan plan,
@@ -634,7 +684,19 @@ class PdfRendererService {
     required double contentFontSize,
   }) {
     final out = <pw.Widget>[];
-    final sectionChildren = s.children.whereType<SectionNode>().toList(growable: false);
+    if (!_sectionConditionAllows(doc, s)) return out;
+
+    if (!s.showInPdf) {
+      for (final child in s.children.whereType<SectionNode>()) {
+        out.addAll(_sectionWidgets(child, doc: doc, contentFontSize: contentFontSize));
+      }
+      return out;
+    }
+
+    final sectionChildren = s.children
+        .whereType<SectionNode>()
+        .where((child) => _sectionHasAnyPdfOutput(doc, child))
+        .toList(growable: false);
     final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
 
     final useContentIndent = doc.reportLayout == ReportLayout.block;
@@ -1626,8 +1688,19 @@ class PdfRendererService {
     final out = <_PdfTemplate>[];
 
     void walk(SectionNode s) {
-      final sectionChildren =
-          s.children.whereType<SectionNode>().toList(growable: false);
+      if (!_sectionConditionAllows(doc, s)) return;
+
+      if (!s.showInPdf) {
+        for (final child in s.children.whereType<SectionNode>()) {
+          walk(child);
+        }
+        return;
+      }
+
+      final sectionChildren = s.children
+          .whereType<SectionNode>()
+          .where((child) => _sectionHasAnyPdfOutput(doc, child))
+          .toList(growable: false);
       final contentChildren =
           s.children.whereType<ContentNode>().toList(growable: false);
 

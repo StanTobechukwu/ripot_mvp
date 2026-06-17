@@ -107,6 +107,41 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     }
     await _openPdf(context, report);
   }
+  Future<void> _confirmAndDeleteReport(BuildContext context, ReportSummary report) async {
+    final title = report.hasPdf
+        ? (report.isSavedWork ? 'Delete report?' : 'Delete saved PDF report?')
+        : 'Delete saved work?';
+    final message = report.hasPdf
+        ? 'This will permanently remove the saved PDF report from this device. This action cannot be undone.'
+        : 'This will remove the editable saved work for this report from this device. This action cannot be undone.';
+    final actionLabel = report.hasPdf ? 'Delete PDF' : 'Delete saved work';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+    await context.read<ReportsListProvider>().delete(report.reportId);
+  }
+
 
   Future<void> _openTemplates(BuildContext context) async {
     await Navigator.push(
@@ -307,7 +342,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                         onTap: () => _handleOpen(context, r),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline),
-                          onPressed: () => listVm.delete(r.reportId),
+                          onPressed: () => _confirmAndDeleteReport(context, r),
                         ),
                       ),
                     );

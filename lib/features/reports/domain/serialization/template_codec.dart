@@ -60,7 +60,12 @@ class TemplateCodec {
         'title': s.title,
         'collapsed': s.collapsed,
         'style': _styleToJson(s.style),
+        'inputType': s.inputType.name,
+        'options': s.options,
+        'showInPdf': s.showInPdf,
         'addToRecords': s.addToRecords,
+        'conditionalParentSectionId': s.conditionalParentSectionId,
+        'conditionalEquals': s.conditionalEquals,
         'indent': s.indent, // ✅ added
         'children': s.children.map(_nodeToJson).toList(),
       };
@@ -70,7 +75,12 @@ class TemplateCodec {
         title: (j['title'] as String?) ?? '',
         collapsed: (j['collapsed'] as bool?) ?? false,
         style: _styleFromJson((j['style'] as Map?)?.cast<String, dynamic>() ?? {}),
+        inputType: _fieldInputTypeFromJson(j['inputType'] as String?),
+        options: ((j['options'] as List?) ?? const []).map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList(growable: false),
+        showInPdf: (j['showInPdf'] as bool?) ?? true,
         addToRecords: (j['addToRecords'] as bool?) ?? false,
+        conditionalParentSectionId: (j['conditionalParentSectionId'] as String?) ?? '',
+        conditionalEquals: (j['conditionalEquals'] as String?) ?? '',
         indent: (j['indent'] as int?) ?? 0, // ✅ added
         children: ((j['children'] as List?) ?? const [])
             .map((e) => _nodeFromJson(e as Map<String, dynamic>))
@@ -120,4 +130,13 @@ class TemplateCodec {
           (j['align'] as String?) ?? TitleAlign.left.name),
     );
   }
+
+  static FieldInputType _fieldInputTypeFromJson(String? name) {
+    if (name == null || name.trim().isEmpty) return FieldInputType.freeText;
+    for (final value in FieldInputType.values) {
+      if (value.name == name) return value;
+    }
+    return FieldInputType.freeText;
+  }
+
 }

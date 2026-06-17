@@ -476,22 +476,61 @@ void setSubjectInfoHeading(String heading) {
   SectionNode _hydrateTemplateSectionForForm(SectionNode s) {
     final sectionKids =
         s.children.whereType<SectionNode>().toList(growable: false);
-    if (sectionKids.isNotEmpty) {
-      return s.copyWith(
-        children:
-            sectionKids.map(_hydrateTemplateSectionForForm).toList(growable: false),
-        collapsed: false,
+    final contentKids =
+        s.children.whereType<ContentNode>().toList(growable: false);
+
+    final hasChildDependingOnThisSection = sectionKids.any(
+      (child) => child.conditionalParentSectionId == s.id,
+    );
+
+    // Some sections are pure containers/headings. Others are "section-as-field":
+    // they have their own input value AND may also contain child sections.
+    // Example:
+    //   Biopsy = Yes/No
+    //     From = Antrum
+    // Previously, once a section had child sections, its own ContentNode was
+    // dropped during template hydration. That made the editor show
+    // "Preparing field..." and broke conditional children that depended on the
+    // parent section's value. Preserve/create the parent content only when the
+    // section is actually configured like a field.
+    final shouldHaveOwnContent = contentKids.isNotEmpty ||
+        s.inputType != FieldInputType.freeText ||
+        s.options.any((e) => e.trim().isNotEmpty) ||
+        s.addToRecords ||
+        hasChildDependingOnThisSection;
+
+    final hydratedChildren = <Node>[];
+
+    if (shouldHaveOwnContent) {
+      hydratedChildren.add(
+        contentKids.isNotEmpty
+            ? contentKids.first
+            : ContentNode(
+                id: '${s.id}_content',
+                text: '',
+                indent: s.indent,
+              ),
       );
     }
 
-    // Leaf section: keep only the first ContentNode (if any), else create one.
-    final firstContent = s.children.whereType<ContentNode>().isNotEmpty
-        ? s.children.whereType<ContentNode>().first
-        : null;
+    hydratedChildren.addAll(
+      sectionKids.map(_hydrateTemplateSectionForForm),
+    );
 
-    final content =
-        firstContent ?? ContentNode(id: _id('txt'), text: '', indent: s.indent);
-    return s.copyWith(children: [content], collapsed: false);
+    if (hydratedChildren.isEmpty) {
+      hydratedChildren.add(
+        ContentNode(
+          id: '${s.id}_content',
+          text: '',
+          indent: s.indent,
+        ),
+      );
+    }
+
+    return s.copyWith(
+      children: hydratedChildren.toList(growable: false),
+      collapsed: false,
+    );
   }
 
   bool _sectionHasSectionChildren(SectionNode s) =>
@@ -713,6 +752,36 @@ void setSubjectInfoHeading(String heading) {
   void updateContent(String contentId, String text) {
     _doc = _doc.copyWith(
       roots: _updateContentTree(_doc.roots, contentId, text),
+      updatedAtIso: nowIso(),
+    );
+    _markDirty();
+  }
+
+  /// Defensive repair for older reports/templates that may contain a section
+  /// configured as a field but missing its ContentNode. This prevents the
+  /// Report Editor from getting stuck on "Preparing field...". It is scheduled
+  /// after build by the UI when needed.
+  void ensureSectionContent(String sectionId) {
+    final node = _findNodeById(_doc.roots, sectionId);
+    if (node is! SectionNode) return;
+    if (node.children.any((child) => child is ContentNode)) return;
+
+    _doc = _doc.copyWith(
+      roots: _updateSectionTree(
+        _doc.roots,
+        sectionId,
+        (section) => section.copyWith(
+          children: <Node>[
+            ContentNode(
+              id: '${section.id}_content',
+              text: '',
+              indent: section.indent,
+            ),
+            ...section.children,
+          ],
+          collapsed: false,
+        ),
+      ),
       updatedAtIso: nowIso(),
     );
     _markDirty();
