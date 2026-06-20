@@ -52,10 +52,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     final metrics = PdfLayoutMetrics(
       headerReserve: isPrePrinted
           ? vm.doc.prePrintedTopSpacing.points
-          : (letterhead != null ? 90.0 : 0.0),
+          : _digitalLetterheadHeaderReserve(letterhead),
       footerReserve: isPrePrinted && vm.doc.reservePrePrintedFooter
           ? 50.0
-          : (letterhead != null ? 45.0 : 0.0),
+          : _digitalLetterheadFooterReserve(letterhead),
     );
     final plan = _planBuilder.build(vm.doc, metrics: metrics);
 
@@ -68,6 +68,22 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     );
   }
 
+
+
+  double _digitalLetterheadHeaderReserve(LetterheadTemplate? letterhead) {
+    if (letterhead == null) return 0.0;
+    final hasLogo = (letterhead.logoFilePath ?? '').trim().isNotEmpty;
+    if (!hasLogo) return 36.0;
+    if (letterhead.logoPlacement == LetterheadLogoPlacement.side) return 56.0;
+    return 78.0;
+  }
+
+  double _digitalLetterheadFooterReserve(LetterheadTemplate? letterhead) {
+    if (letterhead == null) return 0.0;
+    final hasFooter = letterhead.footerLeft.trim().isNotEmpty ||
+        letterhead.footerRight.trim().isNotEmpty;
+    return hasFooter ? 28.0 : 0.0;
+  }
 
   Future<String> _savePdfToLocal(Uint8List bytes, ReportDoc doc) async {
     final repo = context.read<ReportsRepository>();

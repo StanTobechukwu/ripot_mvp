@@ -391,21 +391,16 @@ class RecordFieldCatalog {
     facility,
   ];
 
+  // Default export/table keys are limited to stable system/identity fields.
+  // Other fields (including Impression/Intervention/Recommendation) are exported
+  // when they are actually present in records or explicitly created by the user,
+  // template, procedure, or registry. This avoids blank "ghost fields".
   static const exportDefaultKeys = <String>[
     'reportId',
     'reportDate',
     'subjectName',
-    'procedure',
-    'indication',
-    'diagnosis',
-    'biopsyTaken',
-    'histologyResult',
-    'intervention',
-    'complications',
-    'recommendations',
-    'gender',
-    'age',
     'patientReference',
+    'procedure',
     'doctor',
     'facility',
   ];

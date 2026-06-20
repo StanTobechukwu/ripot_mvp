@@ -25,6 +25,14 @@ class TemplateEditorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void renameTemplate(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed == _template.name) return;
+    _template = _template.copyWith(name: trimmed, updatedAt: DateTime.now());
+    _markDirty();
+    notifyListeners();
+  }
+
   void _markDirty() {
     _hasUnsavedChanges = true;
   }
@@ -133,10 +141,20 @@ class TemplateEditorProvider extends ChangeNotifier {
       name: trimmed.isEmpty ? _template.name : trimmed,
       updatedAt: DateTime.now(),
       roots: _template.roots
-          .map((r) => r.toTemplateNode(includeContent: includeContent))
+          .map((r) => _forcePdfVisible(r.toTemplateNode(includeContent: includeContent)))
           .toList(growable: false),
       subjectInfo: _template.subjectInfo,
       signature: _template.signature,
+    );
+  }
+
+  SectionNode _forcePdfVisible(SectionNode section) {
+    return section.copyWith(
+      showInPdf: true,
+      children: section.children.map((child) {
+        if (child is SectionNode) return _forcePdfVisible(child);
+        return child;
+      }).toList(growable: false),
     );
   }
 
@@ -228,7 +246,7 @@ class TemplateEditorProvider extends ChangeNotifier {
         (s) => s.copyWith(
           inputType: inputType,
           options: options,
-          showInPdf: showInPdf,
+          showInPdf: true,
           addToRecords: addToRecords,
           conditionalParentSectionId: conditionalParentSectionId,
           conditionalEquals: conditionalEquals,

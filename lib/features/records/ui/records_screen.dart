@@ -113,25 +113,65 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   List<RecordFieldDef> _fieldsForTable(List<RecordFieldDef> baseFields, List<RecordSummary> rows) {
-    final baseByKey = <String, RecordFieldDef>{for (final field in baseFields) field.key: field};
-    final byKey = <String, RecordFieldDef>{
+    final baseByKey = <String, RecordFieldDef>{
+      for (final field in baseFields) field.key: field,
       for (final field in RecordFieldCatalog.coreFields) field.key: field,
     };
 
+    final byKey = <String, RecordFieldDef>{};
+
+    void addField(String key, {String? label}) {
+      final trimmedKey = key.trim();
+      if (trimmedKey.isEmpty || byKey.containsKey(trimmedKey)) return;
+      final base = baseByKey[trimmedKey];
+      byKey[trimmedKey] = RecordFieldDef(
+        key: trimmedKey,
+        label: label?.trim().isNotEmpty == true ? label!.trim() : (base?.label ?? trimmedKey),
+        hint: base?.hint ?? 'Record value',
+        builtInSuggestions: base?.builtInSuggestions ?? const <String>[],
+        isSystem: base?.isSystem ?? _isSubjectRecordKey(trimmedKey),
+        procedureScope: base?.procedureScope ?? '',
+        registryId: base?.registryId ?? '',
+      );
+    }
+
+    // Always keep a few real system columns. Avoid adding every possible core
+    // field because that creates empty ghost columns such as Intervention or
+    // Recommendations when the user/template never created them.
+    for (final key in RecordFieldCatalog.exportDefaultKeys) {
+      addField(key);
+    }
+
     for (final row in rows) {
+      final accountedKeys = <String>{
+        ...row.fieldLabels.keys,
+        ...row.fieldSources.keys,
+      };
+
       for (final entry in row.values.entries) {
         final key = entry.key.trim();
-        if (key.isEmpty || entry.value.trim().isEmpty || byKey.containsKey(key)) continue;
-        final label = row.fieldLabels[key]?.trim();
+        if (key.isEmpty || byKey.containsKey(key)) continue;
+
+        final hasValue = entry.value.trim().isNotEmpty;
         final base = baseByKey[key];
-        byKey[key] = RecordFieldDef(
-          key: key,
-          label: label?.isNotEmpty == true ? label! : (base?.label ?? key),
-          hint: base?.hint ?? 'Record value',
-          builtInSuggestions: base?.builtInSuggestions ?? const <String>[],
-          isSystem: base?.isSystem ?? _isSubjectRecordKey(key),
-          procedureScope: base?.procedureScope ?? '',
-        );
+        final isUserCreated = base != null && !base.isSystem;
+        final isRegistryField = base?.isRegistryField == true;
+        final isTemplateOrExplicit = accountedKeys.contains(key);
+
+        // Empty fields are allowed inside Record Details if they are accounted for,
+        // but the Records table should not grow blank columns unless the field has
+        // data or was explicitly created as a manageable record/registry field.
+        if (!hasValue && !isUserCreated && !isRegistryField && !isTemplateOrExplicit) {
+          continue;
+        }
+        if (!hasValue && isTemplateOrExplicit) {
+          // Keep empty accounted template fields out of the table until at least
+          // one record has a value. They remain editable in Record Details.
+          continue;
+        }
+
+        final label = row.fieldLabels[key]?.trim();
+        addField(key, label: label);
       }
     }
 

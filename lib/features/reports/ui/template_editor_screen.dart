@@ -1,12 +1,23 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../../core/utils/ids.dart';
+import '../../../core/web/file_download.dart';
+import '../../records/data/records_repository.dart';
+import '../data/reports_repository.dart';
 
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/upgrade_screen.dart';
 import '../data/templates_repository.dart';
 import '../domain/models/nodes.dart';
 import '../domain/models/template_doc.dart';
+import '../domain/models/report_doc.dart';
+import '../domain/serialization/template_codec.dart';
 import '../providers/template_editor_provider.dart';
 import 'subject_info_block_editor.dart';
 
@@ -160,6 +171,232 @@ class _TemplateEditorBody extends StatelessWidget {
   }
 
 
+  String _safeTemplateFileName(String name) {
+    final cleaned = name
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9._ -]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    final base = cleaned.isEmpty ? 'Ripot_Template' : cleaned;
+    return base.toLowerCase().endsWith('.ripot_template') ? base : '$base.ripot_template';
+  }
+
+  Future<void> _renameTemplate(BuildContext context) async {
+    final vm = context.read<TemplateEditorProvider>();
+    final name = await _promptText(
+      context,
+      'Rename template',
+      hint: vm.template.name,
+      initialValue: vm.template.name,
+    );
+    if (name == null) return;
+    vm.renameTemplate(name);
+    await _save(context, showSnackBar: false);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Template renamed')));
+  }
+
+  Future<void> _duplicateTemplate(BuildContext context) async {
+    final repo = context.read<TemplatesRepository>();
+    final vm = context.read<TemplateEditorProvider>();
+    final name = await _promptText(
+      context,
+      'Duplicate template as',
+      hint: '${vm.template.name} copy',
+      initialValue: '${vm.template.name} copy',
+    );
+    if (name == null) return;
+
+    final source = vm.buildForSave(name: vm.template.name, includeContent: false);
+    final duplicate = TemplateDoc(
+      templateId: newId('tpl'),
+      updatedAt: DateTime.now(),
+      name: name,
+      roots: source.roots,
+      subjectInfo: source.subjectInfo,
+      signature: source.signature,
+    );
+    await repo.saveTemplate(duplicate);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Template duplicated')));
+  }
+
+  Future<void> _exportTemplate(BuildContext context) async {
+    final vm = context.read<TemplateEditorProvider>();
+    final template = vm.buildForSave(name: vm.template.name, includeContent: false);
+    final payload = <String, dynamic>{
+      'app': 'Ripot',
+      'ripotFileType': 'template',
+      'ripotExportVersion': 1,
+      'exportedAtIso': DateTime.now().toIso8601String(),
+      'template': TemplateCodec.templateToJson(template),
+    };
+    final pretty = const JsonEncoder.withIndent('  ').convert(payload);
+    final bytes = Uint8List.fromList(utf8.encode(pretty));
+    final fileName = _safeTemplateFileName(template.name);
+
+    if (kIsWeb) {
+      await downloadBytes(bytes: bytes, fileName: fileName);
+    } else {
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, name: fileName, mimeType: 'application/json')],
+        text: 'Ripot template: ${template.name}',
+      );
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Template exported: $fileName')));
+  }
+
+  Future<void> _deleteTemplate(BuildContext context) async {
+    final repo = context.read<TemplatesRepository>();
+    final vm = context.read<TemplateEditorProvider>();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete template?'),
+        content: Text('This will delete “${vm.template.name}”. Existing reports and PDFs will not be deleted.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    await repo.deleteTemplate(vm.template.templateId);
+    if (!context.mounted) return;
+    navigator.pop();
+    messenger.showSnackBar(const SnackBar(content: Text('Template deleted')));
+  }
+
+  Future<void> _syncExistingRecords(BuildContext context) async {
+    final vm = context.read<TemplateEditorProvider>();
+    final reportsRepo = context.read<ReportsRepository>();
+    final recordsRepo = context.read<RecordsRepository>();
+    final template = vm.buildForSave(name: vm.template.name, includeContent: false);
+    final saveToRecordTitles = <String>[];
+    void collect(SectionNode section) {
+      if (section.addToRecords) saveToRecordTitles.add(section.title);
+      for (final child in section.children.whereType<SectionNode>()) {
+        collect(child);
+      }
+    }
+    for (final root in template.roots) {
+      collect(root);
+    }
+    if (saveToRecordTitles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No template fields are marked Save to Records.')),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sync existing records?'),
+        content: Text(
+          'Ripot will scan saved editable reports that match this template structure and update their record data using fields currently marked Save to Records.\n\n'
+          'Saved PDFs will not be changed.\n\n'
+          'Fields: ${saveToRecordTitles.take(8).join(', ')}${saveToRecordTitles.length > 8 ? '…' : ''}',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sync')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final summaries = await reportsRepo.listReports();
+    var scanned = 0;
+    var matched = 0;
+    var updated = 0;
+    for (final summary in summaries) {
+      try {
+        final report = await reportsRepo.loadReport(summary.reportId);
+        scanned += 1;
+        if (!_reportLooksLikeTemplate(report, template)) continue;
+        matched += 1;
+        final patched = report.copyWith(roots: _applyTemplateRecordSettings(report.roots, template.roots));
+        final draft = await recordsRepo.buildDraftForReport(patched);
+        await recordsRepo.saveRecord(draft);
+        updated += 1;
+      } catch (_) {
+        // Keep sync best-effort so one bad saved work does not stop the batch.
+      }
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sync complete. Scanned: $scanned, matched: $matched, updated: $updated. PDFs unchanged.')),
+    );
+  }
+
+  bool _reportLooksLikeTemplate(ReportDoc report, TemplateDoc template) {
+    final reportTitles = report.roots.map((s) => s.title.trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
+    final templateTitles = template.roots.map((s) => s.title.trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
+    if (reportTitles.isEmpty || templateTitles.isEmpty) return false;
+    if (reportTitles.length != templateTitles.length) return false;
+    for (var i = 0; i < templateTitles.length; i += 1) {
+      if (reportTitles[i] != templateTitles[i]) return false;
+    }
+    return true;
+  }
+
+  List<SectionNode> _applyTemplateRecordSettings(List<SectionNode> reportRoots, List<SectionNode> templateRoots) {
+    final settingsByPath = <String, SectionNode>{};
+    void collect(List<SectionNode> sections, String prefix) {
+      for (final section in sections) {
+        final path = '$prefix/${section.title.trim().toLowerCase()}';
+        settingsByPath[path] = section;
+        collect(section.children.whereType<SectionNode>().toList(growable: false), path);
+      }
+    }
+    collect(templateRoots, '');
+
+    SectionNode patch(SectionNode section, String prefix) {
+      final path = '$prefix/${section.title.trim().toLowerCase()}';
+      final templateSection = settingsByPath[path];
+      return section.copyWith(
+        showInPdf: true,
+        addToRecords: templateSection?.addToRecords ?? section.addToRecords,
+        inputType: templateSection?.inputType ?? section.inputType,
+        options: templateSection?.options ?? section.options,
+        conditionalParentSectionId: templateSection?.conditionalParentSectionId ?? section.conditionalParentSectionId,
+        conditionalEquals: templateSection?.conditionalEquals ?? section.conditionalEquals,
+        children: section.children.map((child) {
+          if (child is SectionNode) return patch(child, path);
+          return child;
+        }).toList(growable: false),
+      );
+    }
+
+    return reportRoots.map((root) => patch(root, '')).toList(growable: false);
+  }
+
+  Future<void> _handleTemplateMenu(BuildContext context, String action) async {
+    switch (action) {
+      case 'duplicate':
+        await _duplicateTemplate(context);
+        break;
+      case 'rename':
+        await _renameTemplate(context);
+        break;
+      case 'sync':
+        await _syncExistingRecords(context);
+        break;
+      case 'export':
+        await _exportTemplate(context);
+        break;
+      case 'delete':
+        await _deleteTemplate(context);
+        break;
+    }
+  }
+
+
   List<SectionNode> _allSectionsExcept(List<SectionNode> roots, String excludedId) {
     final out = <SectionNode>[];
     void walk(SectionNode section) {
@@ -265,7 +502,6 @@ class _TemplateEditorBody extends StatelessWidget {
             section.id,
             inputType: res.inputType,
             options: res.options,
-            showInPdf: res.showInPdf,
             addToRecords: res.addToRecords,
             conditionalParentSectionId: res.conditionalParentSectionId,
             conditionalEquals: res.conditionalEquals,
@@ -358,6 +594,19 @@ class _TemplateEditorBody extends StatelessWidget {
               icon: const Icon(Icons.save_outlined),
               onPressed: () => _save(context),
             ),
+            PopupMenuButton<String>(
+              tooltip: 'Template options',
+              onSelected: (value) => _handleTemplateMenu(context, value),
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'duplicate', child: Text('Duplicate Template')),
+                PopupMenuItem(value: 'rename', child: Text('Rename Template')),
+                PopupMenuDivider(),
+                PopupMenuItem(value: 'sync', child: Text('Sync Existing Records')),
+                PopupMenuItem(value: 'export', child: Text('Export Template')),
+                PopupMenuDivider(),
+                PopupMenuItem(value: 'delete', child: Text('Delete Template')),
+              ],
+            ),
           ],
         ),
         floatingActionButton: FloatingActionButton(
@@ -403,7 +652,6 @@ class _SectionEditResult {
   final TitleStyle? style;
   final FieldInputType? inputType;
   final List<String>? options;
-  final bool? showInPdf;
   final bool? addToRecords;
   final String? conditionalParentSectionId;
   final String? conditionalEquals;
@@ -412,7 +660,6 @@ class _SectionEditResult {
     this.style,
     this.inputType,
     this.options,
-    this.showInPdf,
     this.addToRecords,
     this.conditionalParentSectionId,
     this.conditionalEquals,
@@ -435,7 +682,6 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   late TitleAlign _align;
   late FieldInputType _inputType;
   late final TextEditingController _options;
-  late bool _showInPdf;
   late bool _addToRecords;
   late bool _useCondition;
   late String _conditionParentId;
@@ -450,7 +696,6 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _align = widget.section.style.align;
     _inputType = widget.section.inputType;
     _options = TextEditingController(text: widget.section.options.join('\n'));
-    _showInPdf = widget.section.showInPdf;
     _addToRecords = widget.section.addToRecords;
     _useCondition = widget.section.hasCondition;
     _conditionParentId = widget.section.conditionalParentSectionId;
@@ -572,14 +817,6 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                     enabled: _inputType != FieldInputType.yesNo,
                   ),
                 ],
-                const SizedBox(height: 4),
-                SwitchListTile(
-                  value: _showInPdf,
-                  onChanged: (v) => setState(() => _showInPdf = v),
-                  title: const Text('Show in PDF'),
-                  subtitle: const Text('Turn off only for internal fields that should not print.'),
-                  contentPadding: EdgeInsets.zero,
-                ),
                 CheckboxListTile(
                   value: _addToRecords,
                   onChanged: (v) => setState(() => _addToRecords = v ?? false),
@@ -645,7 +882,6 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                         style: widget.section.style.copyWith(level: _level, bold: _bold, align: _align),
                         inputType: _inputType,
                         options: options,
-                        showInPdf: _showInPdf,
                         addToRecords: _addToRecords,
                         conditionalParentSectionId: _useCondition ? _conditionParentId : '',
                         conditionalEquals: _useCondition ? _conditionEquals.text.trim() : '',
