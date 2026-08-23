@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/reports_repository.dart';
 import '../providers/report_editor_provider.dart';
 import '../providers/reports_list_provider.dart';
+import '../providers/template_list_provider.dart';
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/upgrade_screen.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -12,7 +13,11 @@ import 'report_editor_screen.dart';
 import 'saved_pdf_viewer_screen.dart';
 import 'template_list_screen.dart';
 import '../../records/ui/records_screen.dart';
+import '../../records/providers/records_provider.dart';
 import '../../../core/navigation/app_route_observer.dart';
+import '../../../core/platform/incoming_file_service.dart';
+import '../data/templates_repository.dart';
+import '../../records/data/records_repository.dart';
 
 class ReportsListScreen extends StatefulWidget {
   const ReportsListScreen({super.key});
@@ -23,17 +28,41 @@ class ReportsListScreen extends StatefulWidget {
 
 class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   bool _routeObserverSubscribed = false;
+  IncomingFileService? _incomingFileService;
 
   Future<void> _refreshReports() async {
     if (!mounted) return;
     await context.read<ReportsListProvider>().refresh();
   }
+
+  Future<void> _refreshAfterIncomingFile(IncomingFileResult result) async {
+    if (!mounted) return;
+    if (result.changed) {
+      await context.read<TemplateListProvider>().load();
+      await context.read<RecordsProvider>().refresh();
+      await context.read<ReportsListProvider>().refresh();
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+  }
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      _refreshReports();
+      _incomingFileService = IncomingFileService(
+        templatesRepository: context.read<TemplatesRepository>(),
+        recordsRepository: context.read<RecordsRepository>(),
+        reportsRepository: context.read<ReportsRepository>(),
+      );
+      _incomingFileService?.listen((result) {
+        _refreshAfterIncomingFile(result);
+      });
+      final initial = await _incomingFileService?.handleInitialFile();
+      if (initial != null) {
+        await _refreshAfterIncomingFile(initial);
+      }
+      await _refreshReports();
     });
   }
 

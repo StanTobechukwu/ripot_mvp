@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../core/utils/ids.dart';
 import '../../../core/web/file_download.dart';
@@ -14,6 +13,7 @@ import '../data/reports_repository.dart';
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/upgrade_screen.dart';
 import '../data/templates_repository.dart';
+import '../services/template_file_actions.dart';
 import '../domain/models/nodes.dart';
 import '../domain/models/template_doc.dart';
 import '../domain/models/report_doc.dart';
@@ -171,14 +171,18 @@ class _TemplateEditorBody extends StatelessWidget {
   }
 
 
-  String _safeTemplateFileName(String name) {
+  String _safeTemplateFileName(String name, {required bool forDesktop}) {
     final cleaned = name
         .trim()
         .replaceAll(RegExp(r'[^A-Za-z0-9._ -]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
-    final base = cleaned.isEmpty ? 'Ripot_Template' : cleaned;
-    return base.toLowerCase().endsWith('.ripot_template') ? base : '$base.ripot_template';
+    final baseName = cleaned.isEmpty ? 'Ripot_Template' : 'Ripot_${cleaned}_Template';
+    final lower = baseName.toLowerCase();
+    if (forDesktop) {
+      return lower.endsWith('.ripottemplate') ? baseName : '$baseName.ripottemplate';
+    }
+    return lower.endsWith('.ripottemplate.json') ? baseName : '$baseName.ripottemplate.json';
   }
 
   Future<void> _renameTemplate(BuildContext context) async {
@@ -233,14 +237,18 @@ class _TemplateEditorBody extends StatelessWidget {
     };
     final pretty = const JsonEncoder.withIndent('  ').convert(payload);
     final bytes = Uint8List.fromList(utf8.encode(pretty));
-    final fileName = _safeTemplateFileName(template.name);
+    final fileName = _safeTemplateFileName(
+      template.name,
+      forDesktop: !kIsWeb && ripotTemplateIsNativeDesktop,
+    );
 
     if (kIsWeb) {
       await downloadBytes(bytes: bytes, fileName: fileName);
     } else {
-      await Share.shareXFiles(
-        [XFile.fromData(bytes, name: fileName, mimeType: 'application/json')],
-        text: 'Ripot template: ${template.name}',
+      await ripotExportTemplateFile(
+        bytes: bytes,
+        fileName: fileName,
+        templateName: template.name,
       );
     }
     if (!context.mounted) return;

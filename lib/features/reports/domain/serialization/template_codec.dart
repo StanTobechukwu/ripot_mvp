@@ -122,12 +122,26 @@ class TemplateCodec {
       };
 
   static TitleStyle _styleFromJson(Map<String, dynamic> j) {
+    HeadingLevel levelFromJson(String? name) {
+      if (name == null || name.trim().isEmpty) return HeadingLevel.h2;
+      for (final value in HeadingLevel.values) {
+        if (value.name == name) return value;
+      }
+      return HeadingLevel.h2;
+    }
+
+    TitleAlign alignFromJson(String? name) {
+      if (name == null || name.trim().isEmpty) return TitleAlign.left;
+      for (final value in TitleAlign.values) {
+        if (value.name == name) return value;
+      }
+      return TitleAlign.left;
+    }
+
     return TitleStyle(
-      level: HeadingLevel.values.byName(
-          (j['level'] as String?) ?? HeadingLevel.h2.name),
+      level: levelFromJson(j['level'] as String?),
       bold: (j['bold'] as bool?) ?? true,
-      align: TitleAlign.values.byName(
-          (j['align'] as String?) ?? TitleAlign.left.name),
+      align: alignFromJson(j['align'] as String?),
     );
   }
 

@@ -73,8 +73,10 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
 
     try {
       final picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['ripot_template', 'json'],
+        // Pick broadly because WhatsApp/Telegram/file managers may rename
+        // custom files or hide compound extensions. The payload is validated
+        // below before anything is imported.
+        type: FileType.any,
         withData: true,
       );
       if (!mounted || picked == null || picked.files.isEmpty) return;
@@ -83,7 +85,7 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
         throw const FormatException('The selected file could not be read.');
       }
 
-      final decoded = jsonDecode(utf8.decode(bytes));
+      final decoded = jsonDecode(utf8.decode(bytes, allowMalformed: true));
       if (decoded is! Map<String, dynamic>) {
         throw const FormatException('This is not a valid Ripot template file.');
       }

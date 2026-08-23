@@ -3,6 +3,19 @@ import 'package:provider/provider.dart';
 
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
+import '../../reports/data/templates_repository.dart';
+import '../../reports/domain/models/nodes.dart';
+import '../../reports/domain/models/template_doc.dart';
+
+class _TemplateRecordFieldSelection {
+  final String templateId;
+  final Set<String> sectionIds;
+
+  const _TemplateRecordFieldSelection({
+    required this.templateId,
+    required this.sectionIds,
+  });
+}
 
 class RecordDetailsScreen extends StatefulWidget {
   final RecordEntry initialEntry;
@@ -437,6 +450,15 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
             ),
           ),
           SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogContext, 'template'),
+            child: const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.view_list_outlined),
+              title: Text('Template-based field'),
+              subtitle: Text('Choose fields from a report template to save to Records.'),
+            ),
+          ),
+          SimpleDialogOption(
             onPressed: activeRegistries.isEmpty ? null : () => Navigator.pop(dialogContext, 'registry'),
             child: ListTile(
               contentPadding: EdgeInsets.zero,
@@ -458,6 +480,11 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       ),
     );
     if (!mounted || fieldScope == null) return;
+
+    if (fieldScope == 'template') {
+      await _configureTemplateRecordFields();
+      return;
+    }
 
     if (fieldScope == 'registry') {
       if (activeRegistries.length == 1) {
@@ -577,6 +604,173 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
 
     labelController.dispose();
     procedureScopeController.dispose();
+  }
+
+
+  List<SectionNode> _allTemplateSections(TemplateDoc template) {
+    final sections = <SectionNode>[];
+    void walk(SectionNode section) {
+      if (section.title.trim().isNotEmpty) sections.add(section);
+      for (final child in section.children) {
+        if (child is SectionNode) walk(child);
+      }
+    }
+    for (final root in template.roots) {
+      walk(root);
+    }
+    return sections;
+  }
+
+  Set<String> _savedTemplateSectionIds(TemplateDoc template) {
+    return _allTemplateSections(template)
+        .where((section) => section.addToRecords)
+        .map((section) => section.id)
+        .toSet();
+  }
+
+  Future<void> _configureTemplateRecordFields() async {
+    final templatesRepo = context.read<TemplatesRepository>();
+    final summaries = await templatesRepo.listTemplates();
+    if (!mounted) return;
+    if (summaries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No templates found. Create or import a template first.')),
+      );
+      return;
+    }
+
+    final templates = <String, TemplateDoc>{};
+    for (final summary in summaries) {
+      try {
+        final template = await templatesRepo.loadTemplate(summary.templateId);
+        if (_allTemplateSections(template).isNotEmpty) {
+          templates[summary.templateId] = template;
+        }
+      } catch (_) {
+        // Skip templates that cannot be loaded. This keeps the Records flow stable.
+      }
+    }
+    if (!mounted) return;
+    if (templates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No usable template fields found.')),
+      );
+      return;
+    }
+
+    final procedure = _currentProcedure.trim().toLowerCase();
+    String selectedTemplateId = templates.keys.first;
+    if (procedure.isNotEmpty) {
+      for (final entry in templates.entries) {
+        final name = entry.value.name.trim().toLowerCase();
+        if (name == procedure || name.contains(procedure) || procedure.contains(name)) {
+          selectedTemplateId = entry.key;
+          break;
+        }
+      }
+    }
+    var selectedSectionIds = _savedTemplateSectionIds(templates[selectedTemplateId]!);
+
+    final selection = await showDialog<_TemplateRecordFieldSelection>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setLocalState) {
+          final selectedTemplate = templates[selectedTemplateId]!;
+          final fields = _allTemplateSections(selectedTemplate);
+          return AlertDialog(
+            title: const Text('Choose template fields'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Select fields to save to Records.'),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedTemplateId,
+                      decoration: const InputDecoration(
+                        labelText: 'Template',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: templates.values
+                          .map(
+                            (template) => DropdownMenuItem<String>(
+                              value: template.templateId,
+                              child: Text(template.name, overflow: TextOverflow.ellipsis),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value == null || value == selectedTemplateId) return;
+                        setLocalState(() {
+                          selectedTemplateId = value;
+                          selectedSectionIds = _savedTemplateSectionIds(templates[selectedTemplateId]!);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ...fields.map((section) {
+                      final selected = selectedSectionIds.contains(section.id);
+                      return CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: selected,
+                        title: Text(section.title),
+                        subtitle: section.children.any((child) => child is SectionNode)
+                            ? const Text('Section field')
+                            : null,
+                        onChanged: (value) {
+                          setLocalState(() {
+                            final next = Set<String>.from(selectedSectionIds);
+                            if (value == true) {
+                              next.add(section.id);
+                            } else {
+                              next.remove(section.id);
+                            }
+                            selectedSectionIds = next;
+                          });
+                        },
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Changes update this template’s Save to Records settings and apply to future reports generated from the template. Existing records can be updated when edited and saved.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: () => Navigator.pop(
+                  dialogContext,
+                  _TemplateRecordFieldSelection(
+                    templateId: selectedTemplateId,
+                    sectionIds: selectedSectionIds,
+                  ),
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (!mounted || selection == null) return;
+    await templatesRepo.updateTemplateRecordFieldSettings(
+      templateId: selection.templateId,
+      saveToRecordsSectionIds: selection.sectionIds,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Template record fields updated.')),
+    );
   }
 
 

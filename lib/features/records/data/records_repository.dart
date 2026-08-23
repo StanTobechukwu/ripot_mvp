@@ -499,12 +499,18 @@ class RecordsRepository {
           (field?.builtInSuggestions.isNotEmpty == true) ||
           _isListLikeVocabularyField(item.key, label: label);
       if (!shouldLearn) continue;
-      await saveVocabularyValue(
-        item.key,
-        value,
-        label: label,
-        procedure: item.key == RecordFieldCatalog.procedure.key ? '' : procedure,
-      );
+      try {
+        await saveVocabularyValue(
+          item.key,
+          value,
+          label: label,
+          procedure: item.key == RecordFieldCatalog.procedure.key ? '' : procedure,
+        );
+      } catch (_) {
+        // Vocabulary learning is only a convenience feature. It must not block
+        // record saving or package recovery when an old/odd user-entered value
+        // cannot be split or normalised safely.
+      }
     }
   }
 
@@ -593,15 +599,24 @@ class RecordsRepository {
   }
 
   List<String> _splitListLikeVocabulary(String value) {
-    final normalized = value
-        .replaceAll(RegExp(r'\r\n?'), '\n')
-        .replaceAll(RegExp(r'(?m)^\s*\d+[\.)]\s+'), '')
-        .replaceAll(RegExp(r'(?m)^\s*[•\-]\s+'), '');
-    return normalized
-        .split(RegExp(r'[,;\n]+|\s+\d+[\.)]\s+|\s+[•\-]\s+'))
-        .map(_normalizeVocabularyValue)
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    // Keep this parser deliberately defensive. This code can run while importing
+    // old records packages, so a formatting cleanup bug must never block records
+    // recovery. Dart on some runtimes can reject inline regex flags such as (?m),
+    // so use the RegExp multiLine option instead.
+    try {
+      final normalized = value
+          .replaceAll(RegExp(r'\r\n?'), '\n')
+          .replaceAll(RegExp(r'^\s*\d+[\.)]\s+', multiLine: true), '')
+          .replaceAll(RegExp(r'^\s*[•\-]\s+', multiLine: true), '');
+      return normalized
+          .split(RegExp(r'[,;\n]+|\s+\d+[\.)]\s+|\s+[•\-]\s+'))
+          .map(_normalizeVocabularyValue)
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
+    } catch (_) {
+      final fallback = _normalizeVocabularyValue(value);
+      return fallback.isEmpty ? const <String>[] : <String>[fallback];
+    }
   }
 
   bool _isListLikeVocabularyField(String fieldKey, {String? label}) {

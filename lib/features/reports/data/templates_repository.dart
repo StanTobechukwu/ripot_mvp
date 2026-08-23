@@ -66,6 +66,29 @@ class TemplatesRepository {
     throw Exception('Template not found');
   }
 
+  Future<void> updateTemplateRecordFieldSettings({
+    required String templateId,
+    required Set<String> saveToRecordsSectionIds,
+  }) async {
+    final template = await loadTemplate(templateId);
+
+    SectionNode updateSection(SectionNode section) {
+      return section.copyWith(
+        addToRecords: saveToRecordsSectionIds.contains(section.id),
+        children: section.children.map((child) {
+          if (child is SectionNode) return updateSection(child);
+          return child;
+        }).toList(growable: false),
+      );
+    }
+
+    final updated = template.copyWith(
+      updatedAt: DateTime.now(),
+      roots: template.roots.map(updateSection).toList(growable: false),
+    );
+    await saveTemplate(updated);
+  }
+
   Future<void> deleteTemplate(String templateId) async {
     final prefs = await _prefs;
     await prefs.remove(_key(templateId));

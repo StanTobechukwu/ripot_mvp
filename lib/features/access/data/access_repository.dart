@@ -82,6 +82,34 @@ class AccessRepository {
   }
 
 
+
+  AccessState _applyPersistedRemoteAccessState(AccessState state, Map<String, dynamic> data) {
+    // Rehydrate normal user access state from Firestore. This prevents a reinstall
+    // from restarting the premium-trial clock when the user signs back in.
+    final remotePlan = _planFromJson(data['plan']);
+    final remoteTrialStart = _dateFromJson(data['trialStartAtIso'] ?? data['trialStartAt']);
+    final remoteTrialEnd = _dateFromJson(data['trialEndsAtIso'] ?? data['trialEndsAt']);
+    final remotePremiumStart = _dateFromJson(data['premiumStartedAtIso'] ?? data['premiumStartedAt']);
+    final remoteHasUsedTrial = data['hasUsedTrial'] is bool ? data['hasUsedTrial'] as bool : null;
+    final remoteUpdatedAt = _dateFromJson(data['updatedAtIso'] ?? data['lastSyncedAtIso']);
+
+    final hasMeaningfulRemoteState = remotePlan != null ||
+        remoteTrialStart != null ||
+        remoteTrialEnd != null ||
+        remotePremiumStart != null ||
+        remoteHasUsedTrial == true;
+    if (!hasMeaningfulRemoteState) return state;
+
+    return state.copyWith(
+      plan: remotePlan ?? state.plan,
+      trialStartAt: remoteTrialStart ?? state.trialStartAt,
+      trialEndsAt: remoteTrialEnd ?? state.trialEndsAt,
+      premiumStartedAt: remotePremiumStart ?? state.premiumStartedAt,
+      hasUsedTrial: remoteHasUsedTrial ?? state.hasUsedTrial,
+      updatedAt: remoteUpdatedAt ?? state.updatedAt,
+    );
+  }
+
   Future<AccessState> _applyRemoteEntitlementSafely(AccessState state) async {
     if (Firebase.apps.isEmpty) return state;
     try {
@@ -90,7 +118,7 @@ class AccessRepository {
       final data = snap.data();
       if (data == null) return state;
 
-      var next = state;
+      var next = _applyPersistedRemoteAccessState(state, data);
       final forceEarlyAccess = data['adminEarlyAccessEligible'];
       if (forceEarlyAccess is bool) {
         next = next.copyWith(isEarlyUser: forceEarlyAccess);
@@ -190,7 +218,26 @@ class AccessRepository {
       if (!localSnap.exists) return;
 
       final localData = localSnap.data() ?? <String, dynamic>{};
-      await FirebaseFirestore.instance.collection('ripot_user_access').doc(identity.authUid).set(
+      final userDoc = FirebaseFirestore.instance.collection('ripot_user_access').doc(identity.authUid);
+      final userSnap = await userDoc.get();
+      if (userSnap.exists) {
+        // Do not overwrite an existing account entitlement with a fresh local
+        // install state. This is what could restart the trial clock after reinstall.
+        await userDoc.set(
+          {
+            'ownerType': 'user',
+            'ownerId': identity.authUid,
+            'authUid': identity.authUid,
+            'installationId': identity.installationId,
+            'lastSeenInstallationId': identity.installationId,
+            'lastMigrationCheckAtIso': DateTime.now().toIso8601String(),
+          },
+          SetOptions(merge: true),
+        );
+        return;
+      }
+
+      await userDoc.set(
         {
           ...localData,
           'ownerType': 'user',
@@ -246,6 +293,15 @@ class _AccessRemoteConfig {
       premiumMessageBody: _stringOrNull(json['premiumMessageBody']),
     );
   }
+}
+
+RipotPlan? _planFromJson(Object? value) {
+  final raw = _stringOrNull(value)?.toLowerCase();
+  if (raw == null) return null;
+  for (final plan in RipotPlan.values) {
+    if (plan.name == raw) return plan;
+  }
+  return null;
 }
 
 int _intFromJson(Object? value, {required int fallback}) {

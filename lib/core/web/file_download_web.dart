@@ -9,7 +9,9 @@ Future<void> downloadBytes({required List<int> bytes, required String fileName})
       ? 'text/csv'
       : lowerName.endsWith('.zip')
           ? 'application/zip'
-          : 'application/pdf';
+          : lowerName.endsWith('.json') || lowerName.endsWith('.ripottemplate')
+              ? 'application/json'
+              : 'application/pdf';
   final blob = html.Blob([data], mimeType);
   final url = html.Url.createObjectUrlFromBlob(blob);
   final anchor = html.AnchorElement(href: url)

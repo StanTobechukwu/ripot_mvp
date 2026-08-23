@@ -1351,18 +1351,15 @@ class PdfRendererService {
     required bool hasSignatureImage,
     required double fontScale,
   }) {
-    // Compact signature block:
-    // Title: Name (Credentials) - title/credentials are optional.
-    // [signature image]
-    // Assistant: Name (optional)
+    // Compact two-column signature block:
+    // Endoscopist: Dr Name        Signature: [signature]
+    // Assistant: Dr Name
     // Keep this budget aligned with _signatureBlock so pagination remains stable.
-    final primaryLine = 12.0 * fontScale * 1.25;
-    final imageOrLine = hasSignatureImage ? 48.0 : 24.0;
+    final signerRow = hasSignatureImage ? 46.0 : 28.0;
     final assistantLine = doc.signature.assistantName.trim().isEmpty
         ? 0.0
         : 8.0 + (11.0 * fontScale * 1.25);
-
-    return 3.0 + primaryLine + 6.0 + imageOrLine + assistantLine;
+    return 3.0 + signerRow + assistantLine;
   }
 
   pw.Widget _signatureBlock(
@@ -1388,81 +1385,98 @@ class PdfRendererService {
         ? '$basePrimaryLine ($creds)'
         : basePrimaryLine;
 
-    // Keep the whole signer block centered on the page, but indent the
-    // signature itself so it starts around the same horizontal point as the
-    // signer's name, not under the role label. Example:
-    // Endoscopist: Nduaguba (MBBS)
-    //              [signature]
-    final signatureNameIndent = role.isNotEmpty && name.isNotEmpty
-        ? (((role.length + 2) * 12 * fontScale * 0.52).clamp(0.0, 96.0)
-            as double)
-        : 0.0;
+    pw.Widget signerText() {
+      if (primaryLine.isEmpty) return pw.SizedBox.shrink();
+      if (hasRoleAndName) {
+        return pw.RichText(
+          textAlign: pw.TextAlign.left,
+          text: pw.TextSpan(
+            children: [
+              pw.TextSpan(
+                text: '$role: ',
+                style: pw.TextStyle(
+                  fontSize: 12 * fontScale,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.TextSpan(
+                text: creds.isNotEmpty ? '$name ($creds)' : name,
+                style: pw.TextStyle(
+                  fontSize: 12 * fontScale,
+                  fontWeight: pw.FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      return pw.Text(
+        primaryLine,
+        textAlign: pw.TextAlign.left,
+        style: pw.TextStyle(
+          fontSize: 12 * fontScale,
+          fontWeight: role.isNotEmpty && name.isEmpty
+              ? pw.FontWeight.bold
+              : pw.FontWeight.normal,
+        ),
+      );
+    }
+
+    pw.Widget signatureVisual() {
+      if (signature != null) {
+        return pw.SizedBox(
+          height: 42,
+          width: 105,
+          child: pw.Image(signature, fit: pw.BoxFit.contain),
+        );
+      }
+      return pw.Container(
+        height: 24,
+        width: 105,
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(
+            bottom: pw.BorderSide(width: 1, color: PdfColors.black),
+          ),
+        ),
+      );
+    }
 
     return pw.Padding(
       padding: const pw.EdgeInsets.only(top: 3),
       child: pw.Center(
         child: pw.ConstrainedBox(
-          constraints: const pw.BoxConstraints(maxWidth: 320),
+          constraints: const pw.BoxConstraints(maxWidth: 500),
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
-              if (primaryLine.isNotEmpty) ...[
-                hasRoleAndName
-                    ? pw.RichText(
-                        textAlign: pw.TextAlign.left,
-                        text: pw.TextSpan(
-                          children: [
-                            pw.TextSpan(
-                              text: '$role: ',
-                              style: pw.TextStyle(
-                                fontSize: 12 * fontScale,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
-                            ),
-                            pw.TextSpan(
-                              text: creds.isNotEmpty
-                                  ? '$name ($creds)'
-                                  : name,
-                              style: pw.TextStyle(
-                                fontSize: 12 * fontScale,
-                                fontWeight: pw.FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : pw.Text(
-                        primaryLine,
-                        textAlign: pw.TextAlign.left,
-                        style: pw.TextStyle(
-                          fontSize: 12 * fontScale,
-                          fontWeight: role.isNotEmpty && name.isEmpty
-                              ? pw.FontWeight.bold
-                              : pw.FontWeight.normal,
-                        ),
-                      ),
-                pw.SizedBox(height: 6),
-              ],
-              pw.Padding(
-                padding: pw.EdgeInsets.only(left: signatureNameIndent),
-                child: signature != null
-                    ? pw.SizedBox(
-                        height: 48,
-                        child: pw.Image(signature, fit: pw.BoxFit.contain),
-                      )
-                    : pw.Container(
-                        height: 24,
-                        width: 170,
-                        decoration: const pw.BoxDecoration(
-                          border: pw.Border(
-                            bottom: pw.BorderSide(
-                              width: 1,
-                              color: PdfColors.black,
-                            ),
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Expanded(
+                    flex: 62,
+                    child: signerText(),
+                  ),
+                  pw.SizedBox(width: 14),
+                  pw.Expanded(
+                    flex: 38,
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.start,
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Text(
+                          'Signature:',
+                          style: pw.TextStyle(
+                            fontSize: 11 * fontScale,
+                            fontWeight: pw.FontWeight.bold,
                           ),
                         ),
-                      ),
+                        pw.SizedBox(width: 6),
+                        signatureVisual(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               if (assistantName.isNotEmpty) ...[
                 pw.SizedBox(height: 8),

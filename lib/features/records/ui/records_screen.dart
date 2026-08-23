@@ -288,7 +288,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
   String _todayPackageFileName() {
     final now = DateTime.now();
     final date = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    return 'Ripot_Records_Backup_$date.zip';
+    return 'Ripot_Records_Backup_$date.ripotpackage.zip';
   }
 
   Future<void> _shareCsv({required Uint8List bytes, required String fileName}) async {
@@ -539,9 +539,33 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   Future<PlatformFile?> _pickFile(List<String> extensions) async {
-    final picked = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: extensions, withData: true);
+    // Use a broad picker. WhatsApp/Telegram/file managers sometimes rename
+    // custom files or hide compound extensions, so filtering too strictly makes
+    // valid Ripot exports impossible to find. We validate by content after pick.
+    final picked = await FilePicker.platform.pickFiles(type: FileType.any, withData: true);
     if (picked == null || picked.files.isEmpty) return null;
     return picked.files.first;
+  }
+
+  String _decodeUtf8Safely(List<int> bytes, {String fileLabel = 'file'}) {
+    try {
+      return utf8.decode(bytes);
+    } catch (_) {
+      return utf8.decode(bytes, allowMalformed: true);
+    }
+  }
+
+  Map<String, dynamic> _decodeRipotPackageManifest(ArchiveFile file) {
+    final text = _decodeUtf8Safely(List<int>.from(file.content as List), fileLabel: file.name);
+    final decoded = jsonDecode(text);
+    if (decoded is! Map) {
+      throw const FormatException('This package has an invalid manifest.');
+    }
+    return decoded.cast<String, dynamic>();
+  }
+
+  String _decodeRipotPackageCsv(ArchiveFile file) {
+    return _decodeUtf8Safely(List<int>.from(file.content as List), fileLabel: file.name);
   }
 
   Future<void> _mergeCsvFile() async {
@@ -550,7 +574,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
       if (!mounted || file == null) return;
       final bytes = file.bytes;
       if (bytes == null || bytes.isEmpty) throw Exception('The selected file could not be read.');
-      final csvText = utf8.decode(bytes);
+      final csvText = _decodeUtf8Safely(bytes, fileLabel: file.name);
       final result = await context.read<RecordsProvider>().repo.mergeRipotCsv(csvText);
       if (!mounted) return;
       await context.read<RecordsProvider>().refresh();
@@ -563,21 +587,26 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
   Future<void> _mergePackageFile() async {
     try {
-      final file = await _pickFile(['zip']);
+      final file = await _pickFile(['zip', 'ripotpackage', 'ripotrecords']);
       if (!mounted || file == null) return;
       final bytes = file.bytes;
       if (bytes == null || bytes.isEmpty) throw Exception('The selected package could not be read.');
-      final archive = ZipDecoder().decodeBytes(bytes);
+      late final Archive archive;
+      try {
+        archive = ZipDecoder().decodeBytes(bytes);
+      } catch (_) {
+        throw const FormatException('This file is not a valid Ripot records package. Please select a package exported from Ripot, not the CSV.');
+      }
       final manifestFile = archive.findFile('manifest.json');
       final csvFile = archive.findFile('records.csv');
       if (manifestFile == null || csvFile == null) {
         throw const FormatException('This package does not look like a Ripot records package.');
       }
-      final manifest = jsonDecode(utf8.decode(List<int>.from(manifestFile.content as List))) as Map<String, dynamic>;
+      final manifest = _decodeRipotPackageManifest(manifestFile);
       if (manifest['app'] != 'Ripot' || manifest['exportType'] != 'recordsPackage') {
         throw const FormatException('This package does not look like a Ripot records package.');
       }
-      final csvText = utf8.decode(List<int>.from(csvFile.content as List));
+      final csvText = _decodeRipotPackageCsv(csvFile);
       final recordsRepo = context.read<RecordsProvider>().repo;
       final reportsRepo = context.read<ReportsRepository>();
       final result = await recordsRepo.mergeRipotCsv(csvText);
@@ -590,10 +619,15 @@ class _RecordsScreenState extends State<RecordsScreen> {
         final recordId = name.substring(0, separator);
         final entry = await recordsRepo.loadByRecordId(recordId);
         if (entry == null) continue;
-        final content = Uint8List.fromList(List<int>.from(item.content as List));
-        final pdfName = name.substring(separator + 2);
-        await reportsRepo.importPdfBytesForReport(entry.linkedReportId, content, fileName: pdfName);
-        importedPdfs += 1;
+        try {
+          final content = Uint8List.fromList(List<int>.from(item.content as List));
+          final pdfName = name.substring(separator + 2);
+          await reportsRepo.importPdfBytesForReport(entry.linkedReportId, content, fileName: pdfName);
+          importedPdfs += 1;
+        } catch (_) {
+          // Do not fail the whole records recovery because one attached PDF
+          // has an odd filename or cannot be written on this device.
+        }
       }
       if (!mounted) return;
       await context.read<RecordsProvider>().refresh();

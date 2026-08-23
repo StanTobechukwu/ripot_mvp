@@ -70,7 +70,7 @@ String _safeExportName(String fileName, String fallback, String extension) {
 }
 
 String _safeCsvName(String fileName) => _safeExportName(fileName, 'Ripot_Records.csv', 'csv');
-String _safePackageName(String fileName) => _safeExportName(fileName, 'Ripot_Records_Backup.zip', 'zip');
+String _safePackageName(String fileName) => _safeExportName(fileName, 'Ripot_Records_Backup.ripotpackage.zip', 'zip');
 
 Future<File> _writeCsvToDirectory({
   required Directory dir,
@@ -124,7 +124,7 @@ Future<File?> ripotDownloadRecordsPackage({required Uint8List bytes, required St
   if (ripotIsNativeDesktop) {
     final location = await getSaveLocation(
       suggestedName: safeName,
-      acceptedTypeGroups: const [XTypeGroup(label: 'Ripot records package', extensions: ['zip'])],
+      acceptedTypeGroups: const [XTypeGroup(label: 'Ripot records package', extensions: ['zip', 'ripotpackage'])],
     );
     if (location == null) return null;
     final path = location.path.toLowerCase().endsWith('.zip') ? location.path : '${location.path}.zip';
