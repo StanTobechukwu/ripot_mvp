@@ -48,7 +48,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       letterhead = await repo.loadLetterhead(vm.doc.letterheadId!);
     }
 
-    final isPrePrinted = access.canUseLetterhead && vm.doc.letterheadMode == LetterheadMode.prePrinted;
+    final isPrePrinted =
+        access.canUseLetterhead &&
+        vm.doc.letterheadMode == LetterheadMode.prePrinted;
     final metrics = PdfLayoutMetrics(
       headerReserve: isPrePrinted
           ? vm.doc.prePrintedTopSpacing.points
@@ -68,8 +70,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     );
   }
 
-
-
   double _digitalLetterheadHeaderReserve(LetterheadTemplate? letterhead) {
     if (letterhead == null) return 0.0;
     final hasLogo = (letterhead.logoFilePath ?? '').trim().isNotEmpty;
@@ -80,7 +80,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
   double _digitalLetterheadFooterReserve(LetterheadTemplate? letterhead) {
     if (letterhead == null) return 0.0;
-    final hasFooter = letterhead.footerLeft.trim().isNotEmpty ||
+    final hasFooter =
+        letterhead.footerLeft.trim().isNotEmpty ||
         letterhead.footerRight.trim().isNotEmpty;
     return hasFooter ? 28.0 : 0.0;
   }
@@ -128,15 +129,26 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Report limit reached'),
-          content: Text('Free plan allows up to ${access.maxSavedReports} saved reports. Start a premium trial to save more.'),
+          content: Text(
+            'Free plan allows up to ${access.maxSavedReports} saved reports. Start a premium trial to save more.',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Later'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('See Premium'),
+            ),
           ],
         ),
       );
       if (open == true && mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+        );
       }
       return;
     }
@@ -155,15 +167,14 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF saved: $fileName')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('PDF saved: $fileName')));
       await _offerAddToRecords();
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
-
 
   Future<void> _offerAddToRecords() async {
     final access = context.read<AccessProvider>().safeState;
@@ -181,7 +192,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               children: [
                 Text(
                   'Records is a Premium feature',
-                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(
+                    sheetContext,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -212,7 +225,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         ),
       );
       if (shouldUpgrade == true && mounted) {
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+        );
       }
       return;
     }
@@ -233,7 +249,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               children: [
                 Text(
                   'Add this report to Records?',
-                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(
+                    sheetContext,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -269,13 +287,15 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (!mounted) return;
     final saved = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => RecordDetailsScreen(initialEntry: draft)),
+      MaterialPageRoute(
+        builder: (_) => RecordDetailsScreen(initialEntry: draft),
+      ),
     );
     if (!mounted) return;
     if (saved == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report added to Records.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Report added to Records.')));
     }
   }
 
@@ -287,15 +307,26 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Premium feature'),
-          content: const Text('Letterhead options are available in Premium Trial and Premium.'),
+          content: const Text(
+            'Letterhead options are available in Premium Trial and Premium.',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Later'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('See Premium'),
+            ),
           ],
         ),
       );
       if (open == true && mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+        );
       }
       return;
     }
@@ -323,7 +354,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             final doc = context.watch<ReportEditorProvider>().doc;
             const childIndent = 64.0;
             const childRightPadding = 16.0;
-            const childContentPadding = EdgeInsets.only(left: childIndent, right: childRightPadding);
+            const childContentPadding = EdgeInsets.only(
+              left: childIndent,
+              right: childRightPadding,
+            );
             return SafeArea(
               child: ListView(
                 shrinkWrap: true,
@@ -360,12 +394,19 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       setModalState(() => expandedMode = value);
                     },
                   ),
-                  if (doc.letterheadMode == LetterheadMode.digital && expandedMode == LetterheadMode.digital) ...[
+                  if (doc.letterheadMode == LetterheadMode.digital &&
+                      expandedMode == LetterheadMode.digital) ...[
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(childIndent, 4, childRightPadding, 4),
+                      padding: const EdgeInsets.fromLTRB(
+                        childIndent,
+                        4,
+                        childRightPadding,
+                        4,
+                      ),
                       child: Text(
                         'Saved digital letterheads',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                     if (templates.isEmpty)
@@ -387,7 +428,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         },
                       ),
                     ),
-                    const Divider(indent: childIndent, endIndent: childRightPadding),
+                    const Divider(
+                      indent: childIndent,
+                      endIndent: childRightPadding,
+                    ),
                     ListTile(
                       dense: true,
                       contentPadding: childContentPadding,
@@ -419,19 +463,31 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       setModalState(() => expandedMode = value);
                     },
                   ),
-                  if (doc.letterheadMode == LetterheadMode.prePrinted && expandedMode == LetterheadMode.prePrinted) ...[
+                  if (doc.letterheadMode == LetterheadMode.prePrinted &&
+                      expandedMode == LetterheadMode.prePrinted) ...[
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(childIndent, 0, childRightPadding, 8),
+                      padding: const EdgeInsets.fromLTRB(
+                        childIndent,
+                        0,
+                        childRightPadding,
+                        8,
+                      ),
                       child: Text(
                         'Uses pre-printed paper. No digital header/footer will be drawn.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(childIndent, 6, childRightPadding, 0),
+                      padding: const EdgeInsets.fromLTRB(
+                        childIndent,
+                        6,
+                        childRightPadding,
+                        0,
+                      ),
                       child: Text(
                         'Top safe space',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                     ...PrePrintedTopSpacing.values.map(
@@ -440,7 +496,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         contentPadding: childContentPadding,
                         value: spacing,
                         groupValue: doc.prePrintedTopSpacing,
-                        title: Text('${spacing.label} (${spacing.points.toStringAsFixed(0)} pt)'),
+                        title: Text(
+                          '${spacing.label} (${spacing.points.toStringAsFixed(0)} pt)',
+                        ),
                         onChanged: (value) {
                           if (value == null) return;
                           vm.setPrePrintedTopSpacing(value);
@@ -451,7 +509,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       dense: true,
                       contentPadding: childContentPadding,
                       value: doc.reservePrePrintedFooter,
-                      onChanged: (value) => vm.setReservePrePrintedFooter(value ?? false),
+                      onChanged: (value) =>
+                          vm.setReservePrePrintedFooter(value ?? false),
                       title: const Text(
                         'Reserve bottom/footer safe space',
                         maxLines: 2,
@@ -487,9 +546,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (result == manageToken) {
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => const ManageLetterheadsScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const ManageLetterheadsScreen()),
       );
       return;
     }
@@ -508,7 +565,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               final layout = vm.doc.reportLayout;
               final indentContent = vm.doc.indentContent;
               final indentHierarchy = vm.doc.indentHierarchy;
-              final showColonAfterTitlesWithContent = vm.doc.showColonAfterTitlesWithContent;
+              final showColonAfterTitlesWithContent =
+                  vm.doc.showColonAfterTitlesWithContent;
               final scale = vm.doc.fontScale;
 
               return SingleChildScrollView(
@@ -516,98 +574,102 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                  const Text(
-                    'Report layout',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    const Text(
+                      'Report layout',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  RadioListTile<ReportLayout>(
-                    value: ReportLayout.block,
-                    groupValue: layout,
-                    onChanged: (v) {
-                      if (v != null) vm.setReportLayout(v);
-                    },
-                    title: const Text('Block'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  RadioListTile<ReportLayout>(
-                    value: ReportLayout.inline,
-                    groupValue: layout,
-                    onChanged: (v) {
-                      if (v != null) vm.setReportLayout(v);
-                    },
-                    title: const Text('Inline'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  RadioListTile<ReportLayout>(
-                    value: ReportLayout.aligned,
-                    groupValue: layout,
-                    onChanged: (v) {
-                      if (v != null) vm.setReportLayout(v);
-                    },
-                    title: const Text('Aligned'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  const Divider(height: 24),
-                  const Text(
-                    'Text style',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 6),
-                  CheckboxListTile(
-                    value: showColonAfterTitlesWithContent,
-                    onChanged: (v) => vm.setShowColonAfterTitlesWithContent(v ?? false),
-                    title: const Text('Show colons'),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  CheckboxListTile(
-                    value: indentHierarchy,
-                    onChanged: (v) => vm.setIndentHierarchy(v ?? false),
-                    title: const Text('Indent hierarchy'),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  CheckboxListTile(
-                    value: indentContent,
-                    onChanged: (v) => vm.setIndentContent(v ?? false),
-                    title: const Text('Indent content'),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  const Divider(height: 24),
+                    const SizedBox(height: 8),
+                    RadioListTile<ReportLayout>(
+                      value: ReportLayout.block,
+                      groupValue: layout,
+                      onChanged: (v) {
+                        if (v != null) vm.setReportLayout(v);
+                      },
+                      title: const Text('Block'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    RadioListTile<ReportLayout>(
+                      value: ReportLayout.inline,
+                      groupValue: layout,
+                      onChanged: (v) {
+                        if (v != null) vm.setReportLayout(v);
+                      },
+                      title: const Text('Inline'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    RadioListTile<ReportLayout>(
+                      value: ReportLayout.aligned,
+                      groupValue: layout,
+                      onChanged: (v) {
+                        if (v != null) vm.setReportLayout(v);
+                      },
+                      title: const Text('Aligned'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const Divider(height: 24),
+                    const Text(
+                      'Text style',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 6),
+                    CheckboxListTile(
+                      value: showColonAfterTitlesWithContent,
+                      onChanged: (v) =>
+                          vm.setShowColonAfterTitlesWithContent(v ?? false),
+                      title: const Text('Show colons'),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                    CheckboxListTile(
+                      value: indentHierarchy,
+                      onChanged: (v) => vm.setIndentHierarchy(v ?? false),
+                      title: const Text('Indent hierarchy'),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                    CheckboxListTile(
+                      value: indentContent,
+                      onChanged: (v) => vm.setIndentContent(v ?? false),
+                      title: const Text('Indent content'),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                    const Divider(height: 24),
 
-                  const Text(
-                    'Global font size',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 6),
-                  Slider(
-                    value: scale,
-                    min: 0.85,
-                    max: 1.35,
-                    divisions: 10,
-                    label: scale.toStringAsFixed(2),
-                    onChanged: vm.setFontScale,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Text(
-                      'Applies to the current layout',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    const Text(
+                      'Global font size',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 6),
+                    Slider(
+                      value: scale,
+                      min: 0.85,
+                      max: 1.35,
+                      divisions: 10,
+                      label: scale.toStringAsFixed(2),
+                      onChanged: vm.setFontScale,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Text(
+                        'Applies to the current layout',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               );
             },
           ),
@@ -651,7 +713,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 final bytes = await _buildBytes();
                 if (!mounted) return;
                 final reportsRepo = context.read<ReportsRepository>();
-                final pdfFileName = reportsRepo.pdfFileNameForDoc(context.read<ReportEditorProvider>().doc);
+                final pdfFileName = reportsRepo.pdfFileNameForDoc(
+                  context.read<ReportEditorProvider>().doc,
+                );
                 await downloadBytes(bytes: bytes, fileName: pdfFileName);
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -742,7 +806,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                             ? 'On desktop web, use the download button in the preview toolbar, then share the PDF from your downloads.'
                             : 'On desktop, use the Ripot buttons below for Download and Share. Use the toolbar icons above for Letterhead and Layout.',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12.5, color: Colors.black54),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.black54,
+                        ),
                       ),
                     ],
                   ),
@@ -782,7 +849,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                             children: [
                               Text(
                                 'Toolbar: Letterhead • Layout',
-                                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.black54),
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(color: Colors.black54),
                               ),
                               const SizedBox(height: 8),
                               Wrap(
@@ -790,53 +858,81 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                OutlinedButton.icon(
-                                  onPressed: bytes == null
-                                      ? null
-                                      : () async {
-                                          try {
-                                            final file = await ripotDownloadPdf(
-                                              bytes: bytes,
-                                              fileName: pdfFileName,
-                                            );
-                                            if (!context.mounted) return;
+                                  OutlinedButton.icon(
+                                    onPressed: bytes == null
+                                        ? null
+                                        : () async {
+                                            try {
+                                              final file =
+                                                  await ripotDownloadPdf(
+                                                    bytes: bytes,
+                                                    fileName: pdfFileName,
+                                                  );
+                                              if (!context.mounted) return;
 
-                                            if (file != null) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text('PDF saved to: ${file.path}')),
-                                              );
-                                              await _offerAddToRecords();
-                                            } else {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Download cancelled')),
+                                              if (file != null) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'PDF saved to: ${file.path}',
+                                                    ),
+                                                  ),
+                                                );
+                                                await _offerAddToRecords();
+                                              } else {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Download cancelled',
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            } catch (e) {
+                                              if (!context.mounted) return;
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Download failed: $e',
+                                                  ),
+                                                ),
                                               );
                                             }
-                                          } catch (e) {
-                                            if (!context.mounted) return;
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Download failed: $e')),
-                                            );
-                                          }
-                                        },
-                                  icon: const Icon(Icons.download_outlined),
-                                  label: const Text('Download PDF'),
-                                ),
-                                FilledButton.tonalIcon(
-                                  onPressed: bytes == null
-                                      ? null
-                                      : () async {
-                                          try {
-                                            await ripotSharePdf(bytes: bytes, fileName: pdfFileName);
-                                          } catch (e) {
-                                            if (!context.mounted) return;
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Share failed: $e')),
-                                            );
-                                          }
-                                        },
-                                  icon: const Icon(Icons.share_outlined),
-                                  label: const Text('Share PDF'),
-                                ),
+                                          },
+                                    icon: const Icon(Icons.download_outlined),
+                                    label: const Text('Download PDF'),
+                                  ),
+                                  FilledButton.tonalIcon(
+                                    onPressed: bytes == null
+                                        ? null
+                                        : () async {
+                                            try {
+                                              await ripotSharePdf(
+                                                bytes: bytes,
+                                                fileName: pdfFileName,
+                                              );
+                                            } catch (e) {
+                                              if (!context.mounted) return;
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Share failed: $e',
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          },
+                                    icon: const Icon(Icons.share_outlined),
+                                    label: const Text('Share PDF'),
+                                  ),
                                 ],
                               ),
                             ],

@@ -72,10 +72,7 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
     final repo = context.read<LetterheadsRepository>();
 
     if (widget.letterheadId == null) {
-      _model = LetterheadTemplate(
-        letterheadId: newId('lhd'),
-        name: '',
-      );
+      _model = LetterheadTemplate(letterheadId: newId('lhd'), name: '');
       _applyModelToControllers();
       setState(() => _loading = false);
       return;
@@ -87,10 +84,7 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
       _applyModelToControllers();
     } catch (e) {
       // fallback: new
-      _model = LetterheadTemplate(
-        letterheadId: widget.letterheadId!,
-        name: '',
-      );
+      _model = LetterheadTemplate(letterheadId: widget.letterheadId!, name: '');
       _applyModelToControllers();
     }
 
@@ -115,29 +109,42 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
         allowMultiple: false,
         withData: true,
       );
-      final path = (result != null && result.files.isNotEmpty) ? result.files.first.path : null;
+      final path = (result != null && result.files.isNotEmpty)
+          ? result.files.first.path
+          : null;
       if (path == null || path.trim().isEmpty) return;
       final bytes = await File(path).readAsBytes();
       final lower = path.toLowerCase();
       final ext = lower.endsWith('.png')
           ? 'png'
           : lower.endsWith('.webp')
-              ? 'webp'
-              : lower.endsWith('.gif')
-                  ? 'gif'
-                  : 'jpg';
+          ? 'webp'
+          : lower.endsWith('.gif')
+          ? 'gif'
+          : 'jpg';
       final mime = ext == 'png'
           ? 'image/png'
           : ext == 'webp'
-              ? 'image/webp'
-              : ext == 'gif'
-                  ? 'image/gif'
-                  : 'image/jpeg';
-      imported = await persistBytesAsRef(bytes, fileStem: 'logo_${_model.letterheadId}', extension: ext, mimeType: mime);
+          ? 'image/webp'
+          : ext == 'gif'
+          ? 'image/gif'
+          : 'image/jpeg';
+      imported = await persistBytesAsRef(
+        bytes,
+        fileStem: 'logo_${_model.letterheadId}',
+        extension: ext,
+        mimeType: mime,
+      );
     } else {
-      final x = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      final x = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
       if (x == null) return;
-      imported = await xFileToPortableRef(x, fileStem: 'logo_${_model.letterheadId}');
+      imported = await xFileToPortableRef(
+        x,
+        fileStem: 'logo_${_model.letterheadId}',
+      );
     }
 
     setState(() {
@@ -172,9 +179,9 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
       _saving = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Letterhead saved')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Letterhead saved')));
 
     Navigator.pop(context, updated.letterheadId);
   }
@@ -188,8 +195,14 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
         title: const Text('Delete letterhead?'),
         content: const Text('This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -205,16 +218,17 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final hasLogo = _model.logoFilePath != null && _model.logoFilePath!.trim().isNotEmpty;
+    final hasLogo =
+        _model.logoFilePath != null && _model.logoFilePath!.trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.letterheadId == null ? 'New Letterhead' : 'Edit Letterhead'),
+        title: Text(
+          widget.letterheadId == null ? 'New Letterhead' : 'Edit Letterhead',
+        ),
         actions: [
           if (widget.letterheadId != null)
             IconButton(
@@ -247,7 +261,9 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
                   child: Container(
                     width: 72,
                     height: 72,
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: hasLogo
                         ? RefImage(_model.logoFilePath!, fit: BoxFit.cover)
                         : const Icon(Icons.image_outlined),
@@ -266,7 +282,9 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
                       if (hasLogo) ...[
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
-                          onPressed: () => setState(() => _model = _model.copyWith(clearLogo: true)),
+                          onPressed: () => setState(
+                            () => _model = _model.copyWith(clearLogo: true),
+                          ),
                           icon: const Icon(Icons.clear),
                           label: const Text('Clear logo'),
                         ),
@@ -286,24 +304,43 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
               children: [
                 SegmentedButton<LetterheadLogoPlacement>(
                   segments: const [
-                    ButtonSegment(value: LetterheadLogoPlacement.top, label: Text('Top')),
-                    ButtonSegment(value: LetterheadLogoPlacement.side, label: Text('Side')),
+                    ButtonSegment(
+                      value: LetterheadLogoPlacement.top,
+                      label: Text('Top'),
+                    ),
+                    ButtonSegment(
+                      value: LetterheadLogoPlacement.side,
+                      label: Text('Side'),
+                    ),
                   ],
                   selected: {_model.logoPlacement},
                   onSelectionChanged: (s) {
-                    setState(() => _model = _model.copyWith(logoPlacement: s.first));
+                    setState(
+                      () => _model = _model.copyWith(logoPlacement: s.first),
+                    );
                   },
                 ),
                 const SizedBox(height: 12),
                 SegmentedButton<LetterheadLogoAlignment>(
                   segments: const [
-                    ButtonSegment(value: LetterheadLogoAlignment.left, label: Text('Left')),
-                    ButtonSegment(value: LetterheadLogoAlignment.center, label: Text('Center')),
-                    ButtonSegment(value: LetterheadLogoAlignment.right, label: Text('Right')),
+                    ButtonSegment(
+                      value: LetterheadLogoAlignment.left,
+                      label: Text('Left'),
+                    ),
+                    ButtonSegment(
+                      value: LetterheadLogoAlignment.center,
+                      label: Text('Center'),
+                    ),
+                    ButtonSegment(
+                      value: LetterheadLogoAlignment.right,
+                      label: Text('Right'),
+                    ),
                   ],
                   selected: {_model.logoAlign},
                   onSelectionChanged: (s) {
-                    setState(() => _model = _model.copyWith(logoAlign: s.first));
+                    setState(
+                      () => _model = _model.copyWith(logoAlign: s.first),
+                    );
                   },
                 ),
               ],
@@ -324,7 +361,8 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
@@ -385,10 +423,7 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
           ),
 
           const SizedBox(height: 18),
-          _card(
-            title: 'Preview (simple)',
-            child: _miniPreview(context),
-          ),
+          _card(title: 'Preview (simple)', child: _miniPreview(context)),
         ],
       ),
     );
@@ -425,8 +460,10 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
             textAlign: textAlign,
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
-        if (_h2C.text.trim().isNotEmpty) Text(_h2C.text.trim(), textAlign: textAlign),
-        if (_h3C.text.trim().isNotEmpty) Text(_h3C.text.trim(), textAlign: textAlign),
+        if (_h2C.text.trim().isNotEmpty)
+          Text(_h2C.text.trim(), textAlign: textAlign),
+        if (_h3C.text.trim().isNotEmpty)
+          Text(_h3C.text.trim(), textAlign: textAlign),
       ],
     );
 
@@ -443,16 +480,25 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: _model.logoAlign == LetterheadLogoAlignment.right
-                  ? [Expanded(child: textBlock), const SizedBox(width: 12), logoBox]
-                  : [logoBox, const SizedBox(width: 12), Expanded(child: textBlock)],
+                  ? [
+                      Expanded(child: textBlock),
+                      const SizedBox(width: 12),
+                      logoBox,
+                    ]
+                  : [
+                      logoBox,
+                      const SizedBox(width: 12),
+                      Expanded(child: textBlock),
+                    ],
             )
           else ...[
             Row(
-              mainAxisAlignment: _model.logoAlign == LetterheadLogoAlignment.left
+              mainAxisAlignment:
+                  _model.logoAlign == LetterheadLogoAlignment.left
                   ? MainAxisAlignment.start
                   : _model.logoAlign == LetterheadLogoAlignment.center
-                      ? MainAxisAlignment.center
-                      : MainAxisAlignment.end,
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.end,
               children: [logoBox],
             ),
             const SizedBox(height: 8),
@@ -462,7 +508,12 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
           Divider(color: Theme.of(context).dividerColor),
           Row(
             children: [
-              Expanded(child: Text(_fLeftC.text.trim(), overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  _fLeftC.text.trim(),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               Expanded(
                 child: Text(
                   _fRightC.text.trim(),

@@ -24,7 +24,7 @@ class TemplateSummary {
 
 class TemplatesRepository {
   TemplatesRepository({AccessRepository? accessRepository})
-      : _accessRepository = accessRepository ?? AccessRepository();
+    : _accessRepository = accessRepository ?? AccessRepository();
 
   final AccessRepository _accessRepository;
   static const _indexKey = 'templates.index';
@@ -45,7 +45,10 @@ class TemplatesRepository {
 
   Future<void> saveTemplate(TemplateDoc t) async {
     final prefs = await _prefs;
-    await prefs.setString(_key(t.templateId), jsonEncode(TemplateCodec.templateToJson(t)));
+    await prefs.setString(
+      _key(t.templateId),
+      jsonEncode(TemplateCodec.templateToJson(t)),
+    );
     final ids = await _readIndex();
     ids.remove(t.templateId);
     ids.insert(0, t.templateId);
@@ -75,10 +78,12 @@ class TemplatesRepository {
     SectionNode updateSection(SectionNode section) {
       return section.copyWith(
         addToRecords: saveToRecordsSectionIds.contains(section.id),
-        children: section.children.map((child) {
-          if (child is SectionNode) return updateSection(child);
-          return child;
-        }).toList(growable: false),
+        children: section.children
+            .map((child) {
+              if (child is SectionNode) return updateSection(child);
+              return child;
+            })
+            .toList(growable: false),
       );
     }
 
@@ -131,7 +136,9 @@ class TemplatesRepository {
           TemplateSummary(
             templateId: j['templateId'] as String,
             name: (j['name'] as String?) ?? 'Untitled Template',
-            updatedAt: DateTime.tryParse(j['updatedAtIso'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+            updatedAt:
+                DateTime.tryParse(j['updatedAtIso'] as String? ?? '') ??
+                DateTime.fromMillisecondsSinceEpoch(0),
           ),
         );
       } catch (_) {}
@@ -154,7 +161,8 @@ class TemplatesRepository {
         return TemplateSummary(
           templateId: data['templateId'] as String? ?? doc.id,
           name: (data['name'] as String?) ?? 'Untitled Template',
-          updatedAt: DateTime.tryParse(data['updatedAtIso'] as String? ?? '') ??
+          updatedAt:
+              DateTime.tryParse(data['updatedAtIso'] as String? ?? '') ??
               DateTime.tryParse(data['syncedAtIso'] as String? ?? '') ??
               DateTime.fromMillisecondsSinceEpoch(0),
         );
@@ -170,7 +178,9 @@ class TemplatesRepository {
     if (text == null || text.trim().isEmpty) {
       return null;
     }
-    return TemplateCodec.templateFromJson(jsonDecode(text) as Map<String, dynamic>);
+    return TemplateCodec.templateFromJson(
+      jsonDecode(text) as Map<String, dynamic>,
+    );
   }
 
   Future<TemplateDoc?> _loadRemoteTemplateOrNull(String templateId) async {
@@ -194,7 +204,10 @@ class TemplatesRepository {
 
   Future<void> _cacheTemplateLocally(TemplateDoc t) async {
     final prefs = await _prefs;
-    await prefs.setString(_key(t.templateId), jsonEncode(TemplateCodec.templateToJson(t)));
+    await prefs.setString(
+      _key(t.templateId),
+      jsonEncode(TemplateCodec.templateToJson(t)),
+    );
     final ids = await _readIndex();
     ids.remove(t.templateId);
     ids.insert(0, t.templateId);
@@ -208,26 +221,25 @@ class TemplatesRepository {
       if (!access.isPremiumLike) return;
 
       final structureOnly = t.copyWith(
-        roots: t.roots.map((r) => r.toTemplateNode(includeContent: false)).toList(growable: false),
+        roots: t.roots
+            .map((r) => r.toTemplateNode(includeContent: false))
+            .toList(growable: false),
       );
       final identity = await SyncIdentityResolver().resolve();
       await FirebaseFirestore.instance
           .collection('ripot_template_structures')
           .doc('${identity.documentKey}_${t.templateId}')
-          .set(
-        {
-          ...TemplateCodec.templateToJson(structureOnly),
-          'templateId': t.templateId,
-          'ownerType': identity.ownerType,
-          'ownerId': identity.ownerId,
-          'ownerInstallationId': identity.installationId,
-          'authUid': identity.authUid,
-          'planAtSync': access.plan.name,
-          'isStructureOnly': true,
-          'syncedAtIso': DateTime.now().toIso8601String(),
-        },
-        SetOptions(merge: true),
-      );
+          .set({
+            ...TemplateCodec.templateToJson(structureOnly),
+            'templateId': t.templateId,
+            'ownerType': identity.ownerType,
+            'ownerId': identity.ownerId,
+            'ownerInstallationId': identity.installationId,
+            'authUid': identity.authUid,
+            'planAtSync': access.plan.name,
+            'isStructureOnly': true,
+            'syncedAtIso': DateTime.now().toIso8601String(),
+          }, SetOptions(merge: true));
     } catch (_) {
       // Cloud sync must not break local template saving.
     }
@@ -264,18 +276,15 @@ class TemplatesRepository {
         await FirebaseFirestore.instance
             .collection('ripot_template_structures')
             .doc('${identity.authUid}_$templateId')
-            .set(
-          {
-            ...data,
-            'ownerType': 'user',
-            'ownerId': identity.authUid,
-            'authUid': identity.authUid,
-            'ownerInstallationId': identity.installationId,
-            'migratedFromInstallationId': identity.installationId,
-            'migratedAtIso': DateTime.now().toIso8601String(),
-          },
-          SetOptions(merge: true),
-        );
+            .set({
+              ...data,
+              'ownerType': 'user',
+              'ownerId': identity.authUid,
+              'authUid': identity.authUid,
+              'ownerInstallationId': identity.installationId,
+              'migratedFromInstallationId': identity.installationId,
+              'migratedAtIso': DateTime.now().toIso8601String(),
+            }, SetOptions(merge: true));
       }
     } catch (_) {
       // Never block template usage on migration attempts.
