@@ -4,13 +4,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-
-import '../services/media_ref.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/utils/ids.dart';
 import '../../reports/data/letterhead_repository.dart';
 import '../../reports/domain/models/letterhead_template.dart';
-import '../../../core/utils/ids.dart';
+import '../services/media_ref.dart';
 
 class LetterheadEditorScreen extends StatefulWidget {
   final String? letterheadId; // null => create
@@ -18,7 +17,8 @@ class LetterheadEditorScreen extends StatefulWidget {
   const LetterheadEditorScreen({super.key, this.letterheadId});
 
   @override
-  State<LetterheadEditorScreen> createState() => _LetterheadEditorScreenState();
+  State<LetterheadEditorScreen> createState() =>
+      _LetterheadEditorScreenState();
 }
 
 class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
@@ -47,6 +47,7 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
   @override
   void initState() {
     super.initState();
+
     _nameC = TextEditingController();
     _h1C = TextEditingController();
     _h2C = TextEditingController();
@@ -72,9 +73,17 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
     final repo = context.read<LetterheadsRepository>();
 
     if (widget.letterheadId == null) {
-      _model = LetterheadTemplate(letterheadId: newId('lhd'), name: '');
+      _model = LetterheadTemplate(
+        letterheadId: newId('lhd'),
+        name: '',
+      );
+
       _applyModelToControllers();
-      setState(() => _loading = false);
+
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+
       return;
     }
 
@@ -82,13 +91,18 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
       final loaded = await repo.loadLetterhead(widget.letterheadId!);
       _model = loaded;
       _applyModelToControllers();
-    } catch (e) {
-      // fallback: new
-      _model = LetterheadTemplate(letterheadId: widget.letterheadId!, name: '');
+    } catch (_) {
+      _model = LetterheadTemplate(
+        letterheadId: widget.letterheadId!,
+        name: '',
+      );
+
       _applyModelToControllers();
     }
 
-    setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   void _applyModelToControllers() {
@@ -109,26 +123,37 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
         allowMultiple: false,
         withData: true,
       );
-      final path = (result != null && result.files.isNotEmpty)
-          ? result.files.first.path
-          : null;
-      if (path == null || path.trim().isEmpty) return;
+
+      final path =
+          (result != null && result.files.isNotEmpty)
+              ? result.files.first.path
+              : null;
+
+      if (path == null || path.trim().isEmpty) {
+        return;
+      }
+
       final bytes = await File(path).readAsBytes();
       final lower = path.toLowerCase();
-      final ext = lower.endsWith('.png')
-          ? 'png'
-          : lower.endsWith('.webp')
-          ? 'webp'
-          : lower.endsWith('.gif')
-          ? 'gif'
-          : 'jpg';
-      final mime = ext == 'png'
-          ? 'image/png'
-          : ext == 'webp'
-          ? 'image/webp'
-          : ext == 'gif'
-          ? 'image/gif'
-          : 'image/jpeg';
+
+      final ext =
+          lower.endsWith('.png')
+              ? 'png'
+              : lower.endsWith('.webp')
+              ? 'webp'
+              : lower.endsWith('.gif')
+              ? 'gif'
+              : 'jpg';
+
+      final mime =
+          ext == 'png'
+              ? 'image/png'
+              : ext == 'webp'
+              ? 'image/webp'
+              : ext == 'gif'
+              ? 'image/gif'
+              : 'image/jpeg';
+
       imported = await persistBytesAsRef(
         bytes,
         fileStem: 'logo_${_model.letterheadId}',
@@ -140,15 +165,23 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
         source: ImageSource.gallery,
         imageQuality: 85,
       );
-      if (x == null) return;
+
+      if (x == null) {
+        return;
+      }
+
       imported = await xFileToPortableRef(
         x,
         fileStem: 'logo_${_model.letterheadId}',
       );
     }
 
+    if (!mounted) return;
+
     setState(() {
-      _model = _model.copyWith(logoFilePath: imported);
+      _model = _model.copyWith(
+        logoFilePath: imported,
+      );
     });
   }
 
@@ -171,19 +204,37 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
       footerRight: _fRightC.text.trim(),
     );
 
-    await repo.saveLetterhead(updated);
+    try {
+      await repo.saveLetterhead(updated);
 
-    if (!mounted) return;
-    setState(() {
-      _model = updated;
-      _saving = false;
-    });
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Letterhead saved')));
+      setState(() {
+        _model = updated;
+        _saving = false;
+      });
 
-    Navigator.pop(context, updated.letterheadId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Letterhead saved'),
+        ),
+      );
+
+      Navigator.pop(
+        context,
+        updated.letterheadId,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _saving = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save letterhead: $e'),
+        ),
+      );
+    }
   }
 
   Future<void> _delete() async {
@@ -191,20 +242,21 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
 
     final sure = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete letterhead?'),
-        content: const Text('This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Delete letterhead?'),
+            content: const Text('This cannot be undone.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
 
     if (sure != true) return;
@@ -212,39 +264,57 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
     await repo.deleteLetterhead(_model.letterheadId);
 
     if (!mounted) return;
-    Navigator.pop(context, '__deleted__');
+
+    Navigator.pop(
+      context,
+      '__deleted__',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
 
     final hasLogo =
-        _model.logoFilePath != null && _model.logoFilePath!.trim().isNotEmpty;
+        _model.logoFilePath != null &&
+        _model.logoFilePath!.trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.letterheadId == null ? 'New Letterhead' : 'Edit Letterhead',
+          widget.letterheadId == null
+              ? 'New Letterhead'
+              : 'Edit Letterhead',
         ),
         actions: [
           if (widget.letterheadId != null)
             IconButton(
               tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(
+                Icons.delete_outline,
+              ),
               onPressed: _delete,
             ),
           IconButton(
             tooltip: 'Save',
-            icon: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
+            icon:
+                _saving
+                    ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                    : const Icon(
+                      Icons.save_outlined,
+                    ),
             onPressed: _saving ? null : _save,
           ),
         ],
@@ -261,32 +331,53 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
                   child: Container(
                     width: 72,
                     height: 72,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    child: hasLogo
-                        ? RefImage(_model.logoFilePath!, fit: BoxFit.cover)
-                        : const Icon(Icons.image_outlined),
+                    color:
+                        Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                    child:
+                        hasLogo
+                            ? RefImage(
+                              _model.logoFilePath!,
+                              fit: BoxFit.cover,
+                            )
+                            : const Icon(
+                              Icons.image_outlined,
+                            ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.stretch,
                     children: [
                       FilledButton.icon(
                         onPressed: _pickLogo,
-                        icon: const Icon(Icons.upload_file_outlined),
-                        label: const Text('Choose logo'),
+                        icon: const Icon(
+                          Icons.upload_file_outlined,
+                        ),
+                        label: const Text(
+                          'Choose logo',
+                        ),
                       ),
                       if (hasLogo) ...[
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
-                          onPressed: () => setState(
-                            () => _model = _model.copyWith(clearLogo: true),
+                          onPressed:
+                              () => setState(
+                                () =>
+                                    _model =
+                                        _model.copyWith(
+                                          clearLogo: true,
+                                        ),
+                              ),
+                          icon: const Icon(
+                            Icons.clear,
                           ),
-                          icon: const Icon(Icons.clear),
-                          label: const Text('Clear logo'),
+                          label: const Text(
+                            'Clear logo',
+                          ),
                         ),
                       ],
                     ],
@@ -295,57 +386,119 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 12),
 
           _card(
-            title: 'Logo placement',
+            title: 'Header layout',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
               children: [
-                SegmentedButton<LetterheadLogoPlacement>(
+                Text(
+                  'Logo position',
+                  style:
+                      Theme.of(
+                        context,
+                      ).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Choose whether the logo appears above or beside the letterhead text.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                SegmentedButton<
+                  LetterheadLogoPlacement
+                >(
                   segments: const [
                     ButtonSegment(
-                      value: LetterheadLogoPlacement.top,
-                      label: Text('Top'),
+                      value:
+                          LetterheadLogoPlacement.top,
+                      label: Text('Above'),
                     ),
                     ButtonSegment(
-                      value: LetterheadLogoPlacement.side,
-                      label: Text('Side'),
+                      value:
+                          LetterheadLogoPlacement.side,
+                      label: Text('Beside'),
                     ),
                   ],
-                  selected: {_model.logoPlacement},
-                  onSelectionChanged: (s) {
-                    setState(
-                      () => _model = _model.copyWith(logoPlacement: s.first),
-                    );
+                  selected: {
+                    _model.logoPlacement,
+                  },
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _model = _model.copyWith(
+                        logoPlacement:
+                            selection.first,
+                      );
+                    });
                   },
                 ),
-                const SizedBox(height: 12),
-                SegmentedButton<LetterheadLogoAlignment>(
+
+                const SizedBox(height: 20),
+
+                Text(
+                  'Header alignment',
+                  style:
+                      Theme.of(
+                        context,
+                      ).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Aligns the complete letterhead header, including its text and logo arrangement.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                SegmentedButton<
+                  LetterheadLogoAlignment
+                >(
                   segments: const [
                     ButtonSegment(
-                      value: LetterheadLogoAlignment.left,
+                      value:
+                          LetterheadLogoAlignment.left,
                       label: Text('Left'),
                     ),
                     ButtonSegment(
-                      value: LetterheadLogoAlignment.center,
+                      value:
+                          LetterheadLogoAlignment.center,
                       label: Text('Center'),
                     ),
                     ButtonSegment(
-                      value: LetterheadLogoAlignment.right,
+                      value:
+                          LetterheadLogoAlignment.right,
                       label: Text('Right'),
                     ),
                   ],
-                  selected: {_model.logoAlign},
-                  onSelectionChanged: (s) {
-                    setState(
-                      () => _model = _model.copyWith(logoAlign: s.first),
-                    );
+                  selected: {
+                    _model.logoAlign,
+                  },
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _model = _model.copyWith(
+                        logoAlign:
+                            selection.first,
+                      );
+                    });
                   },
                 ),
               ],
             ),
           ),
+
           const SizedBox(height: 12),
 
           Form(
@@ -356,63 +509,93 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
                 children: [
                   TextFormField(
                     controller: _nameC,
-                    decoration: const InputDecoration(
-                      labelText: 'Letterhead name (e.g., My Clinic)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    decoration:
+                        const InputDecoration(
+                          labelText:
+                              'Letterhead name (e.g., My Clinic)',
+                          border:
+                              OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                    validator:
+                        (v) =>
+                            (v == null ||
+                                    v.trim().isEmpty)
+                                ? 'Required'
+                                : null,
                   ),
+
                   const SizedBox(height: 10),
+
                   TextFormField(
                     controller: _h1C,
-                    decoration: const InputDecoration(
-                      labelText: 'Header line 1 (Hospital/Company)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                    decoration:
+                        const InputDecoration(
+                          labelText:
+                              'Header line 1 (Hospital/Company)',
+                          border:
+                              OutlineInputBorder(),
+                          isDense: true,
+                        ),
                   ),
+
                   const SizedBox(height: 10),
+
                   TextFormField(
                     controller: _h2C,
-                    decoration: const InputDecoration(
-                      labelText: 'Header line 2 (Address)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                    decoration:
+                        const InputDecoration(
+                          labelText:
+                              'Header line 2 (Address)',
+                          border:
+                              OutlineInputBorder(),
+                          isDense: true,
+                        ),
                   ),
+
                   const SizedBox(height: 10),
+
                   TextFormField(
                     controller: _h3C,
-                    decoration: const InputDecoration(
-                      labelText: 'Header line 3 (Phone/Email)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                    decoration:
+                        const InputDecoration(
+                          labelText:
+                              'Header line 3 (Phone/Email)',
+                          border:
+                              OutlineInputBorder(),
+                          isDense: true,
+                        ),
                   ),
+
                   const SizedBox(height: 10),
+
                   Row(
                     children: [
                       Expanded(
                         child: TextFormField(
                           controller: _fLeftC,
-                          decoration: const InputDecoration(
-                            labelText: 'Footer left',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
+                          decoration:
+                              const InputDecoration(
+                                labelText:
+                                    'Footer left',
+                                border:
+                                    OutlineInputBorder(),
+                                isDense: true,
+                              ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextFormField(
                           controller: _fRightC,
-                          decoration: const InputDecoration(
-                            labelText: 'Footer right',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
+                          decoration:
+                              const InputDecoration(
+                                labelText:
+                                    'Footer right',
+                                border:
+                                    OutlineInputBorder(),
+                                isDense: true,
+                              ),
                         ),
                       ),
                     ],
@@ -423,32 +606,68 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
           ),
 
           const SizedBox(height: 18),
-          _card(title: 'Preview (simple)', child: _miniPreview(context)),
+
+          _card(
+            title: 'Preview (simple)',
+            child: _miniPreview(context),
+          ),
         ],
       ),
     );
   }
 
-  Widget _miniPreview(BuildContext context) {
-    final align = switch (_model.logoAlign) {
-      LetterheadLogoAlignment.left => CrossAxisAlignment.start,
-      LetterheadLogoAlignment.center => CrossAxisAlignment.center,
-      LetterheadLogoAlignment.right => CrossAxisAlignment.end,
-    };
-    final textAlign = switch (_model.logoAlign) {
-      LetterheadLogoAlignment.left => TextAlign.left,
-      LetterheadLogoAlignment.center => TextAlign.center,
-      LetterheadLogoAlignment.right => TextAlign.right,
-    };
+  Widget _miniPreview(
+    BuildContext context,
+  ) {
+    final align =
+        switch (_model.logoAlign) {
+          LetterheadLogoAlignment.left =>
+            CrossAxisAlignment.start,
+          LetterheadLogoAlignment.center =>
+            CrossAxisAlignment.center,
+          LetterheadLogoAlignment.right =>
+            CrossAxisAlignment.end,
+        };
+
+    final textAlign =
+        switch (_model.logoAlign) {
+          LetterheadLogoAlignment.left =>
+            TextAlign.left,
+          LetterheadLogoAlignment.center =>
+            TextAlign.center,
+          LetterheadLogoAlignment.right =>
+            TextAlign.right,
+        };
+
+    final hasLogo =
+        _model.logoFilePath != null &&
+        _model.logoFilePath!.trim().isNotEmpty;
 
     final logoBox = Container(
       width: 46,
       height: 46,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius:
+            BorderRadius.circular(10),
+        color:
+            Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
       ),
-      child: const Icon(Icons.image_outlined, size: 20),
+      child:
+          hasLogo
+              ? ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(10),
+                child: RefImage(
+                  _model.logoFilePath!,
+                  fit: BoxFit.cover,
+                ),
+              )
+              : const Icon(
+                Icons.image_outlined,
+                size: 20,
+              ),
     );
 
     final textBlock = Column(
@@ -458,67 +677,109 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
           Text(
             _h1C.text.trim(),
             textAlign: textAlign,
-            style: const TextStyle(fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+            ),
           ),
+
         if (_h2C.text.trim().isNotEmpty)
-          Text(_h2C.text.trim(), textAlign: textAlign),
+          Text(
+            _h2C.text.trim(),
+            textAlign: textAlign,
+          ),
+
         if (_h3C.text.trim().isNotEmpty)
-          Text(_h3C.text.trim(), textAlign: textAlign),
+          Text(
+            _h3C.text.trim(),
+            textAlign: textAlign,
+          ),
       ],
     );
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              Theme.of(
+                context,
+              ).dividerColor,
+        ),
       ),
       child: Column(
         crossAxisAlignment: align,
         children: [
-          if (_model.logoPlacement == LetterheadLogoPlacement.side)
+          if (_model.logoPlacement ==
+              LetterheadLogoPlacement.side)
             Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: _model.logoAlign == LetterheadLogoAlignment.right
-                  ? [
-                      Expanded(child: textBlock),
-                      const SizedBox(width: 12),
-                      logoBox,
-                    ]
-                  : [
-                      logoBox,
-                      const SizedBox(width: 12),
-                      Expanded(child: textBlock),
-                    ],
+              crossAxisAlignment:
+                  CrossAxisAlignment.center,
+              children:
+                  _model.logoAlign ==
+                          LetterheadLogoAlignment
+                              .right
+                      ? [
+                        Expanded(
+                          child: textBlock,
+                        ),
+                        const SizedBox(width: 12),
+                        logoBox,
+                      ]
+                      : [
+                        logoBox,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: textBlock,
+                        ),
+                      ],
             )
           else ...[
             Row(
               mainAxisAlignment:
-                  _model.logoAlign == LetterheadLogoAlignment.left
-                  ? MainAxisAlignment.start
-                  : _model.logoAlign == LetterheadLogoAlignment.center
-                  ? MainAxisAlignment.center
-                  : MainAxisAlignment.end,
-              children: [logoBox],
+                  _model.logoAlign ==
+                          LetterheadLogoAlignment
+                              .left
+                      ? MainAxisAlignment.start
+                      : _model.logoAlign ==
+                          LetterheadLogoAlignment
+                              .center
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.end,
+              children: [
+                logoBox,
+              ],
             ),
             const SizedBox(height: 8),
             textBlock,
           ],
+
           const SizedBox(height: 10),
-          Divider(color: Theme.of(context).dividerColor),
+
+          Divider(
+            color:
+                Theme.of(
+                  context,
+                ).dividerColor,
+          ),
+
           Row(
             children: [
               Expanded(
                 child: Text(
                   _fLeftC.text.trim(),
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                 ),
               ),
               Expanded(
                 child: Text(
                   _fRightC.text.trim(),
-                  textAlign: TextAlign.right,
-                  overflow: TextOverflow.ellipsis,
+                  textAlign:
+                      TextAlign.right,
+                  overflow:
+                      TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -528,16 +789,31 @@ class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
     );
   }
 
-  Widget _card({required String title, required Widget child}) {
+  Widget _card({
+    required String title,
+    required Widget child,
+  }) {
     return Card(
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.circular(16),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding:
+            const EdgeInsets.all(14),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text(
+              title,
+              style:
+                  const TextStyle(
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+            ),
             const SizedBox(height: 12),
             child,
           ],

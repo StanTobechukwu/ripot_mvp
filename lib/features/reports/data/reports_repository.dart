@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -283,7 +281,7 @@ class ReportsRepository {
 
     final dd = dt.day.toString().padLeft(2, '0');
 
-    return '${type}_Report_${yyyy}-${mm}-${dd}.pdf';
+    return '${type}_Report_$yyyy-$mm-$dd.pdf';
   }
 
   String _reportTypeFor(ReportDoc doc) {
