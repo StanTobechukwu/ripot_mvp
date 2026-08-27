@@ -27,10 +27,7 @@ class ReportEditorProvider extends ChangeNotifier {
   /// Selected node can be a SectionNode OR ContentNode id.
   String? _selectedNodeId;
 
-  ReportEditorProvider({
-    required this.repo,
-    required this.templatesRepo,
-  }) {
+  ReportEditorProvider({required this.repo, required this.templatesRepo}) {
     newReport();
   }
 
@@ -120,7 +117,7 @@ class ReportEditorProvider extends ChangeNotifier {
       updatedAtIso: now,
       roots: const [],
       images: const [],
-      placementChoice: ImagePlacementChoice.attachmentsOnly,
+      placementChoice: ImagePlacementChoice.inlinePage1,
       signature: const SignatureBlock(),
       subjectInfoDef: SubjectInfoBlockDef.kDefaults,
       subjectInfo: const SubjectInfoValues({}),
@@ -139,12 +136,14 @@ class ReportEditorProvider extends ChangeNotifier {
     final now = nowIso();
 
     // 1) Deep-clone template structure
-    final cloned =
-        template.roots.map((s) => s.cloneNodeTree()).toList(growable: false);
+    final cloned = template.roots
+        .map((s) => s.cloneNodeTree())
+        .toList(growable: false);
 
     // 2) Hydrate leaf sections with exactly one content node (Form Mode)
-    final hydrated =
-        cloned.map(_hydrateTemplateSectionForForm).toList(growable: false);
+    final hydrated = cloned
+        .map(_hydrateTemplateSectionForForm)
+        .toList(growable: false);
 
     _doc = ReportDoc(
       reportId: newId('rpt'),
@@ -152,7 +151,7 @@ class ReportEditorProvider extends ChangeNotifier {
       updatedAtIso: now,
       roots: hydrated,
       images: const [],
-      placementChoice: ImagePlacementChoice.attachmentsOnly,
+      placementChoice: ImagePlacementChoice.inlinePage1,
       signature: template.signature,
       subjectInfoDef: template.subjectInfo,
       subjectInfo: SubjectInfoValues.emptyFromDef(template.subjectInfo),
@@ -181,7 +180,6 @@ class ReportEditorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-
   Future<void> loadById(String reportId) async {
     final loaded = await repo.loadReport(reportId);
     _doc = loaded;
@@ -199,7 +197,15 @@ class ReportEditorProvider extends ChangeNotifier {
       updatedAtIso: now,
       reportTitle: loaded.reportTitle,
       roots: loaded.roots.map((s) => s.cloneNodeTree()).toList(growable: false),
-      images: loaded.images.map((i) => ImageAttachment(id: newId('img'), filePath: i.filePath, label: i.label)).toList(growable: false),
+      images: loaded.images
+          .map(
+            (i) => ImageAttachment(
+              id: newId('img'),
+              filePath: i.filePath,
+              label: i.label,
+            ),
+          )
+          .toList(growable: false),
       placementChoice: loaded.placementChoice,
       reportLayout: loaded.reportLayout,
       indentContent: loaded.indentContent,
@@ -318,14 +324,13 @@ class ReportEditorProvider extends ChangeNotifier {
     _markDirty();
   }
 
-void setSubjectInfoHeading(String heading) {
-  _doc = _doc.copyWith(
-    subjectInfoDef: _doc.subjectInfoDef.copyWith(
-      heading: heading.trim(),
-    ),
-  );
-  _markDirty();
-}
+  void setSubjectInfoHeading(String heading) {
+    _doc = _doc.copyWith(
+      subjectInfoDef: _doc.subjectInfoDef.copyWith(heading: heading.trim()),
+    );
+    _markDirty();
+  }
+
   void removeSubjectField(String fieldKey) {
     final fields = _doc.subjectInfoDef.fields;
     final target = fields.firstWhere(
@@ -405,15 +410,16 @@ void setSubjectInfoHeading(String heading) {
 
   int _nextOrder(List<SubjectFieldDef> fields) {
     if (fields.isEmpty) return 0;
-    final maxOrder =
-        fields.map((f) => f.order).reduce((a, b) => a > b ? a : b);
+    final maxOrder = fields.map((f) => f.order).reduce((a, b) => a > b ? a : b);
     return maxOrder + 1;
   }
 
   String _generateCustomFieldKey() {
     final r = Random();
-    final chunk =
-        List.generate(8, (_) => r.nextInt(36).toRadixString(36)).join();
+    final chunk = List.generate(
+      8,
+      (_) => r.nextInt(36).toRadixString(36),
+    ).join();
     return 'custom_$chunk';
   }
 
@@ -462,10 +468,7 @@ void setSubjectInfoHeading(String heading) {
       current.second,
     ).toIso8601String();
 
-    _doc = _doc.copyWith(
-      reportDateIso: normalized,
-      updatedAtIso: nowIso(),
-    );
+    _doc = _doc.copyWith(reportDateIso: normalized, updatedAtIso: nowIso());
     _markDirty();
   }
 
@@ -474,10 +477,12 @@ void setSubjectInfoHeading(String heading) {
   // =========================
 
   SectionNode _hydrateTemplateSectionForForm(SectionNode s) {
-    final sectionKids =
-        s.children.whereType<SectionNode>().toList(growable: false);
-    final contentKids =
-        s.children.whereType<ContentNode>().toList(growable: false);
+    final sectionKids = s.children.whereType<SectionNode>().toList(
+      growable: false,
+    );
+    final contentKids = s.children.whereType<ContentNode>().toList(
+      growable: false,
+    );
 
     final hasChildDependingOnThisSection = sectionKids.any(
       (child) => child.conditionalParentSectionId == s.id,
@@ -493,7 +498,8 @@ void setSubjectInfoHeading(String heading) {
     // "Preparing field..." and broke conditional children that depended on the
     // parent section's value. Preserve/create the parent content only when the
     // section is actually configured like a field.
-    final shouldHaveOwnContent = contentKids.isNotEmpty ||
+    final shouldHaveOwnContent =
+        contentKids.isNotEmpty ||
         s.inputType != FieldInputType.freeText ||
         s.options.any((e) => e.trim().isNotEmpty) ||
         s.addToRecords ||
@@ -505,25 +511,15 @@ void setSubjectInfoHeading(String heading) {
       hydratedChildren.add(
         contentKids.isNotEmpty
             ? contentKids.first
-            : ContentNode(
-                id: '${s.id}_content',
-                text: '',
-                indent: s.indent,
-              ),
+            : ContentNode(id: '${s.id}_content', text: '', indent: s.indent),
       );
     }
 
-    hydratedChildren.addAll(
-      sectionKids.map(_hydrateTemplateSectionForForm),
-    );
+    hydratedChildren.addAll(sectionKids.map(_hydrateTemplateSectionForForm));
 
     if (hydratedChildren.isEmpty) {
       hydratedChildren.add(
-        ContentNode(
-          id: '${s.id}_content',
-          text: '',
-          indent: s.indent,
-        ),
+        ContentNode(id: '${s.id}_content', text: '', indent: s.indent),
       );
     }
 
@@ -563,10 +559,7 @@ void setSubjectInfoHeading(String heading) {
       style: _defaultTitleStyleForIndent(0),
     );
 
-    _doc = _doc.copyWith(
-      roots: [..._doc.roots, sec],
-      updatedAtIso: nowIso(),
-    );
+    _doc = _doc.copyWith(roots: [..._doc.roots, sec], updatedAtIso: nowIso());
     _commit(); // ✅ prune + notify
   }
 
@@ -589,7 +582,11 @@ void setSubjectInfoHeading(String heading) {
       style: _defaultTitleStyleForIndent(indent),
     );
 
-    final nextRoots = _appendSameLevelSibling(_doc.roots, effectiveTargetId, newSec);
+    final nextRoots = _appendSameLevelSibling(
+      _doc.roots,
+      effectiveTargetId,
+      newSec,
+    );
     _doc = _doc.copyWith(roots: nextRoots, updatedAtIso: nowIso());
     _commit(); // ✅ prune + notify
   }
@@ -676,18 +673,14 @@ void setSubjectInfoHeading(String heading) {
     );
 
     _doc = _doc.copyWith(
-      roots: _updateSectionTree(
-        _doc.roots,
-        targetId,
-        (s) {
-          // ✅ Insert content BEFORE subsections (intro content)
-          final nextChildren = <Node>[
-            newTxt,
-            ...s.children.whereType<SectionNode>(),
-          ];
-          return s.copyWith(children: nextChildren, collapsed: false);
-        },
-      ),
+      roots: _updateSectionTree(_doc.roots, targetId, (s) {
+        // ✅ Insert content BEFORE subsections (intro content)
+        final nextChildren = <Node>[
+          newTxt,
+          ...s.children.whereType<SectionNode>(),
+        ];
+        return s.copyWith(children: nextChildren, collapsed: false);
+      }),
       updatedAtIso: nowIso(),
     );
 
@@ -808,15 +801,18 @@ void setSubjectInfoHeading(String heading) {
       return children
           .where((n) => !(n is ContentNode && n.id == contentId))
           .map((n) {
-        if (n is SectionNode) {
-          return n.copyWith(children: walk(n.children));
-        }
-        return n;
-      }).toList();
+            if (n is SectionNode) {
+              return n.copyWith(children: walk(n.children));
+            }
+            return n;
+          })
+          .toList();
     }
 
     _doc = _doc.copyWith(
-      roots: _doc.roots.map((s) => s.copyWith(children: walk(s.children))).toList(),
+      roots: _doc.roots
+          .map((s) => s.copyWith(children: walk(s.children)))
+          .toList(),
       updatedAtIso: nowIso(),
     );
 
@@ -842,20 +838,15 @@ void setSubjectInfoHeading(String heading) {
     if (n is! SectionNode) return;
 
     _doc = _doc.copyWith(
-      roots: _updateSectionTree(
-        _doc.roots,
-        id,
-        (s) {
-          final kept = s.children.where((c) => c is! ContentNode).toList();
-          return s.copyWith(children: kept, collapsed: false);
-        },
-      ),
+      roots: _updateSectionTree(_doc.roots, id, (s) {
+        final kept = s.children.where((c) => c is! ContentNode).toList();
+        return s.copyWith(children: kept, collapsed: false);
+      }),
       updatedAtIso: nowIso(),
     );
 
     _commit(); // ✅ prune + notify
   }
-
 
   void moveSectionUp(String sectionId) {
     _doc = _doc.copyWith(
@@ -880,10 +871,7 @@ void setSubjectInfoHeading(String heading) {
   void setPlacementChoice(ImagePlacementChoice choice) {
     // Attachment mode paginates images in groups of 8 per page; it is not an
     // 8-image-per-report limit. Keep existing images when switching modes.
-    _doc = _doc.copyWith(
-      placementChoice: choice,
-      updatedAtIso: nowIso(),
-    );
+    _doc = _doc.copyWith(placementChoice: choice, updatedAtIso: nowIso());
     _markDirty();
   }
 
@@ -892,36 +880,24 @@ void setSubjectInfoHeading(String heading) {
   // =========================
 
   void setReportLayout(ReportLayout layout) {
-    _doc = _doc.copyWith(
-      reportLayout: layout,
-      updatedAtIso: nowIso(),
-    );
+    _doc = _doc.copyWith(reportLayout: layout, updatedAtIso: nowIso());
     _markDirty();
   }
 
   void setFontScale(double scale) {
     final clamped = scale.clamp(0.85, 1.35).toDouble();
 
-    _doc = _doc.copyWith(
-      fontScale: clamped,
-      updatedAtIso: nowIso(),
-    );
+    _doc = _doc.copyWith(fontScale: clamped, updatedAtIso: nowIso());
     _markDirty();
   }
 
   void setIndentContent(bool enabled) {
-    _doc = _doc.copyWith(
-      indentContent: enabled,
-      updatedAtIso: nowIso(),
-    );
+    _doc = _doc.copyWith(indentContent: enabled, updatedAtIso: nowIso());
     _markDirty();
   }
 
   void setIndentHierarchy(bool enabled) {
-    _doc = _doc.copyWith(
-      indentHierarchy: enabled,
-      updatedAtIso: nowIso(),
-    );
+    _doc = _doc.copyWith(indentHierarchy: enabled, updatedAtIso: nowIso());
     _markDirty();
   }
 
@@ -942,8 +918,9 @@ void setSubjectInfoHeading(String heading) {
       throw Exception('Maximum of $cap images allowed for this mode.');
     }
 
-    final newImgs =
-        clean.map((p) => ImageAttachment(id: _id('img'), filePath: p, label: '')).toList();
+    final newImgs = clean
+        .map((p) => ImageAttachment(id: _id('img'), filePath: p, label: ''))
+        .toList();
 
     _doc = _doc.copyWith(
       images: [..._doc.images, ...newImgs],
@@ -973,7 +950,6 @@ void setSubjectInfoHeading(String heading) {
     );
     _markDirty();
   }
-
 
   void updateSigner({
     String? roleTitle,
@@ -1013,7 +989,9 @@ void setSubjectInfoHeading(String heading) {
         (signature.signatureFilePath ?? '').trim().isEmpty;
   }
 
-  Future<void> _applySavedSignatureToCurrentReportIfEmpty({bool preserveDirty = false}) async {
+  Future<void> _applySavedSignatureToCurrentReportIfEmpty({
+    bool preserveDirty = false,
+  }) async {
     final currentReportId = _doc.reportId;
     if (!_isEmptySignature(_doc.signature)) return;
     final saved = await _loadSavedSignatureBlock();
@@ -1035,7 +1013,8 @@ void setSubjectInfoHeading(String heading) {
         roleTitle: (j['roleTitle'] as String?) ?? '',
         name: (j['name'] as String?) ?? '',
         credentials: (j['credentials'] as String?) ?? '',
-        assistantLabel: (j['assistantLabel'] as String?)?.trim().isNotEmpty == true
+        assistantLabel:
+            (j['assistantLabel'] as String?)?.trim().isNotEmpty == true
             ? (j['assistantLabel'] as String)
             : 'Assistant',
         assistantName: (j['assistantName'] as String?) ?? '',
@@ -1067,11 +1046,14 @@ void setSubjectInfoHeading(String heading) {
   }
 
   void setLetterheadMode(LetterheadMode mode) {
-    final nextLetterheadId = mode == LetterheadMode.digital ? _doc.letterheadId : null;
+    final nextLetterheadId = mode == LetterheadMode.digital
+        ? _doc.letterheadId
+        : null;
     _doc = _doc.copyWith(
       letterheadMode: mode,
       letterheadId: nextLetterheadId,
-      applyLetterhead: mode == LetterheadMode.digital && nextLetterheadId != null,
+      applyLetterhead:
+          mode == LetterheadMode.digital && nextLetterheadId != null,
       updatedAtIso: nowIso(),
     );
     _markDirty();
@@ -1150,22 +1132,20 @@ void setSubjectInfoHeading(String heading) {
 
     if (!changed) return;
 
-    _doc = _doc.copyWith(
-      roots: nextRoots,
-      updatedAtIso: nowIso(),
-    );
+    _doc = _doc.copyWith(roots: nextRoots, updatedAtIso: nowIso());
     _commit(); // ✅ prune + notify
   }
 
-
   void collapseAllSections() {
     SectionNode walk(SectionNode s) => s.copyWith(
-          collapsed: true,
-          children: s.children.map((n) {
+      collapsed: true,
+      children: s.children
+          .map((n) {
             if (n is SectionNode) return walk(n);
             return n;
-          }).toList(growable: false),
-        );
+          })
+          .toList(growable: false),
+    );
 
     _doc = _doc.copyWith(
       roots: _doc.roots.map(walk).toList(growable: false),
@@ -1198,7 +1178,8 @@ void setSubjectInfoHeading(String heading) {
     }
 
     final updatedChildren = current.children.map((child) {
-      if (child is SectionNode) return _updateSectionNode(child, targetId, updater);
+      if (child is SectionNode)
+        return _updateSectionNode(child, targetId, updater);
       return child;
     }).toList();
 
@@ -1281,9 +1262,15 @@ void setSubjectInfoHeading(String heading) {
     }
 
     return roots
-        .map((s) => s.copyWith(
-              children: _appendSameLevelSiblingInChildren(s.children, targetId, newNode),
-            ))
+        .map(
+          (s) => s.copyWith(
+            children: _appendSameLevelSiblingInChildren(
+              s.children,
+              targetId,
+              newNode,
+            ),
+          ),
+        )
         .toList();
   }
 
@@ -1297,7 +1284,11 @@ void setSubjectInfoHeading(String heading) {
         return [...children, newNode];
       }
       if (n is SectionNode) {
-        final updated = _appendSameLevelSiblingInChildren(n.children, targetId, newNode);
+        final updated = _appendSameLevelSiblingInChildren(
+          n.children,
+          targetId,
+          newNode,
+        );
         if (!identical(updated, n.children)) {
           final next = [...children];
           final index = children.indexOf(n);
@@ -1309,7 +1300,11 @@ void setSubjectInfoHeading(String heading) {
     return children;
   }
 
-  List<SectionNode> _replaceNode(List<SectionNode> roots, String targetId, SectionNode replacement) {
+  List<SectionNode> _replaceNode(
+    List<SectionNode> roots,
+    String targetId,
+    SectionNode replacement,
+  ) {
     for (int i = 0; i < roots.length; i++) {
       if (roots[i].id == targetId) {
         final next = [...roots];
@@ -1319,11 +1314,19 @@ void setSubjectInfoHeading(String heading) {
     }
 
     return roots
-        .map((s) => s.copyWith(children: _replaceNodeInChildren(s.children, targetId, replacement)))
+        .map(
+          (s) => s.copyWith(
+            children: _replaceNodeInChildren(s.children, targetId, replacement),
+          ),
+        )
         .toList();
   }
 
-  List<Node> _replaceNodeInChildren(List<Node> children, String targetId, SectionNode replacement) {
+  List<Node> _replaceNodeInChildren(
+    List<Node> children,
+    String targetId,
+    SectionNode replacement,
+  ) {
     for (int i = 0; i < children.length; i++) {
       final n = children[i];
       if (n.id == targetId) {
@@ -1332,7 +1335,11 @@ void setSubjectInfoHeading(String heading) {
         return next;
       }
       if (n is SectionNode) {
-        final updated = _replaceNodeInChildren(n.children, targetId, replacement);
+        final updated = _replaceNodeInChildren(
+          n.children,
+          targetId,
+          replacement,
+        );
         if (!identical(updated, n.children)) {
           final next = [...children];
           next[i] = n.copyWith(children: updated);
@@ -1351,7 +1358,10 @@ void setSubjectInfoHeading(String heading) {
     }
 
     return roots
-        .map((s) => s.copyWith(children: _deleteNodeInChildren(s.children, targetId)))
+        .map(
+          (s) =>
+              s.copyWith(children: _deleteNodeInChildren(s.children, targetId)),
+        )
         .toList();
   }
 
@@ -1381,7 +1391,8 @@ void setSubjectInfoHeading(String heading) {
     int clampIndent(int v) => v.clamp(0, 20);
 
     Node shift(Node n) {
-      if (n is ContentNode) return n.copyWith(indent: clampIndent(n.indent + delta));
+      if (n is ContentNode)
+        return n.copyWith(indent: clampIndent(n.indent + delta));
       if (n is SectionNode) {
         final nextChildren = n.children.map(shift).toList();
         return n.copyWith(
@@ -1394,7 +1405,6 @@ void setSubjectInfoHeading(String heading) {
 
     return shift(node) as SectionNode;
   }
-
 
   List<SectionNode> _moveSectionAmongSiblings(
     List<SectionNode> nodes,
@@ -1411,25 +1421,39 @@ void setSubjectInfoHeading(String heading) {
       return next;
     }
 
-    return nodes.map((section) {
-      final childSections = section.children.whereType<SectionNode>().toList(growable: false);
-      final childContent = section.children.where((n) => n is! SectionNode).toList(growable: false);
-      final idx = childSections.indexWhere((s) => s.id == sectionId);
-      if (idx != -1) {
-        final target = idx + delta;
-        if (target < 0 || target >= childSections.length) return section;
-        final nextSections = [...childSections];
-        final item = nextSections.removeAt(idx);
-        nextSections.insert(target, item);
-        return section.copyWith(children: [...childContent, ...nextSections]);
-      }
+    return nodes
+        .map((section) {
+          final childSections = section.children
+              .whereType<SectionNode>()
+              .toList(growable: false);
+          final childContent = section.children
+              .where((n) => n is! SectionNode)
+              .toList(growable: false);
+          final idx = childSections.indexWhere((s) => s.id == sectionId);
+          if (idx != -1) {
+            final target = idx + delta;
+            if (target < 0 || target >= childSections.length) return section;
+            final nextSections = [...childSections];
+            final item = nextSections.removeAt(idx);
+            nextSections.insert(target, item);
+            return section.copyWith(
+              children: [...childContent, ...nextSections],
+            );
+          }
 
-      final movedSections = _moveSectionAmongSiblings(childSections, sectionId, delta);
-      if (!identical(movedSections, childSections) && movedSections != childSections) {
-        return section.copyWith(children: [...childContent, ...movedSections]);
-      }
-      return section;
-    }).toList(growable: false);
+          final movedSections = _moveSectionAmongSiblings(
+            childSections,
+            sectionId,
+            delta,
+          );
+          if (!identical(movedSections, childSections) &&
+              movedSections != childSections) {
+            return section.copyWith(
+              children: [...childContent, ...movedSections],
+            );
+          }
+          return section;
+        })
+        .toList(growable: false);
   }
-
 }

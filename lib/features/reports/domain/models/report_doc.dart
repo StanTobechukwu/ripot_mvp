@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 
 import 'nodes.dart';
@@ -9,10 +8,7 @@ import 'subject_info_value.dart';
 // Images
 // =========================================================
 
-enum ImagePlacementChoice {
-  attachmentsOnly,
-  inlinePage1,
-}
+enum ImagePlacementChoice { attachmentsOnly, inlinePage1 }
 
 // =========================================================
 // Global PDF layout
@@ -23,23 +19,11 @@ enum ImagePlacementChoice {
 /// - [block]: section titles on their own line; content on subsequent lines.
 /// - [inline]: leaf sections render as `Title: content` on one line.
 /// - [aligned]: leaf sections try to align content to a common start column.
-enum ReportLayout {
-  block,
-  inline,
-  aligned,
-}
+enum ReportLayout { block, inline, aligned }
 
-enum LetterheadMode {
-  none,
-  digital,
-  prePrinted,
-}
+enum LetterheadMode { none, digital, prePrinted }
 
-enum PrePrintedTopSpacing {
-  small,
-  medium,
-  large,
-}
+enum PrePrintedTopSpacing { small, medium, large }
 
 extension PrePrintedTopSpacingPoints on PrePrintedTopSpacing {
   double get points {
@@ -126,7 +110,7 @@ class ReportDoc {
     String? reportDateIso,
     this.roots = const [],
     this.images = const [],
-    this.placementChoice = ImagePlacementChoice.attachmentsOnly,
+    this.placementChoice = ImagePlacementChoice.inlinePage1,
     this.reportLayout = ReportLayout.inline,
     this.indentContent = false,
     this.indentHierarchy = true,
@@ -140,9 +124,9 @@ class ReportDoc {
     this.reservePrePrintedFooter = false,
     SubjectInfoBlockDef? subjectInfoDef,
     SubjectInfoValues? subjectInfo,
-  })  : reportDateIso = reportDateIso ?? createdAtIso,
-        subjectInfoDef = subjectInfoDef ?? SubjectInfoBlockDef.kDefaults,
-        subjectInfo = subjectInfo ?? const SubjectInfoValues({});
+  }) : reportDateIso = reportDateIso ?? createdAtIso,
+       subjectInfoDef = subjectInfoDef ?? SubjectInfoBlockDef.kDefaults,
+       subjectInfo = subjectInfo ?? const SubjectInfoValues({});
 
   int get maxImages =>
       placementChoice == ImagePlacementChoice.inlinePage1 ? 12 : 12;
@@ -181,7 +165,9 @@ class ReportDoc {
       reportLayout: reportLayout ?? this.reportLayout,
       indentContent: indentContent ?? this.indentContent,
       indentHierarchy: indentHierarchy ?? this.indentHierarchy,
-      showColonAfterTitlesWithContent: showColonAfterTitlesWithContent ?? this.showColonAfterTitlesWithContent,
+      showColonAfterTitlesWithContent:
+          showColonAfterTitlesWithContent ??
+          this.showColonAfterTitlesWithContent,
       fontScale: fontScale ?? this.fontScale,
       signature: signature ?? this.signature,
       subjectInfoDef: subjectInfoDef ?? this.subjectInfoDef,
@@ -192,7 +178,8 @@ class ReportDoc {
           ? this.letterheadId
           : letterheadId as String?,
       prePrintedTopSpacing: prePrintedTopSpacing ?? this.prePrintedTopSpacing,
-      reservePrePrintedFooter: reservePrePrintedFooter ?? this.reservePrePrintedFooter,
+      reservePrePrintedFooter:
+          reservePrePrintedFooter ?? this.reservePrePrintedFooter,
     );
   }
 }
@@ -213,11 +200,7 @@ class ImageAttachment {
     this.label = '',
   });
 
-  ImageAttachment copyWith({
-    String? id,
-    String? filePath,
-    String? label,
-  }) {
+  ImageAttachment copyWith({String? id, String? filePath, String? label}) {
     return ImageAttachment(
       id: id ?? this.id,
       filePath: filePath ?? this.filePath,
@@ -266,6 +249,3 @@ class SignatureBlock {
     );
   }
 }
-
-
-

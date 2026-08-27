@@ -2365,24 +2365,30 @@ class PdfRendererService {
     List<_PdfLoadedImage> images, {
     required PdfLayoutMetrics metrics,
   }) {
-    final slots = metrics.attachmentImagesPerPage;
-    const cols = 2;
-    const gap = 10.0;
-    // Slightly taller and a little narrower than before so more of each
-    // attachment image is visible while preserving the 2 x 4 grid.
-    const cellHeight = 144.0;
+    // Dedicated attachment mode uses the same visual geometry as horizontal
+    // report images: three fixed 160x108 positions spanning the full body width.
+    const columns = 3;
+    final visible = images
+        .take(metrics.attachmentImagesPerPage)
+        .toList(growable: false);
+    final rows = <pw.Widget>[];
 
     pw.Widget cell(_PdfLoadedImage entry) {
       return pw.SizedBox(
-        height: cellHeight,
+        width: metrics.inlineColumnWidth,
+        height: metrics.inlineSlotHeight,
         child: pw.Stack(
           children: [
             pw.Positioned.fill(
-              child: pw.Image(entry.image, fit: pw.BoxFit.cover),
+              child: pw.ClipRRect(
+                horizontalRadius: 12,
+                verticalRadius: 12,
+                child: pw.Image(entry.image, fit: pw.BoxFit.cover),
+              ),
             ),
             if (entry.label.trim().isNotEmpty)
               pw.Positioned(
-                left: 28,
+                left: 18,
                 bottom: 8,
                 child: pw.Text(
                   entry.label.trim(),
@@ -2399,29 +2405,33 @@ class PdfRendererService {
       );
     }
 
-    final visible = images.take(slots).toList(growable: false);
-    final rows = <pw.Widget>[];
+    for (int i = 0; i < visible.length; i += columns) {
+      final rowImages = visible.skip(i).take(columns).toList(growable: false);
 
-    for (int i = 0; i < visible.length; i += cols) {
-      final left = visible[i];
-      final right = (i + 1 < visible.length) ? visible[i + 1] : null;
+      final slots = <pw.Widget>[];
+      for (int slot = 0; slot < columns; slot++) {
+        if (slot < rowImages.length) {
+          slots.add(cell(rowImages[slot]));
+        } else {
+          slots.add(
+            pw.SizedBox(
+              width: metrics.inlineColumnWidth,
+              height: metrics.inlineSlotHeight,
+            ),
+          );
+        }
+      }
 
       rows.add(
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 26),
-          child: pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Expanded(child: cell(left)),
-              pw.SizedBox(width: gap),
-              pw.Expanded(child: right == null ? pw.SizedBox() : cell(right)),
-            ],
-          ),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: slots,
         ),
       );
 
-      if (i + cols < visible.length) {
-        rows.add(pw.SizedBox(height: gap));
+      if (i + columns < visible.length) {
+        rows.add(pw.SizedBox(height: metrics.inlineSlotGap));
       }
     }
 

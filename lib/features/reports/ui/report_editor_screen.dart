@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../access/providers/access_provider.dart';
@@ -22,7 +21,7 @@ class SafeTextController extends TextEditingController {
 
   @override
   void dispose() {
-   // FocusManager.instance.removeListener(_focusManagerListener);
+    // FocusManager.instance.removeListener(_focusManagerListener);
     _disposed = true;
     super.dispose();
   }
@@ -47,7 +46,8 @@ class ReportEditorScreen extends StatefulWidget {
   State<ReportEditorScreen> createState() => _ReportEditorScreenState();
 }
 
-class _ReportEditorScreenState extends State<ReportEditorScreen> with WidgetsBindingObserver {
+class _ReportEditorScreenState extends State<ReportEditorScreen>
+    with WidgetsBindingObserver {
   // ✅ TEMP FIX:
   // Disable pruning + runtime disposal of controllers to stop:
   // - "TextEditingController was used after being disposed"
@@ -92,7 +92,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> with WidgetsBin
 
   bool _hintShown = false;
   bool _editorMode = false;
- String? _actionsVisibleForSectionId;
+  String? _actionsVisibleForSectionId;
 
   // Prevent pruning controllers while a build is still using them.
   bool _pruneScheduled = false;
@@ -112,52 +112,53 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> with WidgetsBin
   DateTime? _lastEditorFocusChangeAt;
   bool _lastKnownAnyEditorFieldFocused = false;
 
- @override
-void initState() {
-  super.initState();
-  WidgetsBinding.instance.addObserver(this);
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
-  _roleTitleC = SafeTextController();
-  _signerNameC = SafeTextController();
-  _credentialsC = SafeTextController();
-  _assistantLabelC = SafeTextController();
-  _assistantNameC = SafeTextController();
-  _reportTitleC = SafeTextController();
+    _roleTitleC = SafeTextController();
+    _signerNameC = SafeTextController();
+    _credentialsC = SafeTextController();
+    _assistantLabelC = SafeTextController();
+    _assistantNameC = SafeTextController();
+    _reportTitleC = SafeTextController();
 
-  _roleTitleF = SafeFocusNode();
-  _signerNameF = SafeFocusNode();
-  _credentialsF = SafeFocusNode();
-  _assistantLabelF = SafeFocusNode();
-  _assistantNameF = SafeFocusNode();
-  _reportTitleF = SafeFocusNode();
+    _roleTitleF = SafeFocusNode();
+    _signerNameF = SafeFocusNode();
+    _credentialsF = SafeFocusNode();
+    _assistantLabelF = SafeFocusNode();
+    _assistantNameF = SafeFocusNode();
+    _reportTitleF = SafeFocusNode();
 
-  _focusManagerListener = () {
-    if (!mounted) return;
+    _focusManagerListener = () {
+      if (!mounted) return;
 
-    final anyFocused =
-        _reportTitleF.hasFocus ||
-        _roleTitleF.hasFocus ||
-        _signerNameF.hasFocus ||
-        _credentialsF.hasFocus ||
-        _assistantLabelF.hasFocus ||
-        _assistantNameF.hasFocus ||
-        _subjectFocus.values.any((f) => f.hasFocus) ||
-        _contentFocus.values.any((f) => f.hasFocus);
+      final anyFocused =
+          _reportTitleF.hasFocus ||
+          _roleTitleF.hasFocus ||
+          _signerNameF.hasFocus ||
+          _credentialsF.hasFocus ||
+          _assistantLabelF.hasFocus ||
+          _assistantNameF.hasFocus ||
+          _subjectFocus.values.any((f) => f.hasFocus) ||
+          _contentFocus.values.any((f) => f.hasFocus);
 
-    if (anyFocused != _lastKnownAnyEditorFieldFocused) {
-      _lastEditorFocusChangeAt = DateTime.now();
-      _lastKnownAnyEditorFieldFocused = anyFocused;
-    }
+      if (anyFocused != _lastKnownAnyEditorFieldFocused) {
+        _lastEditorFocusChangeAt = DateTime.now();
+        _lastKnownAnyEditorFieldFocused = anyFocused;
+      }
 
-    if (anyFocused && _actionsVisibleForSectionId != null) {
-      _actionsVisibleForSectionId = null;
-    }
+      if (anyFocused && _actionsVisibleForSectionId != null) {
+        _actionsVisibleForSectionId = null;
+      }
 
-    setState(() {});
-  };
+      setState(() {});
+    };
 
-  FocusManager.instance.addListener(_focusManagerListener);
-}
+    FocusManager.instance.addListener(_focusManagerListener);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -206,11 +207,13 @@ void initState() {
     super.dispose();
   }
 
-
   SectionNode? _findSectionById(List<SectionNode> roots, String id) {
     for (final section in roots) {
       if (section.id == id) return section;
-      final found = _findSectionById(section.children.whereType<SectionNode>().toList(growable: false), id);
+      final found = _findSectionById(
+        section.children.whereType<SectionNode>().toList(growable: false),
+        id,
+      );
       if (found != null) return found;
     }
     return null;
@@ -220,7 +223,9 @@ void initState() {
     for (final child in section.children) {
       if (child is ContentNode) {
         final controller = _contentControllers[child.id];
-        final text = (controller != null && !controller.isDisposed) ? controller.text : child.text;
+        final text = (controller != null && !controller.isDisposed)
+            ? controller.text
+            : child.text;
         if (text.trim().isNotEmpty) return text.trim();
       } else if (child is SectionNode) {
         final nested = _sectionFirstContentValue(child);
@@ -232,7 +237,10 @@ void initState() {
 
   bool _sectionConditionAllows(ReportEditorProvider vm, SectionNode section) {
     if (!section.hasCondition) return true;
-    final parent = _findSectionById(vm.doc.roots, section.conditionalParentSectionId);
+    final parent = _findSectionById(
+      vm.doc.roots,
+      section.conditionalParentSectionId,
+    );
     if (parent == null) return true;
     final parentValue = _sectionFirstContentValue(parent).trim().toLowerCase();
     final expected = section.conditionalEquals.trim().toLowerCase();
@@ -321,12 +329,12 @@ void initState() {
   }
 
   bool get _isAnyEditorFieldFocused {
-  for (final f in _contentFocus.values) {
-    if (f.hasFocus) return true;
-  }
+    for (final f in _contentFocus.values) {
+      if (f.hasFocus) return true;
+    }
 
-  return false;
-}
+    return false;
+  }
 
   bool get _shouldTreatFabTapAsDismissOnly {
     if (_isAnyEditorFieldFocused) return true;
@@ -347,18 +355,14 @@ void initState() {
     });
   }
 
-
-
-
   void _disposeLater(ChangeNotifier n) {
-  // Wait for pop animation + any transition rebuilds
-  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Wait for pop animation + any transition rebuilds
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      n.dispose();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        n.dispose();
+      });
     });
-  });
-}
-
+  }
 
   // ---------------- Controllers ensure + safe sync ----------------
 
@@ -446,13 +450,16 @@ void initState() {
 
   void _syncSignerControllers(ReportEditorProvider vm) {
     final role = vm.doc.signature.roleTitle;
-    if (!_roleTitleF.hasFocus && _roleTitleC.text != role) _roleTitleC.text = role;
+    if (!_roleTitleF.hasFocus && _roleTitleC.text != role)
+      _roleTitleC.text = role;
 
     final name = vm.doc.signature.name;
-    if (!_signerNameF.hasFocus && _signerNameC.text != name) _signerNameC.text = name;
+    if (!_signerNameF.hasFocus && _signerNameC.text != name)
+      _signerNameC.text = name;
 
     final creds = vm.doc.signature.credentials;
-    if (!_credentialsF.hasFocus && _credentialsC.text != creds) _credentialsC.text = creds;
+    if (!_credentialsF.hasFocus && _credentialsC.text != creds)
+      _credentialsC.text = creds;
 
     final assistantLabel = vm.doc.signature.assistantLabel;
     if (!_assistantLabelF.hasFocus && _assistantLabelC.text != assistantLabel) {
@@ -548,7 +555,9 @@ void initState() {
       walk(r);
     }
 
-    final dead = _contentControllers.keys.where((id) => !liveIds.contains(id)).toList();
+    final dead = _contentControllers.keys
+        .where((id) => !liveIds.contains(id))
+        .toList();
 
     for (final id in dead) {
       final c = _contentControllers.remove(id);
@@ -556,7 +565,8 @@ void initState() {
       _queueDispose(c, f);
     }
 
-    if (_pendingDisposeControllers.isNotEmpty || _pendingDisposeFocus.isNotEmpty) {
+    if (_pendingDisposeControllers.isNotEmpty ||
+        _pendingDisposeFocus.isNotEmpty) {
       _scheduleDisposePending();
     }
   }
@@ -565,7 +575,9 @@ void initState() {
     if (!_enablePruning) return; // ✅ TEMP
 
     final liveKeys = vm.subjectInfoDef.orderedFields.map((f) => f.key).toSet();
-    final dead = _subjectControllers.keys.where((k) => !liveKeys.contains(k)).toList();
+    final dead = _subjectControllers.keys
+        .where((k) => !liveKeys.contains(k))
+        .toList();
 
     for (final k in dead) {
       final c = _subjectControllers.remove(k);
@@ -573,7 +585,8 @@ void initState() {
       _queueDispose(c, f);
     }
 
-    if (_pendingDisposeControllers.isNotEmpty || _pendingDisposeFocus.isNotEmpty) {
+    if (_pendingDisposeControllers.isNotEmpty ||
+        _pendingDisposeFocus.isNotEmpty) {
       _scheduleDisposePending();
     }
   }
@@ -635,7 +648,7 @@ void initState() {
       },
     );
 
-_disposeLater(controller);
+    _disposeLater(controller);
 
     return result;
   }
@@ -725,7 +738,7 @@ _disposeLater(controller);
     );
 
     final titleText = titleC.text.trim();
-_disposeLater(titleC);
+    _disposeLater(titleC);
 
     if (res != true) return;
 
@@ -739,7 +752,6 @@ _disposeLater(titleC);
       setState(() => _subjectErrors = _validateSubjectInfo(vm));
     });
   }
-
 
   Future<void> _editSubjectInfoTitleDialog(ReportEditorProvider vm) async {
     final controller = SafeTextController(text: vm.subjectInfoDef.heading);
@@ -812,7 +824,10 @@ _disposeLater(titleC);
 
   // ---------------- global Add (structure) ----------------
 
-  Future<void> _showGlobalAddSheet(BuildContext context, ReportEditorProvider vm) async {
+  Future<void> _showGlobalAddSheet(
+    BuildContext context,
+    ReportEditorProvider vm,
+  ) async {
     final hasSelection = vm.selectedNodeId != null;
     final selectedIsSection = vm.selectedIsSection;
 
@@ -887,7 +902,11 @@ _disposeLater(titleC);
     }
 
     if (action == 'wrap') {
-      final title = await _promptText(context, 'Wrapper section title', hint: 'e.g., Findings');
+      final title = await _promptText(
+        context,
+        'Wrapper section title',
+        hint: 'e.g., Findings',
+      );
       if (!mounted) return;
 
       if (title != null && title.trim().isNotEmpty) {
@@ -1007,16 +1026,17 @@ _disposeLater(titleC);
   }
 
   String _collapsedContentHint(SectionNode section) {
-    final firstContent = section.children.whereType<ContentNode>().cast<ContentNode?>().firstWhere(
-      (node) => node != null && node.text.trim().isNotEmpty,
-      orElse: () => null,
-    );
+    final firstContent = section.children
+        .whereType<ContentNode>()
+        .cast<ContentNode?>()
+        .firstWhere(
+          (node) => node != null && node.text.trim().isNotEmpty,
+          orElse: () => null,
+        );
 
     if (firstContent == null) return '';
 
-    final cleaned = firstContent.text
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final cleaned = firstContent.text.replaceAll(RegExp(r'\s+'), ' ').trim();
 
     if (cleaned.isEmpty) return '';
 
@@ -1036,13 +1056,18 @@ _disposeLater(titleC);
     _syncSignerControllers(vm);
     _syncReportTitleController(vm);
 
-    if (_editorMode && !_hintShown && vm.doc.roots.isNotEmpty && vm.selectedNodeId == null) {
+    if (_editorMode &&
+        !_hintShown &&
+        vm.doc.roots.isNotEmpty &&
+        vm.selectedNodeId == null) {
       _hintShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Tip: Select a section to modify it. Use ⋮ to edit or the action button to change its structure.'),
+            content: Text(
+              'Tip: Select a section to modify it. Use ⋮ to edit or the action button to change its structure.',
+            ),
           ),
         );
       });
@@ -1054,325 +1079,373 @@ _disposeLater(titleC);
     return WillPopScope(
       onWillPop: _confirmLeaveEditor,
       child: Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _handleBackFromEditor,
-        ),
-        toolbarHeight: 56,
-        titleSpacing: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Save progress',
-            icon: const Icon(Icons.save_outlined),
-            onPressed: () async {
-              _unfocusNow();
-              await vm.save();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Progress saved to My Reports')),
-              );
-            },
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            tooltip: 'Back',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _handleBackFromEditor,
           ),
-          if (_editorMode)
+          toolbarHeight: 56,
+          titleSpacing: 0,
+          actions: [
             IconButton(
-              tooltip: 'Save as template',
-              icon: const Icon(Icons.bookmark_add_outlined),
+              tooltip: 'Save progress',
+              icon: const Icon(Icons.save_outlined),
               onPressed: () async {
-                final name = await _promptText(
-                  context,
-                  'Template name',
-                  hint: 'e.g., Upper GI Template',
-                );
-                if (!mounted) return;
-                if (name == null || name.trim().isEmpty) return;
-
-                final includeContent = await askTemplateSaveMode(context);
-                if (!mounted) return;
-                if (includeContent == null) return;
-
-                final access = context.read<AccessProvider>().safeState;
-                final repo = context.read<TemplatesRepository>();
-                final templates = await repo.listTemplates();
-                if (templates.length >= access.maxSavedTemplates) {
-                  if (!mounted) return;
-                  final open = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Template limit reached'),
-                      content: Text('Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
-                        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
-                      ],
-                    ),
-                  );
-                  if (open == true && mounted) {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
-                  }
-                  return;
-                }
-
-                await vm.saveAsTemplate(
-                  name: name.trim(),
-                  includeContent: includeContent,
-                );
-
+                _unfocusNow();
+                await vm.save();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Template saved')),
+                  const SnackBar(content: Text('Progress saved to My Reports')),
                 );
               },
             ),
-          IconButton(
-            tooltip: 'Preview',
-            icon: const Icon(Icons.arrow_forward_rounded),
-            onPressed: () {
-              _unfocusNow();
-              vm.ensureFormReady();
-              _schedulePruneControllers(vm);
+            if (_editorMode)
+              IconButton(
+                tooltip: 'Save as template',
+                icon: const Icon(Icons.bookmark_add_outlined),
+                onPressed: () async {
+                  final name = await _promptText(
+                    context,
+                    'Template name',
+                    hint: 'e.g., Upper GI Template',
+                  );
+                  if (!mounted) return;
+                  if (name == null || name.trim().isEmpty) return;
 
-              final errs = _validateSubjectInfo(vm);
-              if (errs.isNotEmpty) {
-                setState(() => _subjectErrors = errs);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please complete required Subject Info fields.'),
+                  final includeContent = await askTemplateSaveMode(context);
+                  if (!mounted) return;
+                  if (includeContent == null) return;
+
+                  final access = context.read<AccessProvider>().safeState;
+                  final repo = context.read<TemplatesRepository>();
+                  final templates = await repo.listTemplates();
+                  if (templates.length >= access.maxSavedTemplates) {
+                    if (!mounted) return;
+                    final open = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Template limit reached'),
+                        content: Text(
+                          'Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Later'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('See Premium'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (open == true && mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UpgradeScreen(),
+                        ),
+                      );
+                    }
+                    return;
+                  }
+
+                  await vm.saveAsTemplate(
+                    name: name.trim(),
+                    includeContent: includeContent,
+                  );
+
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Template saved')),
+                  );
+                },
+              ),
+            IconButton(
+              tooltip: 'Preview',
+              icon: const Icon(Icons.arrow_forward_rounded),
+              onPressed: () {
+                _unfocusNow();
+                vm.ensureFormReady();
+                _schedulePruneControllers(vm);
+
+                final errs = _validateSubjectInfo(vm);
+                if (errs.isNotEmpty) {
+                  setState(() => _subjectErrors = errs);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Please complete required Subject Info fields.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ReportPreviewScreen(),
                   ),
                 );
-                return;
-              }
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReportPreviewScreen()),
-              );
-            },
-          ),
-        ],
-      ),
-floatingActionButton: _editorMode
-    ? FloatingActionButton(
-          onPressed: () async {
-           if (_shouldTreatFabTapAsDismissOnly) {
-  setState(() {
-    _actionsVisibleForSectionId = null;
-  });
-
-  _unfocusNow();
-
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted) return;
-    setState(() {});
-  });
-
-  return;
-}
-            
-
-            if (!hasSelection) {
-             // setState(() {
-              //  _suppressSelectionActionsOnce = false;
-             // });
-
-              final title = await _promptText(context, 'New top-level section');
-              if (!mounted) return;
-
-              if (title != null && title.trim().isNotEmpty) {
-                _unfocusNow();
-                _afterClose(() {
-                  vm.addTopLevelSection(title.trim());
-                  _schedulePruneControllers(vm);
-                });
-              }
-            } else {
-             // setState(() {
-             //   _suppressSelectionActionsOnce = false;
-            //  });
-              await _showGlobalAddSheet(context, vm);
-            }
-          },
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            transitionBuilder: (child, animation) => ScaleTransition(
-              scale: animation,
-              child: FadeTransition(opacity: animation, child: child),
+              },
             ),
-            child: Icon(
-              _isAnyEditorFieldFocused
-                  ? Icons.check
-                  : (hasSelection ? Icons.tune : Icons.add),
-              key: ValueKey<String>(
-                _isAnyEditorFieldFocused
-                    ? 'check'
-                    : (hasSelection ? 'tune' : 'add'),
-              ),
-            ),
-          ),
-        )
-    : null,
-      floatingActionButtonLocation: _editorMode ? FloatingActionButtonLocation.endFloat : null,
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () {
-          _unfocusNow();
-          if (vm.selectedNodeId != null || _actionsVisibleForSectionId != null) {
-            setState(() {
-              _actionsVisibleForSectionId = null;
-            });
-            vm.clearSelection();
-          }
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(_pagePad),
-          children: [
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _editorMode ? 'Editor Mode' : 'Form Mode',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium,
+          ],
+        ),
+        floatingActionButton: _editorMode
+            ? FloatingActionButton(
+                onPressed: () async {
+                  if (_shouldTreatFabTapAsDismissOnly) {
+                    setState(() {
+                      _actionsVisibleForSectionId = null;
+                    });
+
+                    _unfocusNow();
+
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      setState(() {});
+                    });
+
+                    return;
+                  }
+
+                  if (!hasSelection) {
+                    // setState(() {
+                    //  _suppressSelectionActionsOnce = false;
+                    // });
+
+                    final title = await _promptText(
+                      context,
+                      'New top-level section',
+                    );
+                    if (!mounted) return;
+
+                    if (title != null && title.trim().isNotEmpty) {
+                      _unfocusNow();
+                      _afterClose(() {
+                        vm.addTopLevelSection(title.trim());
+                        _schedulePruneControllers(vm);
+                      });
+                    }
+                  } else {
+                    // setState(() {
+                    //   _suppressSelectionActionsOnce = false;
+                    //  });
+                    await _showGlobalAddSheet(context, vm);
+                  }
+                },
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
                   ),
-                  const SizedBox(height: 8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 340),
-                    child: SegmentedButton<String>(
-                      showSelectedIcon: false,
-                      style: ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        padding: WidgetStateProperty.all(
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        ),
-                      ),
-                      segments: const [
-                        ButtonSegment(
-                          value: 'editor',
-                          label: Text('Editor'),
-                          icon: Icon(Icons.edit_note_outlined, size: 16),
-                        ),
-                        ButtonSegment(
-                          value: 'form',
-                          label: Text('Form'),
-                          icon: Icon(Icons.description_outlined, size: 16),
-                        ),
-                      ],
-                      selected: {_editorMode ? 'editor' : 'form'},
-                      onSelectionChanged: (s) {
-                        final choice = s.first;
-                        final wantsEditor = choice == 'editor';
-                        if (wantsEditor == _editorMode) return;
-                        _toggleMode(vm);
-                      },
+                  child: Icon(
+                    _isAnyEditorFieldFocused
+                        ? Icons.check
+                        : (hasSelection ? Icons.tune : Icons.add),
+                    key: ValueKey<String>(
+                      _isAnyEditorFieldFocused
+                          ? 'check'
+                          : (hasSelection ? 'tune' : 'add'),
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: _bigGap),
-            _reportTitleCard(vm),
-            const SizedBox(height: _bigGap),
-            _subjectInfoCard(vm),
-            const SizedBox(height: _bigGap),
-            _card(
-              title: _editorMode ? 'Outline' : 'Form',
-              emphasized: true,
-              minHeight: outlineMinHeight,
-              child: _editorMode
-                  ? Column(
-                      children: [
-                        if (vm.doc.roots.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 18),
-                            child: Text('No sections yet. Tap Add to create the first section.'),
+                ),
+              )
+            : null,
+        floatingActionButtonLocation: _editorMode
+            ? FloatingActionButtonLocation.endFloat
+            : null,
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            _unfocusNow();
+            if (vm.selectedNodeId != null ||
+                _actionsVisibleForSectionId != null) {
+              setState(() {
+                _actionsVisibleForSectionId = null;
+              });
+              vm.clearSelection();
+            }
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(_pagePad),
+            children: [
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _editorMode ? 'Editor Mode' : 'Form Mode',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 340),
+                      child: SegmentedButton<String>(
+                        showSelectedIcon: false,
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 0,
+                            ),
                           ),
-                        ...vm.doc.roots.map((s) => _sectionWidget(context, vm, s)),
-                      ],
-                    )
-                  : vm.doc.roots.isEmpty
-                      ? SizedBox(
-                          height: outlineMinHeight.clamp(260.0, 420.0),
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      height: 68,
-                                      width: 68,
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.edit_note_outlined,
-                                        size: 34,
-                                        color: Theme.of(context).colorScheme.primary,
-                                      ),
+                        ),
+                        segments: const [
+                          ButtonSegment(
+                            value: 'editor',
+                            label: Text('Editor'),
+                            icon: Icon(Icons.edit_note_outlined, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'form',
+                            label: Text('Form'),
+                            icon: Icon(Icons.description_outlined, size: 16),
+                          ),
+                        ],
+                        selected: {_editorMode ? 'editor' : 'form'},
+                        onSelectionChanged: (s) {
+                          final choice = s.first;
+                          final wantsEditor = choice == 'editor';
+                          if (wantsEditor == _editorMode) return;
+                          _toggleMode(vm);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: _bigGap),
+              _reportTitleCard(vm),
+              const SizedBox(height: _bigGap),
+              _subjectInfoCard(vm),
+              const SizedBox(height: _bigGap),
+              _card(
+                title: _editorMode ? 'Outline' : 'Form',
+                emphasized: true,
+                minHeight: outlineMinHeight,
+                child: _editorMode
+                    ? Column(
+                        children: [
+                          if (vm.doc.roots.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 18),
+                              child: Text(
+                                'No sections yet. Tap Add to create the first section.',
+                              ),
+                            ),
+                          ...vm.doc.roots.map(
+                            (s) => _sectionWidget(context, vm, s),
+                          ),
+                        ],
+                      )
+                    : vm.doc.roots.isEmpty
+                    ? SizedBox(
+                        height: outlineMinHeight.clamp(260.0, 420.0),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 420),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    height: 68,
+                                    width: 68,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary.withOpacity(0.08),
+                                      shape: BoxShape.circle,
                                     ),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      'No sections yet',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                    child: Icon(
+                                      Icons.edit_note_outlined,
+                                      size: 34,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
-                                    const SizedBox(height: 10),
-                                    const Text(
-                                      'Switch to Edit Mode to start building your template structure.',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        height: 1.5,
-                                        color: Colors.black54,
-                                      ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'No sections yet',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
                                     ),
-                                    const SizedBox(height: 18),
-                                    FilledButton.icon(
-                                      icon: const Icon(Icons.edit_outlined),
-                                      label: const Padding(
-                                        padding: EdgeInsets.symmetric(horizontal: 4),
-                                        child: Text('Go to Edit Mode'),
-                                      ),
-                                      onPressed: () => setState(() => _editorMode = true),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    'Switch to Edit Mode to start building your template structure.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      height: 1.5,
+                                      color: Colors.black54,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  FilledButton.icon(
+                                    icon: const Icon(Icons.edit_outlined),
+                                    label: const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      child: Text('Go to Edit Mode'),
+                                    ),
+                                    onPressed: () =>
+                                        setState(() => _editorMode = true),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        )
-                      : Column(
-                          children: vm.doc.roots
-                              .where((s) => _sectionConditionAllows(vm, s))
-                              .map((s) => _formSection(context, vm, s))
-                              .toList(growable: false),
                         ),
-            ),
-            const SizedBox(height: _bigGap),
-            _imagesCard(context, vm),
-            const SizedBox(height: _bigGap),
-            _card(title: 'Signer', child: _signerCard(vm)),
-          ],
+                      )
+                    : Column(
+                        children: vm.doc.roots
+                            .where((s) => _sectionConditionAllows(vm, s))
+                            .map((s) => _formSection(context, vm, s))
+                            .toList(growable: false),
+                      ),
+              ),
+              const SizedBox(height: _bigGap),
+              _imagesCard(context, vm),
+              const SizedBox(height: _bigGap),
+              _card(title: 'Signer', child: _signerCard(vm)),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
   // ---------------- Form Mode UI ----------------
 
-  Widget _formSection(BuildContext context, ReportEditorProvider vm, SectionNode s) {
+  Widget _formSection(
+    BuildContext context,
+    ReportEditorProvider vm,
+    SectionNode s,
+  ) {
     if (!_sectionConditionAllows(vm, s)) return const SizedBox.shrink();
-    final sectionChildren = s.children.whereType<SectionNode>().where((child) => _sectionConditionAllows(vm, child)).toList(growable: false);
-    final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
+    final sectionChildren = s.children
+        .whereType<SectionNode>()
+        .where((child) => _sectionConditionAllows(vm, child))
+        .toList(growable: false);
+    final contentChildren = s.children.whereType<ContentNode>().toList(
+      growable: false,
+    );
 
     // Form Mode is intentionally fixed to the block-style entry layout.
     // Preview/PDF may vary by reportLayout, but editing should remain stable
@@ -1381,14 +1454,16 @@ floatingActionButton: _editorMode
     final indentPx = vm.doc.indentHierarchy ? 12.0 * s.indent : 0.0;
     final contentIndentPx = indentPx + (vm.doc.indentContent ? 12.0 : 0.0);
 
-   final double fontSize = switch (s.style.level) {
-  HeadingLevel.h1 => 18,
-  HeadingLevel.h2 => 16,
-  HeadingLevel.h3 => 14,
-  HeadingLevel.h4 => 12,
-};
+    final double fontSize = switch (s.style.level) {
+      HeadingLevel.h1 => 18,
+      HeadingLevel.h2 => 16,
+      HeadingLevel.h3 => 14,
+      HeadingLevel.h4 => 12,
+    };
 
-    final FontWeight fw = (s.indent == 0 || s.style.bold) ? FontWeight.w700 : FontWeight.w600;
+    final FontWeight fw = (s.indent == 0 || s.style.bold)
+        ? FontWeight.w700
+        : FontWeight.w600;
 
     final Alignment titleAlign = switch (s.style.align) {
       TitleAlign.left => Alignment.centerLeft,
@@ -1402,10 +1477,10 @@ floatingActionButton: _editorMode
       TitleAlign.right => TextAlign.right,
     };
 
-    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontSize: fontSize,
-          fontWeight: fw,
-        ) ??
+    final titleStyle =
+        Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontSize: fontSize, fontWeight: fw) ??
         TextStyle(fontSize: fontSize, fontWeight: fw);
 
     Widget titleOnly() {
@@ -1432,7 +1507,10 @@ floatingActionButton: _editorMode
       final options = fieldOptions();
       final hasFreeTextOverride = _freeTextOverrideContentIds.contains(node.id);
 
-      Widget freeTextField({String? helperText, bool allowReturnToOptions = true}) {
+      Widget freeTextField({
+        String? helperText,
+        bool allowReturnToOptions = true,
+      }) {
         final c = _contentControllerFor(node.id, node.text);
         final f = _contentFocusFor(node.id);
         return Padding(
@@ -1528,12 +1606,18 @@ floatingActionButton: _editorMode
                       children: [
                         Text(
                           s.title,
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          isMulti ? 'Select one or more options' : 'Select one option',
-                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+                          isMulti
+                              ? 'Select one or more options'
+                              : 'Select one option',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.black54,
+                          ),
                         ),
                         const SizedBox(height: 14),
                         ConstrainedBox(
@@ -1542,34 +1626,42 @@ floatingActionButton: _editorMode
                             child: Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: options.map((option) {
-                                final selectedNow = isMulti ? sheetSelected.contains(option) : current == option;
-                                if (isMulti) {
-                                  return FilterChip(
-                                    label: Text(option),
-                                    selected: selectedNow,
-                                    onSelected: (_) {
-                                      setSheetState(() {
-                                        if (sheetSelected.contains(option)) {
-                                          sheetSelected.remove(option);
-                                        } else {
-                                          sheetSelected.add(option);
-                                        }
-                                      });
-                                      writeMulti();
-                                    },
-                                  );
-                                }
-                                return ChoiceChip(
-                                  label: Text(option),
-                                  selected: selectedNow,
-                                  onSelected: (_) {
-                                    _freeTextOverrideContentIds.remove(node.id);
-                                    vm.updateContent(node.id, option);
-                                    Navigator.of(sheetContext).pop();
-                                  },
-                                );
-                              }).toList(growable: false),
+                              children: options
+                                  .map((option) {
+                                    final selectedNow = isMulti
+                                        ? sheetSelected.contains(option)
+                                        : current == option;
+                                    if (isMulti) {
+                                      return FilterChip(
+                                        label: Text(option),
+                                        selected: selectedNow,
+                                        onSelected: (_) {
+                                          setSheetState(() {
+                                            if (sheetSelected.contains(
+                                              option,
+                                            )) {
+                                              sheetSelected.remove(option);
+                                            } else {
+                                              sheetSelected.add(option);
+                                            }
+                                          });
+                                          writeMulti();
+                                        },
+                                      );
+                                    }
+                                    return ChoiceChip(
+                                      label: Text(option),
+                                      selected: selectedNow,
+                                      onSelected: (_) {
+                                        _freeTextOverrideContentIds.remove(
+                                          node.id,
+                                        );
+                                        vm.updateContent(node.id, option);
+                                        Navigator.of(sheetContext).pop();
+                                      },
+                                    );
+                                  })
+                                  .toList(growable: false),
                             ),
                           ),
                         ),
@@ -1579,7 +1671,10 @@ floatingActionButton: _editorMode
                             TextButton.icon(
                               onPressed: () {
                                 Navigator.of(sheetContext).pop();
-                                setState(() => _freeTextOverrideContentIds.add(node.id));
+                                setState(
+                                  () =>
+                                      _freeTextOverrideContentIds.add(node.id),
+                                );
                               },
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               label: const Text('Use free text'),
@@ -1634,11 +1729,11 @@ floatingActionButton: _editorMode
                 child: Text(
                   valueText,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isPlaceholder ? Colors.black45 : null,
-                        fontStyle: isPlaceholder
-                            ? FontStyle.italic
-                            : FontStyle.normal,
-                      ),
+                    color: isPlaceholder ? Colors.black45 : null,
+                    fontStyle: isPlaceholder
+                        ? FontStyle.italic
+                        : FontStyle.normal,
+                  ),
                 ),
               ),
             ),
@@ -1740,7 +1835,9 @@ floatingActionButton: _editorMode
     const bool isAligned = false;
 
     if (sectionChildren.isNotEmpty) {
-      final introNode = contentChildren.isNotEmpty ? contentChildren.first : null;
+      final introNode = contentChildren.isNotEmpty
+          ? contentChildren.first
+          : null;
 
       return Padding(
         padding: const EdgeInsets.only(bottom: _bigGap),
@@ -1823,11 +1920,20 @@ floatingActionButton: _editorMode
     );
   }
 
-
   String _formatReportDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
   }
@@ -1845,7 +1951,8 @@ floatingActionButton: _editorMode
   }
 
   Widget _reportTitleCard(ReportEditorProvider vm) {
-    final reportDate = DateTime.tryParse(vm.doc.reportDateIso) ?? DateTime.now();
+    final reportDate =
+        DateTime.tryParse(vm.doc.reportDateIso) ?? DateTime.now();
 
     return _card(
       title: 'Report',
@@ -1895,13 +2002,115 @@ floatingActionButton: _editorMode
     );
   }
 
-Widget _subjectInfoCard(ReportEditorProvider vm) {
-  final def = vm.subjectInfoDef;
+  Widget _subjectInfoCard(ReportEditorProvider vm) {
+    final def = vm.subjectInfoDef;
 
-  final headingText = def.heading.trim();
-  final displayTitle = headingText.isEmpty ? 'Subject Info' : headingText;
+    final headingText = def.heading.trim();
+    final displayTitle = headingText.isEmpty ? 'Subject Info' : headingText;
 
-  if (!def.enabled) {
+    if (!def.enabled) {
+      return Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.7),
+            width: 1,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(_cardPad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      displayTitle,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 20,
+                        color: Colors.black.withOpacity(0.88),
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Edit label',
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    onPressed: () => _editSubjectInfoTitleDialog(vm),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Expanded(child: Text('Subject Info is disabled.')),
+                  FilledButton(
+                    onPressed: () => vm.setSubjectInfoEnabled(true),
+                    child: const Text('Enable'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final fields = def.orderedFields;
+
+    final fieldWidgets = fields
+        .map((f) {
+          final current = vm.subjectInfoValues.valueOf(f.key);
+          final c = _subjectControllerFor(f.key, current);
+          final focus = _subjectFocusFor(f.key);
+          final err = _subjectErrors[f.key];
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: TextField(
+              key: ValueKey('subject-${f.key}'),
+              controller: c,
+              focusNode: focus,
+              decoration: InputDecoration(
+                labelText: f.required ? '${f.title} *' : f.title,
+                errorText: err,
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (v) {
+                vm.updateSubjectInfoValue(f.key, v);
+                if (_subjectErrors.isNotEmpty) {
+                  setState(() => _subjectErrors = _validateSubjectInfo(vm));
+                }
+              },
+            ),
+          );
+        })
+        .toList(growable: false);
+
+    Widget fieldsBody;
+    if (def.columns == 2) {
+      fieldsBody = LayoutBuilder(
+        builder: (context, constraints) {
+          final half = (constraints.maxWidth - 12) / 2;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 0,
+            children: fieldWidgets
+                .map((w) => SizedBox(width: half, child: w))
+                .toList(growable: false),
+          );
+        },
+      );
+    } else {
+      fieldsBody = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: fieldWidgets,
+      );
+    }
+
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -1915,17 +2124,18 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header row with subtle edit icon only
             Row(
               children: [
                 Expanded(
                   child: Text(
                     displayTitle,
                     style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: Colors.black.withOpacity(0.88),
-                    letterSpacing: -0.2,
-                  ),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      color: Colors.black.withOpacity(0.88),
+                      letterSpacing: -0.2,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -1935,15 +2145,124 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+
+            // Enabled row
             Row(
               children: [
-                const Expanded(child: Text('Subject Info is disabled.')),
-                FilledButton(
-                  onPressed: () => vm.setSubjectInfoEnabled(true),
-                  child: const Text('Enable'),
+                Text(
+                  'Enabled',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black.withOpacity(0.62),
+                  ),
+                ),
+                const Spacer(),
+                Switch(value: def.enabled, onChanged: vm.setSubjectInfoEnabled),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Columns row
+            Row(
+              children: [
+                Text(
+                  'Columns',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black.withOpacity(0.62),
+                  ),
+                ),
+                const Spacer(),
+                SegmentedButton<int>(
+                  key: ValueKey('subject-cols-${def.columns}'),
+                  segments: const [
+                    ButtonSegment(value: 1, label: Text('1 col')),
+                    ButtonSegment(value: 2, label: Text('2 col')),
+                  ],
+                  selected: {def.columns},
+                  onSelectionChanged: (s) =>
+                      setState(() => vm.setSubjectInfoColumns(s.first)),
                 ),
               ],
+            ),
+
+            const SizedBox(height: 14),
+            fieldsBody,
+
+            const SizedBox(height: 10),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final manageBtn = OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 46),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 0,
+                    ),
+                  ),
+                  onPressed: () => _editSubjectFieldsSheet(vm),
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: const Text('Manage fields'),
+                );
+
+                final addBtn = FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 46),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 0,
+                    ),
+                  ),
+                  onPressed: () => _addSubjectFieldDialog(vm),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add field'),
+                );
+
+                final actionGroup = Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [manageBtn, addBtn],
+                );
+
+                if (constraints.maxWidth >= 640) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Fields',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black.withOpacity(0.62),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: actionGroup,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fields',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black.withOpacity(0.62),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(alignment: Alignment.centerLeft, child: actionGroup),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -1951,406 +2270,242 @@ Widget _subjectInfoCard(ReportEditorProvider vm) {
     );
   }
 
-  final fields = def.orderedFields;
+  // ---------------- Outline widgets ----------------
+  Widget _sectionWidget(
+    BuildContext context,
+    ReportEditorProvider vm,
+    SectionNode section,
+  ) {
+    final accent = _accent(context);
 
-  final fieldWidgets = fields.map((f) {
-    final current = vm.subjectInfoValues.valueOf(f.key);
-    final c = _subjectControllerFor(f.key, current);
-    final focus = _subjectFocusFor(f.key);
-    final err = _subjectErrors[f.key];
+    final selected = vm.selectedNodeId == section.id;
+    final hasChildren = section.children.isNotEmpty;
+    final sectionHasContent = section.children.any((n) => n is ContentNode);
+
+    final sectionIndent = section.indent * 16.0;
+
+    // Editor-tile-only title style:
+    // uniform across all tiles, just slightly bigger than preview text.
+    final titleStyle = TextStyle(
+      fontWeight: section.style.bold ? FontWeight.w700 : FontWeight.w600,
+      fontSize: 15,
+      height: 1.15,
+    );
+
+    final titleAlign = switch (section.style.align) {
+      TitleAlign.left => Alignment.centerLeft,
+      TitleAlign.center => Alignment.center,
+      TitleAlign.right => Alignment.centerRight,
+    };
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TextField(
-        key: ValueKey('subject-${f.key}'),
-        controller: c,
-        focusNode: focus,
-        decoration: InputDecoration(
-          labelText: f.required ? '${f.title} *' : f.title,
-          errorText: err,
-          border: const OutlineInputBorder(),
-          isDense: true,
-        ),
-        onChanged: (v) {
-          vm.updateSubjectInfoValue(f.key, v);
-          if (_subjectErrors.isNotEmpty) {
-            setState(() => _subjectErrors = _validateSubjectInfo(vm));
-          }
-        },
+      padding: EdgeInsets.only(
+        left: sectionIndent + (section.indent > 0 ? 8 : 0),
+        top: section.indent > 0 ? 14 : 10,
       ),
-    );
-  }).toList(growable: false);
-
-  Widget fieldsBody;
-  if (def.columns == 2) {
-    fieldsBody = LayoutBuilder(
-      builder: (context, constraints) {
-        final half = (constraints.maxWidth - 12) / 2;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 0,
-          children: fieldWidgets
-              .map((w) => SizedBox(width: half, child: w))
-              .toList(growable: false),
-        );
-      },
-    );
-  } else {
-    fieldsBody = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: fieldWidgets,
-    );
-  }
-
-  return Card(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: BorderSide(
-        color: Theme.of(context).dividerColor.withOpacity(0.7),
-        width: 1,
-      ),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(_cardPad),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header row with subtle edit icon only
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  displayTitle,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: Colors.black.withOpacity(0.88),
-                    letterSpacing: -0.2,
-                  ),
+          Material(
+            color: selected
+                ? accent.withOpacity(0.10)
+                : accent.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                setState(() {
+                  _actionsVisibleForSectionId = section.id;
+                });
+                vm.selectNode(section.id);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
                 ),
-              ),
-              IconButton(
-                tooltip: 'Edit label',
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                onPressed: () => _editSubjectInfoTitleDialog(vm),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Enabled row
-          Row(
-            children: [
-              Text('Enabled', style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.62))),
-              const Spacer(),
-              Switch(
-                value: def.enabled,
-                onChanged: vm.setSubjectInfoEnabled,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Columns row
-          Row(
-            children: [
-              Text('Columns', style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.62))),
-              const Spacer(),
-              SegmentedButton<int>(
-                key: ValueKey('subject-cols-${def.columns}'),
-                segments: const [
-                  ButtonSegment(value: 1, label: Text('1 col')),
-                  ButtonSegment(value: 2, label: Text('2 col')),
-                ],
-                selected: {def.columns},
-                onSelectionChanged: (s) => setState(() => vm.setSubjectInfoColumns(s.first)),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-          fieldsBody,
-
-          const SizedBox(height: 10),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final manageBtn = OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 46),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                ),
-                onPressed: () => _editSubjectFieldsSheet(vm),
-                icon: const Icon(Icons.tune, size: 18),
-                label: const Text('Manage fields'),
-              );
-
-              final addBtn = FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 46),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
-                ),
-                onPressed: () => _addSubjectFieldDialog(vm),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add field'),
-              );
-
-              final actionGroup = Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 8,
-                runSpacing: 8,
-                children: [manageBtn, addBtn],
-              );
-
-              if (constraints.maxWidth >= 640) {
-                return Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('Fields', style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.62))),
-                    const SizedBox(width: 16),
-                    Expanded(child: Align(alignment: Alignment.centerRight, child: actionGroup)),
-                  ],
-                );
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Fields', style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.62))),
-                  const SizedBox(height: 8),
-                  Align(alignment: Alignment.centerLeft, child: actionGroup),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    ),
-  );
-}
-  // ---------------- Outline widgets ----------------
-Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode section) {
-  final accent = _accent(context);
-
-  final selected = vm.selectedNodeId == section.id;
-  final hasChildren = section.children.isNotEmpty;
-  final sectionHasContent = section.children.any((n) => n is ContentNode);
-
-  final sectionIndent = section.indent * 16.0;
-
-  // Editor-tile-only title style:
-  // uniform across all tiles, just slightly bigger than preview text.
-  final titleStyle = TextStyle(
-    fontWeight: section.style.bold ? FontWeight.w700 : FontWeight.w600,
-    fontSize: 15,
-    height: 1.15,
-  );
-
-  final titleAlign = switch (section.style.align) {
-    TitleAlign.left => Alignment.centerLeft,
-    TitleAlign.center => Alignment.center,
-    TitleAlign.right => Alignment.centerRight,
-  };
-
-  return Padding(
-    padding: EdgeInsets.only(
-      left: sectionIndent + (section.indent > 0 ? 8 : 0),
-      top: section.indent > 0 ? 14 : 10,
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Material(
-          color: selected ? accent.withOpacity(0.10) : accent.withOpacity(0.04),
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () {
-              setState(() {
-                _actionsVisibleForSectionId = section.id;
-              });
-              vm.selectNode(section.id);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            if (hasChildren)
-                              InkWell(
-                                onTap: () => vm.toggleCollapsed(section.id),
-                                child: Icon(
-                                  section.collapsed
-                                      ? Icons.chevron_right
-                                      : Icons.expand_more,
-                                  size: 20,
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              if (hasChildren)
+                                InkWell(
+                                  onTap: () => vm.toggleCollapsed(section.id),
+                                  child: Icon(
+                                    section.collapsed
+                                        ? Icons.chevron_right
+                                        : Icons.expand_more,
+                                    size: 20,
+                                  ),
+                                )
+                              else
+                                const SizedBox(width: 20),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Align(
+                                  alignment: titleAlign,
+                                  child: Text(
+                                    section.title,
+                                    style: titleStyle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              )
-                            else
-                              const SizedBox(width: 20),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Align(
-                                alignment: titleAlign,
-                                child: Text(
-                                  section.title,
-                                  style: titleStyle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                              ),
+                              if (section.addToRecords) ...[
+                                const SizedBox(width: 6),
+                                Tooltip(
+                                  message: 'Added to Records',
+                                  child: Icon(
+                                    Icons.fact_check_outlined,
+                                    size: 16,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (section.collapsed && sectionHasContent)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 24, top: 1),
+                              child: Text(
+                                _collapsedContentHint(section),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: Colors.black54,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.05,
                                 ),
                               ),
                             ),
-                            if (section.addToRecords) ...[
-                              const SizedBox(width: 6),
-                              Tooltip(
-                                message: 'Added to Records',
-                                child: Icon(
-                                  Icons.fact_check_outlined,
-                                  size: 16,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            ],
-                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    PopupMenuButton<String>(
+                      tooltip: 'Section actions',
+                      padding: EdgeInsets.zero,
+                      onSelected: (value) =>
+                          _handleSectionMenuAction(context, vm, section, value),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'add_subsection',
+                          child: ListTile(
+                            leading: Icon(Icons.subdirectory_arrow_right),
+                            title: Text('Add subsection'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
-                        if (section.collapsed && sectionHasContent)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 24, top: 1),
-                            child: Text(
-                              _collapsedContentHint(section),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: Colors.black54,
-                                fontWeight: FontWeight.w400,
-                                height: 1.05,
-                              ),
+                        if (!sectionHasContent)
+                          const PopupMenuItem(
+                            value: 'add_content',
+                            child: ListTile(
+                              leading: Icon(Icons.notes_outlined),
+                              title: Text('Add content'),
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
+                        if (sectionHasContent)
+                          const PopupMenuItem(
+                            value: 'remove_content',
+                            child: ListTile(
+                              leading: Icon(Icons.delete_sweep_outlined),
+                              title: Text('Remove content'),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'style',
+                          child: ListTile(
+                            leading: Icon(Icons.tune),
+                            title: Text('Edit section'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'move_up',
+                          child: ListTile(
+                            leading: Icon(Icons.arrow_upward),
+                            title: Text('Move up'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'move_down',
+                          child: ListTile(
+                            leading: Icon(Icons.arrow_downward),
+                            title: Text('Move down'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'delete_section',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_outline),
+                            title: Text('Delete section'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  PopupMenuButton<String>(
-                    tooltip: 'Section actions',
-                    padding: EdgeInsets.zero,
-                    onSelected: (value) =>
-                        _handleSectionMenuAction(context, vm, section, value),
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        value: 'add_subsection',
-                        child: ListTile(
-                          leading: Icon(Icons.subdirectory_arrow_right),
-                          title: Text('Add subsection'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      if (!sectionHasContent)
-                        const PopupMenuItem(
-                          value: 'add_content',
-                          child: ListTile(
-                            leading: Icon(Icons.notes_outlined),
-                            title: Text('Add content'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      if (sectionHasContent)
-                        const PopupMenuItem(
-                          value: 'remove_content',
-                          child: ListTile(
-                            leading: Icon(Icons.delete_sweep_outlined),
-                            title: Text('Remove content'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem(
-                        value: 'style',
-                        child: ListTile(
-                          leading: Icon(Icons.tune),
-                          title: Text('Edit section'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem(
-                        value: 'move_up',
-                        child: ListTile(
-                          leading: Icon(Icons.arrow_upward),
-                          title: Text('Move up'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'move_down',
-                        child: ListTile(
-                          leading: Icon(Icons.arrow_downward),
-                          title: Text('Move down'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem(
-                        value: 'delete_section',
-                        child: ListTile(
-                          leading: Icon(Icons.delete_outline),
-                          title: Text('Delete section'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        if (!section.collapsed)
-          ...section.children.map((child) {
-            if (child is ContentNode) {
-              final contentLeft =
-                  (vm.doc.indentHierarchy ? sectionIndent : 0.0) +
-                      (vm.doc.indentContent ? 16.0 : 0.0);
-              final c = _contentControllerFor(child.id, child.text);
-              final f = _contentFocusFor(child.id);
+          if (!section.collapsed)
+            ...section.children.map((child) {
+              if (child is ContentNode) {
+                final contentLeft =
+                    (vm.doc.indentHierarchy ? sectionIndent : 0.0) +
+                    (vm.doc.indentContent ? 16.0 : 0.0);
+                final c = _contentControllerFor(child.id, child.text);
+                final f = _contentFocusFor(child.id);
 
-              return Padding(
-                padding: EdgeInsets.only(left: contentLeft, top: 10),
-                child: TextField(
-                  key: ValueKey('content-outline-${child.id}'),
-                  controller: c,
-                  focusNode: f,
-                  minLines: 2,
-                  maxLines: 6,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Enter text…',
+                return Padding(
+                  padding: EdgeInsets.only(left: contentLeft, top: 10),
+                  child: TextField(
+                    key: ValueKey('content-outline-${child.id}'),
+                    controller: c,
+                    focusNode: f,
+                    minLines: 2,
+                    maxLines: 6,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Enter text…',
+                    ),
+                    onTap: () {
+                      vm.selectNode(section.id);
+                    },
+                    onChanged: (v) => vm.updateContent(child.id, v),
                   ),
-                  onTap: () {
-                    vm.selectNode(section.id);
-                  },
-                  onChanged: (v) => vm.updateContent(child.id, v),
-                ),
-              );
-            }
+                );
+              }
 
-            if (child is SectionNode) {
-              return _sectionWidget(context, vm, child);
-            }
+              if (child is SectionNode) {
+                return _sectionWidget(context, vm, child);
+              }
 
-            return const SizedBox.shrink();
-          }),
-      ],
-    ),
-  );
-}
+              return const SizedBox.shrink();
+            }),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showSectionEditMenu(
     BuildContext context,
     ReportEditorProvider vm,
@@ -2381,11 +2536,14 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
   Widget _imagesCard(BuildContext context, ReportEditorProvider vm) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
         title: const Text('Images'),
         subtitle: Text(
           'Selected: ${vm.doc.images.length} • '
-          'Mode: ${vm.doc.placementChoice == ImagePlacementChoice.inlinePage1 ? "Inline enabled (up to 12 total)" : "Attachments only (8 per page)"}',
+          'Mode: ${vm.doc.placementChoice == ImagePlacementChoice.inlinePage1 ? "Inline" : "Attachments (12 per page)"}',
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _openImagesManager(context, vm),
@@ -2393,7 +2551,10 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
     );
   }
 
-  Future<void> _openImagesManager(BuildContext context, ReportEditorProvider vm) async {
+  Future<void> _openImagesManager(
+    BuildContext context,
+    ReportEditorProvider vm,
+  ) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -2487,7 +2648,9 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
                 onPressed: () async {
                   final path = await Navigator.push<String?>(
                     context,
-                    MaterialPageRoute(builder: (_) => const SignatureCaptureScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const SignatureCaptureScreen(),
+                    ),
                   );
                   if (!mounted) return;
 
@@ -2497,7 +2660,9 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
                 },
                 icon: const Icon(Icons.draw_outlined),
                 label: Text(
-                  vm.doc.signature.signatureFilePath == null ? 'Add Signature' : 'Update Signature',
+                  vm.doc.signature.signatureFilePath == null
+                      ? 'Add Signature'
+                      : 'Update Signature',
                 ),
               ),
             ),
@@ -2533,7 +2698,10 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
     double? minHeight,
   }) {
     final border = emphasized
-        ? BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.7), width: 1)
+        ? BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.7),
+            width: 1,
+          )
         : BorderSide.none;
 
     return Card(
@@ -2567,9 +2735,9 @@ Widget _sectionWidget(BuildContext context, ReportEditorProvider vm, SectionNode
             else
               child,
           ],
-          ),
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -2646,15 +2814,18 @@ class _SubjectFieldsEditorState extends State<_SubjectFieldsEditor> {
     const double rowHeight = 60.0;
     final double listHeight = fields.length * rowHeight;
     final double maxHeight = screenHeight * 0.5;
-    final double constrainedHeight =
-        listHeight < maxHeight ? listHeight : maxHeight;
+    final double constrainedHeight = listHeight < maxHeight
+        ? listHeight
+        : maxHeight;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const ListTile(
           title: Text('Subject Fields'),
-          subtitle: Text('Add, rename, reorder. Subject fields are automatically added to Records.'),
+          subtitle: Text(
+            'Add, rename, reorder. Subject fields are automatically added to Records.',
+          ),
         ),
         ConstrainedBox(
           constraints: BoxConstraints(
@@ -2738,7 +2909,6 @@ class _SectionEditSheet extends StatefulWidget {
   State<_SectionEditSheet> createState() => _SectionEditSheetState();
 }
 
-
 String _sizeLabel(HeadingLevel level) {
   switch (level) {
     case HeadingLevel.h1:
@@ -2784,102 +2954,116 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 20 + bottomInset),
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(title: Text('Edit section')),
-            TextField(
-              controller: _title,
-              decoration: const InputDecoration(
-                labelText: 'Title',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Formatting',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<HeadingLevel>(
-                    initialValue: _level,
-                    decoration: const InputDecoration(
-                      labelText: 'Size',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: HeadingLevel.values
-                        .map((h) => DropdownMenuItem(value: h, child: Text(_sizeLabel(h))))
-                        .toList(),
-                    onChanged: (v) => setState(() => _level = v ?? _level),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<TitleAlign>(
-                    initialValue: _align,
-                    decoration: const InputDecoration(
-                      labelText: 'Align',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: TitleAlign.values
-                        .map((a) => DropdownMenuItem(value: a, child: Text(a.name)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _align = v ?? _align),
-                  ),
-                ),
-              ],
-            ),
-            SwitchListTile(
-              value: _bold,
-              onChanged: (v) => setState(() => _bold = v),
-              title: const Text('Bold title'),
-              contentPadding: EdgeInsets.zero,
-            ),
-
-            const SizedBox(height: 4),
-            if (widget.section.addToRecords) ...[
-              Card(
-                elevation: 0,
-                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.22),
-                child: const ListTile(
-                  dense: true,
-                  leading: Icon(Icons.fact_check_outlined),
-                  title: Text('Saved to Records'),
-                  subtitle: Text('Change this in Template Editor → Field settings.'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(title: Text('Edit section')),
+              TextField(
+                controller: _title,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  border: OutlineInputBorder(),
+                  isDense: true,
                 ),
               ),
               const SizedBox(height: 12),
-            ],
-
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(
-                  context,
-                  _SectionEditResult(
-                    rename: _title.text.trim(),
-                    style: widget.section.style.copyWith(
-                      level: _level,
-                      bold: _bold,
-                      align: _align,
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Formatting',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<HeadingLevel>(
+                      initialValue: _level,
+                      decoration: const InputDecoration(
+                        labelText: 'Size',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: HeadingLevel.values
+                          .map(
+                            (h) => DropdownMenuItem(
+                              value: h,
+                              child: Text(_sizeLabel(h)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _level = v ?? _level),
                     ),
                   ),
-                );
-              },
-              child: const Text('Apply'),
-            ),
-          ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<TitleAlign>(
+                      initialValue: _align,
+                      decoration: const InputDecoration(
+                        labelText: 'Align',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: TitleAlign.values
+                          .map(
+                            (a) =>
+                                DropdownMenuItem(value: a, child: Text(a.name)),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _align = v ?? _align),
+                    ),
+                  ),
+                ],
+              ),
+              SwitchListTile(
+                value: _bold,
+                onChanged: (v) => setState(() => _bold = v),
+                title: const Text('Bold title'),
+                contentPadding: EdgeInsets.zero,
+              ),
+
+              const SizedBox(height: 4),
+              if (widget.section.addToRecords) ...[
+                Card(
+                  elevation: 0,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withOpacity(0.22),
+                  child: const ListTile(
+                    dense: true,
+                    leading: Icon(Icons.fact_check_outlined),
+                    title: Text('Saved to Records'),
+                    subtitle: Text(
+                      'Change this in Template Editor → Field settings.',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(
+                    context,
+                    _SectionEditResult(
+                      rename: _title.text.trim(),
+                      style: widget.section.style.copyWith(
+                        level: _level,
+                        bold: _bold,
+                        align: _align,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -2911,10 +3095,13 @@ class _ImagesManagerState extends State<_ImagesManager> {
     final int itemCount = vm.doc.images.length;
     final int rowCount = (itemCount / crossAxisCount).ceil();
     const double tileHeight = 110.0;
-    final double computedHeight =
-        rowCount <= 0 ? 0 : (rowCount * tileHeight + (rowCount - 1) * 8.0);
+    final double computedHeight = rowCount <= 0
+        ? 0
+        : (rowCount * tileHeight + (rowCount - 1) * 8.0);
     final double maxGridHeight = MediaQuery.of(context).size.height * 0.45;
-    final double gridHeight = computedHeight < maxGridHeight ? computedHeight : maxGridHeight;
+    final double gridHeight = computedHeight < maxGridHeight
+        ? computedHeight
+        : maxGridHeight;
 
     return SafeArea(
       child: ListView(
@@ -2928,12 +3115,12 @@ class _ImagesManagerState extends State<_ImagesManager> {
               key: ValueKey('placement-${vm.doc.placementChoice.name}'),
               segments: const [
                 ButtonSegment(
-                  value: ImagePlacementChoice.attachmentsOnly,
-                  label: Text('Attachments only'),
+                  value: ImagePlacementChoice.inlinePage1,
+                  label: Text('Inline'),
                 ),
                 ButtonSegment(
-                  value: ImagePlacementChoice.inlinePage1,
-                  label: Text('Inline Page 1'),
+                  value: ImagePlacementChoice.attachmentsOnly,
+                  label: Text('Attachments'),
                 ),
               ],
               selected: {vm.doc.placementChoice},
@@ -2950,7 +3137,11 @@ class _ImagesManagerState extends State<_ImagesManager> {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(vm.doc.placementChoice == ImagePlacementChoice.attachmentsOnly ? '8 images per attachment page' : 'Max images in this mode: ${vm.doc.maxImages}'),
+            child: Text(
+              vm.doc.placementChoice == ImagePlacementChoice.attachmentsOnly
+                  ? '12 images per attachment page'
+                  : 'Integrated into report • Max ${vm.doc.maxImages} images',
+            ),
           ),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
@@ -2968,18 +3159,24 @@ class _ImagesManagerState extends State<_ImagesManager> {
                   child: FilledButton.icon(
                     onPressed: () async {
                       try {
-                        final files = await _imageService.pickMultiFromGallery();
+                        final files = await _imageService
+                            .pickMultiFromGallery();
                         if (!mounted) return;
                         if (files.isEmpty) return;
                         final access = context.read<AccessProvider>().safeState;
-                        final remaining = access.maxImagesPerReport - vm.doc.images.length;
+                        final remaining =
+                            access.maxImagesPerReport - vm.doc.images.length;
                         if (remaining <= 0) {
-                          _showErr('Maximum of ${access.maxImagesPerReport} images allowed on your current plan.');
+                          _showErr(
+                            'Maximum of ${access.maxImagesPerReport} images allowed on your current plan.',
+                          );
                           return;
                         }
                         final allowed = files.take(remaining).toList();
                         if (allowed.length < files.length) {
-                          _showErr('Only ${access.maxImagesPerReport} images are allowed on your current plan.');
+                          _showErr(
+                            'Only ${access.maxImagesPerReport} images are allowed on your current plan.',
+                          );
                         }
                         vm.addImages(allowed.map((f) => f).toList());
                         if (mounted) setState(() {});
@@ -3001,7 +3198,9 @@ class _ImagesManagerState extends State<_ImagesManager> {
                         if (file == null) return;
                         final access = context.read<AccessProvider>().safeState;
                         if (vm.doc.images.length >= access.maxImagesPerReport) {
-                          _showErr('Maximum of ${access.maxImagesPerReport} images allowed on your current plan.');
+                          _showErr(
+                            'Maximum of ${access.maxImagesPerReport} images allowed on your current plan.',
+                          );
                           return;
                         }
                         vm.addImages([file]);
@@ -3060,7 +3259,10 @@ class _ImagesManagerState extends State<_ImagesManager> {
                             right: 38,
                             bottom: 6,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withOpacity(0.55),
                                 borderRadius: BorderRadius.circular(999),
@@ -3069,7 +3271,10 @@ class _ImagesManagerState extends State<_ImagesManager> {
                                 img.label.trim(),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white, fontSize: 11),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ),
@@ -3119,6 +3324,7 @@ class _ImagesManagerState extends State<_ImagesManager> {
       ),
     );
   }
+
   Future<void> _editImageLabel(
     BuildContext context,
     ReportEditorProvider vm,
@@ -3130,15 +3336,26 @@ class _ImagesManagerState extends State<_ImagesManager> {
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Premium feature'),
-          content: const Text('Image labels are available in Premium Trial and Premium.'),
+          content: const Text(
+            'Image labels are available in Premium Trial and Premium.',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Later'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('See Premium'),
+            ),
           ],
         ),
       );
       if (open == true && mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+        );
       }
       return;
     }
@@ -3182,6 +3399,4 @@ class _ImagesManagerState extends State<_ImagesManager> {
       }
     }
   }
-
-
 }
