@@ -19,18 +19,20 @@ class PdfRendererService {
   static const String _emptyDots = '..........';
 
   String _displayValue(String text, {bool suppressPlaceholder = false}) =>
-      text.trim().isEmpty ? (suppressPlaceholder ? '' : _emptyDots) : text.trim();
+      text.trim().isEmpty
+      ? (suppressPlaceholder ? '' : _emptyDots)
+      : text.trim();
 
-  pw.TextStyle _placeholderStyle(double fontSize) => pw.TextStyle(
-        fontSize: fontSize,
-        color: PdfColors.grey600,
-      );
-
+  pw.TextStyle _placeholderStyle(double fontSize) =>
+      pw.TextStyle(fontSize: fontSize, color: PdfColors.grey600);
 
   SectionNode? _findSectionById(List<SectionNode> roots, String id) {
     for (final section in roots) {
       if (section.id == id) return section;
-      final found = _findSectionById(section.children.whereType<SectionNode>().toList(growable: false), id);
+      final found = _findSectionById(
+        section.children.whereType<SectionNode>().toList(growable: false),
+        id,
+      );
       if (found != null) return found;
     }
     return null;
@@ -51,7 +53,10 @@ class PdfRendererService {
 
   bool _sectionConditionAllows(ReportDoc doc, SectionNode section) {
     if (!section.hasCondition) return true;
-    final parent = _findSectionById(doc.roots, section.conditionalParentSectionId);
+    final parent = _findSectionById(
+      doc.roots,
+      section.conditionalParentSectionId,
+    );
     if (parent == null) return true;
     final parentValue = _sectionFirstContentValue(parent).trim().toLowerCase();
     final expected = section.conditionalEquals.trim().toLowerCase();
@@ -67,14 +72,12 @@ class PdfRendererService {
         .contains(expected);
   }
 
-
-
   bool _sectionHasAnyPdfOutput(ReportDoc doc, SectionNode section) {
     if (!_sectionConditionAllows(doc, section)) return false;
-    if (section.showInPdf) return true;
-    return section.children
-        .whereType<SectionNode>()
-        .any((child) => _sectionHasAnyPdfOutput(doc, child));
+    if (section.showInPdf || section.note.trim().isNotEmpty) return true;
+    return section.children.whereType<SectionNode>().any(
+      (child) => _sectionHasAnyPdfOutput(doc, child),
+    );
   }
 
   Future<Uint8List> generatePdfBytes({
@@ -93,10 +96,12 @@ class PdfRendererService {
       bold: pw.Font.helveticaBold(),
     );
 
-    final metrics = layoutMetrics ?? PdfLayoutMetrics(
-      headerReserve: _letterheadHeaderReserve(letterhead),
-      footerReserve: _letterheadFooterReserve(letterhead),
-    );
+    final metrics =
+        layoutMetrics ??
+        PdfLayoutMetrics(
+          headerReserve: _letterheadHeaderReserve(letterhead),
+          footerReserve: _letterheadFooterReserve(letterhead),
+        );
 
     final pageFormat = metrics.pageFormat;
     final pageMargin = metrics.pageMargin;
@@ -110,7 +115,10 @@ class PdfRendererService {
           )
         : pw.EdgeInsets.all(pageMargin);
     final pageBodyHeight = usesSafePageMargins
-        ? pageFormat.height - (pageMargin * 2) - metrics.headerReserve - metrics.footerReserve
+        ? pageFormat.height -
+              (pageMargin * 2) -
+              metrics.headerReserve -
+              metrics.footerReserve
         : pageFormat.height - (pageMargin * 2);
 
     final titleText = plan.title.trim();
@@ -127,8 +135,9 @@ class PdfRendererService {
     );
 
     final signatureImg = await _loadSingle(doc.signature.signatureFilePath);
-    final pw.MemoryImage? logo =
-        (letterhead == null) ? null : await _loadLogo(letterhead);
+    final pw.MemoryImage? logo = (letterhead == null)
+        ? null
+        : await _loadLogo(letterhead);
 
     final pdf = pw.Document(theme: theme);
 
@@ -212,7 +221,8 @@ class PdfRendererService {
               : pw.SizedBox(),
           footer: (context) => _pageFooter(
             letterhead: letterhead,
-            showBranding: plannedAttachmentImgs.isEmpty &&
+            showBranding:
+                plannedAttachmentImgs.isEmpty &&
                 context.pageNumber == context.pagesCount &&
                 showRipotBranding,
           ),
@@ -221,7 +231,10 @@ class PdfRendererService {
       );
 
       if (plannedAttachmentImgs.isNotEmpty) {
-        final chunks = chunked(plannedAttachmentImgs, metrics.attachmentImagesPerPage);
+        final chunks = chunked(
+          plannedAttachmentImgs,
+          metrics.attachmentImagesPerPage,
+        );
         for (int i = 0; i < chunks.length; i++) {
           final isLast = i == chunks.length - 1;
           pdf.addPage(
@@ -293,7 +306,8 @@ class PdfRendererService {
     final signatureTop = firstPageTextHeight + 6.0;
     final signatureBottom = signatureTop + signatureHeight;
 
-    canPlaceSignatureOnFirstPage = remainingTemplates.isEmpty &&
+    canPlaceSignatureOnFirstPage =
+        remainingTemplates.isEmpty &&
         _signatureFitsAvailableSpace(
           contentHeight: firstPageTextHeight,
           signatureHeight: signatureHeight,
@@ -327,7 +341,8 @@ class PdfRendererService {
       remainingTemplates = fallback.$2;
       pageOneInlineImages = <_PdfLoadedImage>[];
       final fallbackHeight = _entriesEstimatedHeight(firstPageEntries);
-      canPlaceSignatureOnFirstPage = remainingTemplates.isEmpty &&
+      canPlaceSignatureOnFirstPage =
+          remainingTemplates.isEmpty &&
           _signatureFitsAvailableSpace(
             contentHeight: fallbackHeight,
             signatureHeight: signatureHeight,
@@ -337,7 +352,9 @@ class PdfRendererService {
     }
 
     final hasPageOneImageColumn = pageOneInlineImages.isNotEmpty;
-    final firstPageTextWidth = hasPageOneImageColumn ? metrics.page1TextWidth : metrics.bodyWidth;
+    final firstPageTextWidth = hasPageOneImageColumn
+        ? metrics.page1TextWidth
+        : metrics.bodyWidth;
 
     final inlineToAttachments = <_PdfLoadedImage>[
       ...pageOneInlineCandidates.skip(pageOneInlineImages.length),
@@ -349,14 +366,17 @@ class PdfRendererService {
       ...plannedAttachmentImgs,
     ];
 
-    final hasMoreContentPages = remainingTemplates.isNotEmpty || !canPlaceSignatureOnFirstPage;
+    final hasMoreContentPages =
+        remainingTemplates.isNotEmpty || !canPlaceSignatureOnFirstPage;
     final firstPageFooterParts = <pw.Widget>[];
     if (letterhead != null) {
       firstPageFooterParts.add(_letterheadFooter(letterhead));
     }
-    final showFirstPageBranding = !hasMoreContentPages && attachmentImgs.isEmpty && showRipotBranding;
+    final showFirstPageBranding =
+        !hasMoreContentPages && attachmentImgs.isEmpty && showRipotBranding;
     if (showFirstPageBranding) {
-      if (firstPageFooterParts.isNotEmpty) firstPageFooterParts.add(pw.SizedBox(height: 4));
+      if (firstPageFooterParts.isNotEmpty)
+        firstPageFooterParts.add(pw.SizedBox(height: 4));
       firstPageFooterParts.add(_ripotBranding());
     }
 
@@ -389,7 +409,11 @@ class PdfRendererService {
                         ),
                         if (canPlaceSignatureOnFirstPage) ...[
                           pw.SizedBox(height: 6),
-                          _signatureBlock(doc, signatureImg, fontScale: fontScale),
+                          _signatureBlock(
+                            doc,
+                            signatureImg,
+                            fontScale: fontScale,
+                          ),
                         ],
                       ],
                     ),
@@ -420,12 +444,7 @@ class PdfRendererService {
             height: pageBodyHeight,
             child: pw.Stack(
               children: [
-                pw.Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  child: mainContent,
-                ),
+                pw.Positioned(left: 0, right: 0, top: 0, child: mainContent),
                 pw.Positioned(
                   left: 0,
                   right: 0,
@@ -466,11 +485,13 @@ class PdfRendererService {
             if (letterhead != null) {
               footerParts.add(_letterheadFooter(letterhead));
             }
-            final showBranding = attachmentImgs.isEmpty &&
+            final showBranding =
+                attachmentImgs.isEmpty &&
                 context.pageNumber == context.pagesCount &&
                 showRipotBranding;
             if (showBranding) {
-              if (footerParts.isNotEmpty) footerParts.add(pw.SizedBox(height: 4));
+              if (footerParts.isNotEmpty)
+                footerParts.add(pw.SizedBox(height: 4));
               footerParts.add(_ripotBranding());
             }
             if (footerParts.isEmpty) return pw.SizedBox();
@@ -501,7 +522,8 @@ class PdfRendererService {
                 footerChildren.add(_letterheadFooter(letterhead));
               }
               if (isLastAttachmentPage && showRipotBranding) {
-                if (footerChildren.isNotEmpty) footerChildren.add(pw.SizedBox(height: 4));
+                if (footerChildren.isNotEmpty)
+                  footerChildren.add(pw.SizedBox(height: 4));
                 footerChildren.add(_ripotBranding());
               }
 
@@ -535,7 +557,11 @@ class PdfRendererService {
                     right: 0,
                     bottom: 0,
                     child: pw.SizedBox(
-                      height: metrics.footerReserve + (isLastAttachmentPage && showRipotBranding ? 18.0 : 0.0),
+                      height:
+                          metrics.footerReserve +
+                          (isLastAttachmentPage && showRipotBranding
+                              ? 18.0
+                              : 0.0),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                         mainAxisSize: pw.MainAxisSize.min,
@@ -554,12 +580,8 @@ class PdfRendererService {
     return pdf.save();
   }
 
-
-
   List<pw.Widget> _templatesToWidgets(List<_PdfTemplate> templates) {
-    return templates
-        .map((t) => t.buildWidget(t.text))
-        .toList(growable: false);
+    return templates.map((t) => t.buildWidget(t.text)).toList(growable: false);
   }
 
   pw.Widget _pageFooter({
@@ -581,7 +603,6 @@ class PdfRendererService {
       children: parts,
     );
   }
-
 
   pw.Widget _reportHeading(
     ReportDoc doc, {
@@ -647,12 +668,15 @@ class PdfRendererService {
       final rows = def.columns == 2
           ? (fieldCount / 2).ceil().clamp(1, 1000)
           : fieldCount.clamp(1, 1000);
-      final headingH = _visibleSubjectInfoHeading(doc).isEmpty ? 0.0 : (12.4 * fontScale) + 8;
+      final headingH = _visibleSubjectInfoHeading(doc).isEmpty
+          ? 0.0
+          : (12.4 * fontScale) + 8;
       final rowH = 24.0 * fontScale;
       h += 20 + headingH + (rows * rowH) + 12;
     }
     return h;
   }
+
   List<pw.Widget> _buildBodyWidgets(
     ReportDoc doc, {
     required double contentFontSize,
@@ -660,19 +684,12 @@ class PdfRendererService {
     final widgets = <pw.Widget>[];
     for (final root in doc.roots) {
       widgets.addAll(
-        _sectionWidgets(
-          root,
-          doc: doc,
-          contentFontSize: contentFontSize,
-        ),
+        _sectionWidgets(root, doc: doc, contentFontSize: contentFontSize),
       );
     }
     if (widgets.isEmpty) {
       widgets.add(
-        pw.Text(
-          _emptyDots,
-          style: _placeholderStyle(contentFontSize),
-        ),
+        pw.Text(_emptyDots, style: _placeholderStyle(contentFontSize)),
       );
     }
     return widgets;
@@ -687,8 +704,43 @@ class PdfRendererService {
     if (!_sectionConditionAllows(doc, s)) return out;
 
     if (!s.showInPdf) {
+      final note = s.note.trim();
+      if (note.isNotEmpty) {
+        final prefix = s.title.trim().isEmpty ? '' : '${s.title}: ';
+        out.add(
+          pw.Padding(
+            padding: pw.EdgeInsets.only(
+              left: doc.indentHierarchy ? 12.0 * s.indent : 0.0,
+              bottom: 10,
+            ),
+            child: pw.RichText(
+              text: pw.TextSpan(
+                children: [
+                  if (prefix.isNotEmpty)
+                    pw.TextSpan(
+                      text: prefix,
+                      style: pw.TextStyle(
+                        fontSize: contentFontSize,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  pw.TextSpan(
+                    text: note,
+                    style: pw.TextStyle(
+                      fontSize: contentFontSize,
+                      lineSpacing: 1.6,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
       for (final child in s.children.whereType<SectionNode>()) {
-        out.addAll(_sectionWidgets(child, doc: doc, contentFontSize: contentFontSize));
+        out.addAll(
+          _sectionWidgets(child, doc: doc, contentFontSize: contentFontSize),
+        );
       }
       return out;
     }
@@ -697,11 +749,14 @@ class PdfRendererService {
         .whereType<SectionNode>()
         .where((child) => _sectionHasAnyPdfOutput(doc, child))
         .toList(growable: false);
-    final contentChildren = s.children.whereType<ContentNode>().toList(growable: false);
+    final contentChildren = s.children.whereType<ContentNode>().toList(
+      growable: false,
+    );
 
     final useContentIndent = doc.reportLayout == ReportLayout.block;
     final indentPx = doc.indentHierarchy ? 12.0 * s.indent : 0.0;
-    final contentIndentPx = indentPx + (useContentIndent && doc.indentContent ? 12.0 : 0.0);
+    final contentIndentPx =
+        indentPx + (useContentIndent && doc.indentContent ? 12.0 : 0.0);
 
     final double titleFontSize = switch (s.style.level) {
       HeadingLevel.h1 => contentFontSize * 1.45,
@@ -712,7 +767,9 @@ class PdfRendererService {
 
     final titleStyle = pw.TextStyle(
       fontSize: titleFontSize,
-      fontWeight: (s.indent == 0 || s.style.bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
+      fontWeight: (s.indent == 0 || s.style.bold)
+          ? pw.FontWeight.bold
+          : pw.FontWeight.normal,
     );
 
     final titleAlign = switch (s.style.align) {
@@ -746,18 +803,34 @@ class PdfRendererService {
       return pw.Padding(
         padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
         child: pw.Text(
-          _displayValue(trimmed, suppressPlaceholder: doc.showColonAfterTitlesWithContent),
+          _displayValue(
+            trimmed,
+            suppressPlaceholder: doc.showColonAfterTitlesWithContent,
+          ),
           style: trimmed.isEmpty
               ? _placeholderStyle(contentFontSize)
-              : pw.TextStyle(
-                  fontSize: contentFontSize,
-                  lineSpacing: 1.6,
-                ),
+              : pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6),
         ),
       );
     }
 
-    pw.Widget inlineWidget(String text, {required bool aligned, required bool showLabel}) {
+    pw.Widget noteWidget() {
+      final note = s.note.trim();
+      if (note.isEmpty) return pw.SizedBox();
+      return pw.Padding(
+        padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
+        child: pw.Text(
+          note,
+          style: pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6),
+        ),
+      );
+    }
+
+    pw.Widget inlineWidget(
+      String text, {
+      required bool aligned,
+      required bool showLabel,
+    }) {
       final inlineTitleStyle = pw.TextStyle(
         fontSize: contentFontSize,
         fontWeight: (s.indent == 0 || s.style.bold)
@@ -766,18 +839,22 @@ class PdfRendererService {
       );
       final trimmed = text.trim();
       final colon = doc.showColonAfterTitlesWithContent;
-      final label = aligned ? (colon ? '${s.title}:' : s.title) : '${s.title}${colon ? ':' : ''}';
-      final value = _displayValue(trimmed, suppressPlaceholder: doc.showColonAfterTitlesWithContent);
+      final label = aligned
+          ? (colon ? '${s.title}:' : s.title)
+          : '${s.title}${colon ? ':' : ''}';
+      final value = _displayValue(
+        trimmed,
+        suppressPlaceholder: doc.showColonAfterTitlesWithContent,
+      );
       final valueStyle = trimmed.isEmpty
           ? _placeholderStyle(contentFontSize)
-          : pw.TextStyle(
-              fontSize: contentFontSize,
-              lineSpacing: 1.6,
-            );
+          : pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6);
 
       if (!aligned) {
         final inlinePrefix = showLabel
-            ? (doc.showColonAfterTitlesWithContent ? '${s.title}: ' : '${s.title} ')
+            ? (doc.showColonAfterTitlesWithContent
+                  ? '${s.title}: '
+                  : '${s.title} ')
             : '';
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
@@ -807,7 +884,10 @@ class PdfRendererService {
             )
           : pw.SizedBox(width: _alignedTitleWidth);
 
-      final approxTitleCharsPerLine = max(8, (_alignedTitleWidth / (contentFontSize * 0.62)).floor());
+      final approxTitleCharsPerLine = max(
+        8,
+        (_alignedTitleWidth / (contentFontSize * 0.62)).floor(),
+      );
       final titleLines = showLabel
           ? _estimateWrappedLines(label, charsPerLine: approxTitleCharsPerLine)
           : 1;
@@ -825,10 +905,7 @@ class PdfRendererService {
             pw.Expanded(
               child: pw.Padding(
                 padding: pw.EdgeInsets.only(top: valueTopPad),
-                child: pw.Text(
-                  value,
-                  style: valueStyle,
-                ),
+                child: pw.Text(value, style: valueStyle),
               ),
             ),
           ],
@@ -837,18 +914,32 @@ class PdfRendererService {
     }
 
     if (sectionChildren.isNotEmpty) {
-      final introNode = contentChildren.isNotEmpty ? contentChildren.first : null;
+      final introNode = contentChildren.isNotEmpty
+          ? contentChildren.first
+          : null;
       if (doc.reportLayout == ReportLayout.block || introNode == null) {
-        final introHasText = introNode != null && introNode.text.trim().isNotEmpty;
-        final colonTitle = doc.reportLayout == ReportLayout.block && doc.showColonAfterTitlesWithContent ? '${s.title}:' : s.title;
+        final introHasText =
+            introNode != null && introNode.text.trim().isNotEmpty;
+        final colonTitle =
+            doc.reportLayout == ReportLayout.block &&
+                doc.showColonAfterTitlesWithContent
+            ? '${s.title}:'
+            : s.title;
         out.add(titleWidget(overrideTitle: colonTitle));
       }
       if (introNode != null && introNode.text.trim().isNotEmpty) {
         out.add(
           doc.reportLayout == ReportLayout.block
               ? blockContentWidget(introNode.text.trim())
-              : inlineWidget(introNode.text.trim(), aligned: doc.reportLayout == ReportLayout.aligned, showLabel: true),
+              : inlineWidget(
+                  introNode.text.trim(),
+                  aligned: doc.reportLayout == ReportLayout.aligned,
+                  showLabel: true,
+                ),
         );
+      }
+      if (s.note.trim().isNotEmpty) {
+        out.add(noteWidget());
       }
       for (final child in sectionChildren) {
         out.addAll(
@@ -858,11 +949,18 @@ class PdfRendererService {
       return out;
     }
 
-    final leafText = contentChildren.isNotEmpty ? contentChildren.first.text.trim() : '';
+    final leafText = contentChildren.isNotEmpty
+        ? contentChildren.first.text.trim()
+        : '';
     if (doc.reportLayout == ReportLayout.block) {
-      final colonTitle = doc.showColonAfterTitlesWithContent ? '${s.title}:' : s.title;
+      final colonTitle = doc.showColonAfterTitlesWithContent
+          ? '${s.title}:'
+          : s.title;
       out.add(titleWidget(overrideTitle: colonTitle));
       out.add(blockContentWidget(leafText));
+      if (s.note.trim().isNotEmpty) {
+        out.add(noteWidget());
+      }
       return out;
     }
 
@@ -873,6 +971,9 @@ class PdfRendererService {
         showLabel: true,
       ),
     );
+    if (s.note.trim().isNotEmpty) {
+      out.add(noteWidget());
+    }
     return out;
   }
 
@@ -905,7 +1006,9 @@ class PdfRendererService {
             pw.Expanded(child: _inlineImageCell(left, metrics: metrics)),
             pw.SizedBox(width: 10),
             pw.Expanded(
-              child: right == null ? pw.SizedBox() : _inlineImageCell(right, metrics: metrics),
+              child: right == null
+                  ? pw.SizedBox()
+                  : _inlineImageCell(right, metrics: metrics),
             ),
           ],
         ),
@@ -920,7 +1023,6 @@ class PdfRendererService {
       children: rows,
     );
   }
-
 
   List<pw.Widget> _inlineImageFlowWidgets(
     List<_PdfLoadedImage> images, {
@@ -989,10 +1091,7 @@ class PdfRendererService {
                 entry.label.trim(),
                 maxLines: 1,
                 overflow: pw.TextOverflow.clip,
-                style: const pw.TextStyle(
-                  color: PdfColors.white,
-                  fontSize: 9,
-                ),
+                style: const pw.TextStyle(color: PdfColors.white, fontSize: 9),
               ),
             ),
         ],
@@ -1005,10 +1104,7 @@ class PdfRendererService {
       alignment: pw.Alignment.centerRight,
       child: pw.Text(
         'Generated by Ripot',
-        style: const pw.TextStyle(
-          fontSize: 8,
-          color: PdfColors.grey600,
-        ),
+        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
       ),
     );
   }
@@ -1081,8 +1177,8 @@ class PdfRendererService {
 
   double _letterheadFooterReserve(LetterheadTemplate? lh) {
     if (lh == null) return 0.0;
-    final hasFooter = lh.footerLeft.trim().isNotEmpty ||
-        lh.footerRight.trim().isNotEmpty;
+    final hasFooter =
+        lh.footerLeft.trim().isNotEmpty || lh.footerRight.trim().isNotEmpty;
     // Do not reserve footer space when the letterhead footer is empty. The
     // previous fixed 45pt reserve wasted page-1 space and made the signature
     // fit test too conservative.
@@ -1156,11 +1252,7 @@ class PdfRendererService {
       padding: const pw.EdgeInsets.only(bottom: 2),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          headerContent,
-          pw.SizedBox(height: 2),
-          pw.Divider(),
-        ],
+        children: [headerContent, pw.SizedBox(height: 2), pw.Divider()],
       ),
     );
   }
@@ -1179,10 +1271,7 @@ class PdfRendererService {
             children: [
               pw.SizedBox(
                 width: 250,
-                child: pw.Text(
-                  left,
-                  style: const pw.TextStyle(fontSize: 9),
-                ),
+                child: pw.Text(left, style: const pw.TextStyle(fontSize: 9)),
               ),
               pw.Spacer(),
               pw.Text(
@@ -1197,7 +1286,8 @@ class PdfRendererService {
     );
   }
 
-  bool _hasFilledSubjectInfo(ReportDoc doc) => _filledSubjectInfoFields(doc).isNotEmpty;
+  bool _hasFilledSubjectInfo(ReportDoc doc) =>
+      _filledSubjectInfoFields(doc).isNotEmpty;
 
   String _visibleSubjectInfoHeading(ReportDoc doc) {
     final heading = doc.subjectInfoDef.heading.trim();
@@ -1213,10 +1303,7 @@ class PdfRendererService {
         .toList(growable: false);
   }
 
-  pw.Widget _subjectInfoBlock(
-    ReportDoc doc, {
-    required double fontScale,
-  }) {
+  pw.Widget _subjectInfoBlock(ReportDoc doc, {required double fontScale}) {
     final def = doc.subjectInfoDef;
     final heading = _visibleSubjectInfoHeading(doc);
     final fields = _filledSubjectInfoFields(doc);
@@ -1231,10 +1318,7 @@ class PdfRendererService {
         ),
         child: pw.Text(
           '(No subject info fields)',
-          style: pw.TextStyle(
-            fontSize: base,
-            color: PdfColors.grey700,
-          ),
+          style: pw.TextStyle(fontSize: base, color: PdfColors.grey700),
         ),
       );
     }
@@ -1271,8 +1355,9 @@ class PdfRendererService {
 
     late final pw.Widget body;
     if (def.columns == 2) {
-      final items =
-          fields.map((f) => (f.title, doc.subjectInfo.valueOf(f.key))).toList();
+      final items = fields
+          .map((f) => (f.title, doc.subjectInfo.valueOf(f.key)))
+          .toList();
       final rows = <pw.Widget>[];
 
       for (int i = 0; i < items.length; i += 2) {
@@ -1286,7 +1371,9 @@ class PdfRendererService {
               pw.Expanded(child: fieldRow(left.$1, left.$2)),
               pw.SizedBox(width: 12),
               pw.Expanded(
-                child: right == null ? pw.SizedBox() : fieldRow(right.$1, right.$2),
+                child: right == null
+                    ? pw.SizedBox()
+                    : fieldRow(right.$1, right.$2),
               ),
             ],
           ),
@@ -1341,7 +1428,7 @@ class PdfRendererService {
       'Sep',
       'Oct',
       'Nov',
-      'Dec'
+      'Dec',
     ];
     return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
   }
@@ -1379,8 +1466,8 @@ class PdfRendererService {
     final basePrimaryLine = hasRoleAndName
         ? '$role: $name'
         : name.isNotEmpty
-            ? name
-            : role;
+        ? name
+        : role;
     final primaryLine = creds.isNotEmpty && basePrimaryLine.isNotEmpty
         ? '$basePrimaryLine ($creds)'
         : basePrimaryLine;
@@ -1453,10 +1540,7 @@ class PdfRendererService {
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Expanded(
-                    flex: 62,
-                    child: signerText(),
-                  ),
+                  pw.Expanded(flex: 62, child: signerText()),
                   pw.SizedBox(width: 14),
                   pw.Expanded(
                     flex: 38,
@@ -1492,10 +1576,8 @@ class PdfRendererService {
       ),
     );
   }
-  int _estimateWrappedLines(
-    String text, {
-    required int charsPerLine,
-  }) {
+
+  int _estimateWrappedLines(String text, {required int charsPerLine}) {
     if (text.trim().isEmpty) return 1;
 
     final lines = text.split('\n');
@@ -1594,7 +1676,9 @@ class PdfRendererService {
     if (best <= 0) best = min(text.length, max(1, min(20, text.length)));
 
     final pageText = text.substring(0, best).trimRight();
-    final remainingText = text.substring(best).replaceFirst(RegExp(r'^\s+'), '');
+    final remainingText = text
+        .substring(best)
+        .replaceFirst(RegExp(r'^\s+'), '');
     return (pageText, remainingText);
   }
 
@@ -1701,26 +1785,24 @@ class PdfRendererService {
   }) {
     final out = <_PdfTemplate>[];
 
-    void walk(SectionNode s) {
+    void walk(SectionNode s, [int treeDepth = 0]) {
       if (!_sectionConditionAllows(doc, s)) return;
 
-      if (!s.showInPdf) {
-        for (final child in s.children.whereType<SectionNode>()) {
-          walk(child);
-        }
-        return;
-      }
+      // Structural nesting is the source of truth for visual hierarchy.
+      // max() preserves any deliberate larger indent already stored.
+      final effectiveIndent = max(s.indent, treeDepth);
+      final noteText = s.note.trim();
 
       final sectionChildren = s.children
           .whereType<SectionNode>()
           .where((child) => _sectionHasAnyPdfOutput(doc, child))
           .toList(growable: false);
-      final contentChildren =
-          s.children.whereType<ContentNode>().toList(growable: false);
+      final contentChildren = s.children.whereType<ContentNode>().toList(
+        growable: false,
+      );
 
       final useContentIndent = doc.reportLayout == ReportLayout.block;
-      final indentPx =
-          doc.indentHierarchy ? 12.0 * s.indent : 0.0;
+      final indentPx = doc.indentHierarchy ? 12.0 * effectiveIndent : 0.0;
       final contentIndentPx =
           indentPx + (useContentIndent && doc.indentContent ? 12.0 : 0.0);
 
@@ -1733,7 +1815,9 @@ class PdfRendererService {
 
       final blockTitleStyle = pw.TextStyle(
         fontSize: blockTitleSize,
-        fontWeight: (s.indent == 0 || s.style.bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
+        fontWeight: (effectiveIndent == 0 || s.style.bold)
+            ? pw.FontWeight.bold
+            : pw.FontWeight.normal,
       );
 
       final titleAlign = switch (s.style.align) {
@@ -1764,43 +1848,51 @@ class PdfRendererService {
 
       pw.Widget contentWidget(String text) {
         final trimmed = text.trim();
-        final value = _displayValue(trimmed, suppressPlaceholder: doc.showColonAfterTitlesWithContent);
+        final value = _displayValue(
+          trimmed,
+          suppressPlaceholder: doc.showColonAfterTitlesWithContent,
+        );
         return pw.Padding(
           padding: pw.EdgeInsets.only(left: contentIndentPx, bottom: 10),
           child: pw.Text(
             value,
             style: trimmed.isEmpty
                 ? _placeholderStyle(contentFontSize)
-                : pw.TextStyle(
-                    fontSize: contentFontSize,
-                    lineSpacing: 1.6,
-                  ),
+                : pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6),
           ),
         );
       }
 
-      pw.Widget inlineWidget(String text, {required bool aligned, required bool showLabel}) {
+      pw.Widget inlineWidget(
+        String text, {
+        required bool aligned,
+        required bool showLabel,
+      }) {
         final inlineTitleStyle = pw.TextStyle(
           fontSize: contentFontSize,
-          fontWeight: (s.indent == 0 || s.style.bold)
+          fontWeight: (effectiveIndent == 0 || s.style.bold)
               ? pw.FontWeight.bold
               : pw.FontWeight.normal,
         );
 
         final trimmed = text.trim();
         final colon = doc.showColonAfterTitlesWithContent;
-        final label = aligned ? (colon ? '${s.title}:' : s.title) : '${s.title}${colon ? ':' : ''}';
-        final value = _displayValue(trimmed, suppressPlaceholder: doc.showColonAfterTitlesWithContent);
+        final label = aligned
+            ? (colon ? '${s.title}:' : s.title)
+            : '${s.title}${colon ? ':' : ''}';
+        final value = _displayValue(
+          trimmed,
+          suppressPlaceholder: doc.showColonAfterTitlesWithContent,
+        );
         final valueStyle = trimmed.isEmpty
             ? _placeholderStyle(contentFontSize)
-            : pw.TextStyle(
-                fontSize: contentFontSize,
-                lineSpacing: 1.6,
-              );
+            : pw.TextStyle(fontSize: contentFontSize, lineSpacing: 1.6);
 
         if (!aligned) {
           final inlinePrefix = showLabel
-              ? (doc.showColonAfterTitlesWithContent ? '${s.title}: ' : '${s.title} ')
+              ? (doc.showColonAfterTitlesWithContent
+                    ? '${s.title}: '
+                    : '${s.title} ')
               : '';
           return pw.Padding(
             padding: pw.EdgeInsets.only(left: indentPx, bottom: 10),
@@ -1830,9 +1922,15 @@ class PdfRendererService {
               )
             : pw.SizedBox(width: _alignedTitleWidth);
 
-        final approxTitleCharsPerLine = max(8, (_alignedTitleWidth / (contentFontSize * 0.62)).floor());
+        final approxTitleCharsPerLine = max(
+          8,
+          (_alignedTitleWidth / (contentFontSize * 0.62)).floor(),
+        );
         final titleLines = showLabel
-            ? _estimateWrappedLines(label, charsPerLine: approxTitleCharsPerLine)
+            ? _estimateWrappedLines(
+                label,
+                charsPerLine: approxTitleCharsPerLine,
+              )
             : 1;
         final valueTopPad = showLabel && titleLines > 1
             ? (titleLines - 1) * contentFontSize * 1.15
@@ -1848,10 +1946,7 @@ class PdfRendererService {
               pw.Expanded(
                 child: pw.Padding(
                   padding: pw.EdgeInsets.only(top: valueTopPad),
-                  child: pw.Text(
-                    value,
-                    style: valueStyle,
-                  ),
+                  child: pw.Text(value, style: valueStyle),
                 ),
               ),
             ],
@@ -1863,12 +1958,20 @@ class PdfRendererService {
         return max(12, (62 * (pageTextWidth / bodyWidth)).floor());
       }
 
-      int inlineCharsPerLine(bool aligned, bool showLabel, double bodyWidth, double pageTextWidth) {
+      int inlineCharsPerLine(
+        bool aligned,
+        bool showLabel,
+        double bodyWidth,
+        double pageTextWidth,
+      ) {
         double contentWidth;
         if (aligned) {
           contentWidth = pageTextWidth - _alignedTitleWidth - 10;
         } else if (showLabel) {
-          final approxLabelWidth = max(40.0, s.title.length * contentFontSize * 0.62 + 10);
+          final approxLabelWidth = max(
+            40.0,
+            s.title.length * contentFontSize * 0.62 + 10,
+          );
           contentWidth = pageTextWidth - approxLabelWidth - 10;
         } else {
           contentWidth = pageTextWidth;
@@ -1890,8 +1993,10 @@ class PdfRendererService {
             return (lines * contentFontSize * 1.32) + 8;
           },
           buildWidget: (piece) => contentWidget(piece),
-          plainOf: (piece) => '${indentText(s.indent + (doc.indentContent ? 1 : 0))}$piece\n\n',
-          continueWith: (remainingText) => makeBlockContentTemplate(remainingText),
+          plainOf: (piece) =>
+              '${indentText(effectiveIndent + (doc.indentContent ? 1 : 0))}$piece\n\n',
+          continueWith: (remainingText) =>
+              makeBlockContentTemplate(remainingText),
         );
       }
 
@@ -1910,10 +2015,10 @@ class PdfRendererService {
                 pageTextWidth,
               ),
             );
-            final multiplier =
-                doc.reportLayout == ReportLayout.aligned ? 1.32 : 1.20;
-            final extra =
-                doc.reportLayout == ReportLayout.aligned ? 8.0 : 4.0;
+            final multiplier = doc.reportLayout == ReportLayout.aligned
+                ? 1.32
+                : 1.20;
+            final extra = doc.reportLayout == ReportLayout.aligned ? 8.0 : 4.0;
             return (lines * contentFontSize * multiplier) + extra;
           },
           buildWidget: (piece) => inlineWidget(
@@ -1922,15 +2027,29 @@ class PdfRendererService {
             showLabel: showLabel,
           ),
           plainOf: (piece) => showLabel
-              ? '${indentText(s.indent)}${s.title}${doc.showColonAfterTitlesWithContent ? ':' : ''} $piece\n\n'
-              : '${indentText(s.indent)}$piece\n\n',
-          continueWith: (remainingText) => makeInlineTemplate(remainingText, showLabel: false),
+              ? '${indentText(effectiveIndent)}${s.title}${doc.showColonAfterTitlesWithContent ? ':' : ''} $piece\n\n'
+              : '${indentText(effectiveIndent)}$piece\n\n',
+          continueWith: (remainingText) =>
+              makeInlineTemplate(remainingText, showLabel: false),
         );
       }
 
+      // A structured value may be hidden from the PDF while its narrative
+      // note remains report content.
+      if (!s.showInPdf) {
+        if (noteText.isNotEmpty) {
+          out.add(makeInlineTemplate(noteText, showLabel: true));
+        }
+        for (final child in sectionChildren) {
+          walk(child, treeDepth + 1);
+        }
+        return;
+      }
+
       if (sectionChildren.isNotEmpty) {
-        final introNode =
-            contentChildren.isNotEmpty ? contentChildren.first : null;
+        final introNode = contentChildren.isNotEmpty
+            ? contentChildren.first
+            : null;
 
         if (doc.reportLayout == ReportLayout.block || introNode == null) {
           out.add(
@@ -1939,8 +2058,14 @@ class PdfRendererService {
               splittable: false,
               fixedHeight: blockTitleSize * 1.35 + 2,
               measureHeight: (_, __, ___) => blockTitleSize * 1.35 + 2,
-              buildWidget: (_) => titleWidget(overrideTitle: (doc.reportLayout == ReportLayout.block && doc.showColonAfterTitlesWithContent) ? '${s.title}:' : s.title),
-              plainOf: (_) => '${indentText(s.indent)}${s.title}\n',
+              buildWidget: (_) => titleWidget(
+                overrideTitle:
+                    (doc.reportLayout == ReportLayout.block &&
+                        doc.showColonAfterTitlesWithContent)
+                    ? '${s.title}:'
+                    : s.title,
+              ),
+              plainOf: (_) => '${indentText(effectiveIndent)}${s.title}\n',
               continueWith: null,
             ),
           );
@@ -1957,14 +2082,19 @@ class PdfRendererService {
           }
         }
 
+        if (noteText.isNotEmpty) {
+          out.add(makeBlockContentTemplate(noteText));
+        }
+
         for (final child in sectionChildren) {
-          walk(child);
+          walk(child, treeDepth + 1);
         }
         return;
       }
 
-      final leafText =
-          contentChildren.isNotEmpty ? contentChildren.first.text.trim() : '';
+      final leafText = contentChildren.isNotEmpty
+          ? contentChildren.first.text.trim()
+          : '';
 
       if (doc.reportLayout == ReportLayout.block) {
         out.add(
@@ -1973,8 +2103,12 @@ class PdfRendererService {
             splittable: false,
             fixedHeight: blockTitleSize * 1.35 + 2,
             measureHeight: (_, __, ___) => blockTitleSize * 1.35 + 2,
-            buildWidget: (_) => titleWidget(overrideTitle: doc.showColonAfterTitlesWithContent ? '${s.title}:' : s.title),
-            plainOf: (_) => '${indentText(s.indent)}${s.title}\n',
+            buildWidget: (_) => titleWidget(
+              overrideTitle: doc.showColonAfterTitlesWithContent
+                  ? '${s.title}:'
+                  : s.title,
+            ),
+            plainOf: (_) => '${indentText(effectiveIndent)}${s.title}\n',
             continueWith: null,
           ),
         );
@@ -1988,11 +2122,17 @@ class PdfRendererService {
               splittable: false,
               fixedHeight: contentFontSize * 1.32 + 8,
               measureHeight: (_, __, ___) => contentFontSize * 1.32 + 8,
-              buildWidget: (_) => contentWidget(doc.showColonAfterTitlesWithContent ? '' : _emptyDots),
+              buildWidget: (_) => contentWidget(
+                doc.showColonAfterTitlesWithContent ? '' : _emptyDots,
+              ),
               plainOf: (_) => '\n',
               continueWith: null,
             ),
           );
+        }
+
+        if (noteText.isNotEmpty) {
+          out.add(makeBlockContentTemplate(noteText));
         }
         return;
       }
@@ -2006,21 +2146,29 @@ class PdfRendererService {
             splittable: false,
             fixedHeight: contentFontSize * 1.32 + 8,
             measureHeight: (_, __, ___) => contentFontSize * 1.32 + 8,
-            buildWidget: (_) => inlineWidget('', aligned: doc.reportLayout == ReportLayout.aligned, showLabel: true),
-            plainOf: (_) => '${indentText(s.indent)}${s.title}${doc.showColonAfterTitlesWithContent ? ':' : ''} \n\n',
+            buildWidget: (_) => inlineWidget(
+              '',
+              aligned: doc.reportLayout == ReportLayout.aligned,
+              showLabel: true,
+            ),
+            plainOf: (_) =>
+                '${indentText(effectiveIndent)}${s.title}${doc.showColonAfterTitlesWithContent ? ':' : ''} \n\n',
             continueWith: null,
           ),
         );
       }
+
+      if (noteText.isNotEmpty) {
+        out.add(makeBlockContentTemplate(noteText));
+      }
     }
 
     for (final s in doc.roots) {
-      walk(s);
+      walk(s, 0);
     }
 
     return out;
   }
-
 
   List<_PdfLoadedImage> _inlineImagesThatFitWithin(
     List<_PdfLoadedImage> candidates, {
@@ -2077,7 +2225,8 @@ class PdfRendererService {
     return kept;
   }
 
-  (List<_PdfLoadedImage>, List<_PdfLoadedImage>) _fitInlineImagesBeforeSignature({
+  (List<_PdfLoadedImage>, List<_PdfLoadedImage>)
+  _fitInlineImagesBeforeSignature({
     required List<_PdfLoadedImage> candidates,
     required double textHeight,
     required double availableHeight,
@@ -2096,17 +2245,10 @@ class PdfRendererService {
       final kept = candidates.take(count).toList(growable: false);
       final rowHeight = max(
         textHeight,
-        _inlineColumnEstimatedHeight(
-          kept,
-          metrics: metrics,
-          fontScale: 1.0,
-        ),
+        _inlineColumnEstimatedHeight(kept, metrics: metrics, fontScale: 1.0),
       );
       if (rowHeight + signatureReserve <= availableHeight + _fitSlack) {
-        return (
-          kept,
-          candidates.skip(count).toList(growable: false),
-        );
+        return (kept, candidates.skip(count).toList(growable: false));
       }
     }
 
@@ -2134,10 +2276,7 @@ class PdfRendererService {
         fontScale: 1.0,
       );
       if (imageHeight <= availableHeight + _fitSlack) {
-        return (
-          kept,
-          candidates.skip(count).toList(growable: false),
-        );
+        return (kept, candidates.skip(count).toList(growable: false));
       }
     }
 
@@ -2155,7 +2294,6 @@ class PdfRendererService {
     return entries.fold<double>(0.0, (sum, e) => sum + e.height);
   }
 
-
   bool _signatureFitsAvailableSpace({
     required double contentHeight,
     required double signatureHeight,
@@ -2166,13 +2304,11 @@ class PdfRendererService {
     // 1) small base safety margin;
     // 2) dynamic extra margin only when signature is near the page bottom;
     // 3) tiny estimate relief to avoid wasting obvious visible space.
-    final remainingWithoutMargin = availableHeight - contentHeight - signatureHeight;
+    final remainingWithoutMargin =
+        availableHeight - contentHeight - signatureHeight;
     const baseSafetyMargin = 6.0;
     final dynamicMargin = remainingWithoutMargin < 14.0 ? 4.0 : 0.0;
-    return contentHeight +
-            signatureHeight +
-            baseSafetyMargin +
-            dynamicMargin <=
+    return contentHeight + signatureHeight + baseSafetyMargin + dynamicMargin <=
         availableHeight + estimateRelief;
   }
 
@@ -2222,7 +2358,6 @@ class PdfRendererService {
       ),
     );
   }
-
 
   pw.Widget _inlineColumnFixed(
     List<_PdfLoadedImage> images, {
@@ -2332,9 +2467,7 @@ class PdfRendererService {
             children: [
               pw.Expanded(child: cell(left)),
               pw.SizedBox(width: gap),
-              pw.Expanded(
-                child: right == null ? pw.SizedBox() : cell(right),
-              ),
+              pw.Expanded(child: right == null ? pw.SizedBox() : cell(right)),
             ],
           ),
         ),
@@ -2371,10 +2504,7 @@ class PdfRendererService {
 }
 
 class _PdfLoadedImage {
-  const _PdfLoadedImage({
-    required this.image,
-    required this.label,
-  });
+  const _PdfLoadedImage({required this.image, required this.label});
 
   final pw.MemoryImage image;
   final String label;
@@ -2407,7 +2537,7 @@ class _PdfTemplate {
   final bool splittable;
   final double fixedHeight;
   final double Function(String text, double bodyWidth, double pageTextWidth)
-      measureHeight;
+  measureHeight;
   final pw.Widget Function(String text) buildWidget;
   final String Function(String text) plainOf;
   final _PdfTemplate Function(String remainingText)? continueWith;

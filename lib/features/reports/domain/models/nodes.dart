@@ -67,8 +67,17 @@ class SectionNode extends Node {
   /// When false, this field is hidden from the final PDF but can still be used for records.
   final bool showInPdf;
 
-  /// When true, this section's content is copied into Records when the report is saved.
+  /// When true, this section's structured value is copied into Records
+  /// when the report is saved. Free-text fields must not use this.
   final bool addToRecords;
+
+  /// Structured fields can optionally allow an additional narrative note.
+  /// This is a template-level capability, not the note value itself.
+  final bool allowOptionalNote;
+
+  /// Report-instance narrative note attached to a structured field.
+  /// This note is not structured Records data.
+  final String note;
 
   /// Optional simple conditional display rule for this section.
   /// The section is shown only when the parent section's first content value
@@ -93,6 +102,8 @@ class SectionNode extends Node {
     this.options = const [],
     this.showInPdf = true,
     this.addToRecords = false,
+    this.allowOptionalNote = false,
+    this.note = '',
     this.conditionalParentSectionId = '',
     this.conditionalEquals = '',
     this.indent = 0,
@@ -107,6 +118,8 @@ class SectionNode extends Node {
     List<String>? options,
     bool? showInPdf,
     bool? addToRecords,
+    bool? allowOptionalNote,
+    String? note,
     String? conditionalParentSectionId,
     String? conditionalEquals,
     int? indent,
@@ -121,6 +134,8 @@ class SectionNode extends Node {
       options: options ?? this.options,
       showInPdf: showInPdf ?? this.showInPdf,
       addToRecords: addToRecords ?? this.addToRecords,
+      allowOptionalNote: allowOptionalNote ?? this.allowOptionalNote,
+      note: note ?? this.note,
       conditionalParentSectionId: conditionalParentSectionId ?? this.conditionalParentSectionId,
       conditionalEquals: conditionalEquals ?? this.conditionalEquals,
       indent: indent ?? this.indent,
@@ -182,6 +197,8 @@ extension TemplateClone on SectionNode {
       options: options,
       showInPdf: showInPdf,
       addToRecords: addToRecords,
+      allowOptionalNote: allowOptionalNote,
+      note: '',
       conditionalParentSectionId: conditionalParentSectionId,
       conditionalEquals: conditionalEquals,
       indent: indent,
@@ -200,6 +217,8 @@ extension ReportClone on SectionNode {
       options: options,
       showInPdf: showInPdf,
       addToRecords: addToRecords,
+      allowOptionalNote: allowOptionalNote,
+      note: note,
       conditionalParentSectionId: conditionalParentSectionId,
       conditionalEquals: conditionalEquals,
       indent: indent,

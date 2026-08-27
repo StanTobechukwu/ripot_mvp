@@ -141,20 +141,10 @@ class TemplateEditorProvider extends ChangeNotifier {
       name: trimmed.isEmpty ? _template.name : trimmed,
       updatedAt: DateTime.now(),
       roots: _template.roots
-          .map((r) => _forcePdfVisible(r.toTemplateNode(includeContent: includeContent)))
+          .map((r) => r.toTemplateNode(includeContent: includeContent))
           .toList(growable: false),
       subjectInfo: _template.subjectInfo,
       signature: _template.signature,
-    );
-  }
-
-  SectionNode _forcePdfVisible(SectionNode section) {
-    return section.copyWith(
-      showInPdf: true,
-      children: section.children.map((child) {
-        if (child is SectionNode) return _forcePdfVisible(child);
-        return child;
-      }).toList(growable: false),
     );
   }
 
@@ -236,6 +226,7 @@ class TemplateEditorProvider extends ChangeNotifier {
     List<String>? options,
     bool? showInPdf,
     bool? addToRecords,
+    bool? allowOptionalNote,
     String? conditionalParentSectionId,
     String? conditionalEquals,
   }) {
@@ -243,14 +234,24 @@ class TemplateEditorProvider extends ChangeNotifier {
       roots: _updateTree(
         _template.roots,
         sectionId,
-        (s) => s.copyWith(
-          inputType: inputType,
-          options: options,
-          showInPdf: true,
-          addToRecords: addToRecords,
-          conditionalParentSectionId: conditionalParentSectionId,
-          conditionalEquals: conditionalEquals,
-        ),
+        (s) {
+          final nextInputType = inputType ?? s.inputType;
+          final isStructured = nextInputType != FieldInputType.freeText;
+          return s.copyWith(
+            inputType: nextInputType,
+            options: options,
+            showInPdf: showInPdf ?? s.showInPdf,
+            addToRecords: isStructured
+                ? (addToRecords ?? s.addToRecords)
+                : false,
+            allowOptionalNote: isStructured
+                ? (allowOptionalNote ?? s.allowOptionalNote)
+                : false,
+            note: isStructured ? s.note : '',
+            conditionalParentSectionId: conditionalParentSectionId,
+            conditionalEquals: conditionalEquals,
+          );
+        },
       ),
       updatedAt: DateTime.now(),
     );

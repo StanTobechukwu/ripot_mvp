@@ -34,7 +34,10 @@ class TemplateEditorScreen extends StatelessWidget {
       builder: (context, snap) {
         if (!snap.hasData) {
           return Scaffold(
-            appBar: AppBar(centerTitle: true, title: const Text('Edit Template')),
+            appBar: AppBar(
+              centerTitle: true,
+              title: const Text('Edit Template'),
+            ),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -60,50 +63,76 @@ class _TemplateEditorBody extends StatelessWidget {
 
     try {
       final templates = await repo.listTemplates();
-      final isExisting = templates.any((t) => t.templateId == vm.template.templateId);
+      final isExisting = templates.any(
+        (t) => t.templateId == vm.template.templateId,
+      );
       if (!isExisting && templates.length >= access.maxSavedTemplates) {
         if (!context.mounted) return false;
         final open = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Template limit reached'),
-            content: Text('Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.'),
+            content: Text(
+              'Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.',
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('See Premium')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Later'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('See Premium'),
+              ),
             ],
           ),
         );
         if (open == true && context.mounted) {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+          );
         }
         return false;
       }
 
-      final doc = vm.buildForSave(name: vm.template.name, includeContent: false);
+      final doc = vm.buildForSave(
+        name: vm.template.name,
+        includeContent: false,
+      );
       await repo.saveTemplate(doc);
       vm.markSaved();
       if (!context.mounted) return true;
       if (showSnackBar) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Template updated')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Template updated')));
       }
       return true;
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save template: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not save template: $e')));
       }
       return false;
     }
   }
 
+  void _popEditorSafely(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+    });
+  }
+
   Future<void> _handleAttemptedExit(BuildContext context) async {
     final vm = context.read<TemplateEditorProvider>();
     if (!vm.hasUnsavedChanges) {
-      Navigator.of(context).pop();
+      _popEditorSafely(context);
       return;
     }
 
@@ -114,31 +143,37 @@ class _TemplateEditorBody extends StatelessWidget {
         content: const Text('You have unsaved changes in this template.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, _UnsavedTemplateAction.cancel),
+            onPressed: () =>
+                Navigator.pop(dialogContext, _UnsavedTemplateAction.cancel),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, _UnsavedTemplateAction.discard),
+            onPressed: () =>
+                Navigator.pop(dialogContext, _UnsavedTemplateAction.discard),
             child: const Text('Discard'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, _UnsavedTemplateAction.save),
+            onPressed: () =>
+                Navigator.pop(dialogContext, _UnsavedTemplateAction.save),
             child: const Text('Save'),
           ),
         ],
       ),
     );
 
-    if (!context.mounted || action == null || action == _UnsavedTemplateAction.cancel) return;
+    if (!context.mounted ||
+        action == null ||
+        action == _UnsavedTemplateAction.cancel)
+      return;
 
     if (action == _UnsavedTemplateAction.discard) {
-      Navigator.of(context).pop();
+      _popEditorSafely(context);
       return;
     }
 
     final saved = await _save(context, showSnackBar: false);
     if (saved && context.mounted) {
-      Navigator.of(context).pop();
+      _popEditorSafely(context);
     }
   }
 
@@ -156,13 +191,22 @@ class _TemplateEditorBody extends StatelessWidget {
         content: TextFormField(
           initialValue: initialValue,
           autofocus: true,
-          decoration: InputDecoration(hintText: hint, border: const OutlineInputBorder()),
+          decoration: InputDecoration(
+            hintText: hint,
+            border: const OutlineInputBorder(),
+          ),
           onChanged: (v) => value = v,
           onFieldSubmitted: (_) => Navigator.pop(ctx, value.trim()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, value.trim()), child: const Text('OK')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, value.trim()),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
@@ -170,19 +214,24 @@ class _TemplateEditorBody extends StatelessWidget {
     return trimmed.isEmpty ? null : trimmed;
   }
 
-
   String _safeTemplateFileName(String name, {required bool forDesktop}) {
     final cleaned = name
         .trim()
         .replaceAll(RegExp(r'[^A-Za-z0-9._ -]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
-    final baseName = cleaned.isEmpty ? 'Ripot_Template' : 'Ripot_${cleaned}_Template';
+    final baseName = cleaned.isEmpty
+        ? 'Ripot_Template'
+        : 'Ripot_${cleaned}_Template';
     final lower = baseName.toLowerCase();
     if (forDesktop) {
-      return lower.endsWith('.ripottemplate') ? baseName : '$baseName.ripottemplate';
+      return lower.endsWith('.ripottemplate')
+          ? baseName
+          : '$baseName.ripottemplate';
     }
-    return lower.endsWith('.ripottemplate.json') ? baseName : '$baseName.ripottemplate.json';
+    return lower.endsWith('.ripottemplate.json')
+        ? baseName
+        : '$baseName.ripottemplate.json';
   }
 
   Future<void> _renameTemplate(BuildContext context) async {
@@ -197,7 +246,9 @@ class _TemplateEditorBody extends StatelessWidget {
     vm.renameTemplate(name);
     await _save(context, showSnackBar: false);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Template renamed')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Template renamed')));
   }
 
   Future<void> _duplicateTemplate(BuildContext context) async {
@@ -211,7 +262,10 @@ class _TemplateEditorBody extends StatelessWidget {
     );
     if (name == null) return;
 
-    final source = vm.buildForSave(name: vm.template.name, includeContent: false);
+    final source = vm.buildForSave(
+      name: vm.template.name,
+      includeContent: false,
+    );
     final duplicate = TemplateDoc(
       templateId: newId('tpl'),
       updatedAt: DateTime.now(),
@@ -222,12 +276,17 @@ class _TemplateEditorBody extends StatelessWidget {
     );
     await repo.saveTemplate(duplicate);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Template duplicated')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Template duplicated')));
   }
 
   Future<void> _exportTemplate(BuildContext context) async {
     final vm = context.read<TemplateEditorProvider>();
-    final template = vm.buildForSave(name: vm.template.name, includeContent: false);
+    final template = vm.buildForSave(
+      name: vm.template.name,
+      includeContent: false,
+    );
     final payload = <String, dynamic>{
       'app': 'Ripot',
       'ripotFileType': 'template',
@@ -252,7 +311,9 @@ class _TemplateEditorBody extends StatelessWidget {
       );
     }
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Template exported: $fileName')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Template exported: $fileName')));
   }
 
   Future<void> _deleteTemplate(BuildContext context) async {
@@ -262,10 +323,18 @@ class _TemplateEditorBody extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete template?'),
-        content: Text('This will delete “${vm.template.name}”. Existing reports and PDFs will not be deleted.'),
+        content: Text(
+          'This will delete “${vm.template.name}”. Existing reports and PDFs will not be deleted.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -282,7 +351,10 @@ class _TemplateEditorBody extends StatelessWidget {
     final vm = context.read<TemplateEditorProvider>();
     final reportsRepo = context.read<ReportsRepository>();
     final recordsRepo = context.read<RecordsRepository>();
-    final template = vm.buildForSave(name: vm.template.name, includeContent: false);
+    final template = vm.buildForSave(
+      name: vm.template.name,
+      includeContent: false,
+    );
     final saveToRecordTitles = <String>[];
     void collect(SectionNode section) {
       if (section.addToRecords) saveToRecordTitles.add(section.title);
@@ -290,12 +362,15 @@ class _TemplateEditorBody extends StatelessWidget {
         collect(child);
       }
     }
+
     for (final root in template.roots) {
       collect(root);
     }
     if (saveToRecordTitles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No template fields are marked Save to Records.')),
+        const SnackBar(
+          content: Text('No template fields are marked Save to Records.'),
+        ),
       );
       return;
     }
@@ -310,8 +385,14 @@ class _TemplateEditorBody extends StatelessWidget {
           'Fields: ${saveToRecordTitles.take(8).join(', ')}${saveToRecordTitles.length > 8 ? '…' : ''}',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sync')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sync'),
+          ),
         ],
       ),
     );
@@ -327,7 +408,9 @@ class _TemplateEditorBody extends StatelessWidget {
         scanned += 1;
         if (!_reportLooksLikeTemplate(report, template)) continue;
         matched += 1;
-        final patched = report.copyWith(roots: _applyTemplateRecordSettings(report.roots, template.roots));
+        final patched = report.copyWith(
+          roots: _applyTemplateRecordSettings(report.roots, template.roots),
+        );
         final draft = await recordsRepo.buildDraftForReport(patched);
         await recordsRepo.saveRecord(draft);
         updated += 1;
@@ -338,13 +421,23 @@ class _TemplateEditorBody extends StatelessWidget {
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Sync complete. Scanned: $scanned, matched: $matched, updated: $updated. PDFs unchanged.')),
+      SnackBar(
+        content: Text(
+          'Sync complete. Scanned: $scanned, matched: $matched, updated: $updated. PDFs unchanged.',
+        ),
+      ),
     );
   }
 
   bool _reportLooksLikeTemplate(ReportDoc report, TemplateDoc template) {
-    final reportTitles = report.roots.map((s) => s.title.trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
-    final templateTitles = template.roots.map((s) => s.title.trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
+    final reportTitles = report.roots
+        .map((s) => s.title.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final templateTitles = template.roots
+        .map((s) => s.title.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toList();
     if (reportTitles.isEmpty || templateTitles.isEmpty) return false;
     if (reportTitles.length != templateTitles.length) return false;
     for (var i = 0; i < templateTitles.length; i += 1) {
@@ -353,15 +446,22 @@ class _TemplateEditorBody extends StatelessWidget {
     return true;
   }
 
-  List<SectionNode> _applyTemplateRecordSettings(List<SectionNode> reportRoots, List<SectionNode> templateRoots) {
+  List<SectionNode> _applyTemplateRecordSettings(
+    List<SectionNode> reportRoots,
+    List<SectionNode> templateRoots,
+  ) {
     final settingsByPath = <String, SectionNode>{};
     void collect(List<SectionNode> sections, String prefix) {
       for (final section in sections) {
         final path = '$prefix/${section.title.trim().toLowerCase()}';
         settingsByPath[path] = section;
-        collect(section.children.whereType<SectionNode>().toList(growable: false), path);
+        collect(
+          section.children.whereType<SectionNode>().toList(growable: false),
+          path,
+        );
       }
     }
+
     collect(templateRoots, '');
 
     SectionNode patch(SectionNode section, String prefix) {
@@ -372,12 +472,17 @@ class _TemplateEditorBody extends StatelessWidget {
         addToRecords: templateSection?.addToRecords ?? section.addToRecords,
         inputType: templateSection?.inputType ?? section.inputType,
         options: templateSection?.options ?? section.options,
-        conditionalParentSectionId: templateSection?.conditionalParentSectionId ?? section.conditionalParentSectionId,
-        conditionalEquals: templateSection?.conditionalEquals ?? section.conditionalEquals,
-        children: section.children.map((child) {
-          if (child is SectionNode) return patch(child, path);
-          return child;
-        }).toList(growable: false),
+        conditionalParentSectionId:
+            templateSection?.conditionalParentSectionId ??
+            section.conditionalParentSectionId,
+        conditionalEquals:
+            templateSection?.conditionalEquals ?? section.conditionalEquals,
+        children: section.children
+            .map((child) {
+              if (child is SectionNode) return patch(child, path);
+              return child;
+            })
+            .toList(growable: false),
       );
     }
 
@@ -404,8 +509,10 @@ class _TemplateEditorBody extends StatelessWidget {
     }
   }
 
-
-  List<SectionNode> _allSectionsExcept(List<SectionNode> roots, String excludedId) {
+  List<SectionNode> _allSectionsExcept(
+    List<SectionNode> roots,
+    String excludedId,
+  ) {
     final out = <SectionNode>[];
     void walk(SectionNode section) {
       if (section.id != excludedId) out.add(section);
@@ -413,15 +520,20 @@ class _TemplateEditorBody extends StatelessWidget {
         walk(child);
       }
     }
+
     for (final root in roots) {
       walk(root);
     }
     return out;
   }
 
-  Future<void> _showSectionActions(BuildContext context, SectionNode section) async {
+  Future<void> _showSectionActions(
+    BuildContext context,
+    SectionNode section,
+  ) async {
     final vm = context.read<TemplateEditorProvider>();
-    final useResponsiveSheet = kIsWeb ||
+    final useResponsiveSheet =
+        kIsWeb ||
         defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux;
@@ -501,16 +613,22 @@ class _TemplateEditorBody extends StatelessWidget {
           context: context,
           showDragHandle: true,
           isScrollControlled: true,
-          builder: (_) => _SectionEditSheet(section: section, possibleParents: _allSectionsExcept(vm.template.roots, section.id)),
+          builder: (_) => _SectionEditSheet(
+            section: section,
+            possibleParents: _allSectionsExcept(vm.template.roots, section.id),
+          ),
         );
         if (res != null) {
-          if ((res.rename ?? '').trim().isNotEmpty) vm.renameSection(section.id, res.rename!.trim());
+          if ((res.rename ?? '').trim().isNotEmpty)
+            vm.renameSection(section.id, res.rename!.trim());
           if (res.style != null) vm.updateSectionStyle(section.id, res.style!);
           vm.updateSectionFieldSettings(
             section.id,
             inputType: res.inputType,
             options: res.options,
+            showInPdf: res.showInPdf,
             addToRecords: res.addToRecords,
+            allowOptionalNote: res.allowOptionalNote,
             conditionalParentSectionId: res.conditionalParentSectionId,
             conditionalEquals: res.conditionalEquals,
           );
@@ -523,7 +641,12 @@ class _TemplateEditorBody extends StatelessWidget {
         vm.moveSectionDown(section.id);
         break;
       case 'rename':
-        final title = await _promptText(context, 'Edit section title', hint: section.title, initialValue: section.title);
+        final title = await _promptText(
+          context,
+          'Edit section title',
+          hint: section.title,
+          initialValue: section.title,
+        );
         if (title != null) vm.renameSection(section.id, title);
         break;
       case 'delete':
@@ -547,12 +670,24 @@ class _TemplateEditorBody extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               onTap: () => vm.toggleCollapsed(section.id),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
-                    Icon(section.collapsed ? Icons.chevron_right : Icons.expand_more),
+                    Icon(
+                      section.collapsed
+                          ? Icons.chevron_right
+                          : Icons.expand_more,
+                    ),
                     const SizedBox(width: 6),
-                    Expanded(child: Text(section.title, style: const TextStyle(fontWeight: FontWeight.w600))),
+                    Expanded(
+                      child: Text(
+                        section.title,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
                     if (section.addToRecords) ...[
                       Tooltip(
                         message: 'Added to Records',
@@ -567,14 +702,16 @@ class _TemplateEditorBody extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.more_vert),
                       onPressed: () => _showSectionActions(context, section),
-                    )
+                    ),
                   ],
                 ),
               ),
             ),
           ),
           if (!section.collapsed)
-            ...section.children.whereType<SectionNode>().map((s) => _sectionTile(context, s)),
+            ...section.children.whereType<SectionNode>().map(
+              (s) => _sectionTile(context, s),
+            ),
         ],
       ),
     );
@@ -593,9 +730,7 @@ class _TemplateEditorBody extends StatelessWidget {
         appBar: AppBar(
           centerTitle: true,
           title: Text(vm.template.name),
-          leading: BackButton(
-            onPressed: () => _handleAttemptedExit(context),
-          ),
+          leading: BackButton(onPressed: () => _handleAttemptedExit(context)),
           actions: [
             IconButton(
               tooltip: 'Save',
@@ -606,10 +741,16 @@ class _TemplateEditorBody extends StatelessWidget {
               tooltip: 'Template options',
               onSelected: (value) => _handleTemplateMenu(context, value),
               itemBuilder: (context) => const [
-                PopupMenuItem(value: 'duplicate', child: Text('Duplicate Template')),
+                PopupMenuItem(
+                  value: 'duplicate',
+                  child: Text('Duplicate Template'),
+                ),
                 PopupMenuItem(value: 'rename', child: Text('Rename Template')),
                 PopupMenuDivider(),
-                PopupMenuItem(value: 'sync', child: Text('Sync Existing Records')),
+                PopupMenuItem(
+                  value: 'sync',
+                  child: Text('Sync Existing Records'),
+                ),
                 PopupMenuItem(value: 'export', child: Text('Export Template')),
                 PopupMenuDivider(),
                 PopupMenuItem(value: 'delete', child: Text('Delete Template')),
@@ -635,12 +776,17 @@ class _TemplateEditorBody extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Sections', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const Text(
+                      'Sections',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 8),
                     if (vm.template.roots.isEmpty)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('No sections yet. Use + to add the first section.'),
+                        child: Text(
+                          'No sections yet. Use + to add the first section.',
+                        ),
                       )
                     else
                       ...vm.template.roots.map((s) => _sectionTile(context, s)),
@@ -660,7 +806,9 @@ class _SectionEditResult {
   final TitleStyle? style;
   final FieldInputType? inputType;
   final List<String>? options;
+  final bool? showInPdf;
   final bool? addToRecords;
+  final bool? allowOptionalNote;
   final String? conditionalParentSectionId;
   final String? conditionalEquals;
   const _SectionEditResult({
@@ -668,7 +816,9 @@ class _SectionEditResult {
     this.style,
     this.inputType,
     this.options,
+    this.showInPdf,
     this.addToRecords,
+    this.allowOptionalNote,
     this.conditionalParentSectionId,
     this.conditionalEquals,
   });
@@ -677,7 +827,10 @@ class _SectionEditResult {
 class _SectionEditSheet extends StatefulWidget {
   final SectionNode section;
   final List<SectionNode> possibleParents;
-  const _SectionEditSheet({required this.section, this.possibleParents = const []});
+  const _SectionEditSheet({
+    required this.section,
+    this.possibleParents = const [],
+  });
 
   @override
   State<_SectionEditSheet> createState() => _SectionEditSheetState();
@@ -690,7 +843,9 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   late TitleAlign _align;
   late FieldInputType _inputType;
   late final TextEditingController _options;
+  late bool _showInPdf;
   late bool _addToRecords;
+  late bool _allowOptionalNote;
   late bool _useCondition;
   late String _conditionParentId;
   late final TextEditingController _conditionEquals;
@@ -704,13 +859,21 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _align = widget.section.style.align;
     _inputType = widget.section.inputType;
     _options = TextEditingController(text: widget.section.options.join('\n'));
-    _addToRecords = widget.section.addToRecords;
+    _showInPdf = widget.section.showInPdf;
+    _addToRecords = widget.section.inputType == FieldInputType.freeText
+        ? false
+        : widget.section.addToRecords;
+    _allowOptionalNote = widget.section.inputType == FieldInputType.freeText
+        ? false
+        : widget.section.allowOptionalNote;
     _useCondition = widget.section.hasCondition;
     _conditionParentId = widget.section.conditionalParentSectionId;
     if (_conditionParentId.isEmpty && widget.possibleParents.isNotEmpty) {
       _conditionParentId = widget.possibleParents.first.id;
     }
-    _conditionEquals = TextEditingController(text: widget.section.conditionalEquals);
+    _conditionEquals = TextEditingController(
+      text: widget.section.conditionalEquals,
+    );
   }
 
   @override
@@ -737,28 +900,37 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+        padding: EdgeInsets.only(bottom: 16 + bottomInset),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxHeight),
           child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const ListTile(
                   title: Text('Edit section'),
-                  subtitle: Text('These settings affect this template field in future reports.'),
+                  subtitle: Text(
+                    'These settings affect this template field in future reports.',
+                  ),
                   contentPadding: EdgeInsets.zero,
                 ),
                 TextField(
                   controller: _title,
-                  decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder(), isDense: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Formatting',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -767,8 +939,19 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                     Expanded(
                       child: DropdownButtonFormField<HeadingLevel>(
                         initialValue: _level,
-                        decoration: const InputDecoration(labelText: 'Size', border: OutlineInputBorder(), isDense: true),
-                        items: HeadingLevel.values.map((h) => DropdownMenuItem(value: h, child: Text(h.name.toUpperCase()))).toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'Size',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: HeadingLevel.values
+                            .map(
+                              (h) => DropdownMenuItem(
+                                value: h,
+                                child: Text(h.name.toUpperCase()),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (v) => setState(() => _level = v ?? _level),
                       ),
                     ),
@@ -776,8 +959,19 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                     Expanded(
                       child: DropdownButtonFormField<TitleAlign>(
                         initialValue: _align,
-                        decoration: const InputDecoration(labelText: 'Align', border: OutlineInputBorder(), isDense: true),
-                        items: TitleAlign.values.map((a) => DropdownMenuItem(value: a, child: Text(a.name))).toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'Align',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: TitleAlign.values
+                            .map(
+                              (a) => DropdownMenuItem(
+                                value: a,
+                                child: Text(a.name),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (v) => setState(() => _align = v ?? _align),
                       ),
                     ),
@@ -794,45 +988,134 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Field behavior',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<FieldInputType>(
-                  initialValue: _inputType,
-                  decoration: const InputDecoration(
-                    labelText: 'Input type',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: FieldInputType.values
-                      .map((type) => DropdownMenuItem(value: type, child: Text(type.label)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _inputType = v ?? _inputType),
+                SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: 'freeText',
+                      label: Text('Free text'),
+                      icon: Icon(Icons.notes_outlined, size: 18),
+                    ),
+                    ButtonSegment(
+                      value: 'structured',
+                      label: Text('Structured field'),
+                      icon: Icon(Icons.tune_outlined, size: 18),
+                    ),
+                  ],
+                  selected: {
+                    _inputType == FieldInputType.freeText
+                        ? 'freeText'
+                        : 'structured',
+                  },
+                  onSelectionChanged: (selection) {
+                    final structured = selection.first == 'structured';
+                    setState(() {
+                      if (structured) {
+                        if (_inputType == FieldInputType.freeText) {
+                          _inputType = FieldInputType.singleSelect;
+                        }
+                      } else {
+                        _inputType = FieldInputType.freeText;
+                        _addToRecords = false;
+                        _allowOptionalNote = false;
+                      }
+                    });
+                  },
                 ),
                 if (_inputType != FieldInputType.freeText) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<FieldInputType>(
+                    value: _inputType,
+                    decoration: const InputDecoration(
+                      labelText: 'Structured type',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: FieldInputType.yesNo,
+                        child: Text('Yes / No'),
+                      ),
+                      DropdownMenuItem(
+                        value: FieldInputType.singleSelect,
+                        child: Text('Single select'),
+                      ),
+                      DropdownMenuItem(
+                        value: FieldInputType.multiSelect,
+                        child: Text('Multi-select'),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() {
+                      _inputType = v ?? _inputType;
+                    }),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _options,
                     minLines: 2,
                     maxLines: 4,
                     decoration: InputDecoration(
-                      labelText: _inputType == FieldInputType.yesNo ? 'Options' : 'Options / suggestions',
-                      hintText: _inputType == FieldInputType.yesNo ? 'Yes and No are used automatically' : 'One option per line, or comma-separated',
+                      labelText: _inputType == FieldInputType.yesNo
+                          ? 'Options'
+                          : 'Options / suggestions',
+                      hintText: _inputType == FieldInputType.yesNo
+                          ? 'Yes and No are used automatically'
+                          : 'One option per line, or comma-separated',
                       border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                     enabled: _inputType != FieldInputType.yesNo,
                   ),
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    value: _showInPdf,
+                    onChanged: (v) => setState(() => _showInPdf = v ?? true),
+                    title: const Text('Show value in PDF'),
+                    subtitle: const Text(
+                      'Include the selected structured value in the report.',
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  CheckboxListTile(
+                    value: _addToRecords,
+                    onChanged: (v) =>
+                        setState(() => _addToRecords = v ?? false),
+                    title: const Text('Save to Records'),
+                    subtitle: const Text(
+                      'Store the structured value as searchable/exportable data.',
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  CheckboxListTile(
+                    value: _allowOptionalNote,
+                    onChanged: (v) =>
+                        setState(() => _allowOptionalNote = v ?? false),
+                    title: const Text('Allow optional note'),
+                    subtitle: const Text(
+                      'Let the clinician add narrative detail without changing the structured value.',
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.info_outline, size: 20),
+                    title: Text('Free text is narrative only'),
+                    subtitle: Text(
+                      'It can appear in the PDF but is not saved as structured Records data.',
+                    ),
+                  ),
                 ],
-                CheckboxListTile(
-                  value: _addToRecords,
-                  onChanged: (v) => setState(() => _addToRecords = v ?? false),
-                  title: const Text('Save to Records'),
-                  subtitle: const Text('Store this field as searchable/exportable data.'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                ),
                 const Divider(height: 24),
                 SwitchListTile(
                   value: _useCondition,
@@ -850,7 +1133,10 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                 if (_useCondition && widget.possibleParents.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: widget.possibleParents.any((s) => s.id == _conditionParentId)
+                    value:
+                        widget.possibleParents.any(
+                          (s) => s.id == _conditionParentId,
+                        )
                         ? _conditionParentId
                         : widget.possibleParents.first.id,
                     decoration: const InputDecoration(
@@ -859,12 +1145,18 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                       isDense: true,
                     ),
                     items: widget.possibleParents
-                        .map((section) => DropdownMenuItem<String>(
-                              value: section.id,
-                              child: Text(section.title, overflow: TextOverflow.ellipsis),
-                            ))
+                        .map(
+                          (section) => DropdownMenuItem<String>(
+                            value: section.id,
+                            child: Text(
+                              section.title,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
                         .toList(growable: false),
-                    onChanged: (value) => setState(() => _conditionParentId = value ?? ''),
+                    onChanged: (value) =>
+                        setState(() => _conditionParentId = value ?? ''),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -885,15 +1177,35 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                       final options = _inputType == FieldInputType.yesNo
                           ? const <String>['Yes', 'No']
                           : _parsedOptions();
-                      Navigator.pop(context, _SectionEditResult(
-                        rename: _title.text.trim(),
-                        style: widget.section.style.copyWith(level: _level, bold: _bold, align: _align),
-                        inputType: _inputType,
-                        options: options,
-                        addToRecords: _addToRecords,
-                        conditionalParentSectionId: _useCondition ? _conditionParentId : '',
-                        conditionalEquals: _useCondition ? _conditionEquals.text.trim() : '',
-                      ));
+                      Navigator.pop(
+                        context,
+                        _SectionEditResult(
+                          rename: _title.text.trim(),
+                          style: widget.section.style.copyWith(
+                            level: _level,
+                            bold: _bold,
+                            align: _align,
+                          ),
+                          inputType: _inputType,
+                          options: options,
+                          showInPdf: _inputType == FieldInputType.freeText
+                              ? true
+                              : _showInPdf,
+                          addToRecords: _inputType == FieldInputType.freeText
+                              ? false
+                              : _addToRecords,
+                          allowOptionalNote:
+                              _inputType == FieldInputType.freeText
+                              ? false
+                              : _allowOptionalNote,
+                          conditionalParentSectionId: _useCondition
+                              ? _conditionParentId
+                              : '',
+                          conditionalEquals: _useCondition
+                              ? _conditionEquals.text.trim()
+                              : '',
+                        ),
+                      );
                     },
                     child: const Text('Apply'),
                   ),

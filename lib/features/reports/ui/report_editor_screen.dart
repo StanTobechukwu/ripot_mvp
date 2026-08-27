@@ -1615,24 +1615,51 @@ floatingActionButton: _editorMode
 
       return Padding(
         padding: EdgeInsets.only(left: contentIndentPx),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: openStructuredPicker,
-          child: InputDecorator(
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              isDense: true,
-              suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            ),
-            child: Text(
-              valueText,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isPlaceholder ? Colors.black45 : null,
-                    fontStyle: isPlaceholder ? FontStyle.italic : FontStyle.normal,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: openStructuredPicker,
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
                   ),
+                ),
+                child: Text(
+                  valueText,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: isPlaceholder ? Colors.black45 : null,
+                        fontStyle: isPlaceholder
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
+                ),
+              ),
             ),
-          ),
+            if (s.allowOptionalNote) ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                key: ValueKey('structured-note-${s.id}'),
+                initialValue: s.note,
+                minLines: 1,
+                maxLines: null,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Optional note…',
+                  helperText:
+                      'Narrative detail for the report; not saved as structured data.',
+                  isDense: true,
+                ),
+                onChanged: (v) => vm.updateSectionNote(s.id, v),
+              ),
+            ],
+          ],
         ),
       );
     }

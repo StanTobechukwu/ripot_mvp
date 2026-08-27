@@ -757,6 +757,18 @@ void setSubjectInfoHeading(String heading) {
     _markDirty();
   }
 
+  void updateSectionNote(String sectionId, String note) {
+    _doc = _doc.copyWith(
+      roots: _updateSectionTree(
+        _doc.roots,
+        sectionId,
+        (s) => s.copyWith(note: note),
+      ),
+      updatedAtIso: nowIso(),
+    );
+    _markDirty();
+  }
+
   /// Defensive repair for older reports/templates that may contain a section
   /// configured as a field but missing its ContentNode. This prevents the
   /// Report Editor from getting stuck on "Preparing field...". It is scheduled

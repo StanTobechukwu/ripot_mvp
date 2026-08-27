@@ -62,8 +62,9 @@ class TemplateCodec {
         'style': _styleToJson(s.style),
         'inputType': s.inputType.name,
         'options': s.options,
-        'showInPdf': true,
+        'showInPdf': s.showInPdf,
         'addToRecords': s.addToRecords,
+        'allowOptionalNote': s.allowOptionalNote,
         'conditionalParentSectionId': s.conditionalParentSectionId,
         'conditionalEquals': s.conditionalEquals,
         'indent': s.indent, // ✅ added
@@ -77,8 +78,10 @@ class TemplateCodec {
         style: _styleFromJson((j['style'] as Map?)?.cast<String, dynamic>() ?? {}),
         inputType: _fieldInputTypeFromJson(j['inputType'] as String?),
         options: ((j['options'] as List?) ?? const []).map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList(growable: false),
-        showInPdf: true,
+        showInPdf: (j['showInPdf'] as bool?) ?? true,
         addToRecords: (j['addToRecords'] as bool?) ?? false,
+        allowOptionalNote: (j['allowOptionalNote'] as bool?) ?? false,
+        note: '',
         conditionalParentSectionId: (j['conditionalParentSectionId'] as String?) ?? '',
         conditionalEquals: (j['conditionalEquals'] as String?) ?? '',
         indent: (j['indent'] as int?) ?? 0, // ✅ added
