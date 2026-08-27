@@ -141,11 +141,13 @@ class PdfRendererService {
 
     final pdf = pw.Document(theme: theme);
 
-    // Hybrid sequential renderer with a true first-page inline image column:
-    // - first page keeps inline images in the right column as originally designed;
-    // - left column flows title/subject/report content and the signature as final content;
-    // - excess text continues on normal pages;
-    // - excess inline images are moved to attachments, never dropped.
+    // Hybrid report-image renderer:
+    // - report images remain report content throughout;
+    // - first-page images use the fixed right-side vertical column when they fit;
+    // - excess report images flow in fixed-size horizontal rows below report text;
+    // - horizontal image rows may continue across report pages;
+    // - the signature is always after all report images;
+    // - only true attachments are rendered on attachment pages.
     final topWidgets = <pw.Widget>[];
     if (showTitle || doc.reportDateIso.trim().isNotEmpty) {
       topWidgets.add(
@@ -200,9 +202,8 @@ class PdfRendererService {
       fontScale: fontScale,
     );
 
-    // Stable default path: use the complex first-page right-column renderer
-    // only when inline images are actually selected. Attachment-only and
-    // no-image reports use MultiPage so content and signature flow naturally.
+    // Stable default path for reports with no report images. True
+    // attachments remain separate and are rendered only after the signature.
     if (pageOneInlineCandidates.isEmpty && spillInlineImgs.isEmpty) {
       final bodyWidgets = <pw.Widget>[
         ...topWidgets,
@@ -273,7 +274,7 @@ class PdfRendererService {
     // - right zone: inline image column only.
     // Keep an inline image only if it fits the page and does not extend below
     // the bottom of the signature block when both are present on page 1.
-    // Otherwise the image is moved to attachments, never dropped.
+    // Otherwise the image flows below the report text, never dropped.
     List<_PdfEntry> firstPageEntries = <_PdfEntry>[];
     List<_PdfTemplate> remainingTemplates = templates;
     List<_PdfLoadedImage> pageOneInlineImages = <_PdfLoadedImage>[];
@@ -285,8 +286,8 @@ class PdfRendererService {
     // 2) Place the signature as the next left-column content block.
     // 3) Use the resulting signature top as the right-column image boundary.
     //    This is per-image: images that end before the signature remain inline;
-    //    the first image that enters the signature area and later images move
-    //    to attachments.
+    //    the first image that enters the signature area and later images flow
+    //    below the report text.
     final bool wantsPageOneImageColumn = pageOneInlineCandidates.isNotEmpty;
     final double leftColumnWidth = wantsPageOneImageColumn
         ? metrics.page1TextWidth
@@ -321,7 +322,7 @@ class PdfRendererService {
       // the report-content portion of the left column. This keeps the signature
       // as the immediate continuation of content in its own left-column row and
       // prevents any inline image from extending into/under the signature area.
-      final imageColumnLimit = max(0.0, firstPageTextHeight - 2.0);
+      final imageColumnLimit = max(0.0, availableAfterTop);
       pageOneInlineImages = _inlineImagesThatFitWithin(
         pageOneInlineCandidates,
         maxHeight: imageColumnLimit,
@@ -356,18 +357,55 @@ class PdfRendererService {
         ? metrics.page1TextWidth
         : metrics.bodyWidth;
 
-    final inlineToAttachments = <_PdfLoadedImage>[
-      ...pageOneInlineCandidates.skip(pageOneInlineImages.length),
-      ...allInlineCandidates.skip(pageOneInlineCandidates.length),
+    // Everything not used by the first-page side column remains report
+    // content. Preserve source order.
+    final allReportOverflowImages = <_PdfLoadedImage>[
+      ...allInlineCandidates.skip(pageOneInlineImages.length),
     ];
 
-    final attachmentImgs = <_PdfLoadedImage>[
-      ...inlineToAttachments,
-      ...plannedAttachmentImgs,
-    ];
+    // The first-page top row height is whichever is taller:
+    // report text or the vertical image column.
+    final firstPageImageColumnHeight = _inlineColumnEstimatedHeight(
+      pageOneInlineImages,
+      metrics: metrics,
+      fontScale: fontScale,
+    );
+    final firstPageTopRowHeight = max(
+      firstPageTextHeight + 6.0,
+      firstPageImageColumnHeight,
+    );
+
+    // Use any actual remaining first-page space for horizontal report images.
+    final pageOneHorizontalAvailable = max(
+      0.0,
+      availableAfterTop - firstPageTopRowHeight,
+    );
+    final pageOneHorizontalRows = _horizontalImageRowsThatFit(
+      availableHeight: pageOneHorizontalAvailable,
+      metrics: metrics,
+    );
+    final pageOneHorizontalCapacity = pageOneHorizontalRows * 3;
+
+    final pageOneReportOverflowImages = allReportOverflowImages
+        .take(pageOneHorizontalCapacity)
+        .toList(growable: false);
+
+    final reportOverflowImages = allReportOverflowImages
+        .skip(pageOneReportOverflowImages.length)
+        .toList(growable: false);
+
+    // Only genuine attachment-mode images belong on attachment pages.
+    final attachmentImgs = <_PdfLoadedImage>[...plannedAttachmentImgs];
+
+    // Signature must appear after every report image.
+    if (allReportOverflowImages.isNotEmpty) {
+      canPlaceSignatureOnFirstPage = false;
+    }
 
     final hasMoreContentPages =
-        remainingTemplates.isNotEmpty || !canPlaceSignatureOnFirstPage;
+        remainingTemplates.isNotEmpty ||
+        reportOverflowImages.isNotEmpty ||
+        !canPlaceSignatureOnFirstPage;
     final firstPageFooterParts = <pw.Widget>[];
     if (letterhead != null) {
       firstPageFooterParts.add(_letterheadFooter(letterhead));
@@ -431,6 +469,13 @@ class PdfRendererService {
                   ],
                 ],
               ),
+              if (pageOneReportOverflowImages.isNotEmpty) ...[
+                pw.SizedBox(height: metrics.inlineSlotGap),
+                ..._reportImageOverflowRows(
+                  pageOneReportOverflowImages,
+                  metrics: metrics,
+                ),
+              ],
             ],
           );
 
@@ -465,9 +510,15 @@ class PdfRendererService {
       ),
     );
 
-    if (remainingTemplates.isNotEmpty || !canPlaceSignatureOnFirstPage) {
+    if (remainingTemplates.isNotEmpty ||
+        reportOverflowImages.isNotEmpty ||
+        !canPlaceSignatureOnFirstPage) {
       final continuationWidgets = <pw.Widget>[
         ..._templatesToWidgets(remainingTemplates),
+        if (reportOverflowImages.isNotEmpty) ...[
+          if (remainingTemplates.isNotEmpty) pw.SizedBox(height: 8),
+          ..._reportImageOverflowRows(reportOverflowImages, metrics: metrics),
+        ],
         pw.SizedBox(height: 6),
         _signatureBlock(doc, signatureImg, fontScale: fontScale),
       ];
@@ -1068,11 +1119,69 @@ class PdfRendererService {
     return widgets;
   }
 
+  int _horizontalImageRowsThatFit({
+    required double availableHeight,
+    required PdfLayoutMetrics metrics,
+  }) {
+    if (availableHeight < metrics.inlineSlotHeight) return 0;
+
+    return ((availableHeight + metrics.inlineSlotGap) /
+            (metrics.inlineSlotHeight + metrics.inlineSlotGap))
+        .floor()
+        .clamp(0, 1000);
+  }
+
+  List<pw.Widget> _reportImageOverflowRows(
+    List<_PdfLoadedImage> images, {
+    required PdfLayoutMetrics metrics,
+  }) {
+    if (images.isEmpty) return const <pw.Widget>[];
+
+    final widgets = <pw.Widget>[];
+    const imagesPerRow = 3;
+
+    for (int i = 0; i < images.length; i += imagesPerRow) {
+      final rowImages = images
+          .skip(i)
+          .take(imagesPerRow)
+          .toList(growable: false);
+
+      final rowChildren = <pw.Widget>[];
+      for (int j = 0; j < rowImages.length; j++) {
+        if (j > 0) {
+          rowChildren.add(pw.SizedBox(width: metrics.inlineSlotGap));
+        }
+        rowChildren.add(
+          pw.SizedBox(
+            width: metrics.inlineColumnWidth,
+            height: metrics.inlineSlotHeight,
+            child: _inlineImageCell(rowImages[j], metrics: metrics),
+          ),
+        );
+      }
+
+      widgets.add(
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.start,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: rowChildren,
+        ),
+      );
+
+      if (i + imagesPerRow < images.length) {
+        widgets.add(pw.SizedBox(height: metrics.inlineSlotGap));
+      }
+    }
+
+    return widgets;
+  }
+
   pw.Widget _inlineImageCell(
     _PdfLoadedImage entry, {
     required PdfLayoutMetrics metrics,
   }) {
     return pw.SizedBox(
+      width: metrics.inlineColumnWidth,
       height: metrics.inlineSlotHeight,
       child: pw.Stack(
         children: [
