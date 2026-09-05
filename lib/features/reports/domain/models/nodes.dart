@@ -9,7 +9,7 @@ sealed class Node {
 enum HeadingLevel { h1, h2, h3, h4 }
 enum TitleAlign { left, center, right }
 
-enum FieldInputType { freeText, yesNo, singleSelect, multiSelect }
+enum FieldInputType { freeText, yesNo, singleSelect, multiSelect, numeric }
 
 extension FieldInputTypeLabel on FieldInputType {
   String get label {
@@ -22,6 +22,8 @@ extension FieldInputTypeLabel on FieldInputType {
         return 'Single select';
       case FieldInputType.multiSelect:
         return 'Multi-select';
+      case FieldInputType.numeric:
+        return 'Numeric';
     }
   }
 }
@@ -64,6 +66,10 @@ class SectionNode extends Node {
   /// Options/suggestions used by structured inputs.
   final List<String> options;
 
+  /// Optional display unit for numeric fields (for example %, cm, mmHg).
+  /// The stored value remains the number only; the unit belongs to the field definition.
+  final String unit;
+
   /// When false, this field is hidden from the final PDF but can still be used for records.
   final bool showInPdf;
 
@@ -100,6 +106,7 @@ class SectionNode extends Node {
     this.children = const [],
     this.inputType = FieldInputType.freeText,
     this.options = const [],
+    this.unit = '',
     this.showInPdf = true,
     this.addToRecords = false,
     this.allowOptionalNote = false,
@@ -116,6 +123,7 @@ class SectionNode extends Node {
     List<Node>? children,
     FieldInputType? inputType,
     List<String>? options,
+    String? unit,
     bool? showInPdf,
     bool? addToRecords,
     bool? allowOptionalNote,
@@ -132,6 +140,7 @@ class SectionNode extends Node {
       children: children ?? this.children,
       inputType: inputType ?? this.inputType,
       options: options ?? this.options,
+      unit: unit ?? this.unit,
       showInPdf: showInPdf ?? this.showInPdf,
       addToRecords: addToRecords ?? this.addToRecords,
       allowOptionalNote: allowOptionalNote ?? this.allowOptionalNote,
@@ -195,6 +204,7 @@ extension TemplateClone on SectionNode {
       style: style,
       inputType: inputType,
       options: options,
+      unit: unit,
       showInPdf: showInPdf,
       addToRecords: addToRecords,
       allowOptionalNote: allowOptionalNote,
@@ -215,6 +225,7 @@ extension ReportClone on SectionNode {
       style: style,
       inputType: inputType,
       options: options,
+      unit: unit,
       showInPdf: showInPdf,
       addToRecords: addToRecords,
       allowOptionalNote: allowOptionalNote,

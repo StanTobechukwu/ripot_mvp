@@ -1759,7 +1759,59 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
       );
     }
 
+    Widget numericField(ContentNode node, {required String hint}) {
+      final c = _contentControllerFor(node.id, node.text);
+      final f = _contentFocusFor(node.id);
+      final unit = s.unit.trim();
+
+      return Padding(
+        padding: EdgeInsets.only(left: contentIndentPx),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: ValueKey('content-form-numeric-${node.id}'),
+              controller: c,
+              focusNode: f,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+                signed: false,
+              ),
+              maxLines: 1,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                hintText: 'Enter number…',
+                suffixText: unit.isEmpty ? null : unit,
+                isDense: true,
+              ),
+              onChanged: (v) => vm.updateContent(node.id, v),
+            ),
+            if (s.allowOptionalNote) ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                key: ValueKey('numeric-note-${s.id}'),
+                initialValue: s.note,
+                minLines: 1,
+                maxLines: null,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Optional note…',
+                  helperText:
+                      'Narrative detail for the report; not saved as structured data.',
+                  isDense: true,
+                ),
+                onChanged: (v) => vm.updateSectionNote(s.id, v),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
     Widget contentField(ContentNode node, {required String hint}) {
+      if (s.inputType == FieldInputType.numeric) {
+        return numericField(node, hint: hint);
+      }
       if (s.inputType != FieldInputType.freeText) {
         return structuredField(node, hint: hint);
       }

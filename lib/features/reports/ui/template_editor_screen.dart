@@ -472,6 +472,7 @@ class _TemplateEditorBody extends StatelessWidget {
         addToRecords: templateSection?.addToRecords ?? section.addToRecords,
         inputType: templateSection?.inputType ?? section.inputType,
         options: templateSection?.options ?? section.options,
+        unit: templateSection?.unit ?? section.unit,
         conditionalParentSectionId:
             templateSection?.conditionalParentSectionId ??
             section.conditionalParentSectionId,
@@ -626,6 +627,7 @@ class _TemplateEditorBody extends StatelessWidget {
             section.id,
             inputType: res.inputType,
             options: res.options,
+            unit: res.unit,
             showInPdf: res.showInPdf,
             addToRecords: res.addToRecords,
             allowOptionalNote: res.allowOptionalNote,
@@ -806,6 +808,7 @@ class _SectionEditResult {
   final TitleStyle? style;
   final FieldInputType? inputType;
   final List<String>? options;
+  final String? unit;
   final bool? showInPdf;
   final bool? addToRecords;
   final bool? allowOptionalNote;
@@ -816,6 +819,7 @@ class _SectionEditResult {
     this.style,
     this.inputType,
     this.options,
+    this.unit,
     this.showInPdf,
     this.addToRecords,
     this.allowOptionalNote,
@@ -843,6 +847,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   late TitleAlign _align;
   late FieldInputType _inputType;
   late final TextEditingController _options;
+  late final TextEditingController _unit;
   late bool _showInPdf;
   late bool _addToRecords;
   late bool _allowOptionalNote;
@@ -859,6 +864,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _align = widget.section.style.align;
     _inputType = widget.section.inputType;
     _options = TextEditingController(text: widget.section.options.join('\n'));
+    _unit = TextEditingController(text: widget.section.unit);
     _showInPdf = widget.section.showInPdf;
     _addToRecords = widget.section.inputType == FieldInputType.freeText
         ? false
@@ -880,6 +886,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   void dispose() {
     _title.dispose();
     _options.dispose();
+    _unit.dispose();
     _conditionEquals.dispose();
     super.dispose();
   }
@@ -1050,28 +1057,43 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                         value: FieldInputType.multiSelect,
                         child: Text('Multi-select'),
                       ),
+                      DropdownMenuItem(
+                        value: FieldInputType.numeric,
+                        child: Text('Numeric'),
+                      ),
                     ],
                     onChanged: (v) => setState(() {
                       _inputType = v ?? _inputType;
                     }),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _options,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      labelText: _inputType == FieldInputType.yesNo
-                          ? 'Options'
-                          : 'Options / suggestions',
-                      hintText: _inputType == FieldInputType.yesNo
-                          ? 'Yes and No are used automatically'
-                          : 'One option per line, or comma-separated',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
+                  if (_inputType == FieldInputType.numeric)
+                    TextField(
+                      controller: _unit,
+                      decoration: const InputDecoration(
+                        labelText: 'Unit (optional)',
+                        hintText: 'e.g. %, cm, m/s, mmHg',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    )
+                  else
+                    TextField(
+                      controller: _options,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: _inputType == FieldInputType.yesNo
+                            ? 'Options'
+                            : 'Options / suggestions',
+                        hintText: _inputType == FieldInputType.yesNo
+                            ? 'Yes and No are used automatically'
+                            : 'One option per line, or comma-separated',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      enabled: _inputType != FieldInputType.yesNo,
                     ),
-                    enabled: _inputType != FieldInputType.yesNo,
-                  ),
                   const SizedBox(height: 8),
                   CheckboxListTile(
                     value: _showInPdf,
@@ -1176,6 +1198,8 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                     onPressed: () {
                       final options = _inputType == FieldInputType.yesNo
                           ? const <String>['Yes', 'No']
+                          : _inputType == FieldInputType.numeric
+                          ? const <String>[]
                           : _parsedOptions();
                       Navigator.pop(
                         context,
@@ -1188,6 +1212,9 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                           ),
                           inputType: _inputType,
                           options: options,
+                          unit: _inputType == FieldInputType.numeric
+                              ? _unit.text.trim()
+                              : '',
                           showInPdf: _inputType == FieldInputType.freeText
                               ? true
                               : _showInPdf,

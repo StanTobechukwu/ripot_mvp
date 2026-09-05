@@ -2067,9 +2067,15 @@ class PdfRendererService {
         return;
       }
 
-      final leafText = contentChildren.isNotEmpty
+      final rawLeafText = contentChildren.isNotEmpty
           ? contentChildren.first.text.trim()
           : '';
+      final numericUnit = s.inputType == FieldInputType.numeric
+          ? s.unit.trim()
+          : '';
+      final leafText = rawLeafText.isNotEmpty && numericUnit.isNotEmpty
+          ? '$rawLeafText $numericUnit'
+          : rawLeafText;
 
       if (doc.reportLayout == ReportLayout.block) {
         out.add(

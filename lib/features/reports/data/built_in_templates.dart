@@ -8,12 +8,14 @@ class BuiltInTemplates {
   static const upperGiId = 'ripot_starter_upper_gi_endoscopy';
   static const lowerGiId = 'ripot_starter_lower_gi_endoscopy';
   static const ultrasoundId = 'ripot_starter_abdominopelvic_ultrasound';
+  static const echoId = 'ripot_starter_2d_echocardiography';
 
   static List<TemplateDoc> all() {
     return [
       upperGiEndoscopy(),
       lowerGiEndoscopy(),
       abdominopelvicUltrasound(),
+      echocardiography2D(),
     ];
   }
 
@@ -463,6 +465,102 @@ class BuiltInTemplates {
           title: 'Recommendation',
           inputType: FieldInputType.freeText,
         ),
+      ],
+    );
+  }
+
+
+  static TemplateDoc echocardiography2D() {
+    const numericStyle = TitleStyle(level: HeadingLevel.h4, bold: false);
+    return TemplateDoc(
+      templateId: echoId,
+      updatedAt: DateTime(2026, 9, 5),
+      name: '2D Echocardiography',
+      signature: const SignatureBlock(
+        roleTitle: 'Echocardiographer',
+        assistantLabel: 'Assistant',
+      ),
+      roots: const [
+        SectionNode(
+          id: 'echo_lv', title: 'Left Ventricle', children: [
+            SectionNode(id: 'echo_lv_chamber_size', title: 'Chamber Size', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_lv_edv', title: 'End Diastolic Volume', inputType: FieldInputType.numeric, unit: 'mL', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_lvidd', title: 'LVIDd', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_ivsd', title: 'Septal Wall (IVSd)', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_pwdd', title: 'Posterior Wall (PWDd)', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_lv_global_motion', title: 'Global Systolic Wall Motion', inputType: FieldInputType.singleSelect, options: ['Normal', 'Hyperdynamic', 'Reduced'], addToRecords: true),
+            SectionNode(id: 'echo_ef', title: 'Ejection Fraction (EF)', inputType: FieldInputType.numeric, unit: '%', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_rwma', title: 'Regional Wall Motion Abnormality', inputType: FieldInputType.singleSelect, options: ['None', 'Present'], addToRecords: true, allowOptionalNote: true),
+            SectionNode(id: 'echo_diastolic_function', title: 'Diastolic Function', inputType: FieldInputType.singleSelect, options: ['Normal', 'Grade I', 'Grade II', 'Grade III'], addToRecords: true),
+            SectionNode(id: 'echo_e_a', title: 'E/A', inputType: FieldInputType.numeric, addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_e_eprime', title: 'E/E′', inputType: FieldInputType.numeric, addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_septal_eprime', title: 'Septal E′', inputType: FieldInputType.numeric, unit: 'm/s', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_lateral_eprime', title: 'Lateral E′', inputType: FieldInputType.numeric, unit: 'm/s', addToRecords: true, style: numericStyle),
+          ],
+        ),
+        SectionNode(
+          id: 'echo_mitral', title: 'Mitral Valve', children: [
+            SectionNode(id: 'echo_mv_morphology', title: 'Leaflet Morphology', inputType: FieldInputType.singleSelect, options: ['Normal', 'Thickened', 'Calcified', 'Prolapse', 'Other'], addToRecords: true, allowOptionalNote: true),
+            SectionNode(id: 'echo_mr', title: 'Mitral Regurgitation', inputType: FieldInputType.singleSelect, options: ['None', 'Mild', 'Moderate', 'Severe'], addToRecords: true),
+            SectionNode(id: 'echo_ms', title: 'Mitral Stenosis', inputType: FieldInputType.singleSelect, options: ['None', 'Mild', 'Moderate', 'Severe'], addToRecords: true),
+            SectionNode(id: 'echo_mr_vmax', title: 'MR Vmax', inputType: FieldInputType.numeric, unit: 'm/s', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_mv_subvalvular', title: 'Subvalvular Apparatus', inputType: FieldInputType.singleSelect, options: ['Normal', 'Abnormal'], addToRecords: true, allowOptionalNote: true),
+          ],
+        ),
+        SectionNode(
+          id: 'echo_la', title: 'Left Atrium', children: [
+            SectionNode(id: 'echo_la_size', title: 'Cavity Size', inputType: FieldInputType.singleSelect, options: ['Normal', 'Mildly dilated', 'Moderately dilated', 'Severely dilated'], addToRecords: true),
+            SectionNode(id: 'echo_la_diameter', title: 'LA Diameter', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_la_area', title: 'LA Area', inputType: FieldInputType.numeric, unit: 'cm²', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_ias', title: 'Interatrial Septum', inputType: FieldInputType.singleSelect, options: ['Intact', 'Defect present'], addToRecords: true, allowOptionalNote: true),
+            SectionNode(id: 'echo_la_clot_mass', title: 'Clot / Mass', inputType: FieldInputType.singleSelect, options: ['None', 'Present'], addToRecords: true, allowOptionalNote: true),
+          ],
+        ),
+        SectionNode(
+          id: 'echo_aorta_av', title: 'Aorta / Aortic Valve', children: [
+            SectionNode(id: 'echo_aortic_root', title: 'Aortic Root Diameter', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_av_morphology', title: 'Valve Morphology', inputType: FieldInputType.singleSelect, options: ['Normal', 'Thickened', 'Calcified', 'Bicuspid', 'Other'], addToRecords: true, allowOptionalNote: true),
+            SectionNode(id: 'echo_av_vmax', title: 'AV Vmax', inputType: FieldInputType.numeric, unit: 'm/s', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_av_peak_gradient', title: 'Peak Gradient', inputType: FieldInputType.numeric, unit: 'mmHg', addToRecords: true, style: numericStyle),
+          ],
+        ),
+        SectionNode(
+          id: 'echo_rv', title: 'Right Ventricle', children: [
+            SectionNode(id: 'echo_rv_dimension', title: 'Cavity Dimension', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_rv_basal', title: 'RV Basal Diameter', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_rv_function', title: 'Systolic Function', inputType: FieldInputType.singleSelect, options: ['Normal', 'Mildly reduced', 'Moderately reduced', 'Severely reduced'], addToRecords: true),
+            SectionNode(id: 'echo_tapse', title: 'TAPSE', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+          ],
+        ),
+        SectionNode(
+          id: 'echo_tricuspid', title: 'Tricuspid Valve', children: [
+            SectionNode(id: 'echo_tv_appearance', title: 'Valve Appearance', inputType: FieldInputType.singleSelect, options: ['Normal', 'Abnormal'], addToRecords: true, allowOptionalNote: true),
+            SectionNode(id: 'echo_tv_morphology', title: 'Leaflet Morphology', inputType: FieldInputType.singleSelect, options: ['Normal', 'Abnormal'], addToRecords: true, allowOptionalNote: true),
+            SectionNode(id: 'echo_tr', title: 'Tricuspid Regurgitation', inputType: FieldInputType.singleSelect, options: ['None', 'Mild', 'Moderate', 'Severe'], addToRecords: true),
+            SectionNode(id: 'echo_tr_vmax', title: 'TR Vmax', inputType: FieldInputType.numeric, unit: 'm/s', addToRecords: true, style: numericStyle),
+          ],
+        ),
+        SectionNode(
+          id: 'echo_ra', title: 'Right Atrium', children: [
+            SectionNode(id: 'echo_ra_size', title: 'Cavity Size', inputType: FieldInputType.singleSelect, options: ['Normal', 'Mildly dilated', 'Moderately dilated', 'Severely dilated'], addToRecords: true),
+            SectionNode(id: 'echo_ra_area', title: 'Area', inputType: FieldInputType.numeric, unit: 'cm²', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_ra_clot_mass', title: 'Clot / Mass', inputType: FieldInputType.singleSelect, options: ['None', 'Present'], addToRecords: true, allowOptionalNote: true),
+          ],
+        ),
+        SectionNode(
+          id: 'echo_ivc', title: 'Inferior Vena Cava (IVC)', children: [
+            SectionNode(id: 'echo_ivc_dimension', title: 'IVC Dimension', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_ivc_collapse', title: 'Inspiratory Collapse', inputType: FieldInputType.singleSelect, options: ['>50%', '≤50%'], addToRecords: true),
+            SectionNode(id: 'echo_estimated_pap', title: 'Estimated PAP', inputType: FieldInputType.numeric, unit: 'mmHg', addToRecords: true, style: numericStyle),
+          ],
+        ),
+        SectionNode(
+          id: 'echo_pericardium', title: 'Pericardium', children: [
+            SectionNode(id: 'echo_pericardial_appearance', title: 'Appearance', inputType: FieldInputType.singleSelect, options: ['Normal', 'Abnormal'], addToRecords: true, allowOptionalNote: true),
+            SectionNode(id: 'echo_pericardial_effusion', title: 'Pericardial Effusion', inputType: FieldInputType.singleSelect, options: ['None', 'Small', 'Moderate', 'Large'], addToRecords: true, allowOptionalNote: true),
+          ],
+        ),
+        SectionNode(id: 'echo_conclusion', title: 'Conclusion', inputType: FieldInputType.freeText),
       ],
     );
   }

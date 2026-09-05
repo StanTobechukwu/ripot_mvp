@@ -224,6 +224,7 @@ class TemplateEditorProvider extends ChangeNotifier {
     String sectionId, {
     FieldInputType? inputType,
     List<String>? options,
+    String? unit,
     bool? showInPdf,
     bool? addToRecords,
     bool? allowOptionalNote,
@@ -239,7 +240,12 @@ class TemplateEditorProvider extends ChangeNotifier {
           final isStructured = nextInputType != FieldInputType.freeText;
           return s.copyWith(
             inputType: nextInputType,
-            options: options,
+            options: nextInputType == FieldInputType.numeric
+                ? const <String>[]
+                : options,
+            unit: nextInputType == FieldInputType.numeric
+                ? (unit ?? s.unit).trim()
+                : '',
             showInPdf: showInPdf ?? s.showInPdf,
             addToRecords: isStructured
                 ? (addToRecords ?? s.addToRecords)

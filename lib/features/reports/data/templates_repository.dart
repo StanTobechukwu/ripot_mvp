@@ -38,6 +38,7 @@ class TemplatesRepository {
   // Once this is set, deleting a starter template will NOT cause
   // it to reappear every time the user opens Ripot.
   static const _starterSeedKey = 'templates.starter_seed.v1';
+  static const _echoStarterSeedKey = 'templates.starter_echo.v1';
 
   Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
 
@@ -57,39 +58,45 @@ class TemplatesRepository {
 
   Future<void> _ensureStarterTemplatesSeeded() async {
     final prefs = await _prefs;
-
     final alreadySeeded = prefs.getBool(_starterSeedKey) ?? false;
 
-    if (alreadySeeded) {
-      return;
-    }
-
-    final ids = await _readIndex();
-
-    for (final template in BuiltInTemplates.all()) {
-      final existing = prefs.getString(_key(template.templateId));
-
-      if (existing != null && existing.trim().isNotEmpty) {
-        if (!ids.contains(template.templateId)) {
-          ids.add(template.templateId);
+    if (!alreadySeeded) {
+      final ids = await _readIndex();
+      for (final template in BuiltInTemplates.all()) {
+        final existing = prefs.getString(_key(template.templateId));
+        if (existing != null && existing.trim().isNotEmpty) {
+          if (!ids.contains(template.templateId)) ids.add(template.templateId);
+          continue;
         }
-
-        continue;
+        await prefs.setString(
+          _key(template.templateId),
+          jsonEncode(TemplateCodec.templateToJson(template)),
+        );
+        if (!ids.contains(template.templateId)) ids.add(template.templateId);
       }
-
-      await prefs.setString(
-        _key(template.templateId),
-        jsonEncode(TemplateCodec.templateToJson(template)),
-      );
-
-      if (!ids.contains(template.templateId)) {
-        ids.add(template.templateId);
-      }
+      await _writeIndex(ids);
+      await prefs.setBool(_starterSeedKey, true);
     }
 
-    await _writeIndex(ids);
+    // Echo arrived after starter seed v1. Give existing installations this one
+    // new starter exactly once, without re-seeding any starter they deleted.
+    final echoAlreadySeeded = prefs.getBool(_echoStarterSeedKey) ?? false;
+    if (echoAlreadySeeded) return;
 
-    await prefs.setBool(_starterSeedKey, true);
+    final echo = BuiltInTemplates.echocardiography2D();
+    final ids = await _readIndex();
+    final existing = prefs.getString(_key(echo.templateId));
+    if (existing == null || existing.trim().isEmpty) {
+      await prefs.setString(
+        _key(echo.templateId),
+        jsonEncode(TemplateCodec.templateToJson(echo)),
+      );
+    }
+    if (!ids.contains(echo.templateId)) {
+      ids.add(echo.templateId);
+      await _writeIndex(ids);
+    }
+    await prefs.setBool(_echoStarterSeedKey, true);
   }
 
   Future<void> saveTemplate(TemplateDoc template) async {
