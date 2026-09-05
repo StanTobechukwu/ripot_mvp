@@ -304,6 +304,34 @@ class PdfRendererService {
         metrics: metrics,
         fontScale: fontScale,
       );
+
+      // Balance the first-page text/image block. A Row takes the height of its
+      // tallest child, so a last vertical image that extends far below the
+      // report text creates visible blank space before horizontal image flow.
+      // If that overhang exceeds half an image slot, move only the last
+      // vertical image into the normal horizontal report-image flow.
+      if (pageOneInlineImages.length > 1) {
+        final textBlockHeight =
+            firstPageEntries.fold<double>(
+              0.0,
+              (sum, entry) => sum + entry.height,
+            ) +
+            6.0;
+
+        final verticalImageHeight = _inlineColumnEstimatedHeight(
+          pageOneInlineImages,
+          metrics: metrics,
+          fontScale: fontScale,
+        );
+
+        final significantOverhang = metrics.inlineSlotHeight * 0.50;
+
+        if (verticalImageHeight - textBlockHeight > significantOverhang) {
+          pageOneInlineImages = pageOneInlineImages
+              .take(pageOneInlineImages.length - 1)
+              .toList(growable: false);
+        }
+      }
     }
 
     // Conservative fallback if the narrow side-by-side text block cannot be
