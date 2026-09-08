@@ -13,7 +13,8 @@ class AccessProvider extends ChangeNotifier {
 
   bool get loading => _loading;
   AccessState? get state => _state;
-  AccessState get safeState => _state ?? AccessState.initial(installationId: 'local', isEarlyUser: true);
+  AccessState get safeState =>
+      _state ?? AccessState.initial(installationId: 'local', isEarlyUser: true);
 
   Future<void> load() async {
     _loading = true;
@@ -28,16 +29,13 @@ class AccessProvider extends ChangeNotifier {
     if (!current.canActivatePremiumTrial) return false;
 
     final now = DateTime.now();
-    var startAt = current.trialStartAt ?? now;
-    var endsAt = startAt.add(Duration(days: current.trialLengthDays));
 
-    // Existing users who were blocked by an older, shorter trial should not
-    // remain stuck. If their historical trial window is already outside the
-    // current early-access window, give them a fresh configured window.
-    if (current.isEarlyUser && endsAt.isBefore(now)) {
-      startAt = now;
-      endsAt = now.add(Duration(days: current.trialLengthDays));
-    }
+    // Trial dates are created once. They must never be refreshed by an app
+    // update, reinstall, logout/login, or later configuration change.
+    final startAt = current.trialStartAt ?? now;
+    final endsAt =
+        current.trialEndsAt ??
+        startAt.add(Duration(days: current.trialLengthDays));
 
     final next = current.copyWith(
       plan: RipotPlan.trial,

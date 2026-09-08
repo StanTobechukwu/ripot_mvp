@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/upgrade_screen.dart';
+import '../../access/ui/premium_prompt.dart';
 
 import '../domain/models/nodes.dart';
 import '../data/templates_repository.dart';
@@ -1123,33 +1124,10 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                   final templates = await repo.listTemplates();
                   if (templates.length >= access.maxSavedTemplates) {
                     if (!mounted) return;
-                    final open = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text('Template limit reached'),
-                        content: Text(
-                          'Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Later'),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('See Premium'),
-                          ),
-                        ],
-                      ),
+                    await showPremiumFeatureSheet(
+                      context,
+                      PremiumFeature.moreTemplates,
                     );
-                    if (open == true && mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const UpgradeScreen(),
-                        ),
-                      );
-                    }
                     return;
                   }
 
@@ -3219,16 +3197,19 @@ class _ImagesManagerState extends State<_ImagesManager> {
                         final remaining =
                             access.maxImagesPerReport - vm.doc.images.length;
                         if (remaining <= 0) {
-                          _showErr(
-                            'Maximum of ${access.maxImagesPerReport} images allowed on your current plan.',
+                          await showPremiumFeatureSheet(
+                            context,
+                            PremiumFeature.moreImages,
                           );
                           return;
                         }
                         final allowed = files.take(remaining).toList();
                         if (allowed.length < files.length) {
-                          _showErr(
-                            'Only ${access.maxImagesPerReport} images are allowed on your current plan.',
+                          await showPremiumFeatureSheet(
+                            context,
+                            PremiumFeature.moreImages,
                           );
+                          if (!mounted) return;
                         }
                         vm.addImages(allowed.map((f) => f).toList());
                         if (mounted) setState(() {});
@@ -3250,8 +3231,9 @@ class _ImagesManagerState extends State<_ImagesManager> {
                         if (file == null) return;
                         final access = context.read<AccessProvider>().safeState;
                         if (vm.doc.images.length >= access.maxImagesPerReport) {
-                          _showErr(
-                            'Maximum of ${access.maxImagesPerReport} images allowed on your current plan.',
+                          await showPremiumFeatureSheet(
+                            context,
+                            PremiumFeature.moreImages,
                           );
                           return;
                         }
@@ -3384,31 +3366,7 @@ class _ImagesManagerState extends State<_ImagesManager> {
   ) async {
     final access = context.read<AccessProvider>().safeState;
     if (!access.canUseImageLabels) {
-      final open = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Premium feature'),
-          content: const Text(
-            'Image labels are available in Premium Trial and Premium.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Later'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('See Premium'),
-            ),
-          ],
-        ),
-      );
-      if (open == true && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-        );
-      }
+      await showPremiumFeatureSheet(context, PremiumFeature.imageLabels);
       return;
     }
 

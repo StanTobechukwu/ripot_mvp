@@ -7,6 +7,7 @@ import '../providers/reports_list_provider.dart';
 import '../providers/template_list_provider.dart';
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/upgrade_screen.dart';
+import '../../access/ui/premium_prompt.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/ui/auth_screens.dart';
 import 'report_editor_screen.dart';
@@ -43,8 +44,11 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       await context.read<ReportsListProvider>().refresh();
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(result.message)));
   }
+
   @override
   void initState() {
     super.initState();
@@ -99,7 +103,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   Future<void> _openPdf(BuildContext context, ReportSummary report) async {
     final repo = context.read<ReportsRepository>();
     final pdfBytes = await repo.loadPdfBytesForReport(report.reportId);
-    final pdfFileName = await repo.pdfFileNameForReport(report.reportId) ?? '${report.title}.pdf';
+    final pdfFileName =
+        await repo.pdfFileNameForReport(report.reportId) ??
+        '${report.title}.pdf';
     if (!context.mounted) return;
 
     if (pdfBytes != null && pdfBytes.isNotEmpty) {
@@ -116,15 +122,18 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No saved PDF found yet.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('No saved PDF found yet.')));
   }
 
   Future<void> _openEditor(BuildContext context, String reportId) async {
     await context.read<ReportEditorProvider>().loadById(reportId);
     if (!context.mounted) return;
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReportEditorScreen()),
+    );
     if (!context.mounted) return;
     await _refreshReports();
   }
@@ -136,7 +145,11 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     }
     await _openPdf(context, report);
   }
-  Future<void> _confirmAndDeleteReport(BuildContext context, ReportSummary report) async {
+
+  Future<void> _confirmAndDeleteReport(
+    BuildContext context,
+    ReportSummary report,
+  ) async {
     final title = report.hasPdf
         ? (report.isSavedWork ? 'Delete report?' : 'Delete saved PDF report?')
         : 'Delete saved work?';
@@ -171,7 +184,6 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     await context.read<ReportsListProvider>().delete(report.reportId);
   }
 
-
   Future<void> _openTemplates(BuildContext context) async {
     await Navigator.push(
       context,
@@ -181,7 +193,13 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     await _refreshReports();
   }
 
-  void _openRecords(BuildContext context) {
+  Future<void> _openRecords(BuildContext context) async {
+    final access = context.read<AccessProvider>().safeState;
+    if (!access.canUseRecords) {
+      await showPremiumFeatureSheet(context, PremiumFeature.records);
+      return;
+    }
+    if (!context.mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RecordsScreen()),
@@ -208,7 +226,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 56,
-       // leadingWidth: 132,
+        // leadingWidth: 132,
         leading: Padding(
           padding: const EdgeInsets.only(left: 12),
           child: InkWell(
@@ -221,14 +239,17 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                   'assets/ripot_icon.png',
                   height: 24,
                   width: 24,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.description_outlined, size: 22),
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.description_outlined, size: 22),
                 ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     'Ripot',
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -257,8 +278,14 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             ),
           Consumer<AuthProvider>(
             builder: (context, auth, _) => IconButton(
-              icon: Icon(auth.isSignedIn ? Icons.account_circle : Icons.account_circle_outlined),
-              tooltip: auth.isSignedIn ? 'Account' : 'Sign in or create account',
+              icon: Icon(
+                auth.isSignedIn
+                    ? Icons.account_circle
+                    : Icons.account_circle_outlined,
+              ),
+              tooltip: auth.isSignedIn
+                  ? 'Account'
+                  : 'Sign in or create account',
               onPressed: () => _openAccount(context),
             ),
           ),
@@ -277,8 +304,13 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                 }
               },
               itemBuilder: (_) => [
-                if (width < 980) const PopupMenuItem(value: 'records', child: Text('Records')),
-                if (width < 1100) const PopupMenuItem(value: 'premium', child: Text('Ripot Premium')),
+                if (width < 980)
+                  const PopupMenuItem(value: 'records', child: Text('Records')),
+                if (width < 1100)
+                  const PopupMenuItem(
+                    value: 'premium',
+                    child: Text('Ripot Premium'),
+                  ),
               ],
             ),
           const SizedBox(width: 8),
@@ -290,7 +322,10 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         elevation: 6,
         onPressed: () async {
           context.read<ReportEditorProvider>().newReport();
-          await Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportEditorScreen()));
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ReportEditorScreen()),
+          );
           if (!context.mounted) return;
           await _refreshReports();
         },
@@ -310,10 +345,28 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  access.badgeLabel,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelMedium,
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 2,
+                    ),
+                  ),
+                  onPressed: () => _openPremium(context),
+                  icon: Icon(
+                    access.isPremiumLike
+                        ? Icons.workspace_premium
+                        : Icons.workspace_premium_outlined,
+                    size: 16,
+                  ),
+                  label: Text(
+                    access.isTrialActive
+                        ? 'Premium Trial • ${access.daysRemaining} days left'
+                        : access.badgeLabel == 'Premium'
+                        ? 'Premium'
+                        : 'Free plan • See Premium',
+                  ),
                 ),
               ],
             ),
@@ -322,7 +375,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
           Expanded(
             child: Builder(
               builder: (_) {
-                if (listVm.loading) return const Center(child: CircularProgressIndicator());
+                if (listVm.loading)
+                  return const Center(child: CircularProgressIndicator());
                 if (listVm.reports.isEmpty) {
                   return const Center(child: Text('No saved reports yet.'));
                 }
@@ -334,9 +388,14 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                   itemBuilder: (_, i) {
                     final r = listVm.reports[i];
                     final accent = r.hasPdf
-                        ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.34)
-                        : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.55);
-                    final icon = r.hasPdf ? Icons.description_outlined : Icons.edit_note_outlined;
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer.withOpacity(0.34)
+                        : Theme.of(context).colorScheme.surfaceContainerHighest
+                              .withOpacity(0.55);
+                    final icon = r.hasPdf
+                        ? Icons.description_outlined
+                        : Icons.edit_note_outlined;
                     final badgeText = r.hasPdf
                         ? (r.isFinalized ? 'PDF Report' : 'Report')
                         : 'Saved work';
@@ -344,22 +403,33 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                       color: accent,
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).colorScheme.surface,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
                           child: Icon(icon),
                         ),
                         title: Row(
                           children: [
-                            Expanded(child: Text(r.title, overflow: TextOverflow.ellipsis)),
+                            Expanded(
+                              child: Text(
+                                r.title,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).colorScheme.surface,
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
                                 badgeText,
-                                style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(fontWeight: FontWeight.w700),
                               ),
                             ),
                           ],
@@ -385,4 +455,3 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     );
   }
 }
-

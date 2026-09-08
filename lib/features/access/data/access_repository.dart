@@ -29,9 +29,13 @@ class AccessRepository {
     final raw = prefs.getString(_stateKey);
     if (raw != null && raw.trim().isNotEmpty) {
       try {
-        final state = AccessState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+        final state = AccessState.fromJson(
+          jsonDecode(raw) as Map<String, dynamic>,
+        );
         final configured = _normalizeState(_applyConfig(state, config));
-        final normalized = _normalizeState(await _applyRemoteEntitlementSafely(configured));
+        final normalized = _normalizeState(
+          await _applyRemoteEntitlementSafely(configured),
+        );
         if (jsonEncode(normalized.toJson()) != jsonEncode(state.toJson())) {
           await save(normalized);
         }
@@ -41,9 +45,14 @@ class AccessRepository {
 
     final installationId = await getOrCreateInstallationId();
     final configured = _normalizeState(
-      _applyConfig(AccessState.initial(installationId: installationId, isEarlyUser: true), config),
+      _applyConfig(
+        AccessState.initial(installationId: installationId, isEarlyUser: true),
+        config,
+      ),
     );
-    final state = _normalizeState(await _applyRemoteEntitlementSafely(configured));
+    final state = _normalizeState(
+      await _applyRemoteEntitlementSafely(configured),
+    );
     await save(state);
     return state;
   }
@@ -57,17 +66,15 @@ class AccessRepository {
 
   AccessState _normalizeState(AccessState state) {
     if (state.plan == RipotPlan.trial && !state.isTrialActive) {
-      return state.copyWith(
-        plan: RipotPlan.free,
-        updatedAt: DateTime.now(),
-      );
+      return state.copyWith(plan: RipotPlan.free, updatedAt: DateTime.now());
     }
     return state;
   }
 
   AccessState _applyConfig(AccessState state, _AccessRemoteConfig config) {
     final cutoff = config.earlyAccessCutoffAt;
-    final qualifiesByDate = cutoff == null || !state.createdAt.toLocal().isAfter(cutoff.toLocal());
+    final qualifiesByDate =
+        cutoff == null || !state.createdAt.toLocal().isAfter(cutoff.toLocal());
     final isEarlyUser = config.earlyAccessEnabled && qualifiesByDate;
     return state.copyWith(
       isEarlyUser: isEarlyUser,
@@ -81,19 +88,31 @@ class AccessRepository {
     );
   }
 
-
-
-  AccessState _applyPersistedRemoteAccessState(AccessState state, Map<String, dynamic> data) {
+  AccessState _applyPersistedRemoteAccessState(
+    AccessState state,
+    Map<String, dynamic> data,
+  ) {
     // Rehydrate normal user access state from Firestore. This prevents a reinstall
     // from restarting the premium-trial clock when the user signs back in.
     final remotePlan = _planFromJson(data['plan']);
-    final remoteTrialStart = _dateFromJson(data['trialStartAtIso'] ?? data['trialStartAt']);
-    final remoteTrialEnd = _dateFromJson(data['trialEndsAtIso'] ?? data['trialEndsAt']);
-    final remotePremiumStart = _dateFromJson(data['premiumStartedAtIso'] ?? data['premiumStartedAt']);
-    final remoteHasUsedTrial = data['hasUsedTrial'] is bool ? data['hasUsedTrial'] as bool : null;
-    final remoteUpdatedAt = _dateFromJson(data['updatedAtIso'] ?? data['lastSyncedAtIso']);
+    final remoteTrialStart = _dateFromJson(
+      data['trialStartAtIso'] ?? data['trialStartAt'],
+    );
+    final remoteTrialEnd = _dateFromJson(
+      data['trialEndsAtIso'] ?? data['trialEndsAt'],
+    );
+    final remotePremiumStart = _dateFromJson(
+      data['premiumStartedAtIso'] ?? data['premiumStartedAt'],
+    );
+    final remoteHasUsedTrial = data['hasUsedTrial'] is bool
+        ? data['hasUsedTrial'] as bool
+        : null;
+    final remoteUpdatedAt = _dateFromJson(
+      data['updatedAtIso'] ?? data['lastSyncedAtIso'],
+    );
 
-    final hasMeaningfulRemoteState = remotePlan != null ||
+    final hasMeaningfulRemoteState =
+        remotePlan != null ||
         remoteTrialStart != null ||
         remoteTrialEnd != null ||
         remotePremiumStart != null ||
@@ -114,7 +133,10 @@ class AccessRepository {
     if (Firebase.apps.isEmpty) return state;
     try {
       final identity = await SyncIdentityResolver().resolve();
-      final snap = await FirebaseFirestore.instance.collection('ripot_user_access').doc(identity.documentKey).get();
+      final snap = await FirebaseFirestore.instance
+          .collection('ripot_user_access')
+          .doc(identity.documentKey)
+          .get();
       final data = snap.data();
       if (data == null) return state;
 
@@ -134,8 +156,11 @@ class AccessRepository {
         );
       }
 
-      final adminTrialEndsAt = _dateFromJson(data['adminTrialEndsAtIso'] ?? data['adminTrialEndsAt']);
-      if (adminTrialEndsAt != null && adminTrialEndsAt.isAfter(DateTime.now())) {
+      final adminTrialEndsAt = _dateFromJson(
+        data['adminTrialEndsAtIso'] ?? data['adminTrialEndsAt'],
+      );
+      if (adminTrialEndsAt != null &&
+          adminTrialEndsAt.isAfter(DateTime.now())) {
         next = next.copyWith(
           plan: RipotPlan.trial,
           trialStartAt: next.trialStartAt ?? DateTime.now(),
@@ -145,7 +170,9 @@ class AccessRepository {
         );
       }
 
-      final overridePlan = _stringOrNull(data['adminPlanOverride'])?.toLowerCase();
+      final overridePlan = _stringOrNull(
+        data['adminPlanOverride'],
+      )?.toLowerCase();
       if (overridePlan == 'premium') {
         next = next.copyWith(
           plan: RipotPlan.premium,
@@ -153,10 +180,7 @@ class AccessRepository {
           updatedAt: DateTime.now(),
         );
       } else if (overridePlan == 'free') {
-        next = next.copyWith(
-          plan: RipotPlan.free,
-          updatedAt: DateTime.now(),
-        );
+        next = next.copyWith(plan: RipotPlan.free, updatedAt: DateTime.now());
       } else if (overridePlan == 'trial' && adminTrialEndsAt != null) {
         next = next.copyWith(
           plan: RipotPlan.trial,
@@ -176,7 +200,10 @@ class AccessRepository {
   Future<_AccessRemoteConfig> _loadRemoteConfigSafely() async {
     if (Firebase.apps.isEmpty) return const _AccessRemoteConfig.defaults();
     try {
-      final snap = await FirebaseFirestore.instance.collection('ripot_app_config').doc('access').get();
+      final snap = await FirebaseFirestore.instance
+          .collection('ripot_app_config')
+          .doc('access')
+          .get();
       final data = snap.data();
       if (data == null) return const _AccessRemoteConfig.defaults();
       return _AccessRemoteConfig.fromJson(data);
@@ -190,16 +217,13 @@ class AccessRepository {
     try {
       final identity = await SyncIdentityResolver().resolve();
       final db = FirebaseFirestore.instance;
-      await db.collection('ripot_user_access').doc(identity.documentKey).set(
-        {
-          ...state.toJson(),
-          'ownerType': identity.ownerType,
-          'ownerId': identity.ownerId,
-          'authUid': identity.authUid,
-          'lastSyncedAtIso': DateTime.now().toIso8601String(),
-        },
-        SetOptions(merge: true),
-      );
+      await db.collection('ripot_user_access').doc(identity.documentKey).set({
+        ...state.toJson(),
+        'ownerType': identity.ownerType,
+        'ownerId': identity.ownerId,
+        'authUid': identity.authUid,
+        'lastSyncedAtIso': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true));
     } catch (_) {
       // Stability first: never fail local save because cloud sync is unavailable.
     }
@@ -218,37 +242,33 @@ class AccessRepository {
       if (!localSnap.exists) return;
 
       final localData = localSnap.data() ?? <String, dynamic>{};
-      final userDoc = FirebaseFirestore.instance.collection('ripot_user_access').doc(identity.authUid);
+      final userDoc = FirebaseFirestore.instance
+          .collection('ripot_user_access')
+          .doc(identity.authUid);
       final userSnap = await userDoc.get();
       if (userSnap.exists) {
         // Do not overwrite an existing account entitlement with a fresh local
         // install state. This is what could restart the trial clock after reinstall.
-        await userDoc.set(
-          {
-            'ownerType': 'user',
-            'ownerId': identity.authUid,
-            'authUid': identity.authUid,
-            'installationId': identity.installationId,
-            'lastSeenInstallationId': identity.installationId,
-            'lastMigrationCheckAtIso': DateTime.now().toIso8601String(),
-          },
-          SetOptions(merge: true),
-        );
-        return;
-      }
-
-      await userDoc.set(
-        {
-          ...localData,
+        await userDoc.set({
           'ownerType': 'user',
           'ownerId': identity.authUid,
           'authUid': identity.authUid,
           'installationId': identity.installationId,
-          'migratedFromInstallationId': identity.installationId,
-          'migratedAtIso': DateTime.now().toIso8601String(),
-        },
-        SetOptions(merge: true),
-      );
+          'lastSeenInstallationId': identity.installationId,
+          'lastMigrationCheckAtIso': DateTime.now().toIso8601String(),
+        }, SetOptions(merge: true));
+        return;
+      }
+
+      await userDoc.set({
+        ...localData,
+        'ownerType': 'user',
+        'ownerId': identity.authUid,
+        'authUid': identity.authUid,
+        'installationId': identity.installationId,
+        'migratedFromInstallationId': identity.installationId,
+        'migratedAtIso': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true));
     } catch (_) {}
   }
 }
@@ -271,12 +291,12 @@ class _AccessRemoteConfig {
   });
 
   const _AccessRemoteConfig.defaults()
-      : earlyAccessEnabled = true,
-        earlyAccessDurationDays = AccessState.defaultEarlyAccessDurationDays,
-        earlyAccessCutoffAt = null,
-        premiumBillingEnabled = false,
-        premiumMessageTitle = null,
-        premiumMessageBody = null;
+    : earlyAccessEnabled = true,
+      earlyAccessDurationDays = AccessState.defaultEarlyAccessDurationDays,
+      earlyAccessCutoffAt = null,
+      premiumBillingEnabled = false,
+      premiumMessageTitle = null,
+      premiumMessageBody = null;
 
   factory _AccessRemoteConfig.fromJson(Map<String, dynamic> json) {
     return _AccessRemoteConfig(
@@ -286,7 +306,9 @@ class _AccessRemoteConfig {
         fallback: AccessState.defaultEarlyAccessDurationDays,
       ),
       earlyAccessCutoffAt: _dateFromJson(
-        json['earlyAccessCutoffDateIso'] ?? json['earlyAccessCutoffAtIso'] ?? json['earlyAccessCutoffDate'],
+        json['earlyAccessCutoffDateIso'] ??
+            json['earlyAccessCutoffAtIso'] ??
+            json['earlyAccessCutoffDate'],
       ),
       premiumBillingEnabled: (json['premiumBillingEnabled'] as bool?) ?? false,
       premiumMessageTitle: _stringOrNull(json['premiumMessageTitle']),

@@ -5,7 +5,7 @@ enum RipotPlan { free, trial, premium }
 @immutable
 class AccessState {
   static const int defaultEarlyAccessDurationDays = 84;
-  static const int defaultStandardTrialDays = 7;
+  static const int defaultStandardTrialDays = 21;
 
   final String installationId;
   final RipotPlan plan;
@@ -44,7 +44,10 @@ class AccessState {
     this.premiumMessageBody,
   });
 
-  factory AccessState.initial({required String installationId, bool isEarlyUser = true}) {
+  factory AccessState.initial({
+    required String installationId,
+    bool isEarlyUser = true,
+  }) {
     final now = DateTime.now();
     return AccessState(
       installationId: installationId,
@@ -58,7 +61,9 @@ class AccessState {
   int get trialLengthDays {
     if (!isEarlyUser) return defaultStandardTrialDays;
     if (!earlyAccessEnabled) return defaultStandardTrialDays;
-    return earlyAccessDurationDays <= 0 ? defaultEarlyAccessDurationDays : earlyAccessDurationDays;
+    return earlyAccessDurationDays <= 0
+        ? defaultEarlyAccessDurationDays
+        : earlyAccessDurationDays;
   }
 
   DateTime? get effectiveTrialEndsAt {
@@ -79,12 +84,14 @@ class AccessState {
   bool get isPremiumLike => plan == RipotPlan.premium || isTrialActive;
 
   bool get canActivatePremiumTrial {
+    // One trial per account/install identity. Early-access status may change
+    // the LENGTH of an unused trial, but never grants a second trial.
     if (plan == RipotPlan.premium || isPremiumLike) return false;
-    if (isEarlyUser && earlyAccessEnabled) return true;
     return !hasUsedTrial;
   }
 
-  bool get hadTrialButExpired => hasUsedTrial && !isPremiumLike && plan != RipotPlan.premium;
+  bool get hadTrialButExpired =>
+      hasUsedTrial && !isPremiumLike && plan != RipotPlan.premium;
 
   int get daysRemaining {
     final endsAt = effectiveTrialEndsAt;
@@ -141,8 +148,12 @@ class AccessState {
       installationId: installationId,
       plan: plan ?? this.plan,
       isEarlyUser: isEarlyUser ?? this.isEarlyUser,
-      trialStartAt: identical(trialStartAt, _unset) ? this.trialStartAt : trialStartAt as DateTime?,
-      trialEndsAt: identical(trialEndsAt, _unset) ? this.trialEndsAt : trialEndsAt as DateTime?,
+      trialStartAt: identical(trialStartAt, _unset)
+          ? this.trialStartAt
+          : trialStartAt as DateTime?,
+      trialEndsAt: identical(trialEndsAt, _unset)
+          ? this.trialEndsAt
+          : trialEndsAt as DateTime?,
       premiumStartedAt: identical(premiumStartedAt, _unset)
           ? this.premiumStartedAt
           : premiumStartedAt as DateTime?,
@@ -150,11 +161,13 @@ class AccessState {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       earlyAccessEnabled: earlyAccessEnabled ?? this.earlyAccessEnabled,
-      earlyAccessDurationDays: earlyAccessDurationDays ?? this.earlyAccessDurationDays,
+      earlyAccessDurationDays:
+          earlyAccessDurationDays ?? this.earlyAccessDurationDays,
       earlyAccessCutoffAt: identical(earlyAccessCutoffAt, _unset)
           ? this.earlyAccessCutoffAt
           : earlyAccessCutoffAt as DateTime?,
-      premiumBillingEnabled: premiumBillingEnabled ?? this.premiumBillingEnabled,
+      premiumBillingEnabled:
+          premiumBillingEnabled ?? this.premiumBillingEnabled,
       premiumMessageTitle: identical(premiumMessageTitle, _unset)
           ? this.premiumMessageTitle
           : premiumMessageTitle as String?,
@@ -193,16 +206,23 @@ class AccessState {
     }
 
     final installationId = (json['installationId'] as String?) ?? '';
-    final createdAt = DateTime.tryParse((json['createdAtIso'] as String?) ?? '') ?? DateTime.now();
-    final updatedAt = DateTime.tryParse((json['updatedAtIso'] as String?) ?? '') ?? createdAt;
+    final createdAt =
+        DateTime.tryParse((json['createdAtIso'] as String?) ?? '') ??
+        DateTime.now();
+    final updatedAt =
+        DateTime.tryParse((json['updatedAtIso'] as String?) ?? '') ?? createdAt;
 
     return AccessState(
       installationId: installationId,
       plan: parsePlan(json['plan'] as String?),
       isEarlyUser: (json['isEarlyUser'] as bool?) ?? false,
-      trialStartAt: DateTime.tryParse((json['trialStartAtIso'] as String?) ?? ''),
+      trialStartAt: DateTime.tryParse(
+        (json['trialStartAtIso'] as String?) ?? '',
+      ),
       trialEndsAt: DateTime.tryParse((json['trialEndsAtIso'] as String?) ?? ''),
-      premiumStartedAt: DateTime.tryParse((json['premiumStartedAtIso'] as String?) ?? ''),
+      premiumStartedAt: DateTime.tryParse(
+        (json['premiumStartedAtIso'] as String?) ?? '',
+      ),
       hasUsedTrial: (json['hasUsedTrial'] as bool?) ?? false,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -211,7 +231,9 @@ class AccessState {
         json['earlyAccessDurationDays'],
         fallback: defaultEarlyAccessDurationDays,
       ),
-      earlyAccessCutoffAt: DateTime.tryParse((json['earlyAccessCutoffAtIso'] as String?) ?? ''),
+      earlyAccessCutoffAt: DateTime.tryParse(
+        (json['earlyAccessCutoffAtIso'] as String?) ?? '',
+      ),
       premiumBillingEnabled: (json['premiumBillingEnabled'] as bool?) ?? false,
       premiumMessageTitle: json['premiumMessageTitle'] as String?,
       premiumMessageBody: json['premiumMessageBody'] as String?,
