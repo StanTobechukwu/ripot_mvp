@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'features/reports/data/letterhead_repository.dart';
 import 'features/access/data/access_repository.dart';
 import 'features/access/providers/access_provider.dart';
+import 'features/billing/providers/billing_provider.dart';
 
 import 'features/reports/data/reports_repository.dart';
 import 'features/reports/data/templates_repository.dart';
@@ -49,6 +50,17 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => AccessProvider(repo: accessRepo)..load(),
         ),
+        ChangeNotifierProxyProvider<AccessProvider, BillingProvider>(
+          create: (context) =>
+              BillingProvider(accessProvider: context.read<AccessProvider>()),
+          update: (context, accessProvider, previous) {
+            if (previous != null) {
+              previous.updateAccessProvider(accessProvider);
+              return previous;
+            }
+            return BillingProvider(accessProvider: accessProvider);
+          },
+        ),
         ChangeNotifierProvider(
           create: (_) => RecordsProvider(repo: recordsRepo)..refresh(),
         ),
@@ -57,10 +69,12 @@ class MyApp extends StatelessWidget {
             accessProvider: context.read<AccessProvider>(),
             templatesRepository: templatesRepo,
           ),
-          update: (context, accessProvider, previous) => previous ?? AuthProvider(
-            accessProvider: accessProvider,
-            templatesRepository: templatesRepo,
-          ),
+          update: (context, accessProvider, previous) =>
+              previous ??
+              AuthProvider(
+                accessProvider: accessProvider,
+                templatesRepository: templatesRepo,
+              ),
         ),
       ],
       child: MaterialApp(

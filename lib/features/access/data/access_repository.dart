@@ -157,6 +157,13 @@ class AccessRepository {
 
     try {
       final identity = await SyncIdentityResolver().resolve();
+      try {
+        final callable = FirebaseFunctions.instance.httpsCallable(
+          'refreshPlayEntitlement',
+        );
+        await callable.call(<String, dynamic>{});
+      } catch (_) {}
+
       final snap = await FirebaseFirestore.instance
           .collection('ripot_user_access')
           .doc(identity.documentKey)

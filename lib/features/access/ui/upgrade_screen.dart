@@ -6,6 +6,7 @@ import '../domain/access_state.dart';
 import '../providers/access_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/ui/auth_screens.dart';
+import '../../billing/providers/billing_provider.dart';
 
 class UpgradeScreen extends StatelessWidget {
   const UpgradeScreen({super.key});
@@ -185,31 +186,19 @@ class UpgradeScreen extends StatelessWidget {
               ),
             )
           else if (access.hadTrialButExpired && auth.isSignedIn)
-            Card(
+            const Card(
               child: ListTile(
-                leading: const Icon(Icons.lock_clock_outlined),
-                title: const Text('Premium Trial ended'),
+                leading: Icon(Icons.lock_clock_outlined),
+                title: Text('Premium Trial ended'),
                 subtitle: Text(
-                  access.premiumBillingEnabled
-                      ? 'Choose a Premium plan to continue using premium features.'
-                      : 'Premium subscriptions are being prepared for Google Play.',
+                  'Choose a Premium plan below to continue using premium features.',
                 ),
-                trailing: access.premiumBillingEnabled
-                    ? FilledButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Premium Plans will be connected to Google Play Billing.',
-                              ),
-                            ),
-                          );
-                        },
-                        child: const Text('View plans'),
-                      )
-                    : null,
               ),
             ),
+          if (auth.isSignedIn && access.plan != RipotPlan.premium) ...[
+            const SizedBox(height: 12),
+            const _BillingPlansCard(),
+          ],
           if (!access.isPremiumLike && access.canActivatePremiumTrial) ...[
             const SizedBox(height: 8),
             Text(
@@ -238,6 +227,137 @@ class UpgradeScreen extends StatelessWidget {
             style: theme.textTheme.bodySmall,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BillingPlansCard extends StatelessWidget {
+  const _BillingPlansCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final billing = context.watch<BillingProvider>();
+    final theme = Theme.of(context);
+
+    if (billing.loading) {
+      return const Card(
+        child: ListTile(
+          leading: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          title: Text('Loading Google Play plans…'),
+        ),
+      );
+    }
+
+    final monthly = billing.monthlyProduct;
+    final annual = billing.annualProduct;
+    final founderOfferAvailable =
+        billing.founderDiscountEligible && billing.founderAnnualProduct != null;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Google Play Premium plans',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Prices are shown by Google Play in your billing country and currency.',
+            ),
+            if (!billing.available) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Google Play Billing is not available on this device or account.',
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              if (monthly != null)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_view_month_outlined),
+                  title: const Text('Monthly'),
+                  subtitle: const Text('Auto-renewing monthly'),
+                  trailing: FilledButton(
+                    onPressed: billing.canPurchase
+                        ? () =>
+                              context.read<BillingProvider>().purchaseMonthly()
+                        : null,
+                    child: Text(billing.monthlyPrice),
+                  ),
+                ),
+              if (annual != null)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.event_repeat_outlined),
+                  title: Text(
+                    founderOfferAvailable
+                        ? 'Annual • Founding 100 offer'
+                        : 'Annual',
+                  ),
+                  subtitle: Text(
+                    founderOfferAvailable
+                        ? '25% off your first paid year, then ${billing.annualPrice} per year'
+                        : 'Auto-renewing yearly',
+                  ),
+                  trailing: FilledButton(
+                    onPressed: billing.canPurchase
+                        ? () => context.read<BillingProvider>().purchaseAnnual()
+                        : null,
+                    child: Text(
+                      founderOfferAvailable &&
+                              billing.founderAnnualPrice.isNotEmpty
+                          ? billing.founderAnnualPrice
+                          : billing.annualPrice,
+                    ),
+                  ),
+                ),
+              if (monthly == null && annual == null)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Ripot Premium plans could not be loaded from Google Play.',
+                  ),
+                ),
+              const Divider(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: billing.purchasePending
+                      ? null
+                      : () =>
+                            context.read<BillingProvider>().restorePurchases(),
+                  icon: const Icon(Icons.restore),
+                  label: const Text('Restore purchases'),
+                ),
+              ),
+            ],
+            if (billing.purchasePending) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+            ],
+            if (billing.message != null) ...[
+              const SizedBox(height: 8),
+              Text(billing.message!),
+            ],
+            if (billing.error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                billing.error!,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
