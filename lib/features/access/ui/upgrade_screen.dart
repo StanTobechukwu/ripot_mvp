@@ -70,7 +70,12 @@ class UpgradeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Ripot Premium')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          24 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           Card(
             child: Padding(
@@ -116,7 +121,7 @@ class UpgradeScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerHighest
-                            .withOpacity(0.55),
+                            .withValues(alpha: 0.55),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -163,8 +168,8 @@ class UpgradeScreen extends StatelessWidget {
               icon: const Icon(Icons.workspace_premium_outlined),
               label: Text(
                 auth.isSignedIn
-                    ? 'Start ${access.trialLengthDays}-day Premium trial'
-                    : 'Sign in to start ${access.trialLengthDays}-day Premium trial',
+                    ? 'Start Premium trial'
+                    : 'Sign in to start Premium trial',
               ),
             )
           else if (access.isPremiumLike)
@@ -238,6 +243,7 @@ class _BillingPlansCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final billing = context.watch<BillingProvider>();
+    final access = context.watch<AccessProvider>().safeState;
     final theme = Theme.of(context);
 
     if (billing.loading) {
@@ -274,6 +280,20 @@ class _BillingPlansCard extends StatelessWidget {
             const Text(
               'Prices are shown by Google Play in your billing country and currency.',
             ),
+            if (access.isTrialActive) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'Your free Premium trial is active. You can subscribe after it ends. Prices remain visible for reference.',
+                ),
+              ),
+            ],
             if (!billing.available) ...[
               const SizedBox(height: 12),
               const Text(
@@ -332,12 +352,21 @@ class _BillingPlansCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
-                  onPressed: billing.purchasePending
-                      ? null
-                      : () =>
-                            context.read<BillingProvider>().restorePurchases(),
+                  onPressed: billing.canRestore
+                      ? () => context.read<BillingProvider>().restorePurchases()
+                      : null,
                   icon: const Icon(Icons.restore),
-                  label: const Text('Restore purchases'),
+                  label: Text(
+                    billing.restoring
+                        ? 'Restoring purchases…'
+                        : 'Restore purchases',
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(left: 12, right: 12, bottom: 4),
+                child: Text(
+                  'Restore checks for an existing Google Play subscription. It does not make a new charge.',
                 ),
               ),
             ],
@@ -386,8 +415,8 @@ class _AccessStatusText extends StatelessWidget {
       );
     }
     if (access.canActivatePremiumTrial) {
-      return Text(
-        'Try all Premium features free for ${access.trialLengthDays} days when you are ready.',
+      return const Text(
+        'Try all Premium features free when you are ready. Your account’s trial length is assigned securely when you start.',
       );
     }
     if (access.hadTrialButExpired) {

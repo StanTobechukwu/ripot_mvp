@@ -2,6 +2,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { GoogleAuth } = require("google-auth-library");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const { createHash } = require("node:crypto");
 
 initializeApp();
 const db = getFirestore();
@@ -186,6 +187,7 @@ const PLAY_PACKAGE_NAME = "com.nduaguba.report";
 const PLAY_PREMIUM_PRODUCT_ID = "ripot_premium";
 const PLAY_FOUNDER_OFFER_ID = "founding-100-annual-25";
 const PLAY_INTERNAL_COLLECTION = "ripot_internal_play";
+const PLAY_TOKEN_OWNERS_COLLECTION = "ripot_internal_play_tokens";
 const playAuth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/androidpublisher"] });
 
 async function playAccessToken() {
@@ -251,6 +253,40 @@ function assertPlayAccountMatches(uid, playData) {
   if (external && external !== uid) throw new HttpsError("permission-denied", "This Google Play purchase belongs to a different Ripot account.");
 }
 
+function purchaseTokenDocumentId(purchaseToken) {
+  return createHash("sha256").update(purchaseToken).digest("hex");
+}
+
+async function claimPurchaseToken(uid, purchaseToken) {
+  const tokenHash = purchaseTokenDocumentId(purchaseToken);
+  const tokenRef = db.collection(PLAY_TOKEN_OWNERS_COLLECTION).doc(tokenHash);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(tokenRef);
+    const ownerUid = snap.exists ? String(snap.data()?.ownerUid || "") : "";
+    if (ownerUid && ownerUid !== uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "This Google Play purchase is already linked to another Ripot account.",
+      );
+    }
+    tx.set(
+      tokenRef,
+      {
+        ownerUid: uid,
+        provider: "google_play",
+        productId: PLAY_PREMIUM_PRODUCT_ID,
+        tokenHash,
+        firstLinkedAt: snap.exists
+          ? snap.data()?.firstLinkedAt || FieldValue.serverTimestamp()
+          : FieldValue.serverTimestamp(),
+        lastVerifiedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
+  return tokenHash;
+}
+
 async function acknowledgeIfNeeded(playData, purchaseToken) {
   if (playData?.acknowledgementState !== "ACKNOWLEDGEMENT_STATE_PENDING") return;
   const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(PLAY_PACKAGE_NAME)}/purchases/subscriptions/${encodeURIComponent(PLAY_PREMIUM_PRODUCT_ID)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`;
@@ -264,6 +300,10 @@ async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
   const current = accessSnap.exists ? accessSnap.data() : {};
   const e = playEntitlement(playData);
   const nowIso = new Date().toISOString();
+
+  // A Play token can belong to only one Ripot account, including when Google
+  // omits externalAccountIdentifiers for an older purchase.
+  const purchaseTokenHash = await claimPurchaseToken(uid, purchaseToken);
 
   if (!e.entitled) {
     if (current.entitlementAuthority === "google_play_verified") {
@@ -285,7 +325,7 @@ async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
 
   await acknowledgeIfNeeded(playData, purchaseToken);
   await Promise.all([
-    internalRef.set({ uid, provider:"google_play", productId:PLAY_PREMIUM_PRODUCT_ID, purchaseToken,
+    internalRef.set({ uid, provider:"google_play", productId:PLAY_PREMIUM_PRODUCT_ID, purchaseToken, purchaseTokenHash,
       latestOrderId:e.latestOrderId, basePlanId:e.basePlanId, offerId:e.offerId, lastVerifiedAtIso:nowIso }, { merge:true }),
     accessRef.set({
       ownerType:"user", ownerId:uid, authUid:uid, plan:"premium",
@@ -337,4 +377,3 @@ exports.refreshPlayEntitlement = onCall(async (request) => {
   return { checked:true, entitled:e.entitled, subscriptionState:e.state, basePlanId:e.basePlanId,
     offerId:e.offerId, expiresAtIso:e.expiry?.toISOString() || null };
 });
-

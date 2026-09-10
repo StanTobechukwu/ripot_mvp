@@ -10,16 +10,20 @@ class AccessProvider extends ChangeNotifier {
 
   AccessState? _state;
   bool _loading = false;
+  int _loadGeneration = 0;
 
   bool get loading => _loading;
   AccessState? get state => _state;
   AccessState get safeState =>
-      _state ?? AccessState.initial(installationId: 'local', isEarlyUser: true);
+      _state ?? AccessState.initial(installationId: 'local');
 
   Future<void> load() async {
+    final generation = ++_loadGeneration;
     _loading = true;
     notifyListeners();
-    _state = await repo.load();
+    final next = await repo.load();
+    if (generation != _loadGeneration) return;
+    _state = next;
     _loading = false;
     notifyListeners();
   }
@@ -52,7 +56,25 @@ class AccessProvider extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    _state = await repo.load();
+    final generation = ++_loadGeneration;
+    final next = await repo.load();
+    if (generation != _loadGeneration) return;
+    _state = next;
+    notifyListeners();
+  }
+
+  /// Immediately removes account-owned access while Firebase Auth changes.
+  /// The incoming account is then loaded from its own server/cache state.
+  void resetForAccountChange() {
+    _loadGeneration++;
+    _loading = false;
+    final current = safeState;
+    _state = AccessState.initial(installationId: current.installationId)
+        .copyWith(
+          premiumBillingEnabled: current.premiumBillingEnabled,
+          premiumMessageTitle: current.premiumMessageTitle,
+          premiumMessageBody: current.premiumMessageBody,
+        );
     notifyListeners();
   }
 

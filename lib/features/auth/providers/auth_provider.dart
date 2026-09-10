@@ -12,12 +12,13 @@ class AuthProvider extends ChangeNotifier {
     required AccessProvider accessProvider,
     required TemplatesRepository templatesRepository,
     FirebaseAuth? auth,
-  })  : _accessProvider = accessProvider,
-        _templatesRepository = templatesRepository,
-        _auth = auth ?? (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null) {
+  }) : _accessProvider = accessProvider,
+       _templatesRepository = templatesRepository,
+       _auth =
+           auth ?? (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null) {
     if (_auth != null) {
-      _sub = _auth!.authStateChanges().listen(_onAuthChanged);
-      _currentUser = _auth!.currentUser;
+      _sub = _auth.authStateChanges().listen(_onAuthChanged);
+      _currentUser = _auth.currentUser;
     }
   }
 
@@ -40,12 +41,16 @@ class AuthProvider extends ChangeNotifier {
 
   bool _ensureAuthAvailable() {
     if (_auth != null) return true;
-    _error = 'Account features are unavailable until Firebase is configured for this build.';
+    _error =
+        'Account features are unavailable until Firebase is configured for this build.';
     notifyListeners();
     return false;
   }
 
   Future<void> _onAuthChanged(User? user) async {
+    // Clear the previous account synchronously so it cannot appear as the
+    // incoming account while Firestore and the UID-scoped cache are loading.
+    _accessProvider.resetForAccountChange();
     _currentUser = user;
     _error = null;
     _migrationAttemptedForCurrentUser = false;
@@ -74,7 +79,10 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      await _auth!.signInWithEmailAndPassword(email: email.trim(), password: password);
+      await _auth!.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
       return true;
     } on FirebaseAuthException catch (e) {
       _error = _messageFor(e);
@@ -94,7 +102,10 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      await _auth!.createUserWithEmailAndPassword(email: email.trim(), password: password);
+      await _auth!.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
       return true;
     } on FirebaseAuthException catch (e) {
       _error = _messageFor(e);

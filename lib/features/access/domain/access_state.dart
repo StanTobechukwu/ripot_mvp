@@ -44,7 +44,7 @@ class AccessState {
     this.founderNumber,
     this.founderFirstYearDiscountPercent = 0,
     this.founderEarlyFeatureAccess = false,
-    this.earlyAccessEnabled = true,
+    this.earlyAccessEnabled = false,
     this.earlyAccessDurationDays = defaultEarlyAccessDurationDays,
     this.earlyAccessCutoffAt,
     this.premiumBillingEnabled = false,
@@ -54,7 +54,7 @@ class AccessState {
 
   factory AccessState.initial({
     required String installationId,
-    bool isEarlyUser = true,
+    bool isEarlyUser = false,
   }) {
     final now = DateTime.now();
     return AccessState(
@@ -67,20 +67,17 @@ class AccessState {
   }
 
   int get trialLengthDays {
-    if (!isEarlyUser) return defaultStandardTrialDays;
-    if (!earlyAccessEnabled) return defaultStandardTrialDays;
-    return earlyAccessDurationDays <= 0
-        ? defaultEarlyAccessDurationDays
-        : earlyAccessDurationDays;
+    final startAt = trialStartAt;
+    final endsAt = trialEndsAt;
+    if (startAt != null && endsAt != null && endsAt.isAfter(startAt)) {
+      return endsAt.difference(startAt).inDays;
+    }
+    return defaultStandardTrialDays;
   }
 
-  DateTime? get effectiveTrialEndsAt {
-    final startAt = trialStartAt;
-    if (isEarlyUser && earlyAccessEnabled && startAt != null) {
-      return startAt.add(Duration(days: trialLengthDays));
-    }
-    return trialEndsAt;
-  }
+  /// The backend grants a trial and writes its immutable end timestamp.
+  /// Never recalculate entitlement from client flags or marketing config.
+  DateTime? get effectiveTrialEndsAt => trialEndsAt;
 
   bool get isTrialActive {
     if (plan != RipotPlan.trial) return false;
@@ -92,8 +89,7 @@ class AccessState {
   bool get isPremiumLike => plan == RipotPlan.premium || isTrialActive;
 
   bool get canActivatePremiumTrial {
-    // One trial per account/install identity. Early-access status may change
-    // the LENGTH of an unused trial, but never grants a second trial.
+    // One trial per account. Only the server may grant it and choose its dates.
     if (plan == RipotPlan.premium || isPremiumLike) return false;
     return !hasUsedTrial;
   }
@@ -209,7 +205,7 @@ class AccessState {
       'plan': plan.name,
       'isEarlyUser': isEarlyUser,
       'trialStartAtIso': trialStartAt?.toIso8601String(),
-      'trialEndsAtIso': effectiveTrialEndsAt?.toIso8601String(),
+      'trialEndsAtIso': trialEndsAt?.toIso8601String(),
       'premiumStartedAtIso': premiumStartedAt?.toIso8601String(),
       'hasUsedTrial': hasUsedTrial,
       'founderCohort': founderCohort,
@@ -264,7 +260,7 @@ class AccessState {
           (json['founderEarlyFeatureAccess'] as bool?) ?? false,
       createdAt: createdAt,
       updatedAt: updatedAt,
-      earlyAccessEnabled: (json['earlyAccessEnabled'] as bool?) ?? true,
+      earlyAccessEnabled: (json['earlyAccessEnabled'] as bool?) ?? false,
       earlyAccessDurationDays: _intFromJson(
         json['earlyAccessDurationDays'],
         fallback: defaultEarlyAccessDurationDays,

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -9,10 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/firebase/sync_identity.dart';
 import '../../../core/utils/ids.dart';
 import '../domain/access_state.dart';
+import 'account_access_cache.dart';
 
 class AccessRepository {
   static const _installationIdKey = 'access.installationId';
-  static const _stateKey = 'access.state';
 
   Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
 
@@ -27,43 +25,73 @@ class AccessRepository {
 
   Future<AccessState> load() async {
     final prefs = await _prefs;
+    final installationId = await getOrCreateInstallationId();
     final config = await _loadRemoteConfigSafely();
-    final raw = prefs.getString(_stateKey);
-    if (raw != null && raw.trim().isNotEmpty) {
-      try {
-        final state = AccessState.fromJson(
-          jsonDecode(raw) as Map<String, dynamic>,
-        );
-        final configured = _normalizeState(_applyConfig(state, config));
-        final normalized = _normalizeState(
-          await _applyRemoteEntitlementSafely(configured),
-        );
-        if (jsonEncode(normalized.toJson()) != jsonEncode(state.toJson())) {
-          await save(normalized);
-        }
-        return normalized;
-      } catch (_) {}
+    final authUid = _currentAuthUid();
+
+    // Premium and trial access are account-owned. A signed-out installation
+    // must never inherit the last signed-in account's cached entitlement.
+    if (authUid == null) {
+      return _normalizeState(
+        _withoutAccountEntitlement(
+          _applyConfig(
+            AccessState.initial(installationId: installationId),
+            config,
+          ),
+        ),
+      );
     }
 
-    final installationId = await getOrCreateInstallationId();
+    final cached = _loadAccountCache(prefs, authUid);
     final configured = _normalizeState(
       _applyConfig(
-        AccessState.initial(installationId: installationId, isEarlyUser: true),
+        cached ?? AccessState.initial(installationId: installationId),
         config,
       ),
     );
     final state = _normalizeState(
-      await _applyRemoteEntitlementSafely(configured),
+      await _applyRemoteEntitlementSafely(configured, authUid: authUid),
     );
-    await save(state);
+    await _saveAccountCache(prefs, authUid, state);
+    await _syncToFirestore(state);
     return state;
   }
 
   Future<void> save(AccessState state) async {
-    final prefs = await _prefs;
     final normalized = _normalizeState(state);
-    await prefs.setString(_stateKey, jsonEncode(normalized.toJson()));
+    final authUid = _currentAuthUid();
+    if (authUid == null) return;
+
+    final prefs = await _prefs;
+    await _saveAccountCache(prefs, authUid, normalized);
     await _syncToFirestore(normalized);
+  }
+
+  AccessState? _loadAccountCache(SharedPreferences prefs, String authUid) {
+    final raw = prefs.getString(AccountAccessCache.keyForUid(authUid));
+    if (raw == null || raw.trim().isEmpty) return null;
+    return AccountAccessCache.decodeForUid(raw, authUid: authUid);
+  }
+
+  Future<void> _saveAccountCache(
+    SharedPreferences prefs,
+    String authUid,
+    AccessState state,
+  ) async {
+    await prefs.setString(
+      AccountAccessCache.keyForUid(authUid),
+      AccountAccessCache.encode(authUid: authUid, state: state),
+    );
+  }
+
+  String? _currentAuthUid() {
+    if (Firebase.apps.isEmpty) return null;
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid.trim();
+      return uid == null || uid.isEmpty ? null : uid;
+    } catch (_) {
+      return null;
+    }
   }
 
   AccessState _normalizeState(AccessState state) {
@@ -74,18 +102,32 @@ class AccessRepository {
   }
 
   AccessState _applyConfig(AccessState state, _AccessRemoteConfig config) {
-    final cutoff = config.earlyAccessCutoffAt;
-    final qualifiesByDate =
-        cutoff == null || !state.createdAt.toLocal().isAfter(cutoff.toLocal());
-    final isEarlyUser = config.earlyAccessEnabled && qualifiesByDate;
     return state.copyWith(
-      isEarlyUser: isEarlyUser,
+      // Legacy early-access settings may still control marketing, but they
+      // must never calculate or extend account entitlement on the client.
+      isEarlyUser: false,
       earlyAccessEnabled: config.earlyAccessEnabled,
       earlyAccessDurationDays: config.earlyAccessDurationDays,
-      earlyAccessCutoffAt: cutoff,
+      earlyAccessCutoffAt: config.earlyAccessCutoffAt,
       premiumBillingEnabled: config.premiumBillingEnabled,
       premiumMessageTitle: config.premiumMessageTitle,
       premiumMessageBody: config.premiumMessageBody,
+      updatedAt: state.updatedAt,
+    );
+  }
+
+  AccessState _withoutAccountEntitlement(AccessState state) {
+    return state.copyWith(
+      plan: RipotPlan.free,
+      isEarlyUser: false,
+      trialStartAt: null,
+      trialEndsAt: null,
+      premiumStartedAt: null,
+      hasUsedTrial: false,
+      founderCohort: null,
+      founderNumber: null,
+      founderFirstYearDiscountPercent: 0,
+      founderEarlyFeatureAccess: false,
       updatedAt: state.updatedAt,
     );
   }
@@ -130,7 +172,9 @@ class AccessRepository {
         remoteHasUsedTrial == true ||
         remoteFounderCohort != null ||
         remoteFounderNumber != null;
-    if (!hasMeaningfulRemoteState) return state;
+    if (!hasMeaningfulRemoteState) {
+      return _withoutAccountEntitlement(state);
+    }
 
     return state.copyWith(
       plan: remotePlan ?? state.plan,
@@ -146,17 +190,17 @@ class AccessRepository {
     );
   }
 
-  Future<AccessState> _applyRemoteEntitlementSafely(AccessState state) async {
+  Future<AccessState> _applyRemoteEntitlementSafely(
+    AccessState state, {
+    required String authUid,
+  }) async {
     if (Firebase.apps.isEmpty) return state;
 
-    // Premium/trial entitlement is account-owned. Signed-out local state may
-    // remain cached for continuity, but it is not authoritative access.
-    if (FirebaseAuth.instance.currentUser == null) {
-      return state.copyWith(plan: RipotPlan.free, updatedAt: state.updatedAt);
+    if (_currentAuthUid() != authUid) {
+      return _withoutAccountEntitlement(state);
     }
 
     try {
-      final identity = await SyncIdentityResolver().resolve();
       try {
         final callable = FirebaseFunctions.instance.httpsCallable(
           'refreshPlayEntitlement',
@@ -166,26 +210,15 @@ class AccessRepository {
 
       final snap = await FirebaseFirestore.instance
           .collection('ripot_user_access')
-          .doc(identity.documentKey)
+          .doc(authUid)
           .get();
+      if (_currentAuthUid() != authUid) {
+        return _withoutAccountEntitlement(state);
+      }
       final data = snap.data();
-      if (data == null) return state;
+      if (data == null) return _withoutAccountEntitlement(state);
 
       var next = _applyPersistedRemoteAccessState(state, data);
-      final forceEarlyAccess = data['adminEarlyAccessEligible'];
-      if (forceEarlyAccess is bool) {
-        next = next.copyWith(isEarlyUser: forceEarlyAccess);
-      }
-
-      final duration = data['adminEarlyAccessDurationDays'];
-      if (duration != null) {
-        next = next.copyWith(
-          earlyAccessDurationDays: _intFromJson(
-            duration,
-            fallback: next.earlyAccessDurationDays,
-          ),
-        );
-      }
 
       final adminTrialEndsAt = _dateFromJson(
         data['adminTrialEndsAtIso'] ?? data['adminTrialEndsAt'],
@@ -342,7 +375,7 @@ class _AccessRemoteConfig {
   });
 
   const _AccessRemoteConfig.defaults()
-    : earlyAccessEnabled = true,
+    : earlyAccessEnabled = false,
       earlyAccessDurationDays = AccessState.defaultEarlyAccessDurationDays,
       earlyAccessCutoffAt = null,
       premiumBillingEnabled = false,
@@ -351,7 +384,7 @@ class _AccessRemoteConfig {
 
   factory _AccessRemoteConfig.fromJson(Map<String, dynamic> json) {
     return _AccessRemoteConfig(
-      earlyAccessEnabled: (json['earlyAccessEnabled'] as bool?) ?? true,
+      earlyAccessEnabled: (json['earlyAccessEnabled'] as bool?) ?? false,
       earlyAccessDurationDays: _intFromJson(
         json['earlyAccessDurationDays'],
         fallback: AccessState.defaultEarlyAccessDurationDays,

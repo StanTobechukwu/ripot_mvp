@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
+import '../../access/domain/access_state.dart';
 import '../../access/providers/access_provider.dart';
 
 class BillingProvider extends ChangeNotifier {
@@ -22,6 +22,8 @@ class BillingProvider extends ChangeNotifier {
   bool _loading = false;
   bool _available = false;
   bool _purchasePending = false;
+  bool _restoreInProgress = false;
+  bool _restorePurchaseSeen = false;
   bool _founderDiscountEligible = false;
   String? _message;
   String? _error;
@@ -35,6 +37,7 @@ class BillingProvider extends ChangeNotifier {
       _onPurchaseUpdates,
       onError: (Object error) {
         _purchasePending = false;
+        _restoreInProgress = false;
         _error = 'Google Play purchase update failed.';
         notifyListeners();
       },
@@ -47,6 +50,7 @@ class BillingProvider extends ChangeNotifier {
   bool get loading => _loading;
   bool get available => _available;
   bool get purchasePending => _purchasePending;
+  bool get restoring => _restoreInProgress;
   bool get founderDiscountEligible => _founderDiscountEligible;
   String? get message => _message;
   String? get error => _error;
@@ -57,6 +61,12 @@ class BillingProvider extends ChangeNotifier {
   String get annualPrice => _annual?.price ?? '';
   String get founderAnnualPrice => _founderAnnual?.price ?? '';
   bool get canPurchase =>
+      _available &&
+      !_loading &&
+      !_purchasePending &&
+      FirebaseAuth.instance.currentUser != null &&
+      !_accessProvider.safeState.isTrialActive;
+  bool get canRestore =>
       _available &&
       !_loading &&
       !_purchasePending &&
@@ -126,8 +136,12 @@ class BillingProvider extends ChangeNotifier {
   dynamic _offerFor(GooglePlayProductDetails product) {
     final index = product.subscriptionIndex;
     final offers = product.productDetails.subscriptionOfferDetails;
-    if (index == null || offers == null || index < 0 || index >= offers.length)
+    if (index == null ||
+        offers == null ||
+        index < 0 ||
+        index >= offers.length) {
       return null;
+    }
     return offers[index];
   }
 
@@ -157,6 +171,12 @@ class BillingProvider extends ChangeNotifier {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _error = 'Sign in to your Ripot account before purchasing Premium.';
+      notifyListeners();
+      return false;
+    }
+    if (_accessProvider.safeState.isTrialActive) {
+      _error =
+          'Your free Premium trial is active. You can subscribe after it ends.';
       notifyListeners();
       return false;
     }
@@ -198,15 +218,32 @@ class BillingProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (!canRestore) return;
     _purchasePending = true;
-    _message = 'Checking Google Play purchases…';
+    _restoreInProgress = true;
+    _restorePurchaseSeen = false;
+    _message = 'Restoring purchases…';
     _error = null;
     notifyListeners();
     try {
-      await _iap.restorePurchases(applicationUserName: user.uid);
+      await _iap
+          .restorePurchases(applicationUserName: user.uid)
+          .timeout(const Duration(seconds: 20));
+
+      // Restored purchases arrive on purchaseStream. Give that stream a brief
+      // chance to take ownership of completion; if it reports nothing, ask the
+      // server whether this account already has a verified Play subscription.
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      if (!_restoreInProgress || _restorePurchaseSeen) return;
       await _refreshServerEntitlement();
+    } on TimeoutException {
+      _purchasePending = false;
+      _restoreInProgress = false;
+      _error = 'Google Play took too long to restore purchases. Please retry.';
+      notifyListeners();
     } catch (_) {
       _purchasePending = false;
+      _restoreInProgress = false;
       _error = 'Unable to restore Google Play purchases right now.';
       notifyListeners();
     }
@@ -215,6 +252,11 @@ class BillingProvider extends ChangeNotifier {
   Future<void> _onPurchaseUpdates(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
       if (purchase.productID != premiumProductId) continue;
+      if (_restoreInProgress &&
+          (purchase.status == PurchaseStatus.purchased ||
+              purchase.status == PurchaseStatus.restored)) {
+        _restorePurchaseSeen = true;
+      }
       if (purchase.status == PurchaseStatus.pending) {
         _purchasePending = true;
         _message = 'Google Play is processing your purchase…';
@@ -223,41 +265,64 @@ class BillingProvider extends ChangeNotifier {
       }
       if (purchase.status == PurchaseStatus.error) {
         _purchasePending = false;
+        _restoreInProgress = false;
         _error = purchase.error?.message ?? 'The Google Play purchase failed.';
         notifyListeners();
         continue;
       }
       if (purchase.status == PurchaseStatus.canceled) {
         _purchasePending = false;
+        _restoreInProgress = false;
         _message = 'Purchase cancelled.';
         notifyListeners();
         continue;
       }
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        final verified = await _verifyWithServer(purchase);
-        if (verified) {
-          if (purchase.pendingCompletePurchase)
-            await _iap.completePurchase(purchase);
-          await _accessProvider.refresh();
-          await _refreshEligibility();
+        try {
+          final entitlement = await _verifyWithServer(
+            purchase,
+          ).timeout(const Duration(seconds: 30), onTimeout: () => null);
+          if (entitlement != true) {
+            if (purchase.status == PurchaseStatus.restored &&
+                entitlement == false) {
+              await _refreshServerEntitlement();
+              continue;
+            }
+            _purchasePending = false;
+            _restoreInProgress = false;
+            _error = 'Google Play purchase verification was not completed.';
+            notifyListeners();
+            continue;
+          }
+          if (purchase.pendingCompletePurchase) {
+            await _iap
+                .completePurchase(purchase)
+                .timeout(const Duration(seconds: 20));
+          }
+          await _accessProvider.refresh().timeout(const Duration(seconds: 30));
+          await _refreshEligibility().timeout(const Duration(seconds: 20));
           _purchasePending = false;
+          _restoreInProgress = false;
           _message = 'Ripot Premium is active.';
           _error = null;
           notifyListeners();
-        } else {
+        } catch (_) {
           _purchasePending = false;
-          _error = 'Google Play purchase verification was not completed.';
+          _restoreInProgress = false;
+          _error = 'Premium verification could not be completed. Please retry.';
           notifyListeners();
         }
       }
     }
   }
 
-  Future<bool> _verifyWithServer(PurchaseDetails purchase) async {
-    if (FirebaseAuth.instance.currentUser == null) return false;
+  /// Returns true/false for a completed server check, and null when the check
+  /// itself could not be completed.
+  Future<bool?> _verifyWithServer(PurchaseDetails purchase) async {
+    if (FirebaseAuth.instance.currentUser == null) return null;
     final token = purchase.verificationData.serverVerificationData.trim();
-    if (token.isEmpty) return false;
+    if (token.isEmpty) return null;
     try {
       final result = await FirebaseFunctions.instance
           .httpsCallable('verifyGooglePlaySubscription')
@@ -269,7 +334,7 @@ class BillingProvider extends ChangeNotifier {
       final data = Map<String, dynamic>.from(result.data as Map);
       return data['entitled'] == true;
     } catch (_) {
-      return false;
+      return null;
     }
   }
 
@@ -281,12 +346,17 @@ class BillingProvider extends ChangeNotifier {
       await _accessProvider.refresh();
       await _refreshEligibility();
       _purchasePending = false;
-      _message = _accessProvider.safeState.isPremiumLike
+      _restoreInProgress = false;
+      _error = null;
+      _message = _accessProvider.safeState.plan == RipotPlan.premium
           ? 'Ripot Premium is active.'
+          : _accessProvider.safeState.isTrialActive
+          ? 'No active Google Play subscription was found. Your free trial is unchanged.'
           : 'No active Google Play Premium subscription was found.';
       notifyListeners();
     } catch (_) {
       _purchasePending = false;
+      _restoreInProgress = false;
       _error = 'Unable to refresh Premium status right now.';
       notifyListeners();
     }
