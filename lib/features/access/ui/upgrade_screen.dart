@@ -88,7 +88,7 @@ class UpgradeScreen extends StatelessWidget {
                         child: Text(
                           access.isPremiumLike
                               ? access.badgeLabel
-                              : 'Upgrade when Ripot starts doing more for you',
+                              : 'Get more from Ripot Premium',
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -98,6 +98,16 @@ class UpgradeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   _AccessStatusText(access: access),
+                  if (access.isFounding100) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Founding 100 • Founder #${access.founderNumber} • '
+                      '${access.founderFirstYearDiscountPercent}% off your first paid year',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                   if (messageTitle != null || messageBody != null) ...[
                     const SizedBox(height: 12),
                     Container(
@@ -163,7 +173,7 @@ class UpgradeScreen extends StatelessWidget {
                 title: Text(
                   access.plan == RipotPlan.premium
                       ? 'Premium active'
-                      : 'Premium Trial active',
+                      : 'Premium trial active',
                 ),
                 subtitle: access.plan == RipotPlan.premium
                     ? const Text('Your Premium features are active.')
@@ -174,7 +184,7 @@ class UpgradeScreen extends StatelessWidget {
                       ),
               ),
             )
-          else if (access.hadTrialButExpired)
+          else if (access.hadTrialButExpired && auth.isSignedIn)
             Card(
               child: ListTile(
                 leading: const Icon(Icons.lock_clock_outlined),
@@ -239,11 +249,19 @@ class _AccessStatusText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (access.plan == RipotPlan.premium)
+    final auth = context.watch<AuthProvider>();
+
+    if (!auth.isSignedIn) {
+      return const Text(
+        'Sign in to view your Premium status. Premium trials and subscriptions are linked to your Ripot account.',
+      );
+    }
+    if (access.plan == RipotPlan.premium) {
       return const Text('Premium features are active.');
+    }
     if (access.isTrialActive) {
       return Text(
-        'Premium Trial • ${access.daysRemaining} days remaining'
+        'Premium trial • ${access.daysRemaining} days remaining'
         '${access.trialEndDateLabel.isEmpty ? '' : ' • Ends ${access.trialEndDateLabel}'}',
       );
     }
@@ -252,8 +270,9 @@ class _AccessStatusText extends StatelessWidget {
         'Try all Premium features free for ${access.trialLengthDays} days when you are ready.',
       );
     }
-    if (access.hadTrialButExpired)
-      return const Text('This account has already used its Premium Trial.');
+    if (access.hadTrialButExpired) {
+      return const Text('This account has already used its Premium trial.');
+    }
     return const Text('Free plan');
   }
 }

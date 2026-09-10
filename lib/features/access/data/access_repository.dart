@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/firebase/sync_identity.dart';
@@ -110,13 +112,24 @@ class AccessRepository {
     final remoteUpdatedAt = _dateFromJson(
       data['updatedAtIso'] ?? data['lastSyncedAtIso'],
     );
+    final remoteFounderCohort = _stringOrNull(data['founderCohort']);
+    final remoteFounderNumber = _nullableIntFromJson(data['founderNumber']);
+    final remoteFounderDiscount = _intFromJson(
+      data['founderFirstYearDiscountPercent'],
+      fallback: state.founderFirstYearDiscountPercent,
+    );
+    final remoteFounderEarlyAccess = data['founderEarlyFeatureAccess'] is bool
+        ? data['founderEarlyFeatureAccess'] as bool
+        : state.founderEarlyFeatureAccess;
 
     final hasMeaningfulRemoteState =
         remotePlan != null ||
         remoteTrialStart != null ||
         remoteTrialEnd != null ||
         remotePremiumStart != null ||
-        remoteHasUsedTrial == true;
+        remoteHasUsedTrial == true ||
+        remoteFounderCohort != null ||
+        remoteFounderNumber != null;
     if (!hasMeaningfulRemoteState) return state;
 
     return state.copyWith(
@@ -125,12 +138,23 @@ class AccessRepository {
       trialEndsAt: remoteTrialEnd ?? state.trialEndsAt,
       premiumStartedAt: remotePremiumStart ?? state.premiumStartedAt,
       hasUsedTrial: remoteHasUsedTrial ?? state.hasUsedTrial,
+      founderCohort: remoteFounderCohort ?? state.founderCohort,
+      founderNumber: remoteFounderNumber ?? state.founderNumber,
+      founderFirstYearDiscountPercent: remoteFounderDiscount,
+      founderEarlyFeatureAccess: remoteFounderEarlyAccess,
       updatedAt: remoteUpdatedAt ?? state.updatedAt,
     );
   }
 
   Future<AccessState> _applyRemoteEntitlementSafely(AccessState state) async {
     if (Firebase.apps.isEmpty) return state;
+
+    // Premium/trial entitlement is account-owned. Signed-out local state may
+    // remain cached for continuity, but it is not authoritative access.
+    if (FirebaseAuth.instance.currentUser == null) {
+      return state.copyWith(plan: RipotPlan.free, updatedAt: state.updatedAt);
+    }
+
     try {
       final identity = await SyncIdentityResolver().resolve();
       final snap = await FirebaseFirestore.instance
@@ -216,16 +240,53 @@ class AccessRepository {
     if (Firebase.apps.isEmpty) return;
     try {
       final identity = await SyncIdentityResolver().resolve();
+
+      // Entitlement is server-authoritative. Flutter may sync only harmless
+      // account/device metadata, and only for a signed-in account.
+      if (!identity.isSignedInUser || identity.authUid == null) return;
+
       final db = FirebaseFirestore.instance;
-      await db.collection('ripot_user_access').doc(identity.documentKey).set({
-        ...state.toJson(),
-        'ownerType': identity.ownerType,
-        'ownerId': identity.ownerId,
+      await db.collection('ripot_user_access').doc(identity.authUid).set({
+        'ownerType': 'user',
+        'ownerId': identity.authUid,
         'authUid': identity.authUid,
-        'lastSyncedAtIso': DateTime.now().toIso8601String(),
+        'installationId': identity.installationId,
+        'lastSeenInstallationId': identity.installationId,
+        'lastClientSeenAtIso': DateTime.now().toIso8601String(),
       }, SetOptions(merge: true));
     } catch (_) {
       // Stability first: never fail local save because cloud sync is unavailable.
+    }
+  }
+
+  Future<bool> activatePremiumTrialForSignedInAccount() async {
+    if (Firebase.apps.isEmpty) return false;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'activatePremiumTrial',
+      );
+      await callable.call(<String, dynamic>{});
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> syncFounderEntitlementForSignedInAccount() async {
+    if (Firebase.apps.isEmpty) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'syncFounderEntitlement',
+      );
+      await callable.call(<String, dynamic>{});
+    } catch (_) {
+      // Non-blocking: normal access refresh still runs.
     }
   }
 
@@ -235,40 +296,23 @@ class AccessRepository {
       final identity = await SyncIdentityResolver().resolve();
       if (!identity.isSignedInUser || identity.authUid == null) return;
 
-      final localDoc = FirebaseFirestore.instance
+      // Never copy installation-level trial/Premium fields into an account.
+      // Installation identity is not proof of entitlement ownership.
+      //
+      // Existing account entitlement remains untouched. New trial entitlement
+      // is granted only by the server-authoritative Cloud Function.
+      await FirebaseFirestore.instance
           .collection('ripot_user_access')
-          .doc(identity.installationId);
-      final localSnap = await localDoc.get();
-      if (!localSnap.exists) return;
-
-      final localData = localSnap.data() ?? <String, dynamic>{};
-      final userDoc = FirebaseFirestore.instance
-          .collection('ripot_user_access')
-          .doc(identity.authUid);
-      final userSnap = await userDoc.get();
-      if (userSnap.exists) {
-        // Do not overwrite an existing account entitlement with a fresh local
-        // install state. This is what could restart the trial clock after reinstall.
-        await userDoc.set({
-          'ownerType': 'user',
-          'ownerId': identity.authUid,
-          'authUid': identity.authUid,
-          'installationId': identity.installationId,
-          'lastSeenInstallationId': identity.installationId,
-          'lastMigrationCheckAtIso': DateTime.now().toIso8601String(),
-        }, SetOptions(merge: true));
-        return;
-      }
-
-      await userDoc.set({
-        ...localData,
-        'ownerType': 'user',
-        'ownerId': identity.authUid,
-        'authUid': identity.authUid,
-        'installationId': identity.installationId,
-        'migratedFromInstallationId': identity.installationId,
-        'migratedAtIso': DateTime.now().toIso8601String(),
-      }, SetOptions(merge: true));
+          .doc(identity.authUid)
+          .set({
+            'ownerType': 'user',
+            'ownerId': identity.authUid,
+            'authUid': identity.authUid,
+            'installationId': identity.installationId,
+            'lastSeenInstallationId': identity.installationId,
+            'legacyInstallationIdObserved': identity.installationId,
+            'lastMigrationCheckAtIso': DateTime.now().toIso8601String(),
+          }, SetOptions(merge: true));
     } catch (_) {}
   }
 }
@@ -323,6 +367,13 @@ RipotPlan? _planFromJson(Object? value) {
   for (final plan in RipotPlan.values) {
     if (plan.name == raw) return plan;
   }
+  return null;
+}
+
+int? _nullableIntFromJson(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.round();
+  if (value is String) return int.tryParse(value);
   return null;
 }
 

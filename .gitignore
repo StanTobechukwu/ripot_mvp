@@ -44,3 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 android/app/google-services.json
+# Local development / patch artifacts
+.firebase/
+local_backups/
+apply_ripot_*.py
+try_ripot_*.py
+
+# Firebase Functions dependencies
+functions/node_modules/

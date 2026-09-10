@@ -14,6 +14,10 @@ class AccessState {
   final DateTime? trialEndsAt;
   final DateTime? premiumStartedAt;
   final bool hasUsedTrial;
+  final String? founderCohort;
+  final int? founderNumber;
+  final int founderFirstYearDiscountPercent;
+  final bool founderEarlyFeatureAccess;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -36,6 +40,10 @@ class AccessState {
     this.trialEndsAt,
     this.premiumStartedAt,
     this.hasUsedTrial = false,
+    this.founderCohort,
+    this.founderNumber,
+    this.founderFirstYearDiscountPercent = 0,
+    this.founderEarlyFeatureAccess = false,
     this.earlyAccessEnabled = true,
     this.earlyAccessDurationDays = defaultEarlyAccessDurationDays,
     this.earlyAccessCutoffAt,
@@ -93,6 +101,9 @@ class AccessState {
   bool get hadTrialButExpired =>
       hasUsedTrial && !isPremiumLike && plan != RipotPlan.premium;
 
+  bool get isFounding100 =>
+      founderCohort == 'founding_100' && founderNumber != null;
+
   int get daysRemaining {
     final endsAt = effectiveTrialEndsAt;
     if (!isPremiumLike || endsAt == null) return 0;
@@ -136,6 +147,10 @@ class AccessState {
     Object? trialEndsAt = _unset,
     Object? premiumStartedAt = _unset,
     bool? hasUsedTrial,
+    Object? founderCohort = _unset,
+    Object? founderNumber = _unset,
+    int? founderFirstYearDiscountPercent,
+    bool? founderEarlyFeatureAccess,
     DateTime? updatedAt,
     bool? earlyAccessEnabled,
     int? earlyAccessDurationDays,
@@ -158,6 +173,17 @@ class AccessState {
           ? this.premiumStartedAt
           : premiumStartedAt as DateTime?,
       hasUsedTrial: hasUsedTrial ?? this.hasUsedTrial,
+      founderCohort: identical(founderCohort, _unset)
+          ? this.founderCohort
+          : founderCohort as String?,
+      founderNumber: identical(founderNumber, _unset)
+          ? this.founderNumber
+          : founderNumber as int?,
+      founderFirstYearDiscountPercent:
+          founderFirstYearDiscountPercent ??
+          this.founderFirstYearDiscountPercent,
+      founderEarlyFeatureAccess:
+          founderEarlyFeatureAccess ?? this.founderEarlyFeatureAccess,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       earlyAccessEnabled: earlyAccessEnabled ?? this.earlyAccessEnabled,
@@ -186,6 +212,10 @@ class AccessState {
       'trialEndsAtIso': effectiveTrialEndsAt?.toIso8601String(),
       'premiumStartedAtIso': premiumStartedAt?.toIso8601String(),
       'hasUsedTrial': hasUsedTrial,
+      'founderCohort': founderCohort,
+      'founderNumber': founderNumber,
+      'founderFirstYearDiscountPercent': founderFirstYearDiscountPercent,
+      'founderEarlyFeatureAccess': founderEarlyFeatureAccess,
       'createdAtIso': createdAt.toIso8601String(),
       'updatedAtIso': updatedAt.toIso8601String(),
       'earlyAccessEnabled': earlyAccessEnabled,
@@ -224,6 +254,14 @@ class AccessState {
         (json['premiumStartedAtIso'] as String?) ?? '',
       ),
       hasUsedTrial: (json['hasUsedTrial'] as bool?) ?? false,
+      founderCohort: json['founderCohort'] as String?,
+      founderNumber: _nullableIntFromJson(json['founderNumber']),
+      founderFirstYearDiscountPercent: _intFromJson(
+        json['founderFirstYearDiscountPercent'],
+        fallback: 0,
+      ),
+      founderEarlyFeatureAccess:
+          (json['founderEarlyFeatureAccess'] as bool?) ?? false,
       createdAt: createdAt,
       updatedAt: updatedAt,
       earlyAccessEnabled: (json['earlyAccessEnabled'] as bool?) ?? true,
@@ -239,6 +277,13 @@ class AccessState {
       premiumMessageBody: json['premiumMessageBody'] as String?,
     );
   }
+}
+
+int? _nullableIntFromJson(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.round();
+  if (value is String) return int.tryParse(value);
+  return null;
 }
 
 int _intFromJson(Object? value, {required int fallback}) {

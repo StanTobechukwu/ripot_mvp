@@ -28,26 +28,13 @@ class AccessProvider extends ChangeNotifier {
     final current = safeState;
     if (!current.canActivatePremiumTrial) return false;
 
-    final now = DateTime.now();
+    // Trial creation is server-authoritative. The backend atomically decides
+    // Founding 100 vs standard trial and writes fixed start/end dates.
+    final activated = await repo.activatePremiumTrialForSignedInAccount();
+    if (!activated) return false;
 
-    // Trial dates are created once. They must never be refreshed by an app
-    // update, reinstall, logout/login, or later configuration change.
-    final startAt = current.trialStartAt ?? now;
-    final endsAt =
-        current.trialEndsAt ??
-        startAt.add(Duration(days: current.trialLengthDays));
-
-    final next = current.copyWith(
-      plan: RipotPlan.trial,
-      trialStartAt: startAt,
-      trialEndsAt: endsAt,
-      hasUsedTrial: true,
-      updatedAt: now,
-    );
-    _state = next;
-    notifyListeners();
-    await repo.save(next);
-    return true;
+    await refresh();
+    return safeState.isTrialActive;
   }
 
   Future<bool> startTrial() => activatePremiumTrial();
@@ -71,6 +58,7 @@ class AccessProvider extends ChangeNotifier {
 
   Future<void> migrateCloudIdentityToSignedInUser() async {
     await repo.migrateCloudIdentityToSignedInUser();
+    await repo.syncFounderEntitlementForSignedInAccount();
     await refresh();
   }
 }

@@ -362,7 +362,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                   ),
                   label: Text(
                     access.isTrialActive
-                        ? 'Premium Trial • ${access.daysRemaining} days left'
+                        ? 'Premium trial • ${access.daysRemaining} days remaining'
                         : access.badgeLabel == 'Premium'
                         ? 'Premium'
                         : 'Free plan • See Premium',
@@ -371,7 +371,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           Expanded(
             child: Builder(
               builder: (_) {
@@ -382,7 +382,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
                   itemCount: listVm.reports.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) {

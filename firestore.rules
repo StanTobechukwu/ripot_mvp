@@ -1,0 +1,96 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsUserDocument(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Product/access configuration may be read by the app.
+    // Only trusted backend/admin tooling may modify it.
+    match /ripot_app_config/{documentId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Account entitlement:
+    // - user may read only their own UID document
+    // - Flutter may write only harmless metadata
+    // - Premium/trial/Founder/billing fields are backend-only
+    match /ripot_user_access/{uid} {
+      allow get: if ownsUserDocument(uid);
+      allow list: if false;
+
+      allow create: if ownsUserDocument(uid)
+        && request.resource.data.keys().hasOnly([
+          'ownerType',
+          'ownerId',
+          'authUid',
+          'installationId',
+          'lastSeenInstallationId',
+          'lastClientSeenAtIso',
+          'legacyInstallationIdObserved',
+          'lastMigrationCheckAtIso'
+        ])
+        && request.resource.data.ownerType == 'user'
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.authUid == request.auth.uid;
+
+      allow update: if ownsUserDocument(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'ownerType',
+          'ownerId',
+          'authUid',
+          'installationId',
+          'lastSeenInstallationId',
+          'lastClientSeenAtIso',
+          'legacyInstallationIdObserved',
+          'lastMigrationCheckAtIso'
+        ])
+        && request.resource.data.ownerType == 'user'
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.authUid == request.auth.uid;
+
+      allow delete: if false;
+    }
+
+    // Founder counter and future internal monetization state are never exposed
+    // to client SDKs. Cloud Functions Admin SDK bypasses these client rules.
+    match /ripot_internal/{documentId} {
+      allow read, write: if false;
+    }
+
+    // Structure-only cloud templates are account-owned.
+    match /ripot_template_structures/{templateDocumentId} {
+      allow read: if signedIn()
+        && resource.data.ownerType == 'user'
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if signedIn()
+        && request.resource.data.ownerType == 'user'
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.authUid == request.auth.uid;
+
+      allow update: if signedIn()
+        && resource.data.ownerType == 'user'
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerType == 'user'
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.authUid == request.auth.uid;
+
+      allow delete: if signedIn()
+        && resource.data.ownerType == 'user'
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Deny every collection not explicitly designed above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
