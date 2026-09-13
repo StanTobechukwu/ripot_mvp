@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'template_actions.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -252,6 +253,7 @@ class _TemplateEditorBody extends StatelessWidget {
   }
 
   Future<void> _duplicateTemplate(BuildContext context) async {
+    if (!await canAddTemplate(context) || !context.mounted) return;
     final repo = context.read<TemplatesRepository>();
     final vm = context.read<TemplateEditorProvider>();
     final name = await _promptText(
@@ -271,6 +273,7 @@ class _TemplateEditorBody extends StatelessWidget {
       updatedAt: DateTime.now(),
       name: name,
       roots: source.roots,
+      groupName: source.groupName,
       subjectInfo: source.subjectInfo,
       signature: source.signature,
     );
@@ -630,6 +633,7 @@ class _TemplateEditorBody extends StatelessWidget {
             unit: res.unit,
             showInPdf: res.showInPdf,
             addToRecords: res.addToRecords,
+            addToLog: res.addToLog,
             allowOptionalNote: res.allowOptionalNote,
             conditionalParentSectionId: res.conditionalParentSectionId,
             conditionalEquals: res.conditionalEquals,
@@ -811,6 +815,7 @@ class _SectionEditResult {
   final String? unit;
   final bool? showInPdf;
   final bool? addToRecords;
+  final bool? addToLog;
   final bool? allowOptionalNote;
   final String? conditionalParentSectionId;
   final String? conditionalEquals;
@@ -822,6 +827,7 @@ class _SectionEditResult {
     this.unit,
     this.showInPdf,
     this.addToRecords,
+    this.addToLog,
     this.allowOptionalNote,
     this.conditionalParentSectionId,
     this.conditionalEquals,
@@ -850,6 +856,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
   late final TextEditingController _unit;
   late bool _showInPdf;
   late bool _addToRecords;
+  late bool _addToLog;
   late bool _allowOptionalNote;
   late bool _useCondition;
   late String _conditionParentId;
@@ -866,6 +873,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _options = TextEditingController(text: widget.section.options.join('\n'));
     _unit = TextEditingController(text: widget.section.unit);
     _showInPdf = widget.section.showInPdf;
+    _addToLog = widget.section.addToLog;
     _addToRecords = widget.section.inputType == FieldInputType.freeText
         ? false
         : widget.section.addToRecords;
@@ -1139,6 +1147,16 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                   ),
                 ],
                 const Divider(height: 24),
+                CheckboxListTile(
+                  value: _addToLog,
+                  onChanged: (v) => setState(() => _addToLog = v ?? false),
+                  title: const Text('Include when adding to Logbook'),
+                  subtitle: const Text(
+                    'Prefill this field for review. Separate from Records and PDF settings.',
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
                 SwitchListTile(
                   value: _useCondition,
                   onChanged: widget.possibleParents.isEmpty
@@ -1218,6 +1236,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                           showInPdf: _inputType == FieldInputType.freeText
                               ? true
                               : _showInPdf,
+                          addToLog: _addToLog,
                           addToRecords: _inputType == FieldInputType.freeText
                               ? false
                               : _addToRecords,

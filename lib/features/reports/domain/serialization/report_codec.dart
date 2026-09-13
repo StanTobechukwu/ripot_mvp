@@ -9,63 +9,62 @@ class ReportCodec {
   // =========================
 
   static Map<String, dynamic> reportToJson(ReportDoc doc) => {
-        'reportId': doc.reportId,
-        'createdAtIso': doc.createdAtIso,
-        'updatedAtIso': doc.updatedAtIso,
+    'reportId': doc.reportId,
+    'createdAtIso': doc.createdAtIso,
+    'updatedAtIso': doc.updatedAtIso,
 
-        // ✅ NEW: report title
-        'reportTitle': doc.reportTitle,
-        'reportDateIso': doc.reportDateIso,
+    // ✅ NEW: report title
+    'reportTitle': doc.reportTitle,
+    'reportDateIso': doc.reportDateIso,
 
-        // ✅ letterhead
-        'letterheadMode': doc.letterheadMode.name,
-        'applyLetterhead': doc.applyLetterhead,
-        'letterheadId': doc.letterheadId,
-        'prePrintedTopSpacing': doc.prePrintedTopSpacing.name,
-        'reservePrePrintedFooter': doc.reservePrePrintedFooter,
+    // ✅ letterhead
+    'letterheadMode': doc.letterheadMode.name,
+    'applyLetterhead': doc.applyLetterhead,
+    'letterheadId': doc.letterheadId,
+    'prePrintedTopSpacing': doc.prePrintedTopSpacing.name,
+    'reservePrePrintedFooter': doc.reservePrePrintedFooter,
 
-        // ✅ subject info schema + values
-        'subjectInfoDef': doc.subjectInfoDef.toJson(),
-        'subjectInfo': doc.subjectInfo.toJson(),
+    // ✅ subject info schema + values
+    'subjectInfoDef': doc.subjectInfoDef.toJson(),
+    'subjectInfo': doc.subjectInfo.toJson(),
 
-        // content
-        'placementChoice': doc.placementChoice.name,
-        'reportLayout': doc.reportLayout.name,
-        'indentContent': doc.indentContent,
-        'indentHierarchy': doc.indentHierarchy,
-        'showColonAfterTitlesWithContent': doc.showColonAfterTitlesWithContent,
-        'roots': doc.roots.map(sectionToJson).toList(),
+    // content
+    'placementChoice': doc.placementChoice.name,
+    'reportLayout': doc.reportLayout.name,
+    'indentContent': doc.indentContent,
+    'indentHierarchy': doc.indentHierarchy,
+    'showColonAfterTitlesWithContent': doc.showColonAfterTitlesWithContent,
+    'roots': doc.roots.map(sectionToJson).toList(),
 
-        // images
-        'images': doc.images
-            .map((i) => {
-                  'id': i.id,
-                  'filePath': i.filePath,
-                  'label': i.label,
-                })
-            .toList(),
+    // images
+    'images': doc.images
+        .map((i) => {'id': i.id, 'filePath': i.filePath, 'label': i.label})
+        .toList(),
 
-        // ✅ signature block with roleTitle
-        'signature': {
-          'roleTitle': doc.signature.roleTitle,
-          'name': doc.signature.name,
-          'credentials': doc.signature.credentials,
-          'assistantLabel': doc.signature.assistantLabel,
-          'assistantName': doc.signature.assistantName,
-          'signatureFilePath': doc.signature.signatureFilePath,
-        },
-      };
+    // ✅ signature block with roleTitle
+    'signature': {
+      'roleTitle': doc.signature.roleTitle,
+      'name': doc.signature.name,
+      'credentials': doc.signature.credentials,
+      'assistantLabel': doc.signature.assistantLabel,
+      'assistantName': doc.signature.assistantName,
+      'signatureFilePath': doc.signature.signatureFilePath,
+    },
+  };
 
   static ReportDoc reportFromJson(Map<String, dynamic> j) {
-    final createdAtIso = (j['createdAtIso'] as String?) ??
+    final createdAtIso =
+        (j['createdAtIso'] as String?) ??
         (j['updatedAtIso'] as String?) ??
         DateTime.now().toIso8601String();
 
-    final updatedAtIso = (j['updatedAtIso'] as String?) ??
+    final updatedAtIso =
+        (j['updatedAtIso'] as String?) ??
         (j['createdAtIso'] as String?) ??
         DateTime.now().toIso8601String();
 
-    final placementName = (j['placementChoice'] as String?) ??
+    final placementName =
+        (j['placementChoice'] as String?) ??
         ImagePlacementChoice.attachmentsOnly.name;
 
     final placementChoice = _safeEnumByName<ImagePlacementChoice>(
@@ -74,7 +73,8 @@ class ReportCodec {
       fallback: ImagePlacementChoice.attachmentsOnly,
     );
 
-    final layoutName = (j['reportLayout'] as String?) ?? ReportLayout.inline.name;
+    final layoutName =
+        (j['reportLayout'] as String?) ?? ReportLayout.inline.name;
     final decodedLayout = _safeEnumByName<ReportLayout>(
       ReportLayout.values,
       layoutName,
@@ -84,7 +84,8 @@ class ReportCodec {
 
     final indentContent = (j['indentContent'] as bool?) ?? true;
     final indentHierarchy = (j['indentHierarchy'] as bool?) ?? true;
-    final showColonAfterTitlesWithContent = (j['showColonAfterTitlesWithContent'] as bool?) ?? true;
+    final showColonAfterTitlesWithContent =
+        (j['showColonAfterTitlesWithContent'] as bool?) ?? true;
 
     // ✅ NEW: report title (migration-safe)
     final reportTitle = (j['reportTitle'] as String?) ?? '';
@@ -133,7 +134,8 @@ class ReportCodec {
       roleTitle: (sig['roleTitle'] as String?) ?? '',
       name: (sig['name'] as String?) ?? '',
       credentials: (sig['credentials'] as String?) ?? '',
-      assistantLabel: (sig['assistantLabel'] as String?)?.trim().isNotEmpty == true
+      assistantLabel:
+          (sig['assistantLabel'] as String?)?.trim().isNotEmpty == true
           ? (sig['assistantLabel'] as String)
           : 'Assistant',
       assistantName: (sig['assistantName'] as String?) ?? '',
@@ -143,10 +145,14 @@ class ReportCodec {
     // ✅ letterhead (migration-safe)
     final applyLetterhead = (j['applyLetterhead'] as bool?) ?? false;
     final letterheadIdRaw = (j['letterheadId'] as String?)?.trim();
-    final letterheadId =
-        (letterheadIdRaw == null || letterheadIdRaw.isEmpty) ? null : letterheadIdRaw;
-    final letterheadModeName = (j['letterheadMode'] as String?) ??
-        (applyLetterhead && letterheadId != null ? LetterheadMode.digital.name : LetterheadMode.none.name);
+    final letterheadId = (letterheadIdRaw == null || letterheadIdRaw.isEmpty)
+        ? null
+        : letterheadIdRaw;
+    final letterheadModeName =
+        (j['letterheadMode'] as String?) ??
+        (applyLetterhead && letterheadId != null
+            ? LetterheadMode.digital.name
+            : LetterheadMode.none.name);
     final letterheadMode = _safeEnumByName<LetterheadMode>(
       LetterheadMode.values,
       letterheadModeName,
@@ -154,10 +160,12 @@ class ReportCodec {
     );
     final prePrintedTopSpacing = _safeEnumByName<PrePrintedTopSpacing>(
       PrePrintedTopSpacing.values,
-      (j['prePrintedTopSpacing'] as String?) ?? PrePrintedTopSpacing.medium.name,
+      (j['prePrintedTopSpacing'] as String?) ??
+          PrePrintedTopSpacing.medium.name,
       fallback: PrePrintedTopSpacing.medium,
     );
-    final reservePrePrintedFooter = (j['reservePrePrintedFooter'] as bool?) ?? false;
+    final reservePrePrintedFooter =
+        (j['reservePrePrintedFooter'] as bool?) ?? false;
 
     return ReportDoc(
       reportId: (j['reportId'] as String?) ?? 'unknown',
@@ -181,7 +189,8 @@ class ReportCodec {
 
       // ✅ letterhead
       letterheadMode: letterheadMode,
-      applyLetterhead: letterheadMode == LetterheadMode.digital && letterheadId != null,
+      applyLetterhead:
+          letterheadMode == LetterheadMode.digital && letterheadId != null,
       letterheadId: letterheadId,
       prePrintedTopSpacing: prePrintedTopSpacing,
       reservePrePrintedFooter: reservePrePrintedFooter,
@@ -193,48 +202,54 @@ class ReportCodec {
   // =========================
 
   static Map<String, dynamic> sectionToJson(SectionNode s) => {
-        'type': 'section',
-        'id': s.id,
-        'title': s.title,
-        'collapsed': s.collapsed,
-        'style': styleToJson(s.style),
-        'children': s.children.map(nodeToJson).toList(),
-        'inputType': s.inputType.name,
-        'options': s.options,
-        'unit': s.unit,
-        'showInPdf': s.showInPdf,
-        'addToRecords': s.addToRecords,
-        'allowOptionalNote': s.allowOptionalNote,
-        'note': s.note,
-        'conditionalParentSectionId': s.conditionalParentSectionId,
-        'conditionalEquals': s.conditionalEquals,
-        'indent': s.indent,
-      };
+    'type': 'section',
+    'id': s.id,
+    'title': s.title,
+    'collapsed': s.collapsed,
+    'style': styleToJson(s.style),
+    'children': s.children.map(nodeToJson).toList(),
+    'inputType': s.inputType.name,
+    'options': s.options,
+    'unit': s.unit,
+    'showInPdf': s.showInPdf,
+    'addToRecords': s.addToRecords,
+    'addToLog': s.addToLog,
+    'allowOptionalNote': s.allowOptionalNote,
+    'note': s.note,
+    'conditionalParentSectionId': s.conditionalParentSectionId,
+    'conditionalEquals': s.conditionalEquals,
+    'indent': s.indent,
+  };
 
   static SectionNode sectionFromJson(Map<String, dynamic> j) => SectionNode(
-        id: (j['id'] as String?) ?? '',
-        title: (j['title'] as String?) ?? '',
-        collapsed: (j['collapsed'] as bool?) ?? false,
-        style: styleFromJson(
-          (j['style'] is Map)
-              ? Map<String, dynamic>.from(j['style'] as Map)
-              : const <String, dynamic>{},
-        ),
-        children: ((j['children'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((e) => nodeFromJson(Map<String, dynamic>.from(e)))
-            .toList(),
-        inputType: _fieldInputTypeFromJson(j['inputType'] as String?),
-        options: ((j['options'] as List?) ?? const []).map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList(growable: false),
-        unit: (j['unit'] as String?) ?? '',
-        showInPdf: (j['showInPdf'] as bool?) ?? true,
-        addToRecords: (j['addToRecords'] as bool?) ?? false,
-        allowOptionalNote: (j['allowOptionalNote'] as bool?) ?? false,
-        note: (j['note'] as String?) ?? '',
-        conditionalParentSectionId: (j['conditionalParentSectionId'] as String?) ?? '',
-        conditionalEquals: (j['conditionalEquals'] as String?) ?? '',
-        indent: (j['indent'] as int?) ?? 0,
-      );
+    id: (j['id'] as String?) ?? '',
+    title: (j['title'] as String?) ?? '',
+    collapsed: (j['collapsed'] as bool?) ?? false,
+    style: styleFromJson(
+      (j['style'] is Map)
+          ? Map<String, dynamic>.from(j['style'] as Map)
+          : const <String, dynamic>{},
+    ),
+    children: ((j['children'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => nodeFromJson(Map<String, dynamic>.from(e)))
+        .toList(),
+    inputType: _fieldInputTypeFromJson(j['inputType'] as String?),
+    options: ((j['options'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .where((e) => e.trim().isNotEmpty)
+        .toList(growable: false),
+    unit: (j['unit'] as String?) ?? '',
+    showInPdf: (j['showInPdf'] as bool?) ?? true,
+    addToRecords: (j['addToRecords'] as bool?) ?? false,
+    addToLog: (j['addToLog'] as bool?) ?? false,
+    allowOptionalNote: (j['allowOptionalNote'] as bool?) ?? false,
+    note: (j['note'] as String?) ?? '',
+    conditionalParentSectionId:
+        (j['conditionalParentSectionId'] as String?) ?? '',
+    conditionalEquals: (j['conditionalEquals'] as String?) ?? '',
+    indent: (j['indent'] as int?) ?? 0,
+  );
 
   // =========================
   // Node
@@ -276,10 +291,10 @@ class ReportCodec {
   // =========================
 
   static Map<String, dynamic> styleToJson(TitleStyle s) => {
-        'level': s.level.name,
-        'bold': s.bold,
-        'align': s.align.name,
-      };
+    'level': s.level.name,
+    'bold': s.bold,
+    'align': s.align.name,
+  };
 
   static TitleStyle styleFromJson(Map<String, dynamic> j) {
     final levelName = (j['level'] as String?) ?? HeadingLevel.h2.name;
@@ -327,5 +342,4 @@ class ReportCodec {
     }
     return FieldInputType.freeText;
   }
-
 }

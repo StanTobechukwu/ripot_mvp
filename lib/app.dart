@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'features/logbook/data/logbook_repository.dart';
 import 'package:provider/provider.dart';
 import 'features/reports/data/letterhead_repository.dart';
 import 'features/access/data/access_repository.dart';
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LogbookRepository()..load()),
         Provider.value(value: reportsRepo),
         Provider.value(value: templatesRepo),
         Provider.value(value: letterheadsRepo),

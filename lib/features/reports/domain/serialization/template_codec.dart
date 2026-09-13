@@ -5,38 +5,43 @@ import '../models/report_doc.dart';
 
 class TemplateCodec {
   static Map<String, dynamic> templateToJson(TemplateDoc t) => {
-        'templateId': t.templateId,
-        'updatedAtIso': t.updatedAt.toIso8601String(),
-        'name': t.name,
-        'roots': t.roots.map(_sectionToJson).toList(),
-        'subjectInfo': t.subjectInfo.toJson(),
-        'signature': _signatureToJson(t.signature),
-      };
+    'templateId': t.templateId,
+    'updatedAtIso': t.updatedAt.toIso8601String(),
+    'name': t.name,
+    'groupName': t.groupName,
+    'roots': t.roots.map(_sectionToJson).toList(),
+    'subjectInfo': t.subjectInfo.toJson(),
+    'signature': _signatureToJson(t.signature),
+  };
 
   static TemplateDoc templateFromJson(Map<String, dynamic> j) {
     return TemplateDoc(
       templateId: (j['templateId'] as String?) ?? 'unknown',
-      updatedAt: DateTime.tryParse((j['updatedAtIso'] as String?) ?? '') ??
+      updatedAt:
+          DateTime.tryParse((j['updatedAtIso'] as String?) ?? '') ??
           DateTime.now(),
       name: (j['name'] as String?) ?? 'Untitled Template',
+      groupName: (j['groupName'] as String?) ?? '',
       roots: ((j['roots'] as List?) ?? const [])
           .map((e) => _sectionFromJson(e as Map<String, dynamic>))
           .toList(),
-      subjectInfo:
-          SubjectInfoBlockDef.fromJson(j['subjectInfo'] as Map<String, dynamic>?),
-      signature: _signatureFromJson((j['signature'] as Map?)?.cast<String, dynamic>()),
+      subjectInfo: SubjectInfoBlockDef.fromJson(
+        j['subjectInfo'] as Map<String, dynamic>?,
+      ),
+      signature: _signatureFromJson(
+        (j['signature'] as Map?)?.cast<String, dynamic>(),
+      ),
     );
   }
 
-
   static Map<String, dynamic> _signatureToJson(SignatureBlock s) => {
-        'roleTitle': s.roleTitle,
-        'name': s.name,
-        'credentials': s.credentials,
-        'assistantLabel': s.assistantLabel,
-        'assistantName': s.assistantName,
-        'signatureFilePath': s.signatureFilePath,
-      };
+    'roleTitle': s.roleTitle,
+    'name': s.name,
+    'credentials': s.credentials,
+    'assistantLabel': s.assistantLabel,
+    'assistantName': s.assistantName,
+    'signatureFilePath': s.signatureFilePath,
+  };
 
   static SignatureBlock _signatureFromJson(Map<String, dynamic>? json) {
     final j = json ?? const <String, dynamic>{};
@@ -44,7 +49,8 @@ class TemplateCodec {
       roleTitle: (j['roleTitle'] as String?) ?? '',
       name: (j['name'] as String?) ?? '',
       credentials: (j['credentials'] as String?) ?? '',
-      assistantLabel: (j['assistantLabel'] as String?)?.trim().isNotEmpty == true
+      assistantLabel:
+          (j['assistantLabel'] as String?)?.trim().isNotEmpty == true
           ? (j['assistantLabel'] as String)
           : 'Assistant',
       assistantName: (j['assistantName'] as String?) ?? '',
@@ -55,42 +61,48 @@ class TemplateCodec {
   // ----- nodes -----
 
   static Map<String, dynamic> _sectionToJson(SectionNode s) => {
-        'type': 'section',
-        'id': s.id,
-        'title': s.title,
-        'collapsed': s.collapsed,
-        'style': _styleToJson(s.style),
-        'inputType': s.inputType.name,
-        'options': s.options,
-        'unit': s.unit,
-        'showInPdf': s.showInPdf,
-        'addToRecords': s.addToRecords,
-        'allowOptionalNote': s.allowOptionalNote,
-        'conditionalParentSectionId': s.conditionalParentSectionId,
-        'conditionalEquals': s.conditionalEquals,
-        'indent': s.indent, // ✅ added
-        'children': s.children.map(_nodeToJson).toList(),
-      };
+    'type': 'section',
+    'id': s.id,
+    'title': s.title,
+    'collapsed': s.collapsed,
+    'style': _styleToJson(s.style),
+    'inputType': s.inputType.name,
+    'options': s.options,
+    'unit': s.unit,
+    'showInPdf': s.showInPdf,
+    'addToRecords': s.addToRecords,
+    'addToLog': s.addToLog,
+    'allowOptionalNote': s.allowOptionalNote,
+    'conditionalParentSectionId': s.conditionalParentSectionId,
+    'conditionalEquals': s.conditionalEquals,
+    'indent': s.indent, // ✅ added
+    'children': s.children.map(_nodeToJson).toList(),
+  };
 
   static SectionNode _sectionFromJson(Map<String, dynamic> j) => SectionNode(
-        id: (j['id'] as String?) ?? '',
-        title: (j['title'] as String?) ?? '',
-        collapsed: (j['collapsed'] as bool?) ?? false,
-        style: _styleFromJson((j['style'] as Map?)?.cast<String, dynamic>() ?? {}),
-        inputType: _fieldInputTypeFromJson(j['inputType'] as String?),
-        options: ((j['options'] as List?) ?? const []).map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList(growable: false),
-        unit: (j['unit'] as String?) ?? '',
-        showInPdf: (j['showInPdf'] as bool?) ?? true,
-        addToRecords: (j['addToRecords'] as bool?) ?? false,
-        allowOptionalNote: (j['allowOptionalNote'] as bool?) ?? false,
-        note: '',
-        conditionalParentSectionId: (j['conditionalParentSectionId'] as String?) ?? '',
-        conditionalEquals: (j['conditionalEquals'] as String?) ?? '',
-        indent: (j['indent'] as int?) ?? 0, // ✅ added
-        children: ((j['children'] as List?) ?? const [])
-            .map((e) => _nodeFromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+    id: (j['id'] as String?) ?? '',
+    title: (j['title'] as String?) ?? '',
+    collapsed: (j['collapsed'] as bool?) ?? false,
+    style: _styleFromJson((j['style'] as Map?)?.cast<String, dynamic>() ?? {}),
+    inputType: _fieldInputTypeFromJson(j['inputType'] as String?),
+    options: ((j['options'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .where((e) => e.trim().isNotEmpty)
+        .toList(growable: false),
+    unit: (j['unit'] as String?) ?? '',
+    showInPdf: (j['showInPdf'] as bool?) ?? true,
+    addToRecords: (j['addToRecords'] as bool?) ?? false,
+    addToLog: (j['addToLog'] as bool?) ?? false,
+    allowOptionalNote: (j['allowOptionalNote'] as bool?) ?? false,
+    note: '',
+    conditionalParentSectionId:
+        (j['conditionalParentSectionId'] as String?) ?? '',
+    conditionalEquals: (j['conditionalEquals'] as String?) ?? '',
+    indent: (j['indent'] as int?) ?? 0, // ✅ added
+    children: ((j['children'] as List?) ?? const [])
+        .map((e) => _nodeFromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
 
   static Map<String, dynamic> _nodeToJson(Node n) {
     if (n is SectionNode) return _sectionToJson(n);
@@ -112,7 +124,8 @@ class TemplateCodec {
       return ContentNode(
         id: (j['id'] as String?) ?? '',
         text: (j['text'] as String?) ?? '',
-        indent: (j['indent'] as int?) ?? 0, // ✅ added (if ContentNode has indent)
+        indent:
+            (j['indent'] as int?) ?? 0, // ✅ added (if ContentNode has indent)
       );
     }
     throw StateError('Unknown node json type: $type');
@@ -121,10 +134,10 @@ class TemplateCodec {
   // ----- style -----
 
   static Map<String, dynamic> _styleToJson(TitleStyle s) => {
-        'level': s.level.name,
-        'bold': s.bold,
-        'align': s.align.name,
-      };
+    'level': s.level.name,
+    'bold': s.bold,
+    'align': s.align.name,
+  };
 
   static TitleStyle _styleFromJson(Map<String, dynamic> j) {
     HeadingLevel levelFromJson(String? name) {
@@ -157,5 +170,4 @@ class TemplateCodec {
     }
     return FieldInputType.freeText;
   }
-
 }

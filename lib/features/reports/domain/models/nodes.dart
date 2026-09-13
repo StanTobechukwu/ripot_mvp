@@ -7,6 +7,7 @@ sealed class Node {
 }
 
 enum HeadingLevel { h1, h2, h3, h4 }
+
 enum TitleAlign { left, center, right }
 
 enum FieldInputType { freeText, yesNo, singleSelect, multiSelect, numeric }
@@ -40,11 +41,7 @@ class TitleStyle {
     this.align = TitleAlign.left,
   });
 
-  TitleStyle copyWith({
-    HeadingLevel? level,
-    bool? bold,
-    TitleAlign? align,
-  }) {
+  TitleStyle copyWith({HeadingLevel? level, bool? bold, TitleAlign? align}) {
     return TitleStyle(
       level: level ?? this.level,
       bold: bold ?? this.bold,
@@ -77,6 +74,9 @@ class SectionNode extends Node {
   /// when the report is saved. Free-text fields must not use this.
   final bool addToRecords;
 
+  /// Offer this field when creating a log from a report. Independent of Records.
+  final bool addToLog;
+
   /// Structured fields can optionally allow an additional narrative note.
   /// This is a template-level capability, not the note value itself.
   final bool allowOptionalNote;
@@ -93,7 +93,8 @@ class SectionNode extends Node {
   final String conditionalEquals;
 
   bool get hasCondition =>
-      conditionalParentSectionId.trim().isNotEmpty && conditionalEquals.trim().isNotEmpty;
+      conditionalParentSectionId.trim().isNotEmpty &&
+      conditionalEquals.trim().isNotEmpty;
 
   /// ✅ indentation level for this section (0,1,2...)
   final int indent;
@@ -109,6 +110,7 @@ class SectionNode extends Node {
     this.unit = '',
     this.showInPdf = true,
     this.addToRecords = false,
+    this.addToLog = false,
     this.allowOptionalNote = false,
     this.note = '',
     this.conditionalParentSectionId = '',
@@ -126,6 +128,7 @@ class SectionNode extends Node {
     String? unit,
     bool? showInPdf,
     bool? addToRecords,
+    bool? addToLog,
     bool? allowOptionalNote,
     String? note,
     String? conditionalParentSectionId,
@@ -143,9 +146,11 @@ class SectionNode extends Node {
       unit: unit ?? this.unit,
       showInPdf: showInPdf ?? this.showInPdf,
       addToRecords: addToRecords ?? this.addToRecords,
+      addToLog: addToLog ?? this.addToLog,
       allowOptionalNote: allowOptionalNote ?? this.allowOptionalNote,
       note: note ?? this.note,
-      conditionalParentSectionId: conditionalParentSectionId ?? this.conditionalParentSectionId,
+      conditionalParentSectionId:
+          conditionalParentSectionId ?? this.conditionalParentSectionId,
       conditionalEquals: conditionalEquals ?? this.conditionalEquals,
       indent: indent ?? this.indent,
     );
@@ -159,16 +164,9 @@ class ContentNode extends Node {
   /// ✅ indentation level for this paragraph/content node
   final int indent;
 
-  const ContentNode({
-    required super.id,
-    this.text = '',
-    this.indent = 0,
-  });
+  const ContentNode({required super.id, this.text = '', this.indent = 0});
 
-  ContentNode copyWith({
-    String? text,
-    int? indent,
-  }) {
+  ContentNode copyWith({String? text, int? indent}) {
     return ContentNode(
       id: id,
       text: text ?? this.text,
@@ -176,6 +174,7 @@ class ContentNode extends Node {
     );
   }
 }
+
 extension TemplateClone on SectionNode {
   /// Export a template snapshot of this section.
   ///
@@ -188,9 +187,7 @@ extension TemplateClone on SectionNode {
 
     for (final child in children) {
       if (child is SectionNode) {
-        outChildren.add(
-          child.toTemplateNode(includeContent: includeContent),
-        );
+        outChildren.add(child.toTemplateNode(includeContent: includeContent));
       } else if (includeContent && child is ContentNode) {
         outChildren.add(child);
       }
@@ -207,6 +204,7 @@ extension TemplateClone on SectionNode {
       unit: unit,
       showInPdf: showInPdf,
       addToRecords: addToRecords,
+      addToLog: addToLog,
       allowOptionalNote: allowOptionalNote,
       note: '',
       conditionalParentSectionId: conditionalParentSectionId,
@@ -216,6 +214,7 @@ extension TemplateClone on SectionNode {
     );
   }
 }
+
 extension ReportClone on SectionNode {
   SectionNode cloneNodeTree() {
     return SectionNode(
@@ -228,22 +227,21 @@ extension ReportClone on SectionNode {
       unit: unit,
       showInPdf: showInPdf,
       addToRecords: addToRecords,
+      addToLog: addToLog,
       allowOptionalNote: allowOptionalNote,
       note: note,
       conditionalParentSectionId: conditionalParentSectionId,
       conditionalEquals: conditionalEquals,
       indent: indent,
-      children: children.map((n) {
-        if (n is SectionNode) return n.cloneNodeTree();
-        if (n is ContentNode) {
-          return ContentNode(
-            id: n.id,
-            text: n.text,
-            indent: n.indent,
-          );
-        }
-        return n; // if you have other Node types, we can explicitly clone them too
-      }).toList(growable: false),
+      children: children
+          .map((n) {
+            if (n is SectionNode) return n.cloneNodeTree();
+            if (n is ContentNode) {
+              return ContentNode(id: n.id, text: n.text, indent: n.indent);
+            }
+            return n; // if you have other Node types, we can explicitly clone them too
+          })
+          .toList(growable: false),
     );
   }
 }

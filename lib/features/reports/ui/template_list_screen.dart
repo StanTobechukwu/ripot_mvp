@@ -1,9 +1,8 @@
 import 'dart:convert';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import '../../../core/ui/item_actions.dart';
 import '../../../core/utils/ids.dart';
 import '../data/templates_repository.dart';
 import '../domain/models/template_doc.dart';
@@ -13,236 +12,385 @@ import '../providers/report_editor_provider.dart';
 import '../providers/reports_list_provider.dart';
 import 'report_editor_screen.dart';
 import 'template_editor_screen.dart';
+import 'template_actions.dart';
 
 class TemplatesListScreen extends StatefulWidget {
   const TemplatesListScreen({super.key});
-
   @override
   State<TemplatesListScreen> createState() => _TemplatesListScreenState();
 }
 
 class _TemplatesListScreenState extends State<TemplatesListScreen> {
+  String? _group;
+  List<String> _groups = [];
+  bool _busy = false;
+  String? _error;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<TemplateListProvider>().load();
+      if (mounted) _run(_load);
     });
   }
 
-  Future<_TemplateOpenChoice?> _askOpenChoice(BuildContext context) {
-    return showDialog<_TemplateOpenChoice>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Open template'),
-        content: const Text('How do you want to use this template?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, _TemplateOpenChoice.fillReport),
-            child: const Text('Fill as report'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, _TemplateOpenChoice.editTemplate),
-            child: const Text('Edit template'),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  Future<void> _importTemplate(BuildContext context) async {
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Import Ripot template'),
-        content: const Text('Import only templates exported from Ripot. Patient records, saved reports, and PDFs are not imported.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Choose file')),
-        ],
-      ),
-    );
-    if (proceed != true) return;
-
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      final picked = await FilePicker.platform.pickFiles(
-        // Pick broadly because WhatsApp/Telegram/file managers may rename
-        // custom files or hide compound extensions. The payload is validated
-        // below before anything is imported.
-        type: FileType.any,
-        withData: true,
-      );
-      if (!mounted || picked == null || picked.files.isEmpty) return;
-      final bytes = picked.files.first.bytes;
-      if (bytes == null || bytes.isEmpty) {
-        throw const FormatException('The selected file could not be read.');
+      await action();
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Could not complete that action. Your existing templates are still available.',
+        );
+        showMessage(context, _error!);
       }
-
-      final decoded = jsonDecode(utf8.decode(bytes, allowMalformed: true));
-      if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('This is not a valid Ripot template file.');
-      }
-      if (decoded['app'] != 'Ripot' || decoded['ripotFileType'] != 'template') {
-        throw const FormatException('This file does not contain a Ripot template.');
-      }
-      final templateJson = decoded['template'];
-      if (templateJson is! Map) {
-        throw const FormatException('Template data is missing.');
-      }
-      final imported = TemplateCodec.templateFromJson(templateJson.cast<String, dynamic>());
-
-      final name = await _promptImportName(context, imported.name);
-      if (!mounted || name == null) return;
-      final template = TemplateDoc(
-        templateId: newId('tpl'),
-        updatedAt: DateTime.now(),
-        name: name,
-        roots: imported.roots,
-        subjectInfo: imported.subjectInfo,
-        signature: imported.signature,
-      );
-      await context.read<TemplatesRepository>().saveTemplate(template);
-      if (!mounted) return;
-      await context.read<TemplateListProvider>().load();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Imported template: ${template.name}')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<String?> _promptImportName(BuildContext context, String initialName) async {
-    var value = initialName.trim().isEmpty ? 'Imported Template' : initialName.trim();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Import template'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('A valid Ripot template file was found. It will be imported as a separate copy.'),
-            const SizedBox(height: 12),
-            TextFormField(
-              initialValue: value,
-              decoration: const InputDecoration(labelText: 'Template name', border: OutlineInputBorder()),
-              onChanged: (v) => value = v,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final trimmed = value.trim();
-              Navigator.pop(ctx, trimmed.isEmpty ? null : trimmed);
-            },
-            child: const Text('Import'),
-          ),
-        ],
+  Future<void> _load() async {
+    final repo = context.read<TemplatesRepository>();
+    await context.read<TemplateListProvider>().load();
+    final groups = await repo.listGroups();
+    if (mounted) {
+      setState(() {
+        _groups = groups;
+        if (_group != null && _group!.isNotEmpty && !groups.contains(_group)) {
+          _group = null;
+        }
+      });
+    }
+  }
+
+  Future<void> _use(TemplateSummary t) async {
+    final doc = await context.read<TemplatesRepository>().loadTemplate(
+      t.templateId,
+    );
+    if (!mounted) return;
+    context.read<ReportEditorProvider>().newReportFromTemplate(doc);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReportEditorScreen()),
+    );
+    if (!mounted) return;
+    await context.read<ReportsListProvider>().refresh();
+    if (mounted) await _load();
+  }
+
+  Future<void> _import() async {
+    if (!await canAddTemplate(context) || !mounted) return;
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: true,
+    );
+    if (picked == null || !mounted) return;
+    final bytes = picked.files.single.bytes;
+    if (bytes == null || bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
+      throw const FormatException('Invalid template size');
+    }
+    final payload = jsonDecode(utf8.decode(bytes));
+    if (payload is! Map ||
+        payload['app'] != 'Ripot' ||
+        payload['ripotFileType'] != 'template' ||
+        payload['template'] is! Map) {
+      showMessage(context, 'Choose a template exported from Ripot.');
+      return;
+    }
+    final imported = TemplateCodec.templateFromJson(
+      Map<String, dynamic>.from(payload['template'] as Map),
+    );
+    final name = await askName(
+      context,
+      'Import template',
+      initial: imported.name,
+    );
+    if (name == null || !mounted) return;
+    // Imports keep explicitly exported default content; duplication is structure-only.
+    await context.read<TemplatesRepository>().saveTemplate(
+      TemplateDoc(
+        templateId: newId('tpl'),
+        updatedAt: DateTime.now(),
+        name: name,
+        groupName: _group ?? '',
+        roots: imported.roots,
+        subjectInfo: imported.subjectInfo,
+        signature: imported.signature,
       ),
+    );
+    if (mounted) await _load();
+  }
+
+  Future<void> _newGroup() async {
+    final name = await askName(context, 'New template group');
+    if (name == null || !mounted) return;
+    if (_groups.any((n) => n.toLowerCase() == name.toLowerCase())) {
+      showMessage(context, 'That group already exists.');
+      return;
+    }
+    await context.read<TemplatesRepository>().addGroup(name);
+    if (!mounted) return;
+    setState(() => _group = name);
+    await _load();
+  }
+
+  Future<void> _move(TemplateDoc doc) async {
+    final target = await showItemActions(context, 'Move to group', [
+      const ItemAction('ungrouped', 'Ungrouped', Icons.folder_off_outlined),
+      for (var i = 0; i < _groups.length; i++)
+        ItemAction('group:$i', _groups[i], Icons.folder_outlined),
+      const ItemAction('new', 'New group', Icons.create_new_folder_outlined),
+    ]);
+    if (target == null || !mounted) return;
+    String group = '';
+    if (target == 'new') {
+      final name = await askName(context, 'New template group');
+      if (name == null || !mounted) return;
+      if (_groups.any((n) => n.toLowerCase() == name.toLowerCase())) {
+        group = _groups.firstWhere(
+          (n) => n.toLowerCase() == name.toLowerCase(),
+        );
+      } else {
+        await context.read<TemplatesRepository>().addGroup(name);
+        group = name;
+      }
+    } else if (target.startsWith('group:')) {
+      group = _groups[int.parse(target.substring(6))];
+    }
+    if (!mounted) return;
+    await context.read<TemplatesRepository>().saveTemplate(
+      doc.copyWith(groupName: group, updatedAt: DateTime.now()),
     );
   }
 
-  Future<void> _confirmDeleteTemplate(BuildContext context, TemplateSummary template) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete template?'),
-        content: Text(
-          'This will delete “${template.name}”. Existing reports, PDFs, and records created from this template will not be deleted.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete Template')),
-        ],
+  Future<void> _menu(TemplateSummary t) async {
+    final action = await showItemActions(context, t.name, const [
+      ItemAction('use', 'Use template', Icons.note_add_outlined),
+      ItemAction('edit', 'Edit template', Icons.edit_outlined),
+      ItemAction('rename', 'Rename', Icons.drive_file_rename_outline),
+      ItemAction('duplicate', 'Duplicate', Icons.copy_outlined),
+      ItemAction('export', 'Export template', Icons.ios_share),
+      ItemAction('group', 'Move to group', Icons.drive_file_move_outlined),
+      ItemAction(
+        'delete',
+        'Delete template',
+        Icons.delete_outline,
+        destructive: true,
       ),
-    );
-    if (confirmed != true || !mounted) return;
-    await context.read<TemplateListProvider>().delete(template.templateId);
+    ]);
+    if (action == null || !mounted) return;
+    await _run(() async {
+      final repo = context.read<TemplatesRepository>();
+      if (action == 'use') {
+        await _use(t);
+        return;
+      }
+      if (action == 'edit') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TemplateEditorScreen(templateId: t.templateId),
+          ),
+        );
+      } else if (action == 'delete') {
+        if (!await confirmAction(
+              context,
+              'Delete template?',
+              'Delete “${t.name}”? Existing reports, PDFs, Records and logs are kept.',
+            ) ||
+            !mounted) {
+          return;
+        }
+        await repo.deleteTemplate(t.templateId);
+      } else {
+        final doc = await repo.loadTemplate(t.templateId);
+        if (!mounted) return;
+        if (action == 'group') {
+          await _move(doc);
+        }
+        if (action == 'export') {
+          await exportTemplate(doc);
+        }
+        if (action == 'rename' || action == 'duplicate') {
+          if (action == 'duplicate' &&
+              (!await canAddTemplate(context) || !mounted)) {
+            return;
+          }
+          if (!mounted) return;
+          final name = await askName(
+            context,
+            action == 'rename' ? 'Rename template' : 'Duplicate template',
+            initial: action == 'rename' ? t.name : '${t.name} (copy)',
+          );
+          if (name == null) return;
+          await repo.saveTemplate(
+            action == 'rename'
+                ? doc.copyWith(name: name, updatedAt: DateTime.now())
+                : copyTemplate(doc, name),
+          );
+        }
+      }
+      if (mounted) await _load();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final listVm = context.watch<TemplateListProvider>();
-    final repo = context.read<TemplatesRepository>();
-
+    final vm = context.watch<TemplateListProvider>();
+    final templates = vm.templates
+        .where((t) => _group == null || t.groupName == _group)
+        .toList();
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
         title: const Text('Templates'),
         actions: [
           IconButton(
-            tooltip: 'Import Template',
-            icon: const Icon(Icons.upload_file_outlined),
-            onPressed: () => _importTemplate(context),
+            tooltip: 'New group',
+            onPressed: _busy ? null : () => _run(_newGroup),
+            icon: const Icon(Icons.create_new_folder_outlined),
+          ),
+          IconButton(
+            tooltip: 'Import template',
+            onPressed: _busy ? null : () => _run(_import),
+            icon: const Icon(Icons.file_upload_outlined),
           ),
         ],
       ),
-      body: Builder(
-        builder: (_) {
-          if (listVm.loading) return const Center(child: CircularProgressIndicator());
-          if (listVm.templates.isEmpty) {
-            return const Center(child: Text('No templates yet. Create one from the Report Editor.'));
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: listVm.templates.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final t = listVm.templates[i];
-              return Card(
-                child: ListTile(
-                  title: Text(t.name),
-                  subtitle: Text('Updated: ${t.updatedAt}'),
-                  onTap: () async {
-                    final choice = await _askOpenChoice(context);
-                    if (choice == null) return;
-
-                    if (choice == _TemplateOpenChoice.fillReport) {
-                      final template = await repo.loadTemplate(t.templateId);
-                      context.read<ReportEditorProvider>().newReportFromTemplate(template);
-                      if (!context.mounted) return;
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ReportEditorScreen()),
-                      );
-                      if (!context.mounted) return;
-                      await context.read<TemplateListProvider>().load();
-                      await context.read<ReportsListProvider>().refresh();
-                      return;
-                    }
-
-                    if (!context.mounted) return;
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TemplateEditorScreen(templateId: t.templateId),
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (_busy || vm.loading) const LinearProgressIndicator(),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: ValueKey(_group),
+                      initialValue: _group == null
+                          ? '__all__'
+                          : _group!.isEmpty
+                          ? ''
+                          : 'name:$_group',
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Template group',
+                        border: OutlineInputBorder(),
                       ),
-                    );
-                    if (!context.mounted) return;
-                    await context.read<TemplateListProvider>().load();
-                  },
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _confirmDeleteTemplate(context, t),
+                      items: [
+                        const DropdownMenuItem(
+                          value: '__all__',
+                          child: Text('All templates'),
+                        ),
+                        const DropdownMenuItem(
+                          value: '',
+                          child: Text('Ungrouped'),
+                        ),
+                        for (final g in _groups)
+                          DropdownMenuItem(
+                            value: 'name:$g',
+                            child: Text(g, overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      // Group values are namespaced so user names cannot collide with filters.
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(
+                              () => _group = v == '__all__'
+                                  ? null
+                                  : v == ''
+                                  ? ''
+                                  : v!.substring(5),
+                            ),
+                    ),
                   ),
-                ),
-              );
-            },
-          );
-        },
+                  if (_group != null && _group!.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Remove group',
+                      icon: const Icon(Icons.folder_delete_outlined),
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() async {
+                              if (!await confirmAction(
+                                    context,
+                                    'Remove group?',
+                                    'Move all templates in “$_group” to Ungrouped? No templates will be deleted.',
+                                    action: 'Remove group',
+                                  ) ||
+                                  !context.mounted) {
+                                return;
+                              }
+                              await context
+                                  .read<TemplatesRepository>()
+                                  .removeGroup(_group!);
+                              if (mounted) {
+                                setState(() => _group = null);
+                                await _load();
+                              }
+                            }),
+                    ),
+                ],
+              ),
+            ),
+            if (_error != null)
+              Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Tap to start a report. Hold a template or tap ⋮ for options.',
+              ),
+            ),
+            Expanded(
+              child: templates.isEmpty
+                  ? const Center(child: Text('No templates in this group.'))
+                  : RefreshIndicator(
+                      onRefresh: () => _run(_load),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 32),
+                        itemCount: templates.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 6),
+                        itemBuilder: (_, i) {
+                          final t = templates[i];
+                          return Card(
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                8,
+                                8,
+                                8,
+                              ),
+                              title: Text(
+                                t.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  'Updated ${readableDate(t.updatedAt)}${_group == null && t.groupName.isNotEmpty ? '\n${t.groupName}' : ''}',
+                                ),
+                              ),
+                              onTap: _busy ? null : () => _run(() => _use(t)),
+                              onLongPress: _busy ? null : () => _menu(t),
+                              trailing: IconButton(
+                                tooltip: 'Options for ${t.name}',
+                                onPressed: _busy ? null : () => _menu(t),
+                                icon: const Icon(Icons.more_vert),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
-
-enum _TemplateOpenChoice { fillReport, editTemplate }

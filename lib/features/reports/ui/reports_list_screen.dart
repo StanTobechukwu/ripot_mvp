@@ -1,4 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
+import '../../../core/ui/item_actions.dart';
+import '../../logbook/data/logbook_repository.dart';
+import '../../logbook/services/report_log_draft.dart';
+import '../../logbook/ui/logbook_screen.dart';
+import '../../logbook/ui/log_entry_editor.dart';
+import '../../logbook/ui/log_entry_detail.dart';
+import '../../records/ui/record_details_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../data/reports_repository.dart';
@@ -150,13 +158,10 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     BuildContext context,
     ReportSummary report,
   ) async {
-    final title = report.hasPdf
-        ? (report.isSavedWork ? 'Delete report?' : 'Delete saved PDF report?')
-        : 'Delete saved work?';
-    final message = report.hasPdf
-        ? 'This will permanently remove the saved PDF report from this device. This action cannot be undone.'
-        : 'This will remove the editable saved work for this report from this device. This action cannot be undone.';
-    final actionLabel = report.hasPdf ? 'Delete PDF' : 'Delete saved work';
+    const title = 'Delete report?';
+    const message =
+        'This permanently deletes the saved report and any saved PDF for it from this device. Existing Records and Logbook entries are kept. This cannot be undone.';
+    const actionLabel = 'Delete report';
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -182,6 +187,113 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
 
     if (confirmed != true || !context.mounted) return;
     await context.read<ReportsListProvider>().delete(report.reportId);
+  }
+
+  Future<void> _reportActions(
+    BuildContext context,
+    ReportSummary report,
+  ) async {
+    final book = context.read<LogbookRepository>();
+    final action = await showItemActions(context, report.title, [
+      if (report.canContinueEditing)
+        const ItemAction('edit', 'Continue editing', Icons.edit_outlined),
+      if (report.hasPdf)
+        const ItemAction('pdf', 'View PDF', Icons.picture_as_pdf_outlined),
+      if (report.hasPdf)
+        const ItemAction('share', 'Share PDF', Icons.ios_share),
+      const ItemAction('records', 'Add to Records', Icons.table_rows_outlined),
+      ItemAction(
+        'log',
+        book.forReport(report.reportId) == null
+            ? 'Add to Logbook'
+            : 'View log entry',
+        Icons.menu_book_outlined,
+      ),
+      const ItemAction(
+        'delete',
+        'Delete report',
+        Icons.delete_outline,
+        destructive: true,
+      ),
+    ]);
+    if (action == null || !context.mounted) return;
+    try {
+      final repo = context.read<ReportsRepository>();
+      switch (action) {
+        case 'edit':
+          await _openEditor(context, report.reportId);
+          break;
+        case 'pdf':
+          await _openPdf(context, report);
+          break;
+        case 'share':
+          final bytes = await repo.loadPdfBytesForReport(report.reportId);
+          if (bytes == null) throw StateError('PDF unavailable');
+          await Printing.sharePdf(
+            bytes: bytes,
+            filename:
+                await repo.pdfFileNameForReport(report.reportId) ??
+                'Ripot_Report.pdf',
+          );
+          break;
+        case 'records':
+          if (!context.read<AccessProvider>().safeState.canUseRecords) {
+            await showPremiumFeatureSheet(context, PremiumFeature.records);
+            return;
+          }
+          final records = context.read<RecordsRepository>();
+          final doc = await repo.loadReport(report.reportId);
+          final draft = await records.buildDraftForReport(doc);
+          if (!context.mounted) return;
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RecordDetailsScreen(initialEntry: draft),
+            ),
+          );
+          break;
+        case 'log':
+          await book.load();
+          if (!book.loaded) throw StateError('Logbook unavailable');
+          final existing = book.forReport(report.reportId);
+          if (!context.mounted) return;
+          if (existing != null) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => LogEntryDetail(entryId: existing.id),
+              ),
+            );
+          } else {
+            final doc = await repo.loadReport(report.reportId);
+            if (!context.mounted) return;
+            final id = await Navigator.push<String>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => LogEntryEditor(
+                  prefill: logDataFromReport(doc, meId: book.data.meId),
+                  linkedReportId: report.reportId,
+                ),
+              ),
+            );
+            if (id != null && context.mounted)
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => LogEntryDetail(entryId: id)),
+              );
+          }
+          break;
+        case 'delete':
+          await _confirmAndDeleteReport(context, report);
+          break;
+      }
+    } catch (_) {
+      if (context.mounted)
+        showMessage(
+          context,
+          'Could not complete that action. Please try again.',
+        );
+    }
   }
 
   Future<void> _openTemplates(BuildContext context) async {
@@ -220,7 +332,6 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     final listVm = context.watch<ReportsListProvider>();
     final access = context.watch<AccessProvider>().safeState;
     final width = MediaQuery.of(context).size.width;
-    final compactTopBar = width < 760;
 
     return Scaffold(
       appBar: AppBar(
@@ -316,6 +427,36 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
           const SizedBox(width: 8),
         ],
       ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 0,
+        onDestinationSelected: (index) {
+          if (index == 1) _openTemplates(context);
+          if (index == 2) _openRecords(context);
+          if (index == 3)
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LogbookScreen()),
+            );
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.description_outlined),
+            label: 'Reports',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.library_books_outlined),
+            label: 'Templates',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.table_rows_outlined),
+            label: 'Records',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            label: 'Logbook',
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -382,7 +523,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 100),
                   itemCount: listVm.reports.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) {
@@ -408,40 +549,42 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                           ).colorScheme.surface,
                           child: Icon(icon),
                         ),
-                        title: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                r.title,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surface,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                badgeText,
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                          ],
+                        contentPadding: const EdgeInsets.fromLTRB(
+                          16,
+                          10,
+                          8,
+                          10,
+                        ),
+                        title: Text(
+                          r.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(r.subtitle),
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                badgeText,
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(r.subtitle),
+                            ],
+                          ),
                         ),
                         onTap: () => _handleOpen(context, r),
+                        onLongPress: () => _reportActions(context, r),
                         trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _confirmAndDeleteReport(context, r),
+                          tooltip: 'Options for ${r.title}',
+                          icon: const Icon(Icons.more_vert),
+                          onPressed: () => _reportActions(context, r),
                         ),
                       ),
                     );

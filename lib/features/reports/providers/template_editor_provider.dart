@@ -7,7 +7,6 @@ import '../domain/models/template_doc.dart';
 import '../domain/models/subject_info_def.dart';
 import '../domain/models/nodes.dart';
 
-
 class TemplateEditorProvider extends ChangeNotifier {
   TemplateDoc _template;
 
@@ -53,15 +52,15 @@ class TemplateEditorProvider extends ChangeNotifier {
     _markDirty();
     notifyListeners();
   }
-  void setSubjectInfoColumns(int columns) {
-  final safe = (columns == 2) ? 2 : 1;
-  _template = _template.copyWith(
-    subjectInfo: subjectInfo.copyWith(columns: safe),
-  );
-  _markDirty();
-  notifyListeners();
-}
 
+  void setSubjectInfoColumns(int columns) {
+    final safe = (columns == 2) ? 2 : 1;
+    _template = _template.copyWith(
+      subjectInfo: subjectInfo.copyWith(columns: safe),
+    );
+    _markDirty();
+    notifyListeners();
+  }
 
   // ---------- field edits ----------
   void renameField(String fieldId, String title) {
@@ -107,7 +106,8 @@ class TemplateEditorProvider extends ChangeNotifier {
 
   /// Reorder fields in the template UI (ReorderableListView)
   void reorderFields(int oldIndex, int newIndex) {
-    final list = [...subjectInfo.fields]..sort((a, b) => a.order.compareTo(b.order));
+    final list = [...subjectInfo.fields]
+      ..sort((a, b) => a.order.compareTo(b.order));
 
     if (oldIndex < 0 || oldIndex >= list.length) return;
     if (newIndex < 0 || newIndex > list.length) return;
@@ -123,6 +123,7 @@ class TemplateEditorProvider extends ChangeNotifier {
 
     _updateFields(resequenced);
   }
+
   // ---------- save/export ----------
   /// Builds a TemplateDoc ready for persistence.
   ///
@@ -165,17 +166,22 @@ class TemplateEditorProvider extends ChangeNotifier {
 
   String _generateCustomFieldId() {
     final r = Random();
-    final chunk = List.generate(8, (_) => r.nextInt(36).toRadixString(36)).join();
+    final chunk = List.generate(
+      8,
+      (_) => r.nextInt(36).toRadixString(36),
+    ).join();
     return 'custom_$chunk';
-}
-
+  }
 
   // ---------- outline editing ----------
   void addTopLevelSection(String title) {
     final t = title.trim();
     if (t.isEmpty) return;
     _template = _template.copyWith(
-      roots: [..._template.roots, SectionNode(id: newId('sec'), title: t, indent: 0)],
+      roots: [
+        ..._template.roots,
+        SectionNode(id: newId('sec'), title: t, indent: 0),
+      ],
       updatedAt: DateTime.now(),
     );
     _markDirty();
@@ -190,7 +196,10 @@ class TemplateEditorProvider extends ChangeNotifier {
         _template.roots,
         parentId,
         (s) => s.copyWith(
-          children: [...s.children, SectionNode(id: newId('sec'), title: t, indent: s.indent + 1)],
+          children: [
+            ...s.children,
+            SectionNode(id: newId('sec'), title: t, indent: s.indent + 1),
+          ],
           collapsed: false,
         ),
       ),
@@ -204,7 +213,11 @@ class TemplateEditorProvider extends ChangeNotifier {
     final t = title.trim();
     if (t.isEmpty) return;
     _template = _template.copyWith(
-      roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(title: t)),
+      roots: _updateTree(
+        _template.roots,
+        sectionId,
+        (s) => s.copyWith(title: t),
+      ),
       updatedAt: DateTime.now(),
     );
     _markDirty();
@@ -213,7 +226,11 @@ class TemplateEditorProvider extends ChangeNotifier {
 
   void updateSectionStyle(String sectionId, TitleStyle style) {
     _template = _template.copyWith(
-      roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(style: style)),
+      roots: _updateTree(
+        _template.roots,
+        sectionId,
+        (s) => s.copyWith(style: style),
+      ),
       updatedAt: DateTime.now(),
     );
     _markDirty();
@@ -227,38 +244,34 @@ class TemplateEditorProvider extends ChangeNotifier {
     String? unit,
     bool? showInPdf,
     bool? addToRecords,
+    bool? addToLog,
     bool? allowOptionalNote,
     String? conditionalParentSectionId,
     String? conditionalEquals,
   }) {
     _template = _template.copyWith(
-      roots: _updateTree(
-        _template.roots,
-        sectionId,
-        (s) {
-          final nextInputType = inputType ?? s.inputType;
-          final isStructured = nextInputType != FieldInputType.freeText;
-          return s.copyWith(
-            inputType: nextInputType,
-            options: nextInputType == FieldInputType.numeric
-                ? const <String>[]
-                : options,
-            unit: nextInputType == FieldInputType.numeric
-                ? (unit ?? s.unit).trim()
-                : '',
-            showInPdf: showInPdf ?? s.showInPdf,
-            addToRecords: isStructured
-                ? (addToRecords ?? s.addToRecords)
-                : false,
-            allowOptionalNote: isStructured
-                ? (allowOptionalNote ?? s.allowOptionalNote)
-                : false,
-            note: isStructured ? s.note : '',
-            conditionalParentSectionId: conditionalParentSectionId,
-            conditionalEquals: conditionalEquals,
-          );
-        },
-      ),
+      roots: _updateTree(_template.roots, sectionId, (s) {
+        final nextInputType = inputType ?? s.inputType;
+        final isStructured = nextInputType != FieldInputType.freeText;
+        return s.copyWith(
+          inputType: nextInputType,
+          options: nextInputType == FieldInputType.numeric
+              ? const <String>[]
+              : options,
+          unit: nextInputType == FieldInputType.numeric
+              ? (unit ?? s.unit).trim()
+              : '',
+          showInPdf: showInPdf ?? s.showInPdf,
+          addToLog: addToLog ?? s.addToLog,
+          addToRecords: isStructured ? (addToRecords ?? s.addToRecords) : false,
+          allowOptionalNote: isStructured
+              ? (allowOptionalNote ?? s.allowOptionalNote)
+              : false,
+          note: isStructured ? s.note : '',
+          conditionalParentSectionId: conditionalParentSectionId,
+          conditionalEquals: conditionalEquals,
+        );
+      }),
       updatedAt: DateTime.now(),
     );
     _markDirty();
@@ -271,7 +284,11 @@ class TemplateEditorProvider extends ChangeNotifier {
 
   void toggleCollapsed(String sectionId) {
     _template = _template.copyWith(
-      roots: _updateTree(_template.roots, sectionId, (s) => s.copyWith(collapsed: !s.collapsed)),
+      roots: _updateTree(
+        _template.roots,
+        sectionId,
+        (s) => s.copyWith(collapsed: !s.collapsed),
+      ),
       updatedAt: DateTime.now(),
     );
     notifyListeners();
@@ -309,7 +326,9 @@ class TemplateEditorProvider extends ChangeNotifier {
     String targetId,
     SectionNode Function(SectionNode) updater,
   ) {
-    return roots.map((s) => _updateNode(s, targetId, updater)).toList(growable: false);
+    return roots
+        .map((s) => _updateNode(s, targetId, updater))
+        .toList(growable: false);
   }
 
   SectionNode _updateNode(
@@ -319,25 +338,38 @@ class TemplateEditorProvider extends ChangeNotifier {
   ) {
     var current = node.id == targetId ? updater(node) : node;
     return current.copyWith(
-      children: current.children.map((child) {
-        if (child is SectionNode) return _updateNode(child, targetId, updater);
-        return child;
-      }).toList(growable: false),
+      children: current.children
+          .map((child) {
+            if (child is SectionNode)
+              return _updateNode(child, targetId, updater);
+            return child;
+          })
+          .toList(growable: false),
     );
   }
 
   List<SectionNode> _deleteNode(List<SectionNode> roots, String targetId) {
     List<Node> walk(List<Node> children) {
-      return children.where((n) => !(n is SectionNode && n.id == targetId)).map((n) {
-        if (n is SectionNode) return n.copyWith(children: walk(n.children));
-        return n;
-      }).toList(growable: false);
+      return children
+          .where((n) => !(n is SectionNode && n.id == targetId))
+          .map((n) {
+            if (n is SectionNode) return n.copyWith(children: walk(n.children));
+            return n;
+          })
+          .toList(growable: false);
     }
 
-    return roots.where((s) => s.id != targetId).map((s) => s.copyWith(children: walk(s.children))).toList(growable: false);
+    return roots
+        .where((s) => s.id != targetId)
+        .map((s) => s.copyWith(children: walk(s.children)))
+        .toList(growable: false);
   }
 
-  List<SectionNode> _moveSectionAmongSiblings(List<SectionNode> roots, String targetId, int delta) {
+  List<SectionNode> _moveSectionAmongSiblings(
+    List<SectionNode> roots,
+    String targetId,
+    int delta,
+  ) {
     final topIndex = roots.indexWhere((s) => s.id == targetId);
     if (topIndex != -1) {
       final next = [...roots];
@@ -349,7 +381,9 @@ class TemplateEditorProvider extends ChangeNotifier {
     }
 
     SectionNode walk(SectionNode section) {
-      final childSections = section.children.whereType<SectionNode>().toList(growable: false);
+      final childSections = section.children.whereType<SectionNode>().toList(
+        growable: false,
+      );
       final childIndex = childSections.indexWhere((s) => s.id == targetId);
       if (childIndex != -1) {
         final newIndex = childIndex + delta;
@@ -359,12 +393,16 @@ class TemplateEditorProvider extends ChangeNotifier {
         final item = reordered.removeAt(childIndex);
         reordered.insert(newIndex, item);
 
-        final others = section.children.where((c) => c is! SectionNode).toList(growable: false);
+        final others = section.children
+            .where((c) => c is! SectionNode)
+            .toList(growable: false);
         return section.copyWith(children: [...others, ...reordered]);
       }
 
       return section.copyWith(
-        children: section.children.map((c) => c is SectionNode ? walk(c) : c).toList(growable: false),
+        children: section.children
+            .map((c) => c is SectionNode ? walk(c) : c)
+            .toList(growable: false),
       );
     }
 

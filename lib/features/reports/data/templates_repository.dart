@@ -15,11 +15,13 @@ import 'built_in_templates.dart';
 class TemplateSummary {
   final String templateId;
   final String name;
+  final String groupName;
   final DateTime updatedAt;
 
   const TemplateSummary({
     required this.templateId,
     required this.name,
+    this.groupName = '',
     required this.updatedAt,
   });
 }
@@ -140,6 +142,53 @@ class TemplatesRepository {
     throw Exception('Template not found');
   }
 
+  // Empty groups are local. Membership travels with the template schema.
+  Future<List<String>> listGroups() async {
+    final prefs = await _prefs;
+    final names = <String>{
+      ...prefs.getStringList('templates.groups.v1') ?? [],
+      ...[
+        for (final t in await listTemplates())
+          if (t.groupName.isNotEmpty) t.groupName,
+      ],
+    };
+    return names.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
+  Future<void> addGroup(String name) async {
+    final names = await listGroups();
+    if (name.trim().isEmpty) throw ArgumentError('Enter a group name');
+    if (names.any((n) => n.toLowerCase() == name.trim().toLowerCase())) {
+      throw StateError('A group with that name already exists');
+    }
+    final prefs = await _prefs;
+    if (!await prefs.setStringList('templates.groups.v1', [
+      ...names,
+      name.trim(),
+    ])) {
+      throw StateError('Could not save group');
+    }
+  }
+
+  Future<void> removeGroup(String name) async {
+    // Move children first; deleting a group must never delete a template.
+    for (final t in await listTemplates()) {
+      if (t.groupName == name) {
+        final doc = await loadTemplate(t.templateId);
+        await saveTemplate(
+          doc.copyWith(groupName: '', updatedAt: DateTime.now()),
+        );
+      }
+    }
+    final prefs = await _prefs;
+    final names = (prefs.getStringList('templates.groups.v1') ?? [])
+        .where((n) => n != name)
+        .toList();
+    if (!await prefs.setStringList('templates.groups.v1', names))
+      throw StateError('Could not remove group');
+  }
+
   Future<void> updateTemplateRecordFieldSettings({
     required String templateId,
     required Set<String> saveToRecordsSectionIds,
@@ -228,6 +277,7 @@ class TemplatesRepository {
           TemplateSummary(
             templateId: json['templateId'] as String,
             name: (json['name'] as String?) ?? 'Untitled Template',
+            groupName: (json['groupName'] as String?) ?? '',
             updatedAt:
                 DateTime.tryParse(json['updatedAtIso'] as String? ?? '') ??
                 DateTime.fromMillisecondsSinceEpoch(0),
@@ -259,6 +309,7 @@ class TemplatesRepository {
         return TemplateSummary(
           templateId: data['templateId'] as String? ?? doc.id,
           name: (data['name'] as String?) ?? 'Untitled Template',
+          groupName: (data['groupName'] as String?) ?? '',
           updatedAt:
               DateTime.tryParse(data['updatedAtIso'] as String? ?? '') ??
               DateTime.tryParse(data['syncedAtIso'] as String? ?? '') ??

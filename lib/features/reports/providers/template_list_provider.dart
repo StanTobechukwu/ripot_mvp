@@ -16,10 +16,12 @@ class TemplateListProvider extends ChangeNotifier {
     _loading = true;
     notifyListeners();
 
-    _templates = await repo.listTemplates();
-
-    _loading = false;
-    notifyListeners();
+    try {
+      _templates = await repo.listTemplates();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> delete(String templateId) async {

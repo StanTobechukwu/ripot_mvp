@@ -8,6 +8,7 @@ class TemplateDoc {
   final String templateId;
   final DateTime updatedAt;
   final String name;
+  final String groupName;
   final List<SectionNode> roots;
   final SubjectInfoBlockDef subjectInfo;
   final SignatureBlock signature;
@@ -16,6 +17,7 @@ class TemplateDoc {
     required this.templateId,
     required this.updatedAt,
     required this.name,
+    this.groupName = '',
     required this.roots,
     SubjectInfoBlockDef? subjectInfo,
     this.signature = const SignatureBlock(),
@@ -24,6 +26,7 @@ class TemplateDoc {
   TemplateDoc copyWith({
     DateTime? updatedAt,
     String? name,
+    String? groupName,
     List<SectionNode>? roots,
     SubjectInfoBlockDef? subjectInfo,
     SignatureBlock? signature,
@@ -32,6 +35,7 @@ class TemplateDoc {
       templateId: templateId,
       updatedAt: updatedAt ?? this.updatedAt,
       name: name ?? this.name,
+      groupName: groupName ?? this.groupName,
       roots: roots ?? this.roots,
       subjectInfo: subjectInfo ?? this.subjectInfo,
       signature: signature ?? this.signature,
