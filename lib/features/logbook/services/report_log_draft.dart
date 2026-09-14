@@ -1,4 +1,5 @@
 import '../../reports/domain/models/report_doc.dart';
+import '../../reports/domain/report_facility.dart';
 import '../../reports/domain/models/nodes.dart';
 import '../domain/logbook_models.dart';
 
@@ -62,6 +63,7 @@ LogData logDataFromReport(ReportDoc report, {String meId = ''}) {
   }
   return LogData(
     procedure: report.reportTitle,
+    facility: reportFacility(report),
     procedureDate: DateTime.tryParse(report.reportDateIso) ?? DateTime.now(),
     reference: report.subjectInfo.valueOf('subjectId'),
     fields: fields,

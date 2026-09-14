@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -23,11 +24,22 @@ class AccessRepository {
     return id;
   }
 
-  Future<AccessState> load() async {
+  /// Display only the current account's previously verified, unexpired access.
+  Future<AccessState?> loadCached() async {
+    final uid = _currentAuthUid();
+    if (uid == null) return null;
+    final cached = _loadAccountCache(await _prefs, uid);
+    if (_currentAuthUid() != uid || cached == null) return null;
+    if (cached.plan == RipotPlan.premium && cached.premiumExpiresAt == null)
+      return null;
+    return _normalizeState(cached);
+  }
+
+  Future<AccessState> load({bool refreshPlay = true}) async {
     final prefs = await _prefs;
     final installationId = await getOrCreateInstallationId();
-    final config = await _loadRemoteConfigSafely();
     final authUid = _currentAuthUid();
+    final configFuture = _loadRemoteConfigSafely();
 
     // Premium and trial access are account-owned. A signed-out installation
     // must never inherit the last signed-in account's cached entitlement.
@@ -36,7 +48,7 @@ class AccessRepository {
         _withoutAccountEntitlement(
           _applyConfig(
             AccessState.initial(installationId: installationId),
-            config,
+            await configFuture,
           ),
         ),
       );
@@ -46,14 +58,18 @@ class AccessRepository {
     final configured = _normalizeState(
       _applyConfig(
         cached ?? AccessState.initial(installationId: installationId),
-        config,
+        await configFuture,
       ),
     );
     final state = _normalizeState(
-      await _applyRemoteEntitlementSafely(configured, authUid: authUid),
+      await _applyRemoteEntitlementSafely(
+        configured,
+        authUid: authUid,
+        refreshPlay: refreshPlay,
+      ),
     );
     await _saveAccountCache(prefs, authUid, state);
-    await _syncToFirestore(state);
+    unawaited(_syncToFirestore(state));
     return state;
   }
 
@@ -95,6 +111,11 @@ class AccessRepository {
   }
 
   AccessState _normalizeState(AccessState state) {
+    if (state.plan == RipotPlan.premium &&
+        state.premiumExpiresAt != null &&
+        !state.premiumExpiresAt!.isAfter(DateTime.now())) {
+      return state.copyWith(plan: RipotPlan.free);
+    }
     if (state.plan == RipotPlan.trial && !state.isTrialActive) {
       return state.copyWith(plan: RipotPlan.free, updatedAt: DateTime.now());
     }
@@ -123,6 +144,7 @@ class AccessRepository {
       trialStartAt: null,
       trialEndsAt: null,
       premiumStartedAt: null,
+      premiumExpiresAt: null,
       hasUsedTrial: false,
       founderCohort: null,
       founderNumber: null,
@@ -181,6 +203,7 @@ class AccessRepository {
       trialStartAt: remoteTrialStart ?? state.trialStartAt,
       trialEndsAt: remoteTrialEnd ?? state.trialEndsAt,
       premiumStartedAt: remotePremiumStart ?? state.premiumStartedAt,
+      premiumExpiresAt: _dateFromJson(data['playEntitlementExpiresAtIso']),
       hasUsedTrial: remoteHasUsedTrial ?? state.hasUsedTrial,
       founderCohort: remoteFounderCohort ?? state.founderCohort,
       founderNumber: remoteFounderNumber ?? state.founderNumber,
@@ -193,6 +216,7 @@ class AccessRepository {
   Future<AccessState> _applyRemoteEntitlementSafely(
     AccessState state, {
     required String authUid,
+    bool refreshPlay = true,
   }) async {
     if (Firebase.apps.isEmpty) return state;
 
@@ -201,17 +225,21 @@ class AccessRepository {
     }
 
     try {
-      try {
-        final callable = FirebaseFunctions.instance.httpsCallable(
-          'refreshPlayEntitlement',
-        );
-        await callable.call(<String, dynamic>{});
-      } catch (_) {}
+      if (refreshPlay)
+        try {
+          final callable = FirebaseFunctions.instance.httpsCallable(
+            'refreshPlayEntitlement',
+          );
+          await callable
+              .call(<String, dynamic>{})
+              .timeout(const Duration(seconds: 8));
+        } catch (_) {}
 
       final snap = await FirebaseFirestore.instance
           .collection('ripot_user_access')
           .doc(authUid)
-          .get();
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 8));
       if (_currentAuthUid() != authUid) {
         return _withoutAccountEntitlement(state);
       }
@@ -241,6 +269,7 @@ class AccessRepository {
         next = next.copyWith(
           plan: RipotPlan.premium,
           premiumStartedAt: next.premiumStartedAt ?? DateTime.now(),
+          premiumExpiresAt: null,
           updatedAt: DateTime.now(),
         );
       } else if (overridePlan == 'free') {
@@ -267,7 +296,8 @@ class AccessRepository {
       final snap = await FirebaseFirestore.instance
           .collection('ripot_app_config')
           .doc('access')
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 3));
       final data = snap.data();
       if (data == null) return const _AccessRemoteConfig.defaults();
       return _AccessRemoteConfig.fromJson(data);
@@ -299,19 +329,41 @@ class AccessRepository {
     }
   }
 
-  Future<bool> activatePremiumTrialForSignedInAccount() async {
-    if (Firebase.apps.isEmpty) return false;
+  Future<AccessState?> activatePremiumTrialForSignedInAccount() async {
+    if (Firebase.apps.isEmpty) return null;
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
+    if (user == null) return null;
 
     try {
       final callable = FirebaseFunctions.instance.httpsCallable(
         'activatePremiumTrial',
       );
-      await callable.call(<String, dynamic>{});
-      return true;
+      final result = await callable.call(<String, dynamic>{});
+      if (_currentAuthUid() != user.uid) return null;
+      final data = Map<String, dynamic>.from(result.data as Map);
+      // Only a newly granted trial is installed from the callable response.
+      // An already-used response is reconciled from the authoritative document.
+      if (data['activated'] != true) return null;
+      final start = _dateFromJson(data['trialStartAtIso']);
+      final end = _dateFromJson(data['trialEndsAtIso']);
+      if (start == null || end == null) return null;
+      final initial =
+          await loadCached() ??
+          AccessState.initial(
+            installationId: await getOrCreateInstallationId(),
+          );
+      if (_currentAuthUid() != user.uid) return null;
+      return initial.copyWith(
+        plan: RipotPlan.trial,
+        trialStartAt: start,
+        trialEndsAt: end,
+        hasUsedTrial: true,
+        updatedAt: DateTime.now(),
+        founderCohort: data['founder'] == true ? 'founding_100' : null,
+        founderNumber: _nullableIntFromJson(data['founderNumber']),
+      );
     } catch (_) {
-      return false;
+      return null;
     }
   }
 

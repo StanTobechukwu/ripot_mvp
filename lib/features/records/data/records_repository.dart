@@ -5,17 +5,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/ids.dart';
 import '../../../core/utils/time.dart';
 import '../../reports/domain/models/report_doc.dart';
+import '../../reports/domain/report_facility.dart';
 import '../../reports/domain/models/nodes.dart';
 import '../domain/record_models.dart';
 
-
-
 class _RecordBuildData {
-  const _RecordBuildData({required this.values, required this.labels, required this.sources});
+  const _RecordBuildData({
+    required this.values,
+    required this.labels,
+    required this.sources,
+    required this.definitions,
+  });
 
   final Map<String, String> values;
   final Map<String, String> labels;
   final Map<String, String> sources;
+  final Map<String, RecordFieldDef> definitions;
 }
 
 class RecordsMergeResult {
@@ -75,8 +80,14 @@ class RecordsRepository {
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
       return decoded
-          .map((e) => RecordRegistry.fromJson((e as Map).cast<String, dynamic>()))
-          .where((registry) => registry.registryId.trim().isNotEmpty && registry.title.trim().isNotEmpty)
+          .map(
+            (e) => RecordRegistry.fromJson((e as Map).cast<String, dynamic>()),
+          )
+          .where(
+            (registry) =>
+                registry.registryId.trim().isNotEmpty &&
+                registry.title.trim().isNotEmpty,
+          )
           .toList(growable: false);
     } catch (_) {
       return <RecordRegistry>[];
@@ -85,13 +96,34 @@ class RecordsRepository {
 
   Future<void> _saveRegistries(List<RecordRegistry> registries) async {
     final prefs = await _prefs;
-    await prefs.setString(
+    final saved = await prefs.setString(
       _registriesKey,
       jsonEncode(registries.map((e) => e.toJson()).toList(growable: false)),
     );
+    if (!saved) throw StateError('Registry settings could not be saved.');
   }
 
-  Future<RecordRegistry> createRegistry({required String title, String description = ''}) async {
+  Future<void> saveRegistryFields(
+    String registryId,
+    List<RecordFieldDef> fields,
+  ) async {
+    final registries = await loadRegistries();
+    if (!registries.any((r) => r.registryId == registryId)) {
+      throw StateError('Registry no longer exists.');
+    }
+    await _saveRegistries([
+      for (final registry in registries)
+        if (registry.registryId == registryId)
+          registry.copyWith(fields: fields)
+        else
+          registry,
+    ]);
+  }
+
+  Future<RecordRegistry> createRegistry({
+    required String title,
+    String description = '',
+  }) async {
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) {
       throw ArgumentError('Registry title is required.');
@@ -107,7 +139,6 @@ class RecordsRepository {
     return registry;
   }
 
-
   Future<void> updateRegistry({
     required String registryId,
     required String title,
@@ -117,13 +148,15 @@ class RecordsRepository {
     final trimmedTitle = title.trim();
     if (trimmedRegistryId.isEmpty || trimmedTitle.isEmpty) return;
     final registries = await loadRegistries();
-    final updated = registries.map((registry) {
-      if (registry.registryId != trimmedRegistryId) return registry;
-      return registry.copyWith(
-        title: trimmedTitle,
-        description: description.trim(),
-      );
-    }).toList(growable: false);
+    final updated = registries
+        .map((registry) {
+          if (registry.registryId != trimmedRegistryId) return registry;
+          return registry.copyWith(
+            title: trimmedTitle,
+            description: description.trim(),
+          );
+        })
+        .toList(growable: false);
     await _saveRegistries(updated);
   }
 
@@ -146,8 +179,10 @@ class RecordsRepository {
         continue;
       }
       final baseSlug = _slug(trimmedLabel);
-      final existingSameConcept = registry.fields.any((field) =>
-          field.label.trim().toLowerCase() == trimmedLabel.toLowerCase());
+      final existingSameConcept = registry.fields.any(
+        (field) =>
+            field.label.trim().toLowerCase() == trimmedLabel.toLowerCase(),
+      );
       if (existingSameConcept) {
         updated.add(registry);
         continue;
@@ -167,23 +202,26 @@ class RecordsRepository {
           .where((e) => e.isNotEmpty)
           .toSet()
           .toList(growable: false);
-      updated.add(registry.copyWith(fields: [
-        ...registry.fields,
-        RecordFieldDef(
-          key: key,
-          label: trimmedLabel,
-          hint: hint.trim().isEmpty ? 'Registry field' : hint.trim(),
-          builtInSuggestions: cleanedSuggestions,
-          isSystem: false,
-          registryId: trimmedRegistryId,
-          conditionalOnFieldKey: conditionalOnFieldKey.trim(),
-          conditionalEquals: conditionalEquals.trim(),
+      updated.add(
+        registry.copyWith(
+          fields: [
+            ...registry.fields,
+            RecordFieldDef(
+              key: key,
+              label: trimmedLabel,
+              hint: hint.trim().isEmpty ? 'Registry field' : hint.trim(),
+              builtInSuggestions: cleanedSuggestions,
+              isSystem: false,
+              registryId: trimmedRegistryId,
+              conditionalOnFieldKey: conditionalOnFieldKey.trim(),
+              conditionalEquals: conditionalEquals.trim(),
+            ),
+          ],
         ),
-      ]));
+      );
     }
     await _saveRegistries(updated);
   }
-
 
   Future<void> updateRegistryField({
     required String registryId,
@@ -197,27 +235,34 @@ class RecordsRepository {
     final trimmedRegistryId = registryId.trim();
     final trimmedFieldKey = fieldKey.trim();
     final trimmedLabel = label.trim();
-    if (trimmedRegistryId.isEmpty || trimmedFieldKey.isEmpty || trimmedLabel.isEmpty) return;
+    if (trimmedRegistryId.isEmpty ||
+        trimmedFieldKey.isEmpty ||
+        trimmedLabel.isEmpty)
+      return;
     final cleanedSuggestions = suggestions
         .map((e) => _normalizeVocabularyValue(e))
         .where((e) => e.isNotEmpty)
         .toSet()
         .toList(growable: false);
     final registries = await loadRegistries();
-    final updated = registries.map((registry) {
-      if (registry.registryId != trimmedRegistryId) return registry;
-      final nextFields = registry.fields.map((field) {
-        if (field.key != trimmedFieldKey) return field;
-        return field.copyWith(
-          label: trimmedLabel,
-          hint: hint.trim().isEmpty ? field.hint : hint.trim(),
-          builtInSuggestions: cleanedSuggestions,
-          conditionalOnFieldKey: conditionalOnFieldKey.trim(),
-          conditionalEquals: conditionalEquals.trim(),
-        );
-      }).toList(growable: false);
-      return registry.copyWith(fields: nextFields);
-    }).toList(growable: false);
+    final updated = registries
+        .map((registry) {
+          if (registry.registryId != trimmedRegistryId) return registry;
+          final nextFields = registry.fields
+              .map((field) {
+                if (field.key != trimmedFieldKey) return field;
+                return field.copyWith(
+                  label: trimmedLabel,
+                  hint: hint.trim().isEmpty ? field.hint : hint.trim(),
+                  builtInSuggestions: cleanedSuggestions,
+                  conditionalOnFieldKey: conditionalOnFieldKey.trim(),
+                  conditionalEquals: conditionalEquals.trim(),
+                );
+              })
+              .toList(growable: false);
+          return registry.copyWith(fields: nextFields);
+        })
+        .toList(growable: false);
     await _saveRegistries(updated);
   }
 
@@ -229,21 +274,26 @@ class RecordsRepository {
     final trimmedFieldKey = fieldKey.trim();
     if (trimmedRegistryId.isEmpty || trimmedFieldKey.isEmpty) return;
     final registries = await loadRegistries();
-    final updated = registries.map((registry) {
-      if (registry.registryId != trimmedRegistryId) return registry;
-      return registry.copyWith(
-        fields: registry.fields.where((field) => field.key != trimmedFieldKey).toList(growable: false),
-      );
-    }).toList(growable: false);
+    final updated = registries
+        .map((registry) {
+          if (registry.registryId != trimmedRegistryId) return registry;
+          return registry.copyWith(
+            fields: registry.fields
+                .where((field) => field.key != trimmedFieldKey)
+                .toList(growable: false),
+          );
+        })
+        .toList(growable: false);
     await _saveRegistries(updated);
   }
-
 
   Future<void> deleteRegistry(String registryId) async {
     final trimmedRegistryId = registryId.trim();
     if (trimmedRegistryId.isEmpty) return;
     final registries = await loadRegistries();
-    final updatedRegistries = registries.where((r) => r.registryId != trimmedRegistryId).toList(growable: false);
+    final updatedRegistries = registries
+        .where((r) => r.registryId != trimmedRegistryId)
+        .toList(growable: false);
     await _saveRegistries(updatedRegistries);
 
     final prefs = await _prefs;
@@ -256,33 +306,47 @@ class RecordsRepository {
         if (!entry.registryIds.contains(trimmedRegistryId)) continue;
         final updatedEntry = entry.copyWith(
           updatedAtIso: DateTime.now().toIso8601String(),
-          registryIds: entry.registryIds.where((rid) => rid != trimmedRegistryId).toList(growable: false),
+          registryIds: entry.registryIds
+              .where((rid) => rid != trimmedRegistryId)
+              .toList(growable: false),
         );
         await prefs.setString(_recordKey(id), updatedEntry.encode());
       } catch (_) {}
     }
   }
 
-  Future<void> assignRecordToRegistry({required String recordEntryId, required String registryId}) async {
+  Future<void> assignRecordToRegistry({
+    required String recordEntryId,
+    required String registryId,
+  }) async {
     final trimmedRegistryId = registryId.trim();
     if (trimmedRegistryId.isEmpty) return;
     final existing = await loadByRecordId(recordEntryId);
     if (existing == null) return;
     if (existing.registryIds.contains(trimmedRegistryId)) return;
-    await saveRecord(existing.copyWith(
-      updatedAtIso: DateTime.now().toIso8601String(),
-      registryIds: [...existing.registryIds, trimmedRegistryId],
-    ));
+    await saveRecord(
+      existing.copyWith(
+        updatedAtIso: DateTime.now().toIso8601String(),
+        registryIds: [...existing.registryIds, trimmedRegistryId],
+      ),
+    );
   }
 
-  Future<void> removeRecordFromRegistry({required String recordEntryId, required String registryId}) async {
+  Future<void> removeRecordFromRegistry({
+    required String recordEntryId,
+    required String registryId,
+  }) async {
     final existing = await loadByRecordId(recordEntryId);
     if (existing == null) return;
-    final nextRegistries = existing.registryIds.where((id) => id != registryId).toList(growable: false);
-    await saveRecord(existing.copyWith(
-      updatedAtIso: DateTime.now().toIso8601String(),
-      registryIds: nextRegistries,
-    ));
+    final nextRegistries = existing.registryIds
+        .where((id) => id != registryId)
+        .toList(growable: false);
+    await saveRecord(
+      existing.copyWith(
+        updatedAtIso: DateTime.now().toIso8601String(),
+        registryIds: nextRegistries,
+      ),
+    );
   }
 
   Future<List<RecordFieldDef>> loadCustomFields() async {
@@ -292,7 +356,9 @@ class RecordsRepository {
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
       return decoded
-          .map((e) => RecordFieldDef.fromJson((e as Map).cast<String, dynamic>()))
+          .map(
+            (e) => RecordFieldDef.fromJson((e as Map).cast<String, dynamic>()),
+          )
           .where((field) => field.key.trim().isNotEmpty)
           .toList(growable: false);
     } catch (_) {
@@ -300,7 +366,14 @@ class RecordsRepository {
     }
   }
 
-  Future<void> saveCustomField({required String label, String hint = '', String procedureScope = ''}) async {
+  Future<void> saveCustomField({
+    required String label,
+    String hint = '',
+    String procedureScope = '',
+    RecordInputType inputType = RecordInputType.freeText,
+    List<String> options = const <String>[],
+    String unit = '',
+  }) async {
     final trimmedLabel = label.trim();
     if (trimmedLabel.isEmpty) return;
     final current = await loadCustomFields();
@@ -310,11 +383,22 @@ class RecordsRepository {
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
     var key = slug.isEmpty ? newId('field') : slug;
-    final existingFields = [...RecordFieldCatalog.coreFields, ...current];
-    final existingSameConcept = existingFields.any((field) =>
-        field.key.trim().toLowerCase() == key.toLowerCase() ||
-        field.label.trim().toLowerCase() == trimmedLabel.toLowerCase());
+    final normalizedScope = procedureScope.trim().toLowerCase();
+    final existingSameConcept =
+        RecordFieldCatalog.coreFields.any(
+          (field) =>
+              field.key.trim().toLowerCase() == key.toLowerCase() ||
+              field.label.trim().toLowerCase() == trimmedLabel.toLowerCase(),
+        ) ||
+        current.any(
+          (field) =>
+              field.procedureScope.trim().toLowerCase() == normalizedScope &&
+              (field.key.trim().toLowerCase() == key.toLowerCase() ||
+                  field.label.trim().toLowerCase() ==
+                      trimmedLabel.toLowerCase()),
+        );
     if (existingSameConcept) return;
+    final existingFields = [...RecordFieldCatalog.coreFields, ...current];
     final existingKeys = existingFields.map((e) => e.key).toSet();
     var n = 2;
     final baseKey = key;
@@ -330,12 +414,21 @@ class RecordsRepository {
         hint: hint.trim().isEmpty ? 'Extra record field' : hint.trim(),
         isSystem: false,
         procedureScope: procedureScope.trim(),
+        inputType: inputType,
+        options: options
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList(growable: false),
+        unit: unit.trim(),
       ),
     ];
     final prefs = await _prefs;
-    await prefs.setString(_customFieldsKey, jsonEncode(updated.map((e) => e.toJson()).toList(growable: false)));
+    await prefs.setString(
+      _customFieldsKey,
+      jsonEncode(updated.map((e) => e.toJson()).toList(growable: false)),
+    );
   }
-
 
   Future<void> updateCustomField({
     required String fieldKey,
@@ -343,22 +436,33 @@ class RecordsRepository {
     String hint = '',
     String procedureScope = '',
     List<String>? suggestions,
+    RecordInputType? inputType,
+    List<String>? options,
+    String? unit,
   }) async {
     final trimmedKey = fieldKey.trim();
     final trimmedLabel = label.trim();
     if (trimmedKey.isEmpty || trimmedLabel.isEmpty) return;
     final current = await loadCustomFields();
-    final updated = current.map((field) {
-      if (field.key != trimmedKey) return field;
-      return field.copyWith(
-        label: trimmedLabel,
-        hint: hint.trim().isEmpty ? field.hint : hint.trim(),
-        procedureScope: procedureScope.trim(),
-        builtInSuggestions: suggestions ?? field.builtInSuggestions,
-      );
-    }).toList(growable: false);
+    final updated = current
+        .map((field) {
+          if (field.key != trimmedKey) return field;
+          return field.copyWith(
+            label: trimmedLabel,
+            hint: hint.trim().isEmpty ? field.hint : hint.trim(),
+            procedureScope: procedureScope.trim(),
+            builtInSuggestions: suggestions ?? field.builtInSuggestions,
+            inputType: inputType ?? field.inputType,
+            options: options ?? field.options,
+            unit: unit ?? field.unit,
+          );
+        })
+        .toList(growable: false);
     final prefs = await _prefs;
-    await prefs.setString(_customFieldsKey, jsonEncode(updated.map((e) => e.toJson()).toList(growable: false)));
+    await prefs.setString(
+      _customFieldsKey,
+      jsonEncode(updated.map((e) => e.toJson()).toList(growable: false)),
+    );
 
     final ids = await _readIndex();
     for (final id in ids) {
@@ -366,11 +470,31 @@ class RecordsRepository {
       if (raw == null || raw.trim().isEmpty) continue;
       try {
         final entry = RecordEntry.decode(raw);
-        if (!entry.values.containsKey(trimmedKey) && !entry.fieldLabels.containsKey(trimmedKey)) continue;
-        final labels = Map<String, String>.from(entry.fieldLabels)..[trimmedKey] = trimmedLabel;
+        if (!entry.values.containsKey(trimmedKey) &&
+            !entry.fieldLabels.containsKey(trimmedKey))
+          continue;
+        final labels = Map<String, String>.from(entry.fieldLabels)
+          ..[trimmedKey] = trimmedLabel;
+        final definitions = Map<String, RecordFieldDef>.from(
+          entry.fieldDefinitions,
+        );
+        final previousDefinition = definitions[trimmedKey];
+        if (previousDefinition != null) {
+          definitions[trimmedKey] = previousDefinition.copyWith(
+            label: trimmedLabel,
+            hint: hint.trim().isEmpty ? previousDefinition.hint : hint.trim(),
+            procedureScope: procedureScope.trim(),
+            builtInSuggestions:
+                suggestions ?? previousDefinition.builtInSuggestions,
+            inputType: inputType ?? previousDefinition.inputType,
+            options: options ?? previousDefinition.options,
+            unit: unit ?? previousDefinition.unit,
+          );
+        }
         final updatedEntry = entry.copyWith(
           updatedAtIso: DateTime.now().toIso8601String(),
           fieldLabels: labels,
+          fieldDefinitions: definitions,
         );
         await prefs.setString(_recordKey(id), updatedEntry.encode());
       } catch (_) {
@@ -379,15 +503,22 @@ class RecordsRepository {
     }
   }
 
-
-  Future<void> deleteCustomField(String fieldKey, {bool deleteSavedValues = false}) async {
+  Future<void> deleteCustomField(
+    String fieldKey, {
+    bool deleteSavedValues = false,
+  }) async {
     final trimmedKey = fieldKey.trim();
     if (trimmedKey.isEmpty) return;
 
     final current = await loadCustomFields();
-    final updatedFields = current.where((f) => f.key != trimmedKey).toList(growable: false);
+    final updatedFields = current
+        .where((f) => f.key != trimmedKey)
+        .toList(growable: false);
     final prefs = await _prefs;
-    await prefs.setString(_customFieldsKey, jsonEncode(updatedFields.map((e) => e.toJson()).toList(growable: false)));
+    await prefs.setString(
+      _customFieldsKey,
+      jsonEncode(updatedFields.map((e) => e.toJson()).toList(growable: false)),
+    );
     await prefs.remove(_vocabKey(trimmedKey));
 
     if (!deleteSavedValues) return;
@@ -399,8 +530,10 @@ class RecordsRepository {
       try {
         final entry = RecordEntry.decode(raw);
         if (!entry.values.containsKey(trimmedKey)) continue;
-        final values = Map<String, String>.from(entry.values)..remove(trimmedKey);
-        final labels = Map<String, String>.from(entry.fieldLabels)..remove(trimmedKey);
+        final values = Map<String, String>.from(entry.values)
+          ..remove(trimmedKey);
+        final labels = Map<String, String>.from(entry.fieldLabels)
+          ..remove(trimmedKey);
         final updatedEntry = entry.copyWith(
           updatedAtIso: DateTime.now().toIso8601String(),
           values: values,
@@ -437,7 +570,9 @@ class RecordsRepository {
             procedure: entry.valueOf(RecordFieldCatalog.procedure.key),
             diagnosis: entry.valueOf(RecordFieldCatalog.diagnosis.key),
             reportDate: entry.valueOf(RecordFieldCatalog.reportDate.key),
-            patientReference: entry.valueOf(RecordFieldCatalog.patientReference.key),
+            patientReference: entry.valueOf(
+              RecordFieldCatalog.patientReference.key,
+            ),
             updatedAt: DateTime.tryParse(entry.updatedAtIso) ?? DateTime.now(),
             values: entry.values,
             fieldLabels: entry.fieldLabels,
@@ -473,7 +608,10 @@ class RecordsRepository {
   Future<void> saveRecord(RecordEntry entry) async {
     final prefs = await _prefs;
     await prefs.setString(_recordKey(entry.recordEntryId), entry.encode());
-    await prefs.setString(_recordLinkKey(entry.linkedReportId), entry.recordEntryId);
+    await prefs.setString(
+      _recordLinkKey(entry.linkedReportId),
+      entry.recordEntryId,
+    );
 
     final ids = await _readIndex();
     ids.remove(entry.recordEntryId);
@@ -495,7 +633,8 @@ class RecordsRepository {
       // Suggestions should come from built-ins, procedure/report-type vocabulary, or short list-like clinical fields.
       if (field?.isRegistryField == true) continue;
       final label = entry.fieldLabels[item.key] ?? field?.label;
-      final shouldLearn = item.key == RecordFieldCatalog.procedure.key ||
+      final shouldLearn =
+          item.key == RecordFieldCatalog.procedure.key ||
           (field?.builtInSuggestions.isNotEmpty == true) ||
           _isListLikeVocabularyField(item.key, label: label);
       if (!shouldLearn) continue;
@@ -504,7 +643,9 @@ class RecordsRepository {
           item.key,
           value,
           label: label,
-          procedure: item.key == RecordFieldCatalog.procedure.key ? '' : procedure,
+          procedure: item.key == RecordFieldCatalog.procedure.key
+              ? ''
+              : procedure,
         );
       } catch (_) {
         // Vocabulary learning is only a convenience feature. It must not block
@@ -532,13 +673,16 @@ class RecordsRepository {
     String procedure = '',
   }) async {
     final prefs = await _prefs;
-    final scopedSaved = prefs.getStringList(_scopedVocabKey(fieldKey, procedure)) ?? <String>[];
+    final scopedSaved =
+        prefs.getStringList(_scopedVocabKey(fieldKey, procedure)) ?? <String>[];
     // Compatibility fallback: older versions saved suggestions globally by field key.
     // Show them only when no procedure-specific suggestions exist yet.
     final legacySaved = scopedSaved.isEmpty
         ? (prefs.getStringList(_vocabKey(fieldKey)) ?? <String>[])
         : const <String>[];
-    final builtIn = (RecordFieldCatalog.byKey(fieldKey)?.builtInSuggestions ?? const <String>[]);
+    final builtIn =
+        (RecordFieldCatalog.byKey(fieldKey)?.builtInSuggestions ??
+        const <String>[]);
     final cleanedSaved = <String>{};
     for (final item in [...scopedSaved, ...legacySaved]) {
       cleanedSaved.addAll(_vocabularyCandidatesFor(fieldKey, item));
@@ -547,7 +691,9 @@ class RecordsRepository {
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) return merged;
-    return merged.where((v) => v.toLowerCase().contains(trimmed)).toList(growable: false);
+    return merged
+        .where((v) => v.toLowerCase().contains(trimmed))
+        .toList(growable: false);
   }
 
   Future<void> saveVocabularyValue(
@@ -572,15 +718,22 @@ class RecordsRepository {
     await prefs.setStringList(key, capped);
   }
 
-  List<String> _vocabularyCandidatesFor(String fieldKey, String value, {String? label}) {
+  List<String> _vocabularyCandidatesFor(
+    String fieldKey,
+    String value, {
+    String? label,
+  }) {
     final trimmed = _normalizeVocabularyValue(value);
     if (trimmed.isEmpty) return const <String>[];
 
     // List-like fields may be entered as comma-separated text, semicolon lists,
     // new lines, bullets, or numbered lists. Keep the full value in the saved
     // record, but learn the individual short entries as future suggestions.
-    final shouldSplit = _isListLikeVocabularyField(fieldKey, label: label) &&
-        trimmed.contains(RegExp(r'[,;\n\r]|(?:^|\s)\d+[\.)]\s+|(?:^|\s)[•\-]\s+'));
+    final shouldSplit =
+        _isListLikeVocabularyField(fieldKey, label: label) &&
+        trimmed.contains(
+          RegExp(r'[,;\n\r]|(?:^|\s)\d+[\.)]\s+|(?:^|\s)[•\-]\s+'),
+        );
     final rawCandidates = shouldSplit
         ? _splitListLikeVocabulary(trimmed)
         : <String>[trimmed];
@@ -648,8 +801,10 @@ class RecordsRepository {
     return RegExp(r"[A-Za-z0-9%+\-/]+", unicode: true).allMatches(value).length;
   }
 
-
-  String buildRipotCsv({required List<RecordSummary> records, required List<RecordFieldDef> fields}) {
+  String buildRipotCsv({
+    required List<RecordSummary> records,
+    required List<RecordFieldDef> fields,
+  }) {
     final dynamicKeys = <String>[];
     for (final row in records) {
       for (final key in row.values.keys) {
@@ -658,7 +813,9 @@ class RecordsRepository {
     }
     final orderedKeys = [
       ...RecordFieldCatalog.exportDefaultKeys,
-      ...fields.where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key)).map((f) => f.key),
+      ...fields
+          .where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key))
+          .map((f) => f.key),
       ...dynamicKeys,
     ];
     final fieldKeys = <String>[];
@@ -687,7 +844,11 @@ class RecordsRepository {
         '',
         row.updatedAt.toIso8601String(),
         row.registryIds.join(';'),
-        ...fieldKeys.map((key) => key == RecordFieldCatalog.reportDate.key ? _csvDate(entryValues[key] ?? '') : (entryValues[key] ?? '')),
+        ...fieldKeys.map(
+          (key) => key == RecordFieldCatalog.reportDate.key
+              ? _csvDate(entryValues[key] ?? '')
+              : (entryValues[key] ?? ''),
+        ),
       ];
       buffer.writeln(cells.map(esc).join(','));
     }
@@ -700,9 +861,13 @@ class RecordsRepository {
       throw const FormatException('The selected file is empty.');
     }
     final headers = rows.first.map((e) => e.trim()).toList(growable: false);
-    final hasMarker = headers.contains('ripotExportVersion') && headers.contains('ripotRecordId');
+    final hasMarker =
+        headers.contains('ripotExportVersion') &&
+        headers.contains('ripotRecordId');
     if (!hasMarker) {
-      throw const FormatException('This file does not look like a Ripot records export. Please select a CSV exported from Ripot.');
+      throw const FormatException(
+        'This file does not look like a Ripot records export. Please select a CSV exported from Ripot.',
+      );
     }
 
     var imported = 0;
@@ -720,7 +885,11 @@ class RecordsRepository {
         invalidRows += 1;
         continue;
       }
-      final linkedReportId = (map['ripotLinkedReportId'] ?? map[RecordFieldCatalog.reportId.key] ?? '').trim();
+      final linkedReportId =
+          (map['ripotLinkedReportId'] ??
+                  map[RecordFieldCatalog.reportId.key] ??
+                  '')
+              .trim();
       final importedUpdatedAt = (map['ripotUpdatedAtIso'] ?? '').trim();
       final updatedAt = DateTime.tryParse(importedUpdatedAt) ?? DateTime.now();
       final createdAtIso = (map['ripotCreatedAtIso'] ?? '').trim().isNotEmpty
@@ -731,7 +900,8 @@ class RecordsRepository {
         if (header.startsWith('ripot')) continue;
         values[header] = (map[header] ?? '').trim();
       }
-      if ((values[RecordFieldCatalog.reportId.key] ?? '').trim().isEmpty && linkedReportId.isNotEmpty) {
+      if ((values[RecordFieldCatalog.reportId.key] ?? '').trim().isEmpty &&
+          linkedReportId.isNotEmpty) {
         values[RecordFieldCatalog.reportId.key] = linkedReportId;
       }
       final registryIds = (map['ripotRegistryIds'] ?? '')
@@ -753,9 +923,17 @@ class RecordsRepository {
         await saveRecord(incoming);
         imported += 1;
       } else {
-        final existingUpdatedAt = DateTime.tryParse(existing.updatedAtIso) ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final existingUpdatedAt =
+            DateTime.tryParse(existing.updatedAtIso) ??
+            DateTime.fromMillisecondsSinceEpoch(0);
         if (updatedAt.isAfter(existingUpdatedAt)) {
-          await saveRecord(incoming.copyWith(createdAtIso: existing.createdAtIso.isNotEmpty ? existing.createdAtIso : incoming.createdAtIso));
+          await saveRecord(
+            incoming.copyWith(
+              createdAtIso: existing.createdAtIso.isNotEmpty
+                  ? existing.createdAtIso
+                  : incoming.createdAtIso,
+            ),
+          );
           updated += 1;
         } else {
           duplicatesSkipped += 1;
@@ -822,24 +1000,34 @@ class RecordsRepository {
       final mergedValues = Map<String, String>.from(existing.values);
       final mergedLabels = Map<String, String>.from(existing.fieldLabels);
       final mergedSources = Map<String, String>.from(existing.fieldSources);
+      final mergedDefinitions = Map<String, RecordFieldDef>.from(
+        existing.fieldDefinitions,
+      );
 
-      // Refresh system/template-derived values from the current report so newly
-      // ticked Add-to-Records sections appear when editing an existing record.
-      // Manual custom fields that do not conflict with these keys are preserved.
+      // Existing values (including deliberate blanks) are a saved snapshot.
+      // New selected fields may be added, but never overwrite a record correction.
       for (final entry in derived.values.entries) {
         if (entry.value.trim().isEmpty) continue;
-        mergedValues[entry.key] = entry.value;
+        mergedValues.putIfAbsent(entry.key, () => entry.value);
       }
       for (final entry in derived.labels.entries) {
         if (entry.value.trim().isEmpty) continue;
-        mergedLabels[entry.key] = entry.value;
+        mergedLabels.putIfAbsent(entry.key, () => entry.value);
       }
       for (final entry in derived.sources.entries) {
         if (entry.value.trim().isEmpty) continue;
-        mergedSources[entry.key] = entry.value;
+        mergedSources.putIfAbsent(entry.key, () => entry.value);
+      }
+      for (final e in derived.definitions.entries) {
+        mergedDefinitions.putIfAbsent(e.key, () => e.value);
       }
 
-      return existing.copyWith(values: mergedValues, fieldLabels: mergedLabels, fieldSources: mergedSources);
+      return existing.copyWith(
+        values: mergedValues,
+        fieldLabels: mergedLabels,
+        fieldSources: mergedSources,
+        fieldDefinitions: mergedDefinitions,
+      );
     }
 
     return RecordEntry(
@@ -850,6 +1038,38 @@ class RecordsRepository {
       values: derived.values,
       fieldLabels: derived.labels,
       fieldSources: derived.sources,
+      fieldDefinitions: derived.definitions,
+      originalReportValues: Map<String, String>.from(derived.values),
+    );
+  }
+
+  RecordEntry registrySourceForReport(ReportDoc doc) {
+    SectionNode select(SectionNode s) => s.copyWith(
+      addToRecords: true,
+      children: s.children
+          .map((n) => n is SectionNode ? select(n) : n)
+          .toList(),
+    );
+    final derived = _recordValuesForReport(
+      doc.copyWith(
+        roots: doc.roots.map(select).toList(),
+        subjectInfoDef: doc.subjectInfoDef.copyWith(
+          fields: [
+            for (final f in doc.subjectInfoDef.fields)
+              f.copyWith(addToRecords: true),
+          ],
+        ),
+      ),
+    );
+    return RecordEntry(
+      recordEntryId: newId('registry_source'),
+      linkedReportId: doc.reportId,
+      createdAtIso: doc.createdAtIso,
+      updatedAtIso: doc.updatedAtIso,
+      values: derived.values,
+      fieldLabels: derived.labels,
+      fieldSources: derived.sources,
+      fieldDefinitions: derived.definitions,
     );
   }
 
@@ -859,24 +1079,31 @@ class RecordsRepository {
       RecordFieldCatalog.reportDate.key: _inferDate(doc),
       RecordFieldCatalog.procedure.key: _inferProcedure(doc),
       RecordFieldCatalog.doctor.key: _inferDoctor(doc),
+      RecordFieldCatalog.facility.key: reportFacility(doc),
     };
     final labels = <String, String>{
       RecordFieldCatalog.reportId.key: RecordFieldCatalog.reportId.label,
       RecordFieldCatalog.reportDate.key: RecordFieldCatalog.reportDate.label,
       RecordFieldCatalog.procedure.key: RecordFieldCatalog.procedure.label,
       RecordFieldCatalog.doctor.key: RecordFieldCatalog.doctor.label,
+      RecordFieldCatalog.facility.key: RecordFieldCatalog.facility.label,
     };
     final sources = <String, String>{
       RecordFieldCatalog.reportId.key: 'template',
       RecordFieldCatalog.reportDate.key: 'template',
       RecordFieldCatalog.procedure.key: 'template',
       RecordFieldCatalog.doctor.key: 'template',
+      RecordFieldCatalog.facility.key: 'template',
+    };
+    final definitions = <String, RecordFieldDef>{
+      for (final field in RecordFieldCatalog.coreFields) field.key: field,
     };
 
     // Subject Info is inherently record-like, so every filled Subject Info field
     // is copied automatically using the user's visible field title.
     if (doc.subjectInfoDef.enabled) {
       for (final field in doc.subjectInfoDef.orderedFields) {
+        if (!field.addToRecords) continue;
         final value = doc.subjectInfo.valueOf(field.key).trim();
         if (value.isEmpty) continue;
 
@@ -884,21 +1111,32 @@ class RecordsRepository {
         values[key] = value;
         labels[key] = field.title.trim().isEmpty ? key : field.title.trim();
         sources[key] = 'template';
+        definitions[key] = RecordFieldDef(
+          key: key,
+          label: field.title.trim().isEmpty ? key : field.title.trim(),
+          hint: 'Copied from the generated report',
+          isSystem: true,
+        );
 
         // Keep core summary keys populated without forcing their default labels
         // into the Record Details UI.
         if (field.key == 'subjectName') {
           values[RecordFieldCatalog.subjectName.key] = value;
-          labels[RecordFieldCatalog.subjectName.key] = field.title.trim().isEmpty
+          labels[RecordFieldCatalog.subjectName.key] =
+              field.title.trim().isEmpty
               ? RecordFieldCatalog.subjectName.label
               : field.title.trim();
           sources[RecordFieldCatalog.subjectName.key] = 'template';
+          definitions[RecordFieldCatalog.subjectName.key] = definitions[key]!;
         } else if (field.key == 'subjectId') {
           values[RecordFieldCatalog.patientReference.key] = value;
-          labels[RecordFieldCatalog.patientReference.key] = field.title.trim().isEmpty
+          labels[RecordFieldCatalog.patientReference.key] =
+              field.title.trim().isEmpty
               ? RecordFieldCatalog.patientReference.label
               : field.title.trim();
           sources[RecordFieldCatalog.patientReference.key] = 'template';
+          definitions[RecordFieldCatalog.patientReference.key] =
+              definitions[key]!;
         }
       }
     }
@@ -906,10 +1144,23 @@ class RecordsRepository {
     // Explicit template/outline mappings are trusted. Old guessing is not used
     // once the user has chosen Add to Records on sections.
     for (final root in doc.roots) {
-      _collectExplicitRecordFields(root, values, labels, sources, doc.roots);
+      _collectExplicitRecordFields(
+        root,
+        values,
+        labels,
+        sources,
+        definitions,
+        doc.roots,
+        doc.sourceTemplateId,
+      );
     }
 
-    return _RecordBuildData(values: values, labels: labels, sources: sources);
+    return _RecordBuildData(
+      values: values,
+      labels: labels,
+      sources: sources,
+      definitions: definitions,
+    );
   }
 
   String _recordKeyForSubjectField(String fieldKey, String title) {
@@ -918,7 +1169,8 @@ class RecordsRepository {
 
     final normalized = title.trim().toLowerCase();
     if (normalized == 'age') return RecordFieldCatalog.age.key;
-    if (normalized == 'sex' || normalized == 'gender') return RecordFieldCatalog.gender.key;
+    if (normalized == 'sex' || normalized == 'gender')
+      return RecordFieldCatalog.gender.key;
 
     return 'subject_${fieldKey.trim().isEmpty ? _slug(title) : fieldKey}';
   }
@@ -931,16 +1183,24 @@ class RecordsRepository {
     if (normalized == 'indication' || normalized == 'indications') {
       return RecordFieldCatalog.indication.key;
     }
-    if (normalized == 'diagnosis' || normalized == 'diagnoses' || normalized == 'impression') {
+    if (normalized == 'diagnosis' ||
+        normalized == 'diagnoses' ||
+        normalized == 'impression') {
       return RecordFieldCatalog.diagnosis.key;
     }
     if (normalized == 'biopsy' || normalized == 'biopsy taken') {
       return RecordFieldCatalog.biopsyTaken.key;
     }
-    if (normalized == 'histology' || normalized == 'histology result' || normalized == 'pathology' || normalized == 'pathology result') {
+    if (normalized == 'histology' ||
+        normalized == 'histology result' ||
+        normalized == 'pathology' ||
+        normalized == 'pathology result') {
       return RecordFieldCatalog.histologyResult.key;
     }
-    if (normalized == 'intervention' || normalized == 'therapy' || normalized == 'intervention therapy' || normalized == 'intervention / therapy') {
+    if (normalized == 'intervention' ||
+        normalized == 'therapy' ||
+        normalized == 'intervention therapy' ||
+        normalized == 'intervention / therapy') {
       return RecordFieldCatalog.intervention.key;
     }
     if (normalized == 'complication' || normalized == 'complications') {
@@ -949,15 +1209,24 @@ class RecordsRepository {
     if (normalized == 'recommendation' || normalized == 'recommendations') {
       return RecordFieldCatalog.recommendations.key;
     }
-    if (normalized == 'facility' || normalized == 'hospital' || normalized == 'centre' || normalized == 'center') {
+    if (normalized == 'facility' ||
+        normalized == 'hospital' ||
+        normalized == 'centre' ||
+        normalized == 'center') {
       return RecordFieldCatalog.facility.key;
     }
-    if (normalized == 'doctor' || normalized == 'operator' || normalized == 'consultant' || normalized == 'endoscopist') {
+    if (normalized == 'doctor' ||
+        normalized == 'operator' ||
+        normalized == 'consultant' ||
+        normalized == 'endoscopist') {
       return RecordFieldCatalog.doctor.key;
     }
-    // Default to the clean slug so a future template field can link/merge
-    // with an existing custom record field that used the same label.
-    return _slug(section.title);
+    // Keep ordinary template fields distinct. Identical labels in unrelated
+    // templates must not silently merge into one Records column.
+    final stableId = section.id.trim();
+    return stableId.isEmpty
+        ? 'section_${_slug(section.title)}'
+        : 'section_$stableId';
   }
 
   String _slug(String value) {
@@ -969,11 +1238,13 @@ class RecordsRepository {
     return slug.isEmpty ? newId('field') : slug;
   }
 
-
   SectionNode? _findSectionById(List<SectionNode> roots, String id) {
     for (final section in roots) {
       if (section.id == id) return section;
-      final found = _findSectionById(section.children.whereType<SectionNode>().toList(growable: false), id);
+      final found = _findSectionById(
+        section.children.whereType<SectionNode>().toList(growable: false),
+        id,
+      );
       if (found != null) return found;
     }
     return null;
@@ -993,11 +1264,15 @@ class RecordsRepository {
     Map<String, String> values,
     Map<String, String> labels,
     Map<String, String> sources,
-    List<SectionNode> roots,
-  ) {
+    Map<String, RecordFieldDef> definitions,
+    List<SectionNode> roots, [
+    String namespace = '',
+  ]) {
     if (!_sectionConditionAllows(section, roots)) return;
     if (section.addToRecords) {
-      final key = _recordKeyForSectionTitle(section);
+      final key = namespace.isEmpty
+          ? _recordKeyForSectionTitle(section)
+          : 'template_${namespace}_section_${section.id}';
       final value = _firstNonEmptyContent(section).trim();
       // A template-selected field should be available in Record Details even
       // when the report section has not been filled yet. Empty values are kept
@@ -1005,38 +1280,49 @@ class RecordsRepository {
       values[key] = value;
       labels[key] = section.title.trim().isEmpty ? key : section.title.trim();
       sources[key] = 'template';
+      definitions[key] = RecordFieldDef(
+        key: key,
+        label: section.title.trim().isEmpty ? key : section.title.trim(),
+        hint: 'Copied from the generated report',
+        isSystem: true,
+        inputType: RecordInputType.values.firstWhere(
+          (value) => value.name == section.inputType.name,
+          orElse: () => RecordInputType.freeText,
+        ),
+        options: section.inputType == FieldInputType.yesNo
+            ? const <String>['Yes', 'No']
+            : section.options,
+        unit: section.unit,
+      );
     }
 
     for (final child in section.children) {
       if (child is SectionNode) {
-        _collectExplicitRecordFields(child, values, labels, sources, roots);
+        _collectExplicitRecordFields(
+          child,
+          values,
+          labels,
+          sources,
+          definitions,
+          roots,
+          namespace,
+        );
       }
     }
   }
 
-
   String _inferDate(ReportDoc doc) {
-    final rawDate = doc.reportDateIso.trim().isNotEmpty ? doc.reportDateIso : doc.updatedAtIso;
+    final rawDate = doc.reportDateIso.trim().isNotEmpty
+        ? doc.reportDateIso
+        : doc.updatedAtIso;
     final date = rawDate.isNotEmpty ? DateTime.tryParse(rawDate) : null;
     if (date == null) return '';
     return date.toIso8601String().split('T').first;
   }
 
-  String _inferSubjectName(ReportDoc doc) => doc.subjectInfo.valueOf('subjectName');
-
-  String _inferSubjectId(ReportDoc doc) => doc.subjectInfo.valueOf('subjectId');
-
   String _inferProcedure(ReportDoc doc) {
     final title = doc.reportTitle.trim();
     if (title.isNotEmpty) return title;
-    return '';
-  }
-
-  String _inferDiagnosis(ReportDoc doc) {
-    for (final root in doc.roots) {
-      final found = _firstNonEmptyContent(root);
-      if (found.isNotEmpty) return found;
-    }
     return '';
   }
 

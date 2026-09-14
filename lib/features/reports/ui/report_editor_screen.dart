@@ -669,7 +669,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
             ),
             SizedBox(height: 12),
             Text(
-              'Template sync saves reusable structure only, such as section titles and layout settings. Do not include private details in template names or section titles.',
+              'Subject values, report images and the current signature are never copied. If you include content, check that the reusable text contains no patient details.',
             ),
           ],
         ),
@@ -1122,7 +1122,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                   final access = context.read<AccessProvider>().safeState;
                   final repo = context.read<TemplatesRepository>();
                   final templates = await repo.listTemplates();
-                  if (templates.length >= access.maxSavedTemplates) {
+                  if (templates.where((t) => !t.isBuiltIn).length >=
+                      access.maxSavedTemplates) {
                     if (!mounted) return;
                     await showPremiumFeatureSheet(
                       context,

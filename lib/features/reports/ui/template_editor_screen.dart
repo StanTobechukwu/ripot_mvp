@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../records/ui/records_field_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/utils/ids.dart';
@@ -67,7 +68,9 @@ class _TemplateEditorBody extends StatelessWidget {
       final isExisting = templates.any(
         (t) => t.templateId == vm.template.templateId,
       );
-      if (!isExisting && templates.length >= access.maxSavedTemplates) {
+      if (!isExisting &&
+          templates.where((t) => !t.isBuiltIn).length >=
+              access.maxSavedTemplates) {
         if (!context.mounted) return false;
         final open = await showDialog<bool>(
           context: context,
@@ -498,6 +501,12 @@ class _TemplateEditorBody extends StatelessWidget {
       case 'duplicate':
         await _duplicateTemplate(context);
         break;
+      case 'recordsFields':
+        final vm = context.read<TemplateEditorProvider>();
+        final selected = await chooseRecordsFields(context, vm.template);
+        if (selected != null && context.mounted)
+          vm.setRecordsSelection(selected);
+        break;
       case 'rename':
         await _renameTemplate(context);
         break;
@@ -752,6 +761,10 @@ class _TemplateEditorBody extends StatelessWidget {
                   child: Text('Duplicate Template'),
                 ),
                 PopupMenuItem(value: 'rename', child: Text('Rename Template')),
+                PopupMenuItem(
+                  value: 'recordsFields',
+                  child: Text('Records fields'),
+                ),
                 PopupMenuDivider(),
                 PopupMenuItem(
                   value: 'sync',
@@ -874,9 +887,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
     _unit = TextEditingController(text: widget.section.unit);
     _showInPdf = widget.section.showInPdf;
     _addToLog = widget.section.addToLog;
-    _addToRecords = widget.section.inputType == FieldInputType.freeText
-        ? false
-        : widget.section.addToRecords;
+    _addToRecords = widget.section.addToRecords;
     _allowOptionalNote = widget.section.inputType == FieldInputType.freeText
         ? false
         : widget.section.allowOptionalNote;
@@ -1037,7 +1048,6 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                         }
                       } else {
                         _inputType = FieldInputType.freeText;
-                        _addToRecords = false;
                         _allowOptionalNote = false;
                       }
                     });
@@ -1119,7 +1129,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                         setState(() => _addToRecords = v ?? false),
                     title: const Text('Save to Records'),
                     subtitle: const Text(
-                      'Store the structured value as searchable/exportable data.',
+                      'Copy this value into Records. Text and structured values are both supported.',
                     ),
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
@@ -1137,12 +1147,14 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                   ),
                 ] else ...[
                   const SizedBox(height: 8),
-                  const ListTile(
+                  CheckboxListTile(
+                    value: _addToRecords,
+                    onChanged: (v) =>
+                        setState(() => _addToRecords = v ?? false),
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.info_outline, size: 20),
-                    title: Text('Free text is narrative only'),
-                    subtitle: Text(
-                      'It can appear in the PDF but is not saved as structured Records data.',
+                    title: const Text('Save to Records'),
+                    subtitle: const Text(
+                      'Copy this text into Records, for example a diagnosis or impression.',
                     ),
                   ),
                 ],
@@ -1237,9 +1249,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                               ? true
                               : _showInPdf,
                           addToLog: _addToLog,
-                          addToRecords: _inputType == FieldInputType.freeText
-                              ? false
-                              : _addToRecords,
+                          addToRecords: _addToRecords,
                           allowOptionalNote:
                               _inputType == FieldInputType.freeText
                               ? false

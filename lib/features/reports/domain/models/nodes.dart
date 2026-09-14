@@ -71,7 +71,7 @@ class SectionNode extends Node {
   final bool showInPdf;
 
   /// When true, this section's structured value is copied into Records
-  /// when the report is saved. Free-text fields must not use this.
+  /// when the report is saved. Both narrative and structured values are supported.
   final bool addToRecords;
 
   /// Offer this field when creating a log from a report. Independent of Records.

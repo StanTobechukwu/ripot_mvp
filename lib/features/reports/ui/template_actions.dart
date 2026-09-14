@@ -16,7 +16,8 @@ Future<bool> canAddTemplate(BuildContext context) async {
   final access = context.read<AccessProvider>().safeState;
   final templates = await context.read<TemplatesRepository>().listTemplates();
   if (!context.mounted) return false;
-  if (templates.length < access.maxSavedTemplates) return true;
+  if (templates.where((t) => !t.isBuiltIn).length < access.maxSavedTemplates)
+    return true;
   if (!access.isPremiumLike) {
     await showPremiumFeatureSheet(context, PremiumFeature.moreTemplates);
   } else {

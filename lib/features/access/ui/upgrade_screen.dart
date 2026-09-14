@@ -440,7 +440,7 @@ class _PlanComparison extends StatelessWidget {
       ['Custom letterhead', 'No', 'Yes'],
       ['Ripot branding removed', 'No', 'Yes'],
       ['Advanced layout/margins', 'No', 'Yes'],
-      ['Saved templates', '3', '20'],
+      ['Your templates (built-ins excluded)', '4', '20'],
       ['Saved reports', '10', '100'],
       ['Records table and filters', 'No', 'Yes'],
     ];

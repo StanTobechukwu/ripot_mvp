@@ -45,6 +45,9 @@ void main() {
     );
     await tester.tap(find.text('Save').first);
     await tester.pumpAndSettle();
+    expect(find.text('Save completed procedure?'), findsOneWidget);
+    await tester.tap(find.text('Save log'));
+    await tester.pumpAndSettle();
     expect(repo.data.entries.single.data.procedure, 'Diagnostic procedure');
     expect(
       repo.data.entries.single.data.participants.single.doctorId,

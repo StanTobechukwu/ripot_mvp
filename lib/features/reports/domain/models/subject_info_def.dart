@@ -13,6 +13,7 @@ class SubjectFieldDef {
   final bool required;
   final int order;
   final bool isSystem;
+  final bool addToRecords;
 
   const SubjectFieldDef({
     required this.key,
@@ -20,6 +21,7 @@ class SubjectFieldDef {
     required this.required,
     required this.order,
     required this.isSystem,
+    this.addToRecords = true,
   });
 
   /// Compatibility with older UI/provider code that used `fieldId`.
@@ -29,6 +31,7 @@ class SubjectFieldDef {
     String? title,
     bool? required,
     int? order,
+    bool? addToRecords,
   }) {
     return SubjectFieldDef(
       key: key,
@@ -36,16 +39,18 @@ class SubjectFieldDef {
       required: required ?? this.required,
       order: order ?? this.order,
       isSystem: isSystem,
+      addToRecords: addToRecords ?? this.addToRecords,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'key': key,
-        'title': title,
-        'required': required,
-        'order': order,
-        'isSystem': isSystem,
-      };
+    'key': key,
+    'title': title,
+    'required': required,
+    'order': order,
+    'isSystem': isSystem,
+    'addToRecords': addToRecords,
+  };
 
   factory SubjectFieldDef.fromJson(Map<String, dynamic> j) {
     return SubjectFieldDef(
@@ -54,6 +59,7 @@ class SubjectFieldDef {
       required: (j['required'] as bool?) ?? false,
       order: (j['order'] as int?) ?? 0,
       isSystem: (j['isSystem'] as bool?) ?? false,
+      addToRecords: (j['addToRecords'] as bool?) ?? true,
     );
   }
 }
@@ -127,12 +133,12 @@ class SubjectInfoBlockDef {
   }
 
   Map<String, dynamic> toJson() => {
-        'enabled': enabled,
-        'columns': columns,
-        'schemaVersion': schemaVersion,
-        'heading': heading,
-        'fields': fields.map((f) => f.toJson()).toList(),
-      };
+    'enabled': enabled,
+    'columns': columns,
+    'schemaVersion': schemaVersion,
+    'heading': heading,
+    'fields': fields.map((f) => f.toJson()).toList(),
+  };
 
   factory SubjectInfoBlockDef.fromJson(Map<String, dynamic>? j) {
     if (j == null) return kDefaults;

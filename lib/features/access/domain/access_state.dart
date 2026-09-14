@@ -13,6 +13,7 @@ class AccessState {
   final DateTime? trialStartAt;
   final DateTime? trialEndsAt;
   final DateTime? premiumStartedAt;
+  final DateTime? premiumExpiresAt;
   final bool hasUsedTrial;
   final String? founderCohort;
   final int? founderNumber;
@@ -39,6 +40,7 @@ class AccessState {
     this.trialStartAt,
     this.trialEndsAt,
     this.premiumStartedAt,
+    this.premiumExpiresAt,
     this.hasUsedTrial = false,
     this.founderCohort,
     this.founderNumber,
@@ -86,7 +88,11 @@ class AccessState {
     return DateTime.now().isBefore(endsAt);
   }
 
-  bool get isPremiumLike => plan == RipotPlan.premium || isTrialActive;
+  bool get isPremiumLike =>
+      (plan == RipotPlan.premium &&
+          (premiumExpiresAt == null ||
+              DateTime.now().isBefore(premiumExpiresAt!))) ||
+      isTrialActive;
 
   bool get canActivatePremiumTrial {
     // One trial per account. Only the server may grant it and choose its dates.
@@ -114,7 +120,7 @@ class AccessState {
   }
 
   int get maxSavedReports => isPremiumLike ? 100 : 10;
-  int get maxSavedTemplates => isPremiumLike ? 20 : 3;
+  int get maxSavedTemplates => isPremiumLike ? 20 : 4;
   int get maxImagesPerReport => isPremiumLike ? 12 : 4;
 
   bool get canRemoveBranding => isPremiumLike;
@@ -132,7 +138,7 @@ class AccessState {
       case RipotPlan.trial:
         return isTrialActive ? 'Premium Trial' : 'Free';
       case RipotPlan.premium:
-        return 'Premium';
+        return isPremiumLike ? 'Premium' : 'Free';
     }
   }
 
@@ -142,6 +148,7 @@ class AccessState {
     Object? trialStartAt = _unset,
     Object? trialEndsAt = _unset,
     Object? premiumStartedAt = _unset,
+    Object? premiumExpiresAt = _unset,
     bool? hasUsedTrial,
     Object? founderCohort = _unset,
     Object? founderNumber = _unset,
@@ -169,6 +176,9 @@ class AccessState {
           ? this.premiumStartedAt
           : premiumStartedAt as DateTime?,
       hasUsedTrial: hasUsedTrial ?? this.hasUsedTrial,
+      premiumExpiresAt: identical(premiumExpiresAt, _unset)
+          ? this.premiumExpiresAt
+          : premiumExpiresAt as DateTime?,
       founderCohort: identical(founderCohort, _unset)
           ? this.founderCohort
           : founderCohort as String?,
@@ -207,6 +217,7 @@ class AccessState {
       'trialStartAtIso': trialStartAt?.toIso8601String(),
       'trialEndsAtIso': trialEndsAt?.toIso8601String(),
       'premiumStartedAtIso': premiumStartedAt?.toIso8601String(),
+      'premiumExpiresAtIso': premiumExpiresAt?.toIso8601String(),
       'hasUsedTrial': hasUsedTrial,
       'founderCohort': founderCohort,
       'founderNumber': founderNumber,
@@ -250,6 +261,9 @@ class AccessState {
         (json['premiumStartedAtIso'] as String?) ?? '',
       ),
       hasUsedTrial: (json['hasUsedTrial'] as bool?) ?? false,
+      premiumExpiresAt: DateTime.tryParse(
+        (json['premiumExpiresAtIso'] as String?) ?? '',
+      ),
       founderCohort: json['founderCohort'] as String?,
       founderNumber: _nullableIntFromJson(json['founderNumber']),
       founderFirstYearDiscountPercent: _intFromJson(

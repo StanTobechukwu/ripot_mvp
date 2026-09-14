@@ -15,6 +15,12 @@ class TemplateEditorProvider extends ChangeNotifier {
   bool _hasUnsavedChanges = false;
 
   TemplateDoc get template => _template;
+  void setRecordsSelection(TemplateDoc selected) {
+    _template = selected;
+    _markDirty();
+    notifyListeners();
+  }
+
   SubjectInfoBlockDef get subjectInfo => _template.subjectInfo;
   bool get hasUnsavedChanges => _hasUnsavedChanges;
 
@@ -79,6 +85,15 @@ class TemplateEditorProvider extends ChangeNotifier {
         .map((f) => f.key == fieldId ? f.copyWith(required: required) : f)
         .toList();
 
+    _updateFields(updated);
+  }
+
+  void toggleFieldRecords(String fieldId, bool addToRecords) {
+    final updated = subjectInfo.fields
+        .map(
+          (f) => f.key == fieldId ? f.copyWith(addToRecords: addToRecords) : f,
+        )
+        .toList();
     _updateFields(updated);
   }
 

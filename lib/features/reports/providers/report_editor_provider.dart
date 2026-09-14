@@ -150,6 +150,7 @@ class ReportEditorProvider extends ChangeNotifier {
       createdAtIso: now,
       updatedAtIso: now,
       roots: hydrated,
+      sourceTemplateId: template.templateId,
       images: const [],
       placementChoice: ImagePlacementChoice.inlinePage1,
       signature: template.signature,
@@ -196,6 +197,7 @@ class ReportEditorProvider extends ChangeNotifier {
       createdAtIso: now,
       updatedAtIso: now,
       reportTitle: loaded.reportTitle,
+      sourceTemplateId: loaded.sourceTemplateId,
       roots: loaded.roots.map((s) => s.cloneNodeTree()).toList(growable: false),
       images: loaded.images
           .map(
@@ -442,7 +444,8 @@ class ReportEditorProvider extends ChangeNotifier {
           .map((r) => r.toTemplateNode(includeContent: includeContent))
           .toList(growable: false),
       subjectInfo: _doc.subjectInfoDef,
-      signature: _doc.signature,
+      // A template keeps reusable structure, not report-instance signatures.
+      signature: const SignatureBlock(),
     );
 
     await templatesRepo.saveTemplate(t);

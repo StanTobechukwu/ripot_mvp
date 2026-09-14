@@ -300,7 +300,6 @@ class BillingProvider extends ChangeNotifier {
                 .completePurchase(purchase)
                 .timeout(const Duration(seconds: 20));
           }
-          await _accessProvider.refresh().timeout(const Duration(seconds: 30));
           await _refreshEligibility().timeout(const Duration(seconds: 20));
           _purchasePending = false;
           _restoreInProgress = false;
@@ -320,7 +319,8 @@ class BillingProvider extends ChangeNotifier {
   /// Returns true/false for a completed server check, and null when the check
   /// itself could not be completed.
   Future<bool?> _verifyWithServer(PurchaseDetails purchase) async {
-    if (FirebaseAuth.instance.currentUser == null) return null;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
     final token = purchase.verificationData.serverVerificationData.trim();
     if (token.isEmpty) return null;
     try {
@@ -332,6 +332,12 @@ class BillingProvider extends ChangeNotifier {
             'purchaseId': purchase.purchaseID,
           });
       final data = Map<String, dynamic>.from(result.data as Map);
+      if (FirebaseAuth.instance.currentUser?.uid != uid) return null;
+      final expires = DateTime.tryParse(data['expiresAtIso']?.toString() ?? '');
+      if (data['entitled'] == true) {
+        if (expires == null || !expires.isAfter(DateTime.now())) return null;
+        _accessProvider.acceptVerifiedPremium(expires);
+      }
       return data['entitled'] == true;
     } catch (_) {
       return null;
@@ -343,7 +349,7 @@ class BillingProvider extends ChangeNotifier {
       await FirebaseFunctions.instance
           .httpsCallable('refreshPlayEntitlement')
           .call(<String, dynamic>{});
-      await _accessProvider.refresh();
+      await _accessProvider.refresh(refreshPlay: false);
       await _refreshEligibility();
       _purchasePending = false;
       _restoreInProgress = false;

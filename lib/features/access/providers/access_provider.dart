@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/access_repository.dart';
@@ -21,45 +22,81 @@ class AccessProvider extends ChangeNotifier {
     final generation = ++_loadGeneration;
     _loading = true;
     notifyListeners();
-    final next = await repo.load();
-    if (generation != _loadGeneration) return;
-    _state = next;
-    _loading = false;
-    notifyListeners();
+    try {
+      final cached = await repo.loadCached();
+      if (generation != _loadGeneration) return;
+      if (cached != null) {
+        _state = cached;
+        notifyListeners();
+      }
+      final next = await repo.load();
+      if (generation == _loadGeneration) _state = next;
+    } finally {
+      if (generation == _loadGeneration) {
+        _loading = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<bool> activatePremiumTrial() async {
     final current = safeState;
     if (!current.canActivatePremiumTrial) return false;
+    final generation = _loadGeneration;
 
     // Trial creation is server-authoritative. The backend atomically decides
     // Founding 100 vs standard trial and writes fixed start/end dates.
     final activated = await repo.activatePremiumTrialForSignedInAccount();
-    if (!activated) return false;
-
-    await refresh();
+    if (generation != _loadGeneration) return false;
+    if (activated == null) {
+      await refresh(refreshPlay: false);
+      return safeState.isTrialActive;
+    }
+    _loadGeneration++;
+    _state = activated;
+    _loading = false;
+    notifyListeners();
+    unawaited(repo.save(activated).catchError((Object _) {}));
     return safeState.isTrialActive;
   }
 
   Future<bool> startTrial() => activatePremiumTrial();
 
   Future<void> markPremium() async {
+    if (!kDebugMode) return;
+    // Debug-only session override. Never persist this as verified account access.
+    _loadGeneration++;
+    _state = safeState.copyWith(
+      plan: RipotPlan.premium,
+      premiumExpiresAt: DateTime.now().add(const Duration(hours: 1)),
+    );
+    _loading = false;
+    notifyListeners();
+  }
+
+  /// Called only with an authenticated subscription-verification response.
+  void acceptVerifiedPremium(DateTime expiresAt) {
+    if (!expiresAt.isAfter(DateTime.now())) return;
+    _loadGeneration++;
     final now = DateTime.now();
     final next = safeState.copyWith(
       plan: RipotPlan.premium,
       premiumStartedAt: now,
+      premiumExpiresAt: expiresAt,
       updatedAt: now,
     );
     _state = next;
+    _loading = false;
     notifyListeners();
-    await repo.save(next);
+    unawaited(repo.save(next).catchError((Object _) {}));
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool refreshPlay = true}) async {
     final generation = ++_loadGeneration;
-    final next = await repo.load();
+    final next = await repo.load(refreshPlay: refreshPlay);
     if (generation != _loadGeneration) return;
     _state = next;
+    _loading = false;
     notifyListeners();
   }
 

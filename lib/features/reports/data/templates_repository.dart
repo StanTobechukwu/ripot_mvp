@@ -13,6 +13,13 @@ import '../domain/serialization/template_codec.dart';
 import 'built_in_templates.dart';
 
 class TemplateSummary {
+  bool get isBuiltIn => const {
+    BuiltInTemplates.upperGiId,
+    BuiltInTemplates.lowerGiId,
+    BuiltInTemplates.ultrasoundId,
+    BuiltInTemplates.echoId,
+  }.contains(templateId);
+
   final String templateId;
   final String name;
   final String groupName;
@@ -386,7 +393,7 @@ class TemplatesRepository {
     }
 
     try {
-      final access = await _accessRepository.load();
+      final access = await _accessRepository.load(refreshPlay: false);
 
       if (!access.isPremiumLike) {
         return;

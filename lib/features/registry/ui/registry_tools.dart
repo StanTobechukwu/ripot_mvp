@@ -1,0 +1,284 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:provider/provider.dart';
+import '../../../core/web/file_download.dart';
+import '../../records/data/records_repository.dart';
+import '../../records/domain/record_models.dart';
+import '../domain/registry_table.dart';
+import '../services/registry_backup.dart';
+import '../services/registry_backup_cipher.dart';
+
+Future<void> _deliver(
+  BuildContext context,
+  Uint8List bytes,
+  String name,
+  String mime,
+) async {
+  if (kIsWeb) {
+    await downloadBytes(bytes: bytes, fileName: name);
+  } else {
+    final box = context.findRenderObject() as RenderBox?;
+    await Share.shareXFiles(
+      [XFile.fromData(bytes, name: name, mimeType: mime)],
+      sharePositionOrigin: box == null
+          ? null
+          : box.localToGlobal(Offset.zero) & box.size,
+    );
+  }
+}
+
+void _notice(BuildContext c, String s) {
+  if (c.mounted)
+    ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(s)));
+}
+
+Future<void> registryExport(
+  BuildContext context,
+  RegistryTableData table,
+) async {
+  try {
+    await _deliver(
+      context,
+      Uint8List.fromList(utf8.encode(table.toCsv())),
+      'ripot-registry-${DateTime.now().millisecondsSinceEpoch}.csv',
+      'text/csv',
+    );
+    _notice(
+      context,
+      'CSV export opened. Save the file in your chosen location.',
+    );
+  } catch (e) {
+    _notice(context, 'Export failed: $e');
+  }
+}
+
+Future<bool> registryConfirm(
+  BuildContext context,
+  String title,
+  String message,
+  String action,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    ) ==
+    true;
+
+class _PasswordDialog extends StatefulWidget {
+  final bool creating;
+  const _PasswordDialog(this.creating);
+  @override
+  State<_PasswordDialog> createState() => _PasswordDialogState();
+}
+
+class _PasswordDialogState extends State<_PasswordDialog> {
+  final password = TextEditingController(), repeated = TextEditingController();
+  final form = GlobalKey<FormState>();
+  @override
+  void dispose() {
+    password.dispose();
+    repeated.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext c) => AlertDialog(
+    title: Text(
+      widget.creating ? 'Protect Registry backup' : 'Unlock Registry backup',
+    ),
+    content: SingleChildScrollView(
+      child: Form(
+        key: form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Keep this passphrase safe. Ripot cannot recover it.'),
+            TextFormField(
+              controller: password,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Passphrase'),
+              validator: (v) =>
+                  v == null ||
+                      v.length < (widget.creating ? 12 : 1) ||
+                      v.length > 1024
+                  ? 'Enter a valid passphrase${widget.creating ? ' (at least 12 characters)' : ''}'
+                  : null,
+            ),
+            if (widget.creating)
+              TextFormField(
+                controller: repeated,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Repeat passphrase',
+                ),
+                validator: (v) =>
+                    v != password.text ? 'Passphrases do not match' : null,
+              ),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(c),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () {
+          if (form.currentState!.validate()) Navigator.pop(c, password.text);
+        },
+        child: const Text('Continue'),
+      ),
+    ],
+  );
+}
+
+Future<void> registryBackup(
+  BuildContext context,
+  RecordRegistry registry,
+) async {
+  final password = await showDialog<String>(
+    context: context,
+    builder: (_) => const _PasswordDialog(true),
+  );
+  if (password == null || !context.mounted) return;
+  _notice(context, 'Preparing encrypted backup…');
+  try {
+    final snapshot = await RegistrySnapshot.capture(registry);
+    final bytes = await RegistryBackupCipher.encrypt(
+      snapshot.toJson(),
+      password,
+    );
+    if (!context.mounted) return;
+    await _deliver(
+      context,
+      bytes,
+      'ripot-registry-${DateTime.now().millisecondsSinceEpoch}.ripotregistry',
+      'application/octet-stream',
+    );
+    _notice(
+      context,
+      'Backup export opened. Confirm the file is saved; keep a copy off this device. Source PDFs are not included.',
+    );
+  } catch (e) {
+    _notice(context, 'Backup failed: $e');
+  }
+}
+
+Future<RecordRegistry?> registryRestore(BuildContext context) async {
+  try {
+    final file = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: true,
+    );
+    if (file == null || !context.mounted) return null;
+    final picked = file.files.single;
+    if (picked.size > RegistryBackupCipher.maxBytes || picked.bytes == null)
+      throw const FormatException('Choose a Registry backup under 40 MB.');
+    final password = await showDialog<String>(
+      context: context,
+      builder: (_) => const _PasswordDialog(false),
+    );
+    if (password == null || !context.mounted) return null;
+    _notice(context, 'Unlocking backup…');
+    final snapshot = RegistrySnapshot.parse(
+      await RegistryBackupCipher.decrypt(picked.bytes!, password),
+    );
+    if (!context.mounted) return null;
+    if (!await registryConfirm(
+          context,
+          'Restore ${snapshot.registry.title}?',
+          'Create a separate restored registry with ${snapshot.data.patients.length} patients and ${snapshot.data.updates.length} dated updates? Existing registries are kept. Restoring again creates another copy. Source PDFs are not included.',
+          'Restore copy',
+        ) ||
+        !context.mounted)
+      return null;
+    final r = await snapshot.restoreCopy(context.read<RecordsRepository>());
+    _notice(context, 'Registry restored as a separate copy.');
+    return r;
+  } catch (e) {
+    _notice(
+      context,
+      'Could not restore backup. Check the file and passphrase. $e',
+    );
+    return null;
+  }
+}
+
+class RegistryTableView extends StatelessWidget {
+  final RegistryTableData data;
+  final ValueChanged<String>? onPatient;
+  const RegistryTableView({super.key, required this.data, this.onPatient});
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          'Scroll sideways for more fields. Dates beneath values show when they were observed.',
+        ),
+      ),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          headingRowHeight: 82,
+          dataRowMinHeight: 60,
+          dataRowMaxHeight: 120,
+          columns: [
+            for (final h in data.headers)
+              DataColumn(
+                label: SizedBox(
+                  width: 150,
+                  child: Text(h, maxLines: 4, overflow: TextOverflow.ellipsis),
+                ),
+              ),
+          ],
+          rows: [
+            for (var i = 0; i < data.rows.length; i++)
+              DataRow(
+                onSelectChanged: onPatient == null
+                    ? null
+                    : (_) => onPatient!(data.patientIds[i]),
+                cells: [
+                  for (final v in data.rows[i])
+                    DataCell(
+                      SizedBox(
+                        width: 150,
+                        child: Tooltip(
+                          message: v,
+                          child: Text(
+                            v.isEmpty ? '—' : v,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+      if (data.rows.isEmpty) const Text('No saved observations to display.'),
+    ],
+  );
+}

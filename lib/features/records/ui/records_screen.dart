@@ -16,11 +16,11 @@ import '../../reports/data/reports_repository.dart';
 import '../../reports/ui/saved_pdf_viewer_screen.dart';
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
+import '../../registry/ui/registry_screen.dart';
 import '../../reports/services/pdf_actions_service.dart';
 import '../data/records_repository.dart';
 import 'record_view_screen.dart';
 import 'record_details_screen.dart';
-
 
 class _CsvPreviewScreen extends StatelessWidget {
   final String csvText;
@@ -103,7 +103,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
     return '${trimmed.substring(0, maxChars).trimRight()}…';
   }
 
-
   bool _isSubjectRecordKey(String key) {
     return key == RecordFieldCatalog.subjectName.key ||
         key == RecordFieldCatalog.patientReference.key ||
@@ -112,7 +111,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
         key.startsWith('subject_');
   }
 
-  List<RecordFieldDef> _fieldsForTable(List<RecordFieldDef> baseFields, List<RecordSummary> rows) {
+  List<RecordFieldDef> _fieldsForTable(
+    List<RecordFieldDef> baseFields,
+    List<RecordSummary> rows,
+  ) {
     final baseByKey = <String, RecordFieldDef>{
       for (final field in baseFields) field.key: field,
       for (final field in RecordFieldCatalog.coreFields) field.key: field,
@@ -126,7 +128,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
       final base = baseByKey[trimmedKey];
       byKey[trimmedKey] = RecordFieldDef(
         key: trimmedKey,
-        label: label?.trim().isNotEmpty == true ? label!.trim() : (base?.label ?? trimmedKey),
+        label: label?.trim().isNotEmpty == true
+            ? label!.trim()
+            : (base?.label ?? trimmedKey),
         hint: base?.hint ?? 'Record value',
         builtInSuggestions: base?.builtInSuggestions ?? const <String>[],
         isSystem: base?.isSystem ?? _isSubjectRecordKey(trimmedKey),
@@ -161,7 +165,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
         // Empty fields are allowed inside Record Details if they are accounted for,
         // but the Records table should not grow blank columns unless the field has
         // data or was explicitly created as a manageable record/registry field.
-        if (!hasValue && !isUserCreated && !isRegistryField && !isTemplateOrExplicit) {
+        if (!hasValue &&
+            !isUserCreated &&
+            !isRegistryField &&
+            !isTemplateOrExplicit) {
           continue;
         }
         if (!hasValue && isTemplateOrExplicit) {
@@ -187,7 +194,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
     await context.read<RecordsProvider>().refresh();
   }
 
-
   Future<void> _editRecordDetails(RecordSummary item) async {
     final provider = context.read<RecordsProvider>();
     final entry = await provider.repo.loadByRecordId(item.recordEntryId);
@@ -201,7 +207,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => RecordDetailsScreen(initialEntry: entry)),
+      MaterialPageRoute(
+        builder: (_) => RecordDetailsScreen(initialEntry: entry),
+      ),
     );
     if (!mounted) return;
     await provider.refresh();
@@ -210,7 +218,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
   Future<void> _openPdf(RecordSummary item) async {
     final repo = context.read<ReportsRepository>();
     final pdfBytes = await repo.loadPdfBytesForReport(item.linkedReportId);
-    final pdfFileName = await repo.pdfFileNameForReport(item.linkedReportId) ?? '${item.procedure.isEmpty ? 'record' : item.procedure}.pdf';
+    final pdfFileName =
+        await repo.pdfFileNameForReport(item.linkedReportId) ??
+        '${item.procedure.isEmpty ? 'record' : item.procedure}.pdf';
     if (!mounted) return;
 
     if (pdfBytes == null || pdfBytes.isEmpty) {
@@ -235,7 +245,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
   Future<void> _downloadPdfFromTable(RecordSummary item) async {
     final repo = context.read<ReportsRepository>();
     final pdfBytes = await repo.loadPdfBytesForReport(item.linkedReportId);
-    final pdfFileName = await repo.pdfFileNameForReport(item.linkedReportId) ?? '${item.procedure.isEmpty ? 'record' : item.procedure}.pdf';
+    final pdfFileName =
+        await repo.pdfFileNameForReport(item.linkedReportId) ??
+        '${item.procedure.isEmpty ? 'record' : item.procedure}.pdf';
     if (!mounted) return;
 
     if (pdfBytes == null || pdfBytes.isEmpty) {
@@ -248,30 +260,33 @@ class _RecordsScreenState extends State<RecordsScreen> {
     if (kIsWeb) {
       await downloadBytes(bytes: pdfBytes, fileName: pdfFileName);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PDF downloaded.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('PDF downloaded.')));
       return;
     }
 
     if (ripotIsNativeDesktop) {
       try {
-        final file = await ripotDownloadPdf(bytes: pdfBytes, fileName: pdfFileName);
+        final file = await ripotDownloadPdf(
+          bytes: pdfBytes,
+          fileName: pdfFileName,
+        );
         if (!mounted) return;
         if (file == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Download cancelled')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Download cancelled')));
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('PDF saved to: ${file.path}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('PDF saved to: ${file.path}')));
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
       }
       return;
     }
@@ -281,18 +296,25 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
   String _todayCsvFileName() {
     final now = DateTime.now();
-    final date = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final date =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     return 'Ripot_Records_$date.csv';
   }
 
   String _todayPackageFileName() {
     final now = DateTime.now();
-    final date = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final date =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     return 'Ripot_Records_Backup_$date.ripotpackage.zip';
   }
 
-  Future<void> _shareCsv({required Uint8List bytes, required String fileName}) async {
-    final datePart = fileName.replaceFirst('Ripot_Records_', '').replaceFirst('.csv', '');
+  Future<void> _shareCsv({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final datePart = fileName
+        .replaceFirst('Ripot_Records_', '')
+        .replaceFirst('.csv', '');
     if (kIsWeb) {
       await Share.shareXFiles(
         [XFile.fromData(bytes, name: fileName, mimeType: 'text/csv')],
@@ -304,22 +326,31 @@ class _RecordsScreenState extends State<RecordsScreen> {
     await ripotShareCsv(bytes: bytes, fileName: fileName);
   }
 
-  Future<void> _sharePackage({required Uint8List bytes, required String fileName}) async {
+  Future<void> _sharePackage({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
     if (kIsWeb) {
       await Share.shareXFiles(
         [XFile.fromData(bytes, name: fileName, mimeType: 'application/zip')],
         subject: fileName,
-        text: 'Attached is a Ripot records package. Import it from Records > Import / Merge in Ripot.',
+        text:
+            'Attached is a Ripot records package. Import it from Records > Import / Merge in Ripot.',
       );
       return;
     }
     await ripotShareRecordsPackage(bytes: bytes, fileName: fileName);
   }
 
-  Future<void> _openCsvPreview({required String csvText, required String fileName}) async {
+  Future<void> _openCsvPreview({
+    required String csvText,
+    required String fileName,
+  }) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => _CsvPreviewScreen(csvText: csvText, fileName: fileName)),
+      MaterialPageRoute(
+        builder: (_) => _CsvPreviewScreen(csvText: csvText, fileName: fileName),
+      ),
     );
   }
 
@@ -334,15 +365,24 @@ class _RecordsScreenState extends State<RecordsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Export records', style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                'Export records',
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 8),
-              const Text('Export the currently filtered records. Use CSV for metadata-only merging, or Records Package to include saved PDFs.'),
+              const Text(
+                'Export the currently filtered records. Use CSV for metadata-only merging, or Records Package to include saved PDFs.',
+              ),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.table_chart_outlined),
                 title: const Text('Export as CSV'),
-                subtitle: const Text('Record list only. Best for analysis and metadata merge.'),
+                subtitle: const Text(
+                  'Record list only. Best for analysis and metadata merge.',
+                ),
                 onTap: () => Navigator.pop(sheetContext, 'csv'),
               ),
               ListTile(
@@ -376,7 +416,12 @@ class _RecordsScreenState extends State<RecordsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                title,
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 6),
               Text(fileName),
               const SizedBox(height: 6),
@@ -414,14 +459,21 @@ class _RecordsScreenState extends State<RecordsScreen> {
         await onShare();
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Share failed: $e')));
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported: $fileName')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Exported: $fileName')));
     }
   }
 
-  Future<void> _exportRecords(List<RecordSummary> records, List<RecordFieldDef> fields) async {
+  Future<void> _exportRecords(
+    List<RecordSummary> records,
+    List<RecordFieldDef> fields,
+  ) async {
     final choice = await _showExportChoice();
     if (!mounted || choice == null) return;
     if (choice == 'csv') {
@@ -431,8 +483,14 @@ class _RecordsScreenState extends State<RecordsScreen> {
     }
   }
 
-  Future<void> _exportCsv(List<RecordSummary> records, List<RecordFieldDef> fields) async {
-    final csvText = context.read<RecordsProvider>().repo.buildRipotCsv(records: records, fields: fields);
+  Future<void> _exportCsv(
+    List<RecordSummary> records,
+    List<RecordFieldDef> fields,
+  ) async {
+    final csvText = context.read<RecordsProvider>().repo.buildRipotCsv(
+      records: records,
+      fields: fields,
+    );
     final bytes = Uint8List.fromList(utf8.encode(csvText));
     final fileName = _todayCsvFileName();
     if (kIsWeb) {
@@ -444,14 +502,21 @@ class _RecordsScreenState extends State<RecordsScreen> {
     await _showExportDoneSheet(
       title: 'CSV exported',
       fileName: fileName,
-      helper: 'Open with Excel, Google Sheets, Numbers, or another spreadsheet app to view columns properly.',
+      helper:
+          'Open with Excel, Google Sheets, Numbers, or another spreadsheet app to view columns properly.',
       onOpen: () => _openCsvPreview(csvText: csvText, fileName: fileName),
       onShare: () => _shareCsv(bytes: bytes, fileName: fileName),
     );
   }
 
-  Future<Uint8List> _buildRecordsPackage(List<RecordSummary> records, List<RecordFieldDef> fields) async {
-    final csvText = context.read<RecordsProvider>().repo.buildRipotCsv(records: records, fields: fields);
+  Future<Uint8List> _buildRecordsPackage(
+    List<RecordSummary> records,
+    List<RecordFieldDef> fields,
+  ) async {
+    final csvText = context.read<RecordsProvider>().repo.buildRipotCsv(
+      records: records,
+      fields: fields,
+    );
     final reportsRepo = context.read<ReportsRepository>();
     final now = DateTime.now().toIso8601String();
     final archive = Archive();
@@ -465,18 +530,31 @@ class _RecordsScreenState extends State<RecordsScreen> {
     archive.addFile(ArchiveFile.string('manifest.json', manifest));
     archive.addFile(ArchiveFile.string('records.csv', csvText));
     for (final row in records) {
-      final pdfBytes = await reportsRepo.loadPdfBytesForReport(row.linkedReportId);
+      final pdfBytes = await reportsRepo.loadPdfBytesForReport(
+        row.linkedReportId,
+      );
       if (pdfBytes == null || pdfBytes.isEmpty) continue;
-      final pdfName = await reportsRepo.pdfFileNameForReport(row.linkedReportId) ?? '${row.recordEntryId}.pdf';
+      final pdfName =
+          await reportsRepo.pdfFileNameForReport(row.linkedReportId) ??
+          '${row.recordEntryId}.pdf';
       final safeName = pdfName.replaceAll(RegExp(r'[^A-Za-z0-9._ -]'), '_');
-      archive.addFile(ArchiveFile('pdfs/${row.recordEntryId}__$safeName', pdfBytes.length, pdfBytes));
+      archive.addFile(
+        ArchiveFile(
+          'pdfs/${row.recordEntryId}__$safeName',
+          pdfBytes.length,
+          pdfBytes,
+        ),
+      );
     }
     final zipped = ZipEncoder().encode(archive);
     if (zipped == null) throw Exception('Could not create records package.');
     return Uint8List.fromList(zipped);
   }
 
-  Future<void> _exportRecordsPackage(List<RecordSummary> records, List<RecordFieldDef> fields) async {
+  Future<void> _exportRecordsPackage(
+    List<RecordSummary> records,
+    List<RecordFieldDef> fields,
+  ) async {
     final bytes = await _buildRecordsPackage(records, fields);
     final fileName = _todayPackageFileName();
     if (kIsWeb) {
@@ -488,9 +566,14 @@ class _RecordsScreenState extends State<RecordsScreen> {
     await _showExportDoneSheet(
       title: 'Records package exported',
       fileName: fileName,
-      helper: 'This package contains the record list and available PDF reports. Keep it as backup or share it with another Ripot user.',
+      helper:
+          'This package contains the record list and available PDF reports. Keep it as backup or share it with another Ripot user.',
       onOpen: () {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Package saved. Use a file manager to view the ZIP.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Package saved. Use a file manager to view the ZIP.'),
+          ),
+        );
       },
       onShare: () => _sharePackage(bytes: bytes, fileName: fileName),
     );
@@ -507,9 +590,16 @@ class _RecordsScreenState extends State<RecordsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Import / Merge records', style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                'Import / Merge records',
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 8),
-              const Text('Merge only files exported from Ripot. CSV imports record details only. Records Package imports record details and available PDFs.'),
+              const Text(
+                'Merge only files exported from Ripot. CSV imports record details only. Records Package imports record details and available PDFs.',
+              ),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -542,7 +632,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
     // Use a broad picker. WhatsApp/Telegram/file managers sometimes rename
     // custom files or hide compound extensions, so filtering too strictly makes
     // valid Ripot exports impossible to find. We validate by content after pick.
-    final picked = await FilePicker.platform.pickFiles(type: FileType.any, withData: true);
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: true,
+    );
     if (picked == null || picked.files.isEmpty) return null;
     return picked.files.first;
   }
@@ -556,7 +649,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   Map<String, dynamic> _decodeRipotPackageManifest(ArchiveFile file) {
-    final text = _decodeUtf8Safely(List<int>.from(file.content as List), fileLabel: file.name);
+    final text = _decodeUtf8Safely(
+      List<int>.from(file.content as List),
+      fileLabel: file.name,
+    );
     final decoded = jsonDecode(text);
     if (decoded is! Map) {
       throw const FormatException('This package has an invalid manifest.');
@@ -565,7 +661,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   String _decodeRipotPackageCsv(ArchiveFile file) {
-    return _decodeUtf8Safely(List<int>.from(file.content as List), fileLabel: file.name);
+    return _decodeUtf8Safely(
+      List<int>.from(file.content as List),
+      fileLabel: file.name,
+    );
   }
 
   Future<void> _mergeCsvFile() async {
@@ -573,15 +672,20 @@ class _RecordsScreenState extends State<RecordsScreen> {
       final file = await _pickFile(['csv']);
       if (!mounted || file == null) return;
       final bytes = file.bytes;
-      if (bytes == null || bytes.isEmpty) throw Exception('The selected file could not be read.');
+      if (bytes == null || bytes.isEmpty)
+        throw Exception('The selected file could not be read.');
       final csvText = _decodeUtf8Safely(bytes, fileLabel: file.name);
-      final result = await context.read<RecordsProvider>().repo.mergeRipotCsv(csvText);
+      final result = await context.read<RecordsProvider>().repo.mergeRipotCsv(
+        csvText,
+      );
       if (!mounted) return;
       await context.read<RecordsProvider>().refresh();
       _showMergeResult(result, includePdfs: false);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Merge failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Merge failed: $e')));
     }
   }
 
@@ -590,21 +694,29 @@ class _RecordsScreenState extends State<RecordsScreen> {
       final file = await _pickFile(['zip', 'ripotpackage', 'ripotrecords']);
       if (!mounted || file == null) return;
       final bytes = file.bytes;
-      if (bytes == null || bytes.isEmpty) throw Exception('The selected package could not be read.');
+      if (bytes == null || bytes.isEmpty)
+        throw Exception('The selected package could not be read.');
       late final Archive archive;
       try {
         archive = ZipDecoder().decodeBytes(bytes);
       } catch (_) {
-        throw const FormatException('This file is not a valid Ripot records package. Please select a package exported from Ripot, not the CSV.');
+        throw const FormatException(
+          'This file is not a valid Ripot records package. Please select a package exported from Ripot, not the CSV.',
+        );
       }
       final manifestFile = archive.findFile('manifest.json');
       final csvFile = archive.findFile('records.csv');
       if (manifestFile == null || csvFile == null) {
-        throw const FormatException('This package does not look like a Ripot records package.');
+        throw const FormatException(
+          'This package does not look like a Ripot records package.',
+        );
       }
       final manifest = _decodeRipotPackageManifest(manifestFile);
-      if (manifest['app'] != 'Ripot' || manifest['exportType'] != 'recordsPackage') {
-        throw const FormatException('This package does not look like a Ripot records package.');
+      if (manifest['app'] != 'Ripot' ||
+          manifest['exportType'] != 'recordsPackage') {
+        throw const FormatException(
+          'This package does not look like a Ripot records package.',
+        );
       }
       final csvText = _decodeRipotPackageCsv(csvFile);
       final recordsRepo = context.read<RecordsProvider>().repo;
@@ -612,7 +724,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
       final result = await recordsRepo.mergeRipotCsv(csvText);
       var importedPdfs = 0;
       for (final item in archive.files) {
-        if (!item.isFile || !item.name.startsWith('pdfs/') || !item.name.toLowerCase().endsWith('.pdf')) continue;
+        if (!item.isFile ||
+            !item.name.startsWith('pdfs/') ||
+            !item.name.toLowerCase().endsWith('.pdf'))
+          continue;
         final name = item.name.split('/').last;
         final separator = name.indexOf('__');
         if (separator <= 0) continue;
@@ -620,9 +735,15 @@ class _RecordsScreenState extends State<RecordsScreen> {
         final entry = await recordsRepo.loadByRecordId(recordId);
         if (entry == null) continue;
         try {
-          final content = Uint8List.fromList(List<int>.from(item.content as List));
+          final content = Uint8List.fromList(
+            List<int>.from(item.content as List),
+          );
           final pdfName = name.substring(separator + 2);
-          await reportsRepo.importPdfBytesForReport(entry.linkedReportId, content, fileName: pdfName);
+          await reportsRepo.importPdfBytesForReport(
+            entry.linkedReportId,
+            content,
+            fileName: pdfName,
+          );
           importedPdfs += 1;
         } catch (_) {
           // Do not fail the whole records recovery because one attached PDF
@@ -634,15 +755,23 @@ class _RecordsScreenState extends State<RecordsScreen> {
       _showMergeResult(result, includePdfs: true, importedPdfs: importedPdfs);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Package merge failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Package merge failed: $e')));
     }
   }
 
-  void _showMergeResult(RecordsMergeResult result, {required bool includePdfs, int importedPdfs = 0}) {
+  void _showMergeResult(
+    RecordsMergeResult result, {
+    required bool includePdfs,
+    int importedPdfs = 0,
+  }) {
     final pdfLine = includePdfs ? '\nPDF reports imported: $importedPdfs' : '';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Merge complete. Imported: ${result.imported}, Updated: ${result.updated}, Duplicates skipped: ${result.duplicatesSkipped}$pdfLine'),
+        content: Text(
+          'Merge complete. Imported: ${result.imported}, Updated: ${result.updated}, Duplicates skipped: ${result.duplicatesSkipped}$pdfLine',
+        ),
       ),
     );
   }
@@ -667,7 +796,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     children: [
                       Text(
                         'Records is a Premium feature',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       const Text(
@@ -677,7 +808,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       FilledButton.icon(
                         onPressed: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const UpgradeScreen(),
+                          ),
                         ),
                         icon: const Icon(Icons.workspace_premium_outlined),
                         label: const Text('View Premium'),
@@ -698,30 +831,52 @@ class _RecordsScreenState extends State<RecordsScreen> {
     for (final row in vm.records) {
       final procedure = row.procedure.trim();
       if (procedure.isNotEmpty) procedures.add(procedure);
-      final facility = (row.values[RecordFieldCatalog.facility.key] ?? '').trim();
+      final facility = (row.values[RecordFieldCatalog.facility.key] ?? '')
+          .trim();
       if (facility.isNotEmpty) facilities.add(facility);
     }
-    final procedureOptions = ['All report types', ...procedures.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))];
-    final facilityOptions = ['All facilities', ...facilities.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))];
+    final procedureOptions = [
+      'All report types',
+      ...procedures.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())),
+    ];
+    final facilityOptions = [
+      'All facilities',
+      ...facilities.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())),
+    ];
 
-    var rows = vm.filteredRecords.where((row) {
-      final procedureMatches = _procedureFilter == 'All report types' || row.procedure.trim().toLowerCase() == _procedureFilter.trim().toLowerCase();
-      final facility = (row.values[RecordFieldCatalog.facility.key] ?? '').trim();
-      final facilityMatches = _facilityFilter == 'All facilities' || facility.toLowerCase() == _facilityFilter.trim().toLowerCase();
-      return procedureMatches && facilityMatches;
-    }).toList(growable: false);
+    var rows = vm.filteredRecords
+        .where((row) {
+          final procedureMatches =
+              _procedureFilter == 'All report types' ||
+              row.procedure.trim().toLowerCase() ==
+                  _procedureFilter.trim().toLowerCase();
+          final facility = (row.values[RecordFieldCatalog.facility.key] ?? '')
+              .trim();
+          final facilityMatches =
+              _facilityFilter == 'All facilities' ||
+              facility.toLowerCase() == _facilityFilter.trim().toLowerCase();
+          return procedureMatches && facilityMatches;
+        })
+        .toList(growable: false);
 
-    rows = [...rows]..sort((a, b) {
-      switch (_sort) {
-        case _RecordsSort.oldestFirst:
-          return a.updatedAt.compareTo(b.updatedAt);
-        case _RecordsSort.procedureAZ:
-          final byProcedure = a.procedure.toLowerCase().compareTo(b.procedure.toLowerCase());
-          return byProcedure != 0 ? byProcedure : b.updatedAt.compareTo(a.updatedAt);
-        case _RecordsSort.newestFirst:
-          return b.updatedAt.compareTo(a.updatedAt);
-      }
-    });
+    rows = [...rows]
+      ..sort((a, b) {
+        switch (_sort) {
+          case _RecordsSort.oldestFirst:
+            return a.updatedAt.compareTo(b.updatedAt);
+          case _RecordsSort.procedureAZ:
+            final byProcedure = a.procedure.toLowerCase().compareTo(
+              b.procedure.toLowerCase(),
+            );
+            return byProcedure != 0
+                ? byProcedure
+                : b.updatedAt.compareTo(a.updatedAt);
+          case _RecordsSort.newestFirst:
+            return b.updatedAt.compareTo(a.updatedAt);
+        }
+      });
 
     final tableFields = _fieldsForTable(baseFields, rows);
 
@@ -729,10 +884,23 @@ class _RecordsScreenState extends State<RecordsScreen> {
       appBar: AppBar(
         title: const Text('Records'),
         actions: [
+          IconButton(
+            tooltip: 'Registry',
+            icon: const Icon(Icons.people_outline),
+            onPressed: () => openRegistry(context),
+          ),
           SegmentedButton<RecordsViewMode>(
             segments: const [
-              ButtonSegment(value: RecordsViewMode.list, icon: Icon(Icons.view_list_outlined), label: Text('List')),
-              ButtonSegment(value: RecordsViewMode.table, icon: Icon(Icons.table_rows_outlined), label: Text('Table')),
+              ButtonSegment(
+                value: RecordsViewMode.list,
+                icon: Icon(Icons.view_list_outlined),
+                label: Text('List'),
+              ),
+              ButtonSegment(
+                value: RecordsViewMode.table,
+                icon: Icon(Icons.table_rows_outlined),
+                label: Text('Table'),
+              ),
             ],
             selected: {_mode},
             onSelectionChanged: (value) => setState(() => _mode = value.first),
@@ -745,7 +913,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
           ),
           IconButton(
             tooltip: 'Export records',
-            onPressed: rows.isEmpty ? null : () => _exportRecords(rows, tableFields),
+            onPressed: rows.isEmpty
+                ? null
+                : () => _exportRecords(rows, tableFields),
             icon: const Icon(Icons.download_outlined),
           ),
         ],
@@ -774,20 +944,27 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       width: 220,
                       child: DropdownButtonFormField<String>(
                         isExpanded: true,
-                        value: procedureOptions.contains(_procedureFilter) ? _procedureFilter : 'All report types',
+                        value: procedureOptions.contains(_procedureFilter)
+                            ? _procedureFilter
+                            : 'All report types',
                         decoration: const InputDecoration(
                           labelText: 'Procedure / Report Type',
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
                         items: procedureOptions
-                            .map((value) => DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Tooltip(
-                                    message: value,
-                                    child: Text(_compactFilterLabel(value), overflow: TextOverflow.ellipsis),
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Tooltip(
+                                  message: value,
+                                  child: Text(
+                                    _compactFilterLabel(value),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ))
+                                ),
+                              ),
+                            )
                             .toList(growable: false),
                         onChanged: (value) {
                           if (value == null) return;
@@ -799,14 +976,24 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       width: 220,
                       child: DropdownButtonFormField<String>(
                         isExpanded: true,
-                        value: facilityOptions.contains(_facilityFilter) ? _facilityFilter : 'All facilities',
+                        value: facilityOptions.contains(_facilityFilter)
+                            ? _facilityFilter
+                            : 'All facilities',
                         decoration: const InputDecoration(
                           labelText: 'Facility',
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
                         items: facilityOptions
-                            .map((value) => DropdownMenuItem<String>(value: value, child: Text(value, overflow: TextOverflow.ellipsis)))
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(
+                                  value,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
                             .toList(growable: false),
                         onChanged: (value) {
                           if (value == null) return;
@@ -825,9 +1012,27 @@ class _RecordsScreenState extends State<RecordsScreen> {
                           isDense: true,
                         ),
                         items: const [
-                          DropdownMenuItem(value: _RecordsSort.newestFirst, child: Text('Newest first', overflow: TextOverflow.ellipsis)),
-                          DropdownMenuItem(value: _RecordsSort.oldestFirst, child: Text('Oldest first', overflow: TextOverflow.ellipsis)),
-                          DropdownMenuItem(value: _RecordsSort.procedureAZ, child: Text('Report type A–Z', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(
+                            value: _RecordsSort.newestFirst,
+                            child: Text(
+                              'Newest first',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: _RecordsSort.oldestFirst,
+                            child: Text(
+                              'Oldest first',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: _RecordsSort.procedureAZ,
+                            child: Text(
+                              'Report type A–Z',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value == null) return;
@@ -844,63 +1049,77 @@ class _RecordsScreenState extends State<RecordsScreen> {
             child: vm.loading
                 ? const Center(child: CircularProgressIndicator())
                 : rows.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            'No records yet. Save a report to PDF first, then optionally add Record Details to include it here.',
-                            textAlign: TextAlign.center,
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'No records yet. Save a report to PDF first, then optionally add Record Details to include it here.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : _mode == RecordsViewMode.list
+                ? ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = rows[index];
+                      return Card(
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            child: Icon(Icons.folder_outlined),
+                          ),
+                          title: Text(
+                            item.procedure.isEmpty
+                                ? 'Untitled record'
+                                : item.procedure,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            [
+                              if (item.diagnosis.isNotEmpty) item.diagnosis,
+                              if (item.patientReference.isNotEmpty)
+                                'Subject ID: ${item.patientReference}',
+                              if (item.reportDate.isNotEmpty) item.reportDate,
+                            ].join(' • '),
+                          ),
+                          onTap: () => _openRecordView(item),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) async {
+                              if (value == 'openPdf') {
+                                await _openPdf(item);
+                              } else if (value == 'edit') {
+                                await _editRecordDetails(item);
+                              } else if (value == 'delete') {
+                                await vm.deleteRecord(item.recordEntryId);
+                              }
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: 'openPdf',
+                                child: Text('Open PDF'),
+                              ),
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edit details'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete record'),
+                              ),
+                            ],
                           ),
                         ),
-                      )
-                    : _mode == RecordsViewMode.list
-                        ? ListView.separated(
-                            padding: const EdgeInsets.all(12),
-                            itemCount: rows.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              final item = rows[index];
-                              return Card(
-                                child: ListTile(
-                                  leading: const CircleAvatar(child: Icon(Icons.folder_outlined)),
-                                  title: Text(
-                                    item.procedure.isEmpty ? 'Untitled record' : item.procedure,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    [
-                                      if (item.diagnosis.isNotEmpty) item.diagnosis,
-                                      if (item.patientReference.isNotEmpty) 'Subject ID: ${item.patientReference}',
-                                      if (item.reportDate.isNotEmpty) item.reportDate,
-                                    ].join(' • '),
-                                  ),
-                                  onTap: () => _openRecordView(item),
-                                  trailing: PopupMenuButton<String>(
-                                    onSelected: (value) async {
-                                      if (value == 'openPdf') {
-                                        await _openPdf(item);
-                                      } else if (value == 'edit') {
-                                        await _editRecordDetails(item);
-                                      } else if (value == 'delete') {
-                                        await vm.deleteRecord(item.recordEntryId);
-                                      }
-                                    },
-                                    itemBuilder: (_) => const [
-                                      PopupMenuItem(value: 'openPdf', child: Text('Open PDF')),
-                                      PopupMenuItem(value: 'edit', child: Text('Edit details')),
-                                      PopupMenuItem(value: 'delete', child: Text('Delete record')),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-                        : _RecordsTable(
-                            rows: rows,
-                            fields: tableFields,
-                            onOpenRecord: _openRecordView,
-                            onDownloadPdf: _downloadPdfFromTable,
-                          ),
+                      );
+                    },
+                  )
+                : _RecordsTable(
+                    rows: rows,
+                    fields: tableFields,
+                    onOpenRecord: _openRecordView,
+                    onDownloadPdf: _downloadPdfFromTable,
+                  ),
           ),
         ],
       ),
@@ -914,7 +1133,12 @@ class _RecordsTable extends StatefulWidget {
   final ValueChanged<RecordSummary> onOpenRecord;
   final ValueChanged<RecordSummary> onDownloadPdf;
 
-  const _RecordsTable({required this.rows, required this.fields, required this.onOpenRecord, required this.onDownloadPdf});
+  const _RecordsTable({
+    required this.rows,
+    required this.fields,
+    required this.onOpenRecord,
+    required this.onDownloadPdf,
+  });
 
   @override
   State<_RecordsTable> createState() => _RecordsTableState();
@@ -942,17 +1166,26 @@ class _RecordsTableState extends State<_RecordsTable> {
   Widget build(BuildContext context) {
     final orderedKeys = [
       ...RecordFieldCatalog.exportDefaultKeys,
-      ...widget.fields.where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key)).map((f) => f.key),
+      ...widget.fields
+          .where((f) => !RecordFieldCatalog.exportDefaultKeys.contains(f.key))
+          .map((f) => f.key),
     ];
     final visibleFields = orderedKeys
-        .map((key) => widget.fields.firstWhere((f) => f.key == key, orElse: () => RecordFieldDef(key: key, label: key, hint: '', isSystem: false)))
+        .map(
+          (key) => widget.fields.firstWhere(
+            (f) => f.key == key,
+            orElse: () =>
+                RecordFieldDef(key: key, label: key, hint: '', isSystem: false),
+          ),
+        )
         .toList(growable: false);
 
     return Scrollbar(
       controller: _horizontalController,
       thumbVisibility: true,
       trackVisibility: true,
-      notificationPredicate: (notification) => notification.metrics.axis == Axis.horizontal,
+      notificationPredicate: (notification) =>
+          notification.metrics.axis == Axis.horizontal,
       child: SingleChildScrollView(
         controller: _horizontalController,
         padding: const EdgeInsets.all(12),
@@ -965,59 +1198,72 @@ class _RecordsTableState extends State<_RecordsTable> {
               controller: _verticalController,
               thumbVisibility: true,
               trackVisibility: true,
-              notificationPredicate: (notification) => notification.metrics.axis == Axis.vertical,
+              notificationPredicate: (notification) =>
+                  notification.metrics.axis == Axis.vertical,
               child: SingleChildScrollView(
                 controller: _verticalController,
                 child: DataTable(
                   columns: [
-                    ...visibleFields.map((f) => DataColumn(label: Text(f.label))),
+                    ...visibleFields.map(
+                      (f) => DataColumn(label: Text(f.label)),
+                    ),
                     const DataColumn(label: Text('Actions')),
                   ],
-                  rows: widget.rows.map((row) {
-                    return DataRow(
-                      onSelectChanged: (_) => widget.onOpenRecord(row),
-                      cells: [
-                        ...visibleFields.map((f) {
-                          final rawValue = row.values[f.key] ?? '';
-                          final displayValue = f.key == RecordFieldCatalog.reportId.key ? formatReportIdForDisplay(rawValue) : rawValue;
-                          return DataCell(Text(displayValue));
-                        }),
-                        DataCell(
-                          SizedBox(
-                            width: 190,
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: 84,
-                                    height: 36,
-                                    child: OutlinedButton(
-                                      onPressed: () => widget.onOpenRecord(row),
-                                      child: const Text('View'),
-                                    ),
+                  rows: widget.rows
+                      .map((row) {
+                        return DataRow(
+                          onSelectChanged: (_) => widget.onOpenRecord(row),
+                          cells: [
+                            ...visibleFields.map((f) {
+                              final rawValue = row.values[f.key] ?? '';
+                              final displayValue =
+                                  f.key == RecordFieldCatalog.reportId.key
+                                  ? formatReportIdForDisplay(rawValue)
+                                  : rawValue;
+                              return DataCell(Text(displayValue));
+                            }),
+                            DataCell(
+                              SizedBox(
+                                width: 190,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 84,
+                                        height: 36,
+                                        child: OutlinedButton(
+                                          onPressed: () =>
+                                              widget.onOpenRecord(row),
+                                          child: const Text('View'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 36,
+                                        height: 36,
+                                        child: IconButton(
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          tooltip: 'Download PDF',
+                                          onPressed: () =>
+                                              widget.onDownloadPdf(row),
+                                          icon: const Icon(
+                                            Icons.download_outlined,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 36,
-                                    height: 36,
-                                    child: IconButton(
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                      tooltip: 'Download PDF',
-                                      onPressed: () => widget.onDownloadPdf(row),
-                                      icon: const Icon(Icons.download_outlined, size: 20),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(growable: false),
+                          ],
+                        );
+                      })
+                      .toList(growable: false),
                 ),
               ),
             ),

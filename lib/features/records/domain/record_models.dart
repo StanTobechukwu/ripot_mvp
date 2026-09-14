@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-
 String formatReportIdForDisplay(String raw) {
   final value = raw.trim();
   if (value.isEmpty) return value;
@@ -8,6 +7,8 @@ String formatReportIdForDisplay(String raw) {
   final suffix = value.length <= 6 ? value : value.substring(value.length - 6);
   return 'RPT-$suffix';
 }
+
+enum RecordInputType { freeText, yesNo, singleSelect, multiSelect, numeric }
 
 class RecordFieldDef {
   final String key;
@@ -19,6 +20,10 @@ class RecordFieldDef {
   final String registryId;
   final String conditionalOnFieldKey;
   final String conditionalEquals;
+  final RecordInputType inputType;
+  final List<String> options;
+  final String unit;
+  final String groupName;
 
   const RecordFieldDef({
     required this.key,
@@ -30,6 +35,10 @@ class RecordFieldDef {
     this.registryId = '',
     this.conditionalOnFieldKey = '',
     this.conditionalEquals = '',
+    this.inputType = RecordInputType.freeText,
+    this.options = const <String>[],
+    this.unit = '',
+    this.groupName = '',
   });
 
   RecordFieldDef copyWith({
@@ -42,6 +51,10 @@ class RecordFieldDef {
     String? registryId,
     String? conditionalOnFieldKey,
     String? conditionalEquals,
+    RecordInputType? inputType,
+    List<String>? options,
+    String? unit,
+    String? groupName,
   }) {
     return RecordFieldDef(
       key: key ?? this.key,
@@ -51,19 +64,25 @@ class RecordFieldDef {
       isSystem: isSystem ?? this.isSystem,
       procedureScope: procedureScope ?? this.procedureScope,
       registryId: registryId ?? this.registryId,
-      conditionalOnFieldKey: conditionalOnFieldKey ?? this.conditionalOnFieldKey,
+      conditionalOnFieldKey:
+          conditionalOnFieldKey ?? this.conditionalOnFieldKey,
       conditionalEquals: conditionalEquals ?? this.conditionalEquals,
+      inputType: inputType ?? this.inputType,
+      options: options ?? this.options,
+      unit: unit ?? this.unit,
+      groupName: groupName ?? this.groupName,
     );
   }
 
-
-  bool get isGlobal => procedureScope.trim().isEmpty && registryId.trim().isEmpty;
+  bool get isGlobal =>
+      procedureScope.trim().isEmpty && registryId.trim().isEmpty;
   bool get isRegistryField => registryId.trim().isNotEmpty;
 
   bool appliesToProcedure(String procedureName) {
     if (isRegistryField) return true;
     if (isGlobal) return true;
-    return procedureScope.trim().toLowerCase() == procedureName.trim().toLowerCase();
+    return procedureScope.trim().toLowerCase() ==
+        procedureName.trim().toLowerCase();
   }
 
   bool appliesToRegistries(Iterable<String> registryIds) {
@@ -72,19 +91,38 @@ class RecordFieldDef {
   }
 
   Map<String, dynamic> toJson() => {
-        'key': key,
-        'label': label,
-        'hint': hint,
-        'builtInSuggestions': builtInSuggestions,
-        'isSystem': isSystem,
-        'procedureScope': procedureScope,
-        'registryId': registryId,
-        'conditionalOnFieldKey': conditionalOnFieldKey,
-        'conditionalEquals': conditionalEquals,
-      };
+    'key': key,
+    'label': label,
+    'hint': hint,
+    'builtInSuggestions': builtInSuggestions,
+    'isSystem': isSystem,
+    'procedureScope': procedureScope,
+    'registryId': registryId,
+    'conditionalOnFieldKey': conditionalOnFieldKey,
+    'conditionalEquals': conditionalEquals,
+    'inputType': inputType.name,
+    'options': options,
+    'unit': unit,
+    'groupName': groupName,
+  };
 
   factory RecordFieldDef.fromJson(Map<String, dynamic> json) {
-    final suggestions = (json['builtInSuggestions'] as List?)?.map((e) => e.toString()).toList(growable: false) ?? const <String>[];
+    final suggestions =
+        (json['builtInSuggestions'] as List?)
+            ?.map((e) => e.toString())
+            .toList(growable: false) ??
+        const <String>[];
+    final inputTypeName = (json['inputType'] ?? '').toString();
+    final inputType = RecordInputType.values.firstWhere(
+      (value) => value.name == inputTypeName,
+      orElse: () => RecordInputType.freeText,
+    );
+    final options =
+        (json['options'] as List?)
+            ?.map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
     return RecordFieldDef(
       key: (json['key'] ?? '').toString(),
       label: (json['label'] ?? '').toString(),
@@ -95,6 +133,10 @@ class RecordFieldDef {
       registryId: (json['registryId'] ?? '').toString(),
       conditionalOnFieldKey: (json['conditionalOnFieldKey'] ?? '').toString(),
       conditionalEquals: (json['conditionalEquals'] ?? '').toString(),
+      inputType: inputType,
+      options: options,
+      unit: (json['unit'] ?? '').toString(),
+      groupName: (json['groupName'] ?? '').toString(),
     );
   }
 }
@@ -131,12 +173,12 @@ class RecordRegistry {
   }
 
   Map<String, dynamic> toJson() => {
-        'registryId': registryId,
-        'title': title,
-        'description': description,
-        'createdAtIso': createdAtIso,
-        'fields': fields.map((e) => e.toJson()).toList(growable: false),
-      };
+    'registryId': registryId,
+    'title': title,
+    'description': description,
+    'createdAtIso': createdAtIso,
+    'fields': fields.map((e) => e.toJson()).toList(growable: false),
+  };
 
   factory RecordRegistry.fromJson(Map<String, dynamic> json) {
     final rawFields = (json['fields'] as List?) ?? const <dynamic>[];
@@ -146,7 +188,9 @@ class RecordRegistry {
       description: (json['description'] ?? '').toString(),
       createdAtIso: (json['createdAtIso'] ?? '').toString(),
       fields: rawFields
-          .map((e) => RecordFieldDef.fromJson((e as Map).cast<String, dynamic>()))
+          .map(
+            (e) => RecordFieldDef.fromJson((e as Map).cast<String, dynamic>()),
+          )
           .where((field) => field.key.trim().isNotEmpty)
           .toList(growable: false),
     );
@@ -154,6 +198,7 @@ class RecordRegistry {
 }
 
 class RecordEntry {
+  final Map<String, String> originalReportValues;
   final String recordEntryId;
   final String linkedReportId;
   final String createdAtIso;
@@ -162,8 +207,10 @@ class RecordEntry {
   final Map<String, String> fieldLabels;
   final Map<String, String> fieldSources;
   final List<String> registryIds;
+  final Map<String, RecordFieldDef> fieldDefinitions;
 
   const RecordEntry({
+    this.originalReportValues = const {},
     required this.recordEntryId,
     required this.linkedReportId,
     required this.createdAtIso,
@@ -172,11 +219,13 @@ class RecordEntry {
     this.fieldLabels = const <String, String>{},
     this.fieldSources = const <String, String>{},
     this.registryIds = const <String>[],
+    this.fieldDefinitions = const <String, RecordFieldDef>{},
   });
 
   String valueOf(String key) => values[key]?.trim() ?? '';
 
   RecordEntry copyWith({
+    Map<String, String>? originalReportValues,
     String? recordEntryId,
     String? linkedReportId,
     String? createdAtIso,
@@ -185,8 +234,10 @@ class RecordEntry {
     Map<String, String>? fieldLabels,
     Map<String, String>? fieldSources,
     List<String>? registryIds,
+    Map<String, RecordFieldDef>? fieldDefinitions,
   }) {
     return RecordEntry(
+      originalReportValues: originalReportValues ?? this.originalReportValues,
       recordEntryId: recordEntryId ?? this.recordEntryId,
       linkedReportId: linkedReportId ?? this.linkedReportId,
       createdAtIso: createdAtIso ?? this.createdAtIso,
@@ -195,39 +246,74 @@ class RecordEntry {
       fieldLabels: fieldLabels ?? this.fieldLabels,
       fieldSources: fieldSources ?? this.fieldSources,
       registryIds: registryIds ?? this.registryIds,
+      fieldDefinitions: fieldDefinitions ?? this.fieldDefinitions,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'recordEntryId': recordEntryId,
-        'linkedReportId': linkedReportId,
-        'createdAtIso': createdAtIso,
-        'updatedAtIso': updatedAtIso,
-        'values': values,
-        'fieldLabels': fieldLabels,
-        'fieldSources': fieldSources,
-        'registryIds': registryIds,
-      };
+    'recordEntryId': recordEntryId,
+    'originalReportValues': originalReportValues,
+    'linkedReportId': linkedReportId,
+    'createdAtIso': createdAtIso,
+    'updatedAtIso': updatedAtIso,
+    'values': values,
+    'fieldLabels': fieldLabels,
+    'fieldSources': fieldSources,
+    'registryIds': registryIds,
+    'fieldDefinitions': fieldDefinitions.map(
+      (key, value) => MapEntry(key, value.toJson()),
+    ),
+  };
 
   factory RecordEntry.fromJson(Map<String, dynamic> json) {
-    final rawValues = (json['values'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
-    final rawLabels = (json['fieldLabels'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
-    final rawSources = (json['fieldSources'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
-    final registries = (json['registryIds'] as List?)?.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList(growable: false) ?? const <String>[];
+    final rawValues =
+        (json['values'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final rawLabels =
+        (json['fieldLabels'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final rawSources =
+        (json['fieldSources'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final registries =
+        (json['registryIds'] as List?)
+            ?.map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+    final rawDefinitions =
+        (json['fieldDefinitions'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
     return RecordEntry(
       recordEntryId: (json['recordEntryId'] ?? '') as String,
+      originalReportValues: Map<String, String>.from(
+        json['originalReportValues'] as Map? ?? {},
+      ),
       linkedReportId: (json['linkedReportId'] ?? '') as String,
       createdAtIso: (json['createdAtIso'] ?? '') as String,
       updatedAtIso: (json['updatedAtIso'] ?? '') as String,
-      values: rawValues.map((key, value) => MapEntry(key, (value ?? '').toString())),
-      fieldLabels: rawLabels.map((key, value) => MapEntry(key, (value ?? '').toString())),
-      fieldSources: rawSources.map((key, value) => MapEntry(key, (value ?? '').toString())),
+      values: rawValues.map(
+        (key, value) => MapEntry(key, (value ?? '').toString()),
+      ),
+      fieldLabels: rawLabels.map(
+        (key, value) => MapEntry(key, (value ?? '').toString()),
+      ),
+      fieldSources: rawSources.map(
+        (key, value) => MapEntry(key, (value ?? '').toString()),
+      ),
       registryIds: registries,
+      fieldDefinitions: rawDefinitions.map(
+        (key, value) => MapEntry(
+          key,
+          RecordFieldDef.fromJson((value as Map).cast<String, dynamic>()),
+        ),
+      ),
     );
   }
 
   String encode() => jsonEncode(toJson());
-  static RecordEntry decode(String raw) => RecordEntry.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+  static RecordEntry decode(String raw) =>
+      RecordEntry.fromJson(jsonDecode(raw) as Map<String, dynamic>);
 }
 
 class RecordSummary {

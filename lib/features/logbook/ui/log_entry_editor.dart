@@ -73,6 +73,15 @@ class _LogEntryEditorState extends State<LogEntryEditor> {
       );
       return;
     }
+    if (widget.entry == null) {
+      final confirmed = await confirmAction(
+        context,
+        'Save completed procedure?',
+        'This creates a logbook entry confirming that the procedure took place. Review the date and participants before saving.',
+        action: 'Save log',
+      );
+      if (!confirmed || !mounted) return;
+    }
     setState(() => _busy = true);
     try {
       final repo = context.read<LogbookRepository>();

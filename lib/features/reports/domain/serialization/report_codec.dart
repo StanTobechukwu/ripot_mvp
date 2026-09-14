@@ -10,6 +10,7 @@ class ReportCodec {
 
   static Map<String, dynamic> reportToJson(ReportDoc doc) => {
     'reportId': doc.reportId,
+    'sourceTemplateId': doc.sourceTemplateId,
     'createdAtIso': doc.createdAtIso,
     'updatedAtIso': doc.updatedAtIso,
 
@@ -169,6 +170,7 @@ class ReportCodec {
 
     return ReportDoc(
       reportId: (j['reportId'] as String?) ?? 'unknown',
+      sourceTemplateId: (j['sourceTemplateId'] as String?) ?? '',
       createdAtIso: createdAtIso,
       updatedAtIso: updatedAtIso,
 

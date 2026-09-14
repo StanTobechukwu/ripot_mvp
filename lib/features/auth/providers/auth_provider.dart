@@ -56,6 +56,8 @@ class AuthProvider extends ChangeNotifier {
     _migrationAttemptedForCurrentUser = false;
     notifyListeners();
     if (user != null) {
+      await _accessProvider.load();
+      if (_currentUser?.uid != user.uid) return;
       await _migrateGuestCloudDataIfNeeded();
     }
   }

@@ -7,6 +7,8 @@ import '../../logbook/ui/logbook_screen.dart';
 import '../../logbook/ui/log_entry_editor.dart';
 import '../../logbook/ui/log_entry_detail.dart';
 import '../../records/ui/record_details_screen.dart';
+import '../../records/ui/records_field_picker.dart';
+import '../../registry/ui/registry_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../data/reports_repository.dart';
@@ -37,6 +39,28 @@ class ReportsListScreen extends StatefulWidget {
 
 class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   bool _routeObserverSubscribed = false;
+  int _section = 0;
+
+  Future<void> _selectSection(int index) async {
+    if (index == 2 && !context.read<AccessProvider>().safeState.canUseRecords) {
+      await showPremiumFeatureSheet(context, PremiumFeature.records);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _section = index);
+    if (index == 0) await _refreshReports();
+  }
+
+  Widget _navigation() => NavigationBar(
+    selectedIndex: _section,
+    onDestinationSelected: _selectSection,
+    destinations: const [
+      NavigationDestination(icon: Icon(Icons.description_outlined), label: 'Reports'),
+      NavigationDestination(icon: Icon(Icons.library_books_outlined), label: 'Templates'),
+      NavigationDestination(icon: Icon(Icons.table_rows_outlined), label: 'Records'),
+      NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Logbook'),
+    ],
+  );
   IncomingFileService? _incomingFileService;
 
   Future<void> _refreshReports() async {
@@ -201,7 +225,11 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         const ItemAction('pdf', 'View PDF', Icons.picture_as_pdf_outlined),
       if (report.hasPdf)
         const ItemAction('share', 'Share PDF', Icons.ios_share),
-      const ItemAction('records', 'Add to Records', Icons.table_rows_outlined),
+      ItemAction(
+        'records',
+        report.hasPdf ? 'Add to Records' : 'Records · Generate report first',
+        Icons.table_rows_outlined,
+      ),
       ItemAction(
         'log',
         book.forReport(report.reportId) == null
@@ -209,6 +237,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             : 'View log entry',
         Icons.menu_book_outlined,
       ),
+      if (report.hasPdf)
+        const ItemAction('registry', 'Add to Registry', Icons.people_outline),
       const ItemAction(
         'delete',
         'Delete report',
@@ -220,6 +250,14 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     try {
       final repo = context.read<ReportsRepository>();
       switch (action) {
+        case 'registry':
+          final doc = await repo.loadReport(report.reportId);
+          if (!context.mounted) return;
+          final draft = context
+              .read<RecordsRepository>()
+              .registrySourceForReport(doc);
+          if (context.mounted) await openRegistry(context, source: draft);
+          break;
         case 'edit':
           await _openEditor(context, report.reportId);
           break;
@@ -237,13 +275,41 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
           );
           break;
         case 'records':
+          if (!report.hasPdf) {
+            final openEditor = await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text('Generate the report first'),
+                content: const Text(
+                  'Records are created from the finished PDF report. Continue editing, then generate the report to add it to Records.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Not now'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Continue editing'),
+                  ),
+                ],
+              ),
+            );
+            if (openEditor == true && context.mounted) {
+              await _openEditor(context, report.reportId);
+            }
+            return;
+          }
           if (!context.read<AccessProvider>().safeState.canUseRecords) {
             await showPremiumFeatureSheet(context, PremiumFeature.records);
             return;
           }
           final records = context.read<RecordsRepository>();
           final doc = await repo.loadReport(report.reportId);
-          final draft = await records.buildDraftForReport(doc);
+          if (!context.mounted) return;
+          final selected = await prepareReportRecords(context, doc);
+          if (selected == null) return;
+          final draft = await records.buildDraftForReport(selected);
           if (!context.mounted) return;
           await Navigator.push(
             context,
@@ -296,28 +362,6 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     }
   }
 
-  Future<void> _openTemplates(BuildContext context) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const TemplatesListScreen()),
-    );
-    if (!context.mounted) return;
-    await _refreshReports();
-  }
-
-  Future<void> _openRecords(BuildContext context) async {
-    final access = context.read<AccessProvider>().safeState;
-    if (!access.canUseRecords) {
-      await showPremiumFeatureSheet(context, PremiumFeature.records);
-      return;
-    }
-    if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const RecordsScreen()),
-    );
-  }
-
   void _openPremium(BuildContext context) {
     Navigator.push(
       context,
@@ -331,7 +375,19 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   Widget build(BuildContext context) {
     final listVm = context.watch<ReportsListProvider>();
     final access = context.watch<AccessProvider>().safeState;
-    final width = MediaQuery.of(context).size.width;
+    if (_section != 0) {
+      return Scaffold(
+        body: KeyedSubtree(
+          key: ValueKey(_section),
+          child: switch (_section) {
+            1 => const TemplatesListScreen(),
+            2 => const RecordsScreen(),
+            _ => const LogbookScreen(),
+          },
+        ),
+        bottomNavigationBar: _navigation(),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -370,23 +426,11 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         leadingWidth: 132,
         title: const SizedBox.shrink(),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.library_books_outlined),
-            tooltip: 'Templates',
-            onPressed: () async => _openTemplates(context),
+          TextButton.icon(
+            icon: const Icon(Icons.people_outline),
+            label: const Text('Registry'),
+            onPressed: () => openRegistry(context),
           ),
-          if (width >= 980)
-            IconButton(
-              icon: const Icon(Icons.table_rows_rounded),
-              tooltip: 'Records',
-              onPressed: () => _openRecords(context),
-            ),
-          if (width >= 1100)
-            IconButton(
-              icon: const Icon(Icons.workspace_premium_outlined),
-              tooltip: 'Ripot Premium',
-              onPressed: () => _openPremium(context),
-            ),
           Consumer<AuthProvider>(
             builder: (context, auth, _) => IconButton(
               icon: Icon(
@@ -400,63 +444,30 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               onPressed: () => _openAccount(context),
             ),
           ),
-          if (width < 1100)
-            PopupMenuButton<String>(
-              tooltip: 'More',
-              icon: const Icon(Icons.more_horiz_rounded),
-              onSelected: (value) {
-                switch (value) {
-                  case 'records':
-                    _openRecords(context);
-                    break;
-                  case 'premium':
-                    _openPremium(context);
-                    break;
-                }
-              },
-              itemBuilder: (_) => [
-                if (width < 980)
-                  const PopupMenuItem(value: 'records', child: Text('Records')),
-                if (width < 1100)
-                  const PopupMenuItem(
-                    value: 'premium',
-                    child: Text('Ripot Premium'),
-                  ),
-              ],
-            ),
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            icon: const Icon(Icons.more_horiz_rounded),
+            onSelected: (value) {
+              switch (value) {
+                case 'registry':
+                  openRegistry(context);
+                  break;
+                case 'premium':
+                  _openPremium(context);
+                  break;
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                  value: 'premium',
+                  child: Text('Ripot Premium'),
+                ),
+            ],
+          ),
           const SizedBox(width: 8),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (index) {
-          if (index == 1) _openTemplates(context);
-          if (index == 2) _openRecords(context);
-          if (index == 3)
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const LogbookScreen()),
-            );
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.description_outlined),
-            label: 'Reports',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.library_books_outlined),
-            label: 'Templates',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.table_rows_outlined),
-            label: 'Records',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            label: 'Logbook',
-          ),
-        ],
-      ),
+      bottomNavigationBar: _navigation(),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,

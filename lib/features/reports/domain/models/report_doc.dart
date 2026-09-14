@@ -58,6 +58,7 @@ class ReportDoc {
   static const Object _unset = Object();
 
   final String reportId;
+  final String sourceTemplateId;
   final String createdAtIso;
   final String updatedAtIso;
 
@@ -104,6 +105,7 @@ class ReportDoc {
 
   const ReportDoc({
     required this.reportId,
+    this.sourceTemplateId = '',
     required this.createdAtIso,
     required this.updatedAtIso,
     this.reportTitle = '',
@@ -155,6 +157,7 @@ class ReportDoc {
   }) {
     return ReportDoc(
       reportId: reportId,
+      sourceTemplateId: sourceTemplateId,
       createdAtIso: createdAtIso ?? this.createdAtIso,
       updatedAtIso: updatedAtIso ?? this.updatedAtIso,
       reportTitle: reportTitle ?? this.reportTitle,

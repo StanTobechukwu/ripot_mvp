@@ -28,17 +28,19 @@ class RecordsProvider extends ChangeNotifier {
   List<RecordSummary> get filteredRecords {
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) return records;
-    return records.where((r) {
-      final haystack = [
-        r.procedure,
-        r.diagnosis,
-        r.patientReference,
-        r.reportDate,
-        r.linkedReportId,
-        ...r.values.values,
-      ].join(' ').toLowerCase();
-      return haystack.contains(trimmed);
-    }).toList(growable: false);
+    return records
+        .where((r) {
+          final haystack = [
+            r.procedure,
+            r.diagnosis,
+            r.patientReference,
+            r.reportDate,
+            r.linkedReportId,
+            ...r.values.values,
+          ].join(' ').toLowerCase();
+          return haystack.contains(trimmed);
+        })
+        .toList(growable: false);
   }
 
   void setQuery(String value) {
@@ -46,7 +48,8 @@ class RecordsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<RecordEntry> draftForReport(ReportDoc doc) => repo.buildDraftForReport(doc);
+  Future<RecordEntry> draftForReport(ReportDoc doc) =>
+      repo.buildDraftForReport(doc);
 
   Future<void> saveRecord(RecordEntry entry) async {
     await repo.saveRecord(entry);
@@ -63,7 +66,11 @@ class RecordsProvider extends ChangeNotifier {
     String query, {
     String procedure = '',
   }) async {
-    final saved = await repo.searchVocabulary(fieldKey, query, procedure: procedure);
+    final saved = await repo.searchVocabulary(
+      fieldKey,
+      query,
+      procedure: procedure,
+    );
     RecordFieldDef? field;
     for (final candidate in allFields) {
       if (candidate.key == fieldKey) {
@@ -82,7 +89,8 @@ class RecordsProvider extends ChangeNotifier {
     void addIfVisible(String value) {
       final cleaned = value.trim();
       if (cleaned.isEmpty) return;
-      if (trimmed.isNotEmpty && !cleaned.toLowerCase().contains(trimmed)) return;
+      if (trimmed.isNotEmpty && !cleaned.toLowerCase().contains(trimmed))
+        return;
       final key = cleaned.toLowerCase();
       if (seen.add(key)) ordered.add(cleaned);
     }
@@ -97,8 +105,22 @@ class RecordsProvider extends ChangeNotifier {
     return ordered;
   }
 
-  Future<void> addCustomField({required String label, String hint = '', String procedureScope = ''}) async {
-    await repo.saveCustomField(label: label, hint: hint, procedureScope: procedureScope);
+  Future<void> addCustomField({
+    required String label,
+    String hint = '',
+    String procedureScope = '',
+    RecordInputType inputType = RecordInputType.freeText,
+    List<String> options = const <String>[],
+    String unit = '',
+  }) async {
+    await repo.saveCustomField(
+      label: label,
+      hint: hint,
+      procedureScope: procedureScope,
+      inputType: inputType,
+      options: options,
+      unit: unit,
+    );
     await refresh();
   }
 
@@ -108,6 +130,9 @@ class RecordsProvider extends ChangeNotifier {
     String hint = '',
     String procedureScope = '',
     List<String>? suggestions,
+    RecordInputType? inputType,
+    List<String>? options,
+    String? unit,
   }) async {
     await repo.updateCustomField(
       fieldKey: fieldKey,
@@ -115,29 +140,46 @@ class RecordsProvider extends ChangeNotifier {
       hint: hint,
       procedureScope: procedureScope,
       suggestions: suggestions,
+      inputType: inputType,
+      options: options,
+      unit: unit,
     );
     await refresh();
   }
 
-
-  Future<void> deleteCustomField(String fieldKey, {bool deleteSavedValues = false}) async {
-    await repo.deleteCustomField(fieldKey, deleteSavedValues: deleteSavedValues);
+  Future<void> deleteCustomField(
+    String fieldKey, {
+    bool deleteSavedValues = false,
+  }) async {
+    await repo.deleteCustomField(
+      fieldKey,
+      deleteSavedValues: deleteSavedValues,
+    );
     await refresh();
   }
 
-  Future<RecordRegistry> createRegistry({required String title, String description = ''}) async {
-    final registry = await repo.createRegistry(title: title, description: description);
+  Future<RecordRegistry> createRegistry({
+    required String title,
+    String description = '',
+  }) async {
+    final registry = await repo.createRegistry(
+      title: title,
+      description: description,
+    );
     await refresh();
     return registry;
   }
-
 
   Future<void> updateRegistry({
     required String registryId,
     required String title,
     String description = '',
   }) async {
-    await repo.updateRegistry(registryId: registryId, title: title, description: description);
+    await repo.updateRegistry(
+      registryId: registryId,
+      title: title,
+      description: description,
+    );
     await refresh();
   }
 
@@ -159,7 +201,6 @@ class RecordsProvider extends ChangeNotifier {
     );
     await refresh();
   }
-
 
   Future<void> updateRegistryField({
     required String registryId,
@@ -195,16 +236,27 @@ class RecordsProvider extends ChangeNotifier {
     await refresh();
   }
 
-  Future<RecordEntry?> assignRecordToRegistry({required String recordEntryId, required String registryId}) async {
-    await repo.assignRecordToRegistry(recordEntryId: recordEntryId, registryId: registryId);
+  Future<RecordEntry?> assignRecordToRegistry({
+    required String recordEntryId,
+    required String registryId,
+  }) async {
+    await repo.assignRecordToRegistry(
+      recordEntryId: recordEntryId,
+      registryId: registryId,
+    );
     await refresh();
     return repo.loadByRecordId(recordEntryId);
   }
 
-  Future<RecordEntry?> removeRecordFromRegistry({required String recordEntryId, required String registryId}) async {
-    await repo.removeRecordFromRegistry(recordEntryId: recordEntryId, registryId: registryId);
+  Future<RecordEntry?> removeRecordFromRegistry({
+    required String recordEntryId,
+    required String registryId,
+  }) async {
+    await repo.removeRecordFromRegistry(
+      recordEntryId: recordEntryId,
+      registryId: registryId,
+    );
     await refresh();
     return repo.loadByRecordId(recordEntryId);
   }
 }
-

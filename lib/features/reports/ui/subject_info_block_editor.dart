@@ -7,7 +7,8 @@ class SubjectInfoTemplateEditor extends StatefulWidget {
   const SubjectInfoTemplateEditor({super.key});
 
   @override
-  State<SubjectInfoTemplateEditor> createState() => _SubjectInfoTemplateEditorState();
+  State<SubjectInfoTemplateEditor> createState() =>
+      _SubjectInfoTemplateEditorState();
 }
 
 class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
@@ -34,7 +35,10 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
           onFieldSubmitted: (_) => Navigator.pop(ctx, value.trim()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, value.trim()),
             child: Text(confirmText),
@@ -47,7 +51,10 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
     return trimmed.isEmpty ? null : trimmed;
   }
 
-  Future<void> _showAddFieldDialog(BuildContext context, TemplateEditorProvider vm) async {
+  Future<void> _showAddFieldDialog(
+    BuildContext context,
+    TemplateEditorProvider vm,
+  ) async {
     final title = await _promptText(
       context,
       'Add field',
@@ -76,7 +83,11 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
     vm.renameField(fieldId, next);
   }
 
-  Future<void> _editHeadingDialog(BuildContext context, TemplateEditorProvider vm, String currentHeading) async {
+  Future<void> _editHeadingDialog(
+    BuildContext context,
+    TemplateEditorProvider vm,
+    String currentHeading,
+  ) async {
     final next = await _promptText(
       context,
       'Subject info heading',
@@ -104,7 +115,9 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.7)),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor.withOpacity(0.7),
+                ),
               ),
               child: Row(
                 children: [
@@ -116,6 +129,22 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: field.addToRecords
+                        ? 'Included in Records'
+                        : 'Not included in Records',
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      field.addToRecords
+                          ? Icons.table_rows
+                          : Icons.table_rows_outlined,
+                      color: field.addToRecords
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    onPressed: () =>
+                        vm.toggleFieldRecords(field.key, !field.addToRecords),
+                  ),
                   SizedBox(
                     width: 96,
                     child: Row(
@@ -125,7 +154,12 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                           tooltip: 'Rename',
                           visualDensity: VisualDensity.compact,
                           icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _renameDialog(context, vm, field.key, field.title),
+                          onPressed: () => _renameDialog(
+                            context,
+                            vm,
+                            field.key,
+                            field.title,
+                          ),
                         ),
                         field.isSystem
                             ? const SizedBox(width: 40)
@@ -171,7 +205,7 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
               for (final f in fields) ...[
                 fieldTile(f),
                 const SizedBox(height: 10),
-              ]
+              ],
             ],
           );
         }
@@ -190,15 +224,18 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                         children: [
                           const Text(
                             'Subject Info (Template)',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             !def.enabled
                                 ? 'Disabled in this template'
                                 : def.heading.trim().isEmpty
-                                    ? '(Heading hidden in output)'
-                                    : 'Heading: ${def.heading}',
+                                ? '(Heading hidden in output)'
+                                : 'Heading: ${def.heading}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -207,17 +244,17 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                     IconButton(
                       tooltip: 'Edit heading',
                       icon: const Icon(Icons.edit_note),
-                      onPressed: () => _editHeadingDialog(context, vm, def.heading),
+                      onPressed: () =>
+                          _editHeadingDialog(context, vm, def.heading),
                     ),
-                    Switch(
-                      value: def.enabled,
-                      onChanged: vm.toggleSubjectInfo,
-                    ),
+                    Switch(value: def.enabled, onChanged: vm.toggleSubjectInfo),
                   ],
                 ),
                 AnimatedCrossFade(
                   duration: const Duration(milliseconds: 180),
-                  crossFadeState: def.enabled ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+                  crossFadeState: def.enabled
+                      ? CrossFadeState.showFirst
+                      : CrossFadeState.showSecond,
                   firstChild: Column(
                     children: [
                       const SizedBox(height: 12),
@@ -234,12 +271,21 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                               ButtonSegment(value: 2, label: Text('2 col')),
                             ],
                             selected: {def.columns},
-                            onSelectionChanged: (s) => vm.setSubjectInfoColumns(s.first),
+                            onSelectionChanged: (s) =>
+                                vm.setSubjectInfoColumns(s.first),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       fieldsBody,
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'The table icon controls whether each subject field is copied to Records.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerLeft,
@@ -255,7 +301,9 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                     padding: EdgeInsets.only(top: 12),
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('Subject info is disabled for this template.'),
+                      child: Text(
+                        'Subject info is disabled for this template.',
+                      ),
                     ),
                   ),
                 ),

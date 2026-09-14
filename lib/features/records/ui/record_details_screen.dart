@@ -3,19 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
-import '../../reports/data/templates_repository.dart';
-import '../../reports/domain/models/nodes.dart';
-import '../../reports/domain/models/template_doc.dart';
-
-class _TemplateRecordFieldSelection {
-  final String templateId;
-  final Set<String> sectionIds;
-
-  const _TemplateRecordFieldSelection({
-    required this.templateId,
-    required this.sectionIds,
-  });
-}
+import '../../registry/ui/registry_screen.dart';
 
 class RecordDetailsScreen extends StatefulWidget {
   final RecordEntry initialEntry;
@@ -30,6 +18,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   late RecordEntry _entry;
   final _controllers = <String, TextEditingController>{};
   bool _saving = false;
+  bool _editReportValues = false;
   final _listeningControllerKeys = <String>{};
 
   String get _currentProcedure =>
@@ -37,15 +26,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       _entry.valueOf(RecordFieldCatalog.procedure.key);
 
   bool get _isExistingRecord => _entry.createdAtIso != _entry.updatedAtIso;
-
-  String _simpleFieldKey(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
-        .replaceAll(RegExp(r'^_|_\$'), '');
-  }
 
   @override
   void initState() {
@@ -62,30 +42,19 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   }
 
   TextEditingController _controllerFor(String key, String initial) {
-    final displayValue = key == RecordFieldCatalog.reportId.key ? formatReportIdForDisplay(initial) : initial;
-    final controller = _controllers.putIfAbsent(key, () => TextEditingController(text: displayValue));
+    final displayValue = key == RecordFieldCatalog.reportId.key
+        ? formatReportIdForDisplay(initial)
+        : initial;
+    final controller = _controllers.putIfAbsent(
+      key,
+      () => TextEditingController(text: displayValue),
+    );
     if (_listeningControllerKeys.add(key)) {
       controller.addListener(() {
         if (mounted) setState(() {});
       });
     }
     return controller;
-  }
-
-  void _setProcedureValue(String value) {
-    final trimmed = value.trim();
-    final current = _entry.valueOf(RecordFieldCatalog.procedure.key);
-    if (current == trimmed && (_controllers[RecordFieldCatalog.procedure.key]?.text.trim() ?? current) == trimmed) {
-      return;
-    }
-    final nextValues = Map<String, String>.from(_entry.values)
-      ..[RecordFieldCatalog.procedure.key] = trimmed;
-    _entry = _entry.copyWith(values: nextValues);
-    final controller = _controllers[RecordFieldCatalog.procedure.key];
-    if (controller != null && controller.text != trimmed) {
-      controller.text = trimmed;
-      controller.selection = TextSelection.collapsed(offset: controller.text.length);
-    }
   }
 
   bool _fieldVisibleForCurrentProcedure(RecordFieldDef field) {
@@ -97,7 +66,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     final expected = field.conditionalEquals.trim();
     if (parentKey.isEmpty || expected.isEmpty) return true;
     // Do not hide already-entered data.
-    if (_entry.valueOf(field.key).isNotEmpty || (_controllers[field.key]?.text.trim().isNotEmpty == true)) {
+    if (_entry.valueOf(field.key).isNotEmpty ||
+        (_controllers[field.key]?.text.trim().isNotEmpty == true)) {
       return true;
     }
     final current = (_controllers[parentKey]?.text.trim().isNotEmpty == true)
@@ -110,16 +80,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     RecordFieldCatalog.reportId.key,
     RecordFieldCatalog.reportDate.key,
   };
-
-  void _disposeControllerLater(String key) {
-    // Do not dispose individual controllers while Record Details is still mounted.
-    // Fields can appear/disappear when registry/conditional fields change, and
-    // Flutter may still have a TextField from the previous frame attached to the
-    // controller. Disposing here caused intermittent:
-    // "A TextEditingController was used after being disposed."
-    // Keep controllers alive for the screen lifetime and dispose all in dispose().
-    FocusManager.instance.primaryFocus?.unfocus();
-  }
 
   bool _isSubjectRecordKey(String key) {
     return key == RecordFieldCatalog.subjectName.key ||
@@ -157,18 +117,32 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     final byKey = <String, RecordFieldDef>{};
 
     for (final field in baseFields) {
+      final snapshot = _entry.fieldDefinitions[field.key];
       final isProtected = _protectedRecordKeys.contains(field.key);
       final hasValue = _entry.values.containsKey(field.key);
+      // New Registry measurements are entered as dated patient updates.
+      // Keep any old flattened values visible, but don't duplicate that form here.
+      if (field.isRegistryField && !hasValue) continue;
       final isUserAddedRecordField = !field.isSystem;
-      final isRegistryFieldForThisRecord = field.isRegistryField && field.appliesToRegistries(_entry.registryIds);
-      final isAlwaysAvailableSystemField = field.key == RecordFieldCatalog.facility.key;
+      final isRegistryFieldForThisRecord =
+          field.isRegistryField &&
+          field.appliesToRegistries(_entry.registryIds);
+      final isAlwaysAvailableSystemField =
+          field.key == RecordFieldCatalog.facility.key;
       // Keep Record Details focused. Show protected system fields always.
       // Facility is also shown early because it is important for filtering/export.
       // Show user-added fields because this is the place to complete optional
       // all-report-type / Procedure-Report-Type fields. Hide other unused factory
       // fields so the main details screen does not feel like a blank form.
-      if (field.isRegistryField && !field.appliesToRegistries(_entry.registryIds)) continue;
-      if (!isProtected && !hasValue && !isUserAddedRecordField && !isRegistryFieldForThisRecord && !isAlwaysAvailableSystemField) continue;
+      if (field.isRegistryField &&
+          !field.appliesToRegistries(_entry.registryIds))
+        continue;
+      if (!isProtected &&
+          !hasValue &&
+          !isUserAddedRecordField &&
+          !isRegistryFieldForThisRecord &&
+          !isAlwaysAvailableSystemField)
+        continue;
 
       final labelOverride = _entry.fieldLabels[field.key]?.trim();
       final templateDerived = _isTemplateDerivedRecordField(field.key);
@@ -182,6 +156,9 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         registryId: templateDerived ? '' : field.registryId,
         conditionalOnFieldKey: field.conditionalOnFieldKey,
         conditionalEquals: field.conditionalEquals,
+        inputType: snapshot?.inputType ?? field.inputType,
+        options: snapshot?.options ?? field.options,
+        unit: snapshot?.unit ?? field.unit,
       );
     }
 
@@ -195,7 +172,12 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         key: key,
         label: label,
         hint: 'Record value',
-        isSystem: _isSubjectRecordKey(key) || _isTemplateDerivedRecordField(key),
+        isSystem:
+            _isSubjectRecordKey(key) || _isTemplateDerivedRecordField(key),
+        inputType:
+            _entry.fieldDefinitions[key]?.inputType ?? RecordInputType.freeText,
+        options: _entry.fieldDefinitions[key]?.options ?? const <String>[],
+        unit: _entry.fieldDefinitions[key]?.unit ?? '',
       );
     }
 
@@ -208,53 +190,186 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     return out;
   }
 
-  void _removeFieldFromThisRecord(RecordFieldDef field) {
-    if (_protectedRecordKeys.contains(field.key)) return;
-    final values = Map<String, String>.from(_entry.values)..remove(field.key);
-    final labels = Map<String, String>.from(_entry.fieldLabels)..remove(field.key);
-    final sources = Map<String, String>.from(_entry.fieldSources)..remove(field.key);
-    _disposeControllerLater(field.key);
-    setState(() => _entry = _entry.copyWith(values: values, fieldLabels: labels, fieldSources: sources));
+  bool _isCopiedFromReport(RecordFieldDef field) {
+    return _entry.fieldSources[field.key] == 'template' ||
+        _isSubjectRecordKey(field.key) ||
+        field.key == RecordFieldCatalog.reportId.key ||
+        field.key == RecordFieldCatalog.reportDate.key;
   }
 
+  Future<void> _addProcedureField() async {
+    final procedure = _currentProcedure.trim();
+    if (procedure.isEmpty) return;
 
-  Future<void> _confirmHideFieldFromThisRecord(RecordFieldDef field) async {
-    if (_protectedRecordKeys.contains(field.key)) return;
-    final confirmed = await showDialog<bool>(
+    final labelController = TextEditingController();
+    final optionsController = TextEditingController();
+    final unitController = TextEditingController();
+    var inputType = RecordInputType.freeText;
+
+    final created = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Hide field from this record?'),
-        content: Text(
-          'This will remove "${field.label}" from this record screen. Existing saved records are not deleted. If this field comes from a template, edit the Template Editor to change future report/record behavior.',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setLocalState) => AlertDialog(
+          title: Text('Add field for $procedure'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: labelController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Field name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<RecordInputType>(
+                  initialValue: inputType,
+                  decoration: const InputDecoration(
+                    labelText: 'Input type',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: RecordInputType.freeText,
+                      child: Text('Free text'),
+                    ),
+                    DropdownMenuItem(
+                      value: RecordInputType.yesNo,
+                      child: Text('Yes / No'),
+                    ),
+                    DropdownMenuItem(
+                      value: RecordInputType.singleSelect,
+                      child: Text('Single select'),
+                    ),
+                    DropdownMenuItem(
+                      value: RecordInputType.multiSelect,
+                      child: Text('Multi-select'),
+                    ),
+                    DropdownMenuItem(
+                      value: RecordInputType.numeric,
+                      child: Text('Numeric'),
+                    ),
+                  ],
+                  onChanged: (value) => setLocalState(
+                    () => inputType = value ?? RecordInputType.freeText,
+                  ),
+                ),
+                if (inputType == RecordInputType.singleSelect ||
+                    inputType == RecordInputType.multiSelect) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: optionsController,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Choices',
+                      hintText: 'One per line',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+                if (inputType == RecordInputType.numeric) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: unitController,
+                    decoration: const InputDecoration(
+                      labelText: 'Unit (optional)',
+                      hintText: 'e.g. mm, minutes',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Add field'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Hide field')),
-        ],
       ),
     );
-    if (confirmed == true && mounted) _removeFieldFromThisRecord(field);
+
+    if (created == true && mounted && labelController.text.trim().isNotEmpty) {
+      final options = optionsController.text
+          .split(RegExp(r'[,;\n\r]+'))
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+      await context.read<RecordsProvider>().addCustomField(
+        label: labelController.text.trim(),
+        procedureScope: procedure,
+        inputType: inputType,
+        options: inputType == RecordInputType.yesNo
+            ? const <String>['Yes', 'No']
+            : options,
+        unit: unitController.text.trim(),
+      );
+    }
+
+    labelController.dispose();
+    optionsController.dispose();
+    unitController.dispose();
+  }
+
+  Future<void> _openRecordSettings() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Record settings'),
+              subtitle: Text(
+                'These options change how information is collected.',
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_box_outlined),
+              title: const Text('Add an extra Records field'),
+              subtitle: Text(
+                _currentProcedure.trim().isEmpty
+                    ? 'Set the procedure first.'
+                    : 'Available for $_currentProcedure records.',
+              ),
+              enabled: _currentProcedure.trim().isNotEmpty,
+              onTap: _currentProcedure.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(sheetContext, 'field'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.science_outlined),
+              title: const Text('Add to Registry'),
+              onTap: () => Navigator.pop(sheetContext, 'registries'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'field') await _addProcedureField();
+    if (action == 'registries' && mounted) {
+      final values = Map<String, String>.from(_entry.values);
+      for (final e in _controllers.entries) {
+        if (e.key != RecordFieldCatalog.reportId.key)
+          values[e.key] = e.value.text.trim();
+      }
+      await openRegistry(context, source: _entry.copyWith(values: values));
+    }
   }
 
   Future<void> _save() async {
     if (_saving) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(_isExistingRecord ? 'Update record details?' : 'Save to Records?'),
-        content: const Text(
-          'This saves searchable record details for the PDF Report. Editing these details will not change the saved PDF.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(_isExistingRecord ? 'Update Record' : 'Save to Records')),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
     setState(() => _saving = true);
     final values = Map<String, String>.from(_entry.values);
     for (final entry in _controllers.entries) {
@@ -266,16 +381,33 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     }
     try {
       final provider = context.read<RecordsProvider>();
+      final definitions = Map<String, RecordFieldDef>.from(
+        _entry.fieldDefinitions,
+      );
+      for (final field in provider.allFields) {
+        if (field.appliesToProcedure(_currentProcedure) &&
+            field.appliesToRegistries(_entry.registryIds)) {
+          definitions.putIfAbsent(field.key, () => field);
+        }
+      }
       await provider.saveRecord(
         _entry.copyWith(
           updatedAtIso: DateTime.now().toIso8601String(),
           values: values,
+          originalReportValues: _entry.originalReportValues.isEmpty
+              ? Map<String, String>.from(_entry.values)
+              : _entry.originalReportValues,
           fieldLabels: _entry.fieldLabels,
+          fieldDefinitions: definitions,
         ),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isExistingRecord ? 'Record details updated.' : 'Saved to Records.')),
+        SnackBar(
+          content: Text(
+            _isExistingRecord ? 'Record details updated.' : 'Saved to Records.',
+          ),
+        ),
       );
       Navigator.pop(context, true);
     } catch (e) {
@@ -287,1045 +419,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     }
   }
 
-
-  Future<void> _deleteCustomFieldDefinition(RecordFieldDef field) async {
-    if (field.isSystem || field.isRegistryField) return;
-    final action = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove custom field?'),
-        content: Text(
-          field.isGlobal
-              ? 'Remove ${field.label} from general record fields? Existing saved values can be preserved.'
-              : 'Remove ${field.label} from ${field.procedureScope} record fields? Existing saved values can be preserved.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, 'cancel'), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, 'hide'), child: const Text('Hide going forward')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, 'delete'), child: const Text('Delete values')),
-        ],
-      ),
-    );
-    if (action == null || action == 'cancel' || !mounted) return;
-
-    if (action == 'delete') {
-      _disposeControllerLater(field.key);
-      final values = Map<String, String>.from(_entry.values)..remove(field.key);
-      final labels = Map<String, String>.from(_entry.fieldLabels)..remove(field.key);
-      final sources = Map<String, String>.from(_entry.fieldSources)..remove(field.key);
-      setState(() => _entry = _entry.copyWith(values: values, fieldLabels: labels, fieldSources: sources));
-    }
-    await context.read<RecordsProvider>().deleteCustomField(
-          field.key,
-          deleteSavedValues: action == 'delete',
-        );
-  }
-
-  Future<void> _editCustomFieldDefinition(RecordFieldDef field) async {
-    if (field.isSystem || field.isRegistryField) return;
-    final labelController = TextEditingController(text: field.label);
-    final procedureScopeController = TextEditingController(text: field.procedureScope);
-    final suggestionsController = TextEditingController(text: field.builtInSuggestions.join('\n'));
-    var isProcedureField = !field.isGlobal;
-
-    final updated = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setLocalState) => AlertDialog(
-          title: const Text('Manage field'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: labelController,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Field name',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Procedure-specific field'),
-                  subtitle: const Text('Turn off to make it a general record field.'),
-                  value: isProcedureField,
-                  onChanged: (value) => setLocalState(() => isProcedureField = value),
-                ),
-                if (isProcedureField) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: procedureScopeController,
-                    onChanged: (_) => setLocalState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Procedure / Report Type',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                TextField(
-                  controller: suggestionsController,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Manual suggestions (optional)',
-                    hintText: 'One per line or comma-separated',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
-          ],
-        ),
-      ),
-    );
-
-    if (updated == true && mounted && labelController.text.trim().isNotEmpty) {
-      final suggestions = suggestionsController.text
-          .split(RegExp(r'[,;\n\r]+'))
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(growable: false);
-      final scope = isProcedureField ? procedureScopeController.text.trim() : '';
-      await context.read<RecordsProvider>().updateCustomField(
-            fieldKey: field.key,
-            label: labelController.text.trim(),
-            procedureScope: scope,
-            suggestions: suggestions,
-          );
-      final refreshed = await context.read<RecordsProvider>().repo.loadByRecordId(_entry.recordEntryId);
-      if (!mounted) return;
-      setState(() {
-        if (refreshed != null) {
-          _entry = refreshed;
-        } else {
-          final labels = Map<String, String>.from(_entry.fieldLabels)..[field.key] = labelController.text.trim();
-          _entry = _entry.copyWith(fieldLabels: labels);
-        }
-      });
-    }
-  }
-
-
-  Future<void> _addField() async {
-    final provider = context.read<RecordsProvider>();
-    final activeRegistries = provider.registries
-        .where((registry) => _entry.registryIds.contains(registry.registryId))
-        .toList(growable: false);
-
-    final fieldScope = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('Add field'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(dialogContext, 'general'),
-            child: const ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.public_outlined),
-              title: Text('General field'),
-              subtitle: Text('Available across report types.'),
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(dialogContext, 'procedure'),
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.category_outlined),
-              title: const Text('Procedure-specific field'),
-              subtitle: Text(
-                _currentProcedure.trim().isEmpty
-                    ? 'Choose a report type for this field.'
-                    : 'Available for $_currentProcedure records.',
-              ),
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(dialogContext, 'template'),
-            child: const ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.view_list_outlined),
-              title: Text('Template-based field'),
-              subtitle: Text('Choose fields from a report template to save to Records.'),
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: activeRegistries.isEmpty ? null : () => Navigator.pop(dialogContext, 'registry'),
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              enabled: activeRegistries.isNotEmpty,
-              leading: const Icon(Icons.science_outlined),
-              title: const Text('Registry / Study field'),
-              subtitle: Text(
-                activeRegistries.isEmpty
-                    ? 'Add this record to a registry first.'
-                    : 'Add a field to an active registry/study.',
-              ),
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || fieldScope == null) return;
-
-    if (fieldScope == 'template') {
-      await _configureTemplateRecordFields();
-      return;
-    }
-
-    if (fieldScope == 'registry') {
-      if (activeRegistries.length == 1) {
-        await _addRegistryField(activeRegistries.first);
-        return;
-      }
-      final selected = await showDialog<RecordRegistry>(
-        context: context,
-        builder: (dialogContext) => SimpleDialog(
-          title: const Text('Choose registry / study'),
-          children: [
-            ...activeRegistries.map(
-              (registry) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(dialogContext, registry),
-                child: Text(registry.title),
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-          ],
-        ),
-      );
-      if (selected != null && mounted) await _addRegistryField(selected);
-      return;
-    }
-
-    final labelController = TextEditingController();
-    final procedureScopeController = TextEditingController(text: _currentProcedure.trim());
-    final isProcedureField = fieldScope == 'procedure';
-
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setLocalState) => AlertDialog(
-          title: Text(isProcedureField ? 'Add procedure field' : 'Add general field'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: labelController,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Field label',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                if (isProcedureField) ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: procedureScopeController,
-                    onChanged: (_) => setLocalState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Procedure / Report Type',
-                      hintText: 'e.g. Colonoscopy or Upper GI Endoscopy',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: RecordFieldCatalog.procedure.builtInSuggestions.map((suggestion) {
-                      final selected = procedureScopeController.text.trim().toLowerCase() == suggestion.toLowerCase();
-                      return ChoiceChip(
-                        label: Text(suggestion),
-                        selected: selected,
-                        onSelected: (_) => setLocalState(() => procedureScopeController.text = suggestion),
-                      );
-                    }).toList(growable: false),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
-          ],
-        ),
-      ),
-    );
-
-    if (created == true && mounted) {
-      final label = labelController.text.trim();
-      if (label.isNotEmpty) {
-        final procedureScope = isProcedureField ? procedureScopeController.text.trim() : '';
-        if (isProcedureField && procedureScope.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Choose or type a report type for this field.')),
-          );
-        } else {
-          final duplicateKey = _simpleFieldKey(label);
-          final duplicate = provider.allFields.any((field) =>
-              field.label.trim().toLowerCase() == label.toLowerCase() ||
-              field.key.trim().toLowerCase() == duplicateKey);
-          if (duplicate) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$label already exists as a record field. Use the existing field instead of creating a duplicate.')),
-            );
-          } else {
-            if (isProcedureField) {
-              setState(() => _setProcedureValue(procedureScope));
-            }
-            await context.read<RecordsProvider>().addCustomField(
-                  label: label,
-                  procedureScope: procedureScope,
-                );
-          }
-        }
-      }
-    }
-
-    labelController.dispose();
-    procedureScopeController.dispose();
-  }
-
-
-  List<SectionNode> _allTemplateSections(TemplateDoc template) {
-    final sections = <SectionNode>[];
-    void walk(SectionNode section) {
-      if (section.title.trim().isNotEmpty) sections.add(section);
-      for (final child in section.children) {
-        if (child is SectionNode) walk(child);
-      }
-    }
-    for (final root in template.roots) {
-      walk(root);
-    }
-    return sections;
-  }
-
-  Set<String> _savedTemplateSectionIds(TemplateDoc template) {
-    return _allTemplateSections(template)
-        .where((section) => section.addToRecords)
-        .map((section) => section.id)
-        .toSet();
-  }
-
-  Future<void> _configureTemplateRecordFields() async {
-    final templatesRepo = context.read<TemplatesRepository>();
-    final summaries = await templatesRepo.listTemplates();
-    if (!mounted) return;
-    if (summaries.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No templates found. Create or import a template first.')),
-      );
-      return;
-    }
-
-    final templates = <String, TemplateDoc>{};
-    for (final summary in summaries) {
-      try {
-        final template = await templatesRepo.loadTemplate(summary.templateId);
-        if (_allTemplateSections(template).isNotEmpty) {
-          templates[summary.templateId] = template;
-        }
-      } catch (_) {
-        // Skip templates that cannot be loaded. This keeps the Records flow stable.
-      }
-    }
-    if (!mounted) return;
-    if (templates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No usable template fields found.')),
-      );
-      return;
-    }
-
-    final procedure = _currentProcedure.trim().toLowerCase();
-    String selectedTemplateId = templates.keys.first;
-    if (procedure.isNotEmpty) {
-      for (final entry in templates.entries) {
-        final name = entry.value.name.trim().toLowerCase();
-        if (name == procedure || name.contains(procedure) || procedure.contains(name)) {
-          selectedTemplateId = entry.key;
-          break;
-        }
-      }
-    }
-    var selectedSectionIds = _savedTemplateSectionIds(templates[selectedTemplateId]!);
-
-    final selection = await showDialog<_TemplateRecordFieldSelection>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setLocalState) {
-          final selectedTemplate = templates[selectedTemplateId]!;
-          final fields = _allTemplateSections(selectedTemplate);
-          return AlertDialog(
-            title: const Text('Choose template fields'),
-            content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Select fields to save to Records.'),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedTemplateId,
-                      decoration: const InputDecoration(
-                        labelText: 'Template',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: templates.values
-                          .map(
-                            (template) => DropdownMenuItem<String>(
-                              value: template.templateId,
-                              child: Text(template.name, overflow: TextOverflow.ellipsis),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        if (value == null || value == selectedTemplateId) return;
-                        setLocalState(() {
-                          selectedTemplateId = value;
-                          selectedSectionIds = _savedTemplateSectionIds(templates[selectedTemplateId]!);
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    ...fields.map((section) {
-                      final selected = selectedSectionIds.contains(section.id);
-                      return CheckboxListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        value: selected,
-                        title: Text(section.title),
-                        subtitle: section.children.any((child) => child is SectionNode)
-                            ? const Text('Section field')
-                            : null,
-                        onChanged: (value) {
-                          setLocalState(() {
-                            final next = Set<String>.from(selectedSectionIds);
-                            if (value == true) {
-                              next.add(section.id);
-                            } else {
-                              next.remove(section.id);
-                            }
-                            selectedSectionIds = next;
-                          });
-                        },
-                      );
-                    }),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Changes update this template’s Save to Records settings and apply to future reports generated from the template. Existing records can be updated when edited and saved.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-              FilledButton(
-                onPressed: () => Navigator.pop(
-                  dialogContext,
-                  _TemplateRecordFieldSelection(
-                    templateId: selectedTemplateId,
-                    sectionIds: selectedSectionIds,
-                  ),
-                ),
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (!mounted || selection == null) return;
-    await templatesRepo.updateTemplateRecordFieldSettings(
-      templateId: selection.templateId,
-      saveToRecordsSectionIds: selection.sectionIds,
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Template record fields updated.')),
-    );
-  }
-
-
-  Future<void> _createRegistry() async {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Create registry / study'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Registry / Study title',
-                  hintText: 'e.g. H. pylori Dyspepsia Study',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description (optional)'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Create')),
-        ],
-      ),
-    );
-    if (created == true && mounted && titleController.text.trim().isNotEmpty) {
-      final provider = context.read<RecordsProvider>();
-      final registry = await provider.createRegistry(
-        title: titleController.text.trim(),
-        description: descriptionController.text.trim(),
-      );
-      final updated = await provider.assignRecordToRegistry(
-        recordEntryId: _entry.recordEntryId,
-        registryId: registry.registryId,
-      );
-      if (!mounted) return;
-      setState(() {
-        _entry = updated ?? _entry.copyWith(
-          registryIds: {..._entry.registryIds, registry.registryId}.toList(growable: false),
-        );
-      });
-    }
-    titleController.dispose();
-    descriptionController.dispose();
-  }
-
-  Future<void> _assignRegistry() async {
-    final provider = context.read<RecordsProvider>();
-    final available = provider.registries.where((r) => !_entry.registryIds.contains(r.registryId)).toList(growable: false);
-    if (available.isEmpty) {
-      await _createRegistry();
-      return;
-    }
-    final selected = await showDialog<RecordRegistry>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('Add record to registry'),
-        children: [
-          ...available.map(
-            (registry) => SimpleDialogOption(
-              onPressed: () => Navigator.pop(dialogContext, registry),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(registry.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  if (registry.description.trim().isNotEmpty) Text(registry.description),
-                ],
-              ),
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-    if (selected == null || !mounted) return;
-    final updated = await provider.assignRecordToRegistry(
-      recordEntryId: _entry.recordEntryId,
-      registryId: selected.registryId,
-    );
-    if (!mounted) return;
-    setState(() {
-      _entry = updated ?? _entry.copyWith(
-        registryIds: {..._entry.registryIds, selected.registryId}.toList(growable: false),
-      );
-    });
-  }
-
-  Future<void> _addRegistryField(RecordRegistry registry) async {
-    final labelController = TextEditingController();
-    final suggestionsController = TextEditingController();
-    final conditionValueController = TextEditingController();
-    var useCondition = false;
-    String conditionFieldKey = '';
-
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setLocalState) {
-          final provider = context.read<RecordsProvider>();
-          final possibleParents = provider.allFields
-              .where((field) => field.appliesToRegistries(_entry.registryIds))
-              .where((field) => field.key.trim().isNotEmpty)
-              .toList(growable: false);
-          if (conditionFieldKey.isEmpty && possibleParents.isNotEmpty) {
-            conditionFieldKey = possibleParents.first.key;
-          }
-          return AlertDialog(
-            title: Text('Add field to ${registry.title}'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: labelController,
-                    decoration: const InputDecoration(
-                      labelText: 'Field label',
-                      hintText: 'e.g. Antrum Pattern',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: suggestionsController,
-                    minLines: 3,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: 'Suggestions (optional)',
-                      hintText: 'One per line or comma-separated',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Show conditionally'),
-                    subtitle: const Text('Example: show Histology Result only when Biopsy Taken is Yes.'),
-                    value: useCondition,
-                    onChanged: (value) => setLocalState(() => useCondition = value),
-                  ),
-                  if (useCondition) ...[
-                    DropdownButtonFormField<String>(
-                      value: possibleParents.any((field) => field.key == conditionFieldKey)
-                          ? conditionFieldKey
-                          : (possibleParents.isEmpty ? null : possibleParents.first.key),
-                      decoration: const InputDecoration(labelText: 'Depends on field'),
-                      items: possibleParents
-                          .map((field) => DropdownMenuItem<String>(
-                                value: field.key,
-                                child: Text(field.label, overflow: TextOverflow.ellipsis),
-                              ))
-                          .toList(growable: false),
-                      onChanged: (value) => setLocalState(() => conditionFieldKey = value ?? ''),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: conditionValueController,
-                      decoration: const InputDecoration(
-                        labelText: 'Show when value is',
-                        hintText: 'e.g. Yes',
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-              FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Add field')),
-            ],
-          );
-        },
-      ),
-    );
-    if (created == true && mounted && labelController.text.trim().isNotEmpty) {
-      final suggestions = suggestionsController.text
-          .split(RegExp(r'[,;\n\r]+'))
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(growable: false);
-      final provider = context.read<RecordsProvider>();
-      await provider.addRegistryField(
-        registryId: registry.registryId,
-        label: labelController.text.trim(),
-        hint: '',
-        suggestions: suggestions,
-        conditionalOnFieldKey: useCondition ? conditionFieldKey : '',
-        conditionalEquals: useCondition ? conditionValueController.text.trim() : '',
-      );
-      final refreshed = await provider.repo.loadByRecordId(_entry.recordEntryId);
-      if (!mounted) return;
-      setState(() {
-        if (refreshed != null) _entry = refreshed;
-      });
-    }
-    // Do not dispose these immediately after popping the dialog. On macOS/desktop
-    // Flutter can still rebuild or hit-test the just-dismissed TextFields for a
-    // frame. Let GC reclaim them; this avoids intermittent disposed-controller
-    // crashes in Records.
-  }
-
-
-
-  Future<void> _editRegistry(RecordRegistry registry) async {
-    final titleController = TextEditingController(text: registry.title);
-    final descriptionController = TextEditingController(text: registry.description);
-    final updated = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit registry'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Registry name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descriptionController,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Description (optional)'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
-        ],
-      ),
-    );
-    if (updated == true && mounted && titleController.text.trim().isNotEmpty) {
-      await context.read<RecordsProvider>().updateRegistry(
-            registryId: registry.registryId,
-            title: titleController.text.trim(),
-            description: descriptionController.text.trim(),
-          );
-      final refreshed = await context.read<RecordsProvider>().repo.loadByRecordId(_entry.recordEntryId);
-      if (!mounted) return;
-      setState(() {
-        if (refreshed != null) _entry = refreshed;
-      });
-    }
-  }
-
-  Future<void> _editRegistryField(RecordRegistry registry, RecordFieldDef field) async {
-    final labelController = TextEditingController(text: field.label);
-    final suggestionsController = TextEditingController(text: field.builtInSuggestions.join('\n'));
-    final conditionValueController = TextEditingController(text: field.conditionalEquals);
-    var useCondition = field.conditionalOnFieldKey.trim().isNotEmpty;
-    String conditionFieldKey = field.conditionalOnFieldKey;
-
-    final updated = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setLocalState) {
-          final provider = context.read<RecordsProvider>();
-          final possibleParents = provider.allFields
-              .where((candidate) => candidate.key != field.key)
-              .where((candidate) => candidate.appliesToRegistries(_entry.registryIds))
-              .where((candidate) => candidate.key.trim().isNotEmpty)
-              .toList(growable: false);
-          if (conditionFieldKey.isEmpty && possibleParents.isNotEmpty) {
-            conditionFieldKey = possibleParents.first.key;
-          }
-          return AlertDialog(
-            title: Text('Edit ${field.label}'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: labelController,
-                    decoration: const InputDecoration(labelText: 'Field label'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: suggestionsController,
-                    minLines: 3,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: 'Suggestions (optional)',
-                      hintText: 'One per line or comma-separated',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Show conditionally'),
-                    subtitle: const Text('Show this field only when another field has a matching value.'),
-                    value: useCondition,
-                    onChanged: (value) => setLocalState(() => useCondition = value),
-                  ),
-                  if (useCondition) ...[
-                    DropdownButtonFormField<String>(
-                      value: possibleParents.any((candidate) => candidate.key == conditionFieldKey)
-                          ? conditionFieldKey
-                          : (possibleParents.isEmpty ? null : possibleParents.first.key),
-                      decoration: const InputDecoration(labelText: 'Depends on field'),
-                      items: possibleParents
-                          .map((candidate) => DropdownMenuItem<String>(
-                                value: candidate.key,
-                                child: Text(candidate.label, overflow: TextOverflow.ellipsis),
-                              ))
-                          .toList(growable: false),
-                      onChanged: (value) => setLocalState(() => conditionFieldKey = value ?? ''),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: conditionValueController,
-                      decoration: const InputDecoration(
-                        labelText: 'Show when value is',
-                        hintText: 'e.g. Yes',
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-              FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (updated == true && mounted && labelController.text.trim().isNotEmpty) {
-      final suggestions = suggestionsController.text
-          .split(RegExp(r'[,;\n\r]+'))
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(growable: false);
-      await context.read<RecordsProvider>().updateRegistryField(
-            registryId: registry.registryId,
-            fieldKey: field.key,
-            label: labelController.text.trim(),
-            hint: field.hint,
-            suggestions: suggestions,
-            conditionalOnFieldKey: useCondition ? conditionFieldKey : '',
-            conditionalEquals: useCondition ? conditionValueController.text.trim() : '',
-          );
-      final refreshed = await context.read<RecordsProvider>().repo.loadByRecordId(_entry.recordEntryId);
-      if (!mounted) return;
-      setState(() {
-        if (refreshed != null) _entry = refreshed;
-      });
-    }
-  }
-
-  Future<void> _deleteRegistryField(RecordRegistry registry, RecordFieldDef field) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete registry field?'),
-        content: Text(
-          'Delete "${field.label}" from ${registry.title}? Existing saved values are preserved in old records, but this field will no longer show as a registry field.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete')),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    await context.read<RecordsProvider>().deleteRegistryField(
-          registryId: registry.registryId,
-          fieldKey: field.key,
-        );
-    final refreshed = await context.read<RecordsProvider>().repo.loadByRecordId(_entry.recordEntryId);
-    if (!mounted) return;
-    setState(() {
-      final base = refreshed ?? _entry;
-      final values = Map<String, String>.from(base.values)..remove(field.key);
-      final labels = Map<String, String>.from(base.fieldLabels)..remove(field.key);
-      final sources = Map<String, String>.from(base.fieldSources)..remove(field.key);
-      _entry = base.copyWith(values: values, fieldLabels: labels, fieldSources: sources);
-    });
-  }
-
-  Future<void> _manageRegistries() async {
-    final provider = context.read<RecordsProvider>();
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setLocalState) {
-          final registries = context.watch<RecordsProvider>().registries;
-          return AlertDialog(
-            title: const Text('Manage registries / studies'),
-            content: SizedBox(
-              width: double.maxFinite,
-              height: MediaQuery.of(dialogContext).size.height * 0.65,
-              child: registries.isEmpty
-                  ? const Center(child: Text('No registries have been created yet.'))
-                  : ListView.separated(
-                      itemCount: registries.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final registry = registries[index];
-                        return ExpansionTile(
-                          tilePadding: EdgeInsets.zero,
-                          childrenPadding: const EdgeInsets.only(left: 8, right: 0, bottom: 8),
-                          title: Text(registry.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          subtitle: Text('${registry.fields.length} field${registry.fields.length == 1 ? '' : 's'}'),
-                          trailing: PopupMenuButton<String>(
-                            tooltip: 'Registry actions',
-                            onSelected: (value) async {
-                              if (value == 'rename') {
-                                await _editRegistry(registry);
-                                if (dialogContext.mounted) setLocalState(() {});
-                              } else if (value == 'add_field') {
-                                await _addRegistryField(registry);
-                                if (dialogContext.mounted) setLocalState(() {});
-                              } else if (value == 'delete') {
-                                final confirmed = await showDialog<bool>(
-                                  context: context,
-                                  builder: (confirmContext) => AlertDialog(
-                                    title: const Text('Delete registry?'),
-                                    content: Text(
-                                      'Delete ${registry.title}? This removes the registry setup and removes it from records. Existing record values are preserved but will no longer show as registry fields.',
-                                    ),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(confirmContext, false), child: const Text('Cancel')),
-                                      FilledButton(onPressed: () => Navigator.pop(confirmContext, true), child: const Text('Delete')),
-                                    ],
-                                  ),
-                                );
-                                if (confirmed != true) return;
-                                await provider.deleteRegistry(registry.registryId);
-                                if (!mounted) return;
-                                setState(() {
-                                  final removedFieldKeys = registry.fields.map((field) => field.key).toSet();
-                                  final values = Map<String, String>.from(_entry.values)
-                                    ..removeWhere((key, _) => removedFieldKeys.contains(key));
-                                  final labels = Map<String, String>.from(_entry.fieldLabels)
-                                    ..removeWhere((key, _) => removedFieldKeys.contains(key));
-                                  final sources = Map<String, String>.from(_entry.fieldSources)
-                                    ..removeWhere((key, _) => removedFieldKeys.contains(key));
-                                  _entry = _entry.copyWith(
-                                    values: values,
-                                    fieldLabels: labels,
-                                    fieldSources: sources,
-                                    registryIds: _entry.registryIds.where((id) => id != registry.registryId).toList(growable: false),
-                                  );
-                                });
-                                if (dialogContext.mounted) setLocalState(() {});
-                              }
-                            },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'rename', child: Text('Edit registry name')),
-                              PopupMenuItem(value: 'add_field', child: Text('Add registry field')),
-                              PopupMenuDivider(),
-                              PopupMenuItem(value: 'delete', child: Text('Delete registry')),
-                            ],
-                          ),
-                          children: [
-                            if (registry.description.trim().isNotEmpty)
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Text(registry.description),
-                                ),
-                              ),
-                            if (registry.fields.isEmpty)
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: TextButton.icon(
-                                  onPressed: () async {
-                                    await _addRegistryField(registry);
-                                    if (dialogContext.mounted) setLocalState(() {});
-                                  },
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Add first field'),
-                                ),
-                              )
-                            else
-                              ...registry.fields.map((field) {
-                                return ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(field.label),
-                                  subtitle: field.builtInSuggestions.isEmpty
-                                      ? (field.conditionalOnFieldKey.trim().isEmpty ? null : Text('Conditional: ${field.conditionalEquals}'))
-                                      : Text(field.builtInSuggestions.join(', '), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  trailing: PopupMenuButton<String>(
-                                    tooltip: 'Field actions',
-                                    onSelected: (value) async {
-                                      if (value == 'edit') {
-                                        await _editRegistryField(registry, field);
-                                      } else if (value == 'delete') {
-                                        await _deleteRegistryField(registry, field);
-                                      }
-                                      if (dialogContext.mounted) setLocalState(() {});
-                                    },
-                                    itemBuilder: (_) => const [
-                                      PopupMenuItem(value: 'edit', child: Text('Edit field')),
-                                      PopupMenuItem(value: 'delete', child: Text('Delete field')),
-                                    ],
-                                  ),
-                                );
-                              }),
-                          ],
-                        );
-                      },
-                    ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close')),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _removeRegistry(RecordRegistry registry) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove from registry?'),
-        content: Text('This record will no longer be part of ${registry.title}. Saved registry field values are preserved unless you clear them manually.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Remove')),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    final updated = await context.read<RecordsProvider>().removeRecordFromRegistry(
-      recordEntryId: _entry.recordEntryId,
-      registryId: registry.registryId,
-    );
-    if (!mounted) return;
-    setState(() {
-      _entry = updated ?? _entry.copyWith(
-        registryIds: _entry.registryIds.where((id) => id != registry.registryId).toList(growable: false),
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<RecordsProvider>();
@@ -1335,25 +428,50 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         .where(_fieldVisibleForCurrentProcedure)
         .where(_conditionAllowsField)
         .toList(growable: false);
-    final procedureSpecificCount = allFields.where((f) => !f.isGlobal && f.appliesToProcedure(_currentProcedure)).length;
+    final copiedFields = fields
+        .where(_isCopiedFromReport)
+        .toList(growable: false);
+    final additionalFields = fields
+        .where((field) => !_isCopiedFromReport(field))
+        .toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Record Details'),
+        title: Text(_isExistingRecord ? 'Record details' : 'Save to Records'),
         actions: [
           IconButton(
-            tooltip: 'Add field',
-            onPressed: _addField,
-            icon: const Icon(Icons.add_box_outlined),
+            tooltip: 'Record settings',
+            onPressed: _openRecordSettings,
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: FilledButton.icon(
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_outlined),
+          label: Text(
+            _saving
+                ? 'Saving...'
+                : (_isExistingRecord ? 'Update record' : 'Save to Records'),
+          ),
+        ),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           Card(
             elevation: 0,
-            color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.45),
+            color: Theme.of(
+              context,
+            ).colorScheme.secondaryContainer.withOpacity(0.45),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -1363,74 +481,93 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                     children: [
                       const Icon(Icons.library_add_check_outlined),
                       const SizedBox(width: 10),
-                      Text(_isExistingRecord ? 'Update Record Details' : 'Save to Records', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                      Expanded(
+                        child: Text(
+                          copiedFields.isEmpty
+                              ? 'Complete this record'
+                              : 'Copied from the generated report',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Records help you organize and find PDF Reports in list or table form. Editing record details will not change the saved PDF.',
+                    'Review the copied information below. Record changes do not alter the saved PDF.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _currentProcedure.trim().isEmpty
-                        ? 'You can add extra record fields for your unit before saving.'
-                        : 'You can add extra record fields either for all report types or specifically for $_currentProcedure.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  if (_currentProcedure.trim().isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _ScopeChip(label: 'General fields', count: fields.where((f) => f.isGlobal).length),
-                        _ScopeChip(label: '$_currentProcedure fields', count: procedureSpecificCount),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          _RegistryCard(
-            registries: provider.registries,
-            entryRegistryIds: _entry.registryIds,
-            onAddRegistry: _assignRegistry,
-            onCreateRegistry: _createRegistry,
-            onAddField: _addRegistryField,
-            onRemoveRegistry: _removeRegistry,
-            onManageRegistries: _manageRegistries,
-          ),
-          const SizedBox(height: 16),
-          for (final field in fields) ...[
-            _RecordValueField(
-              key: ValueKey('record-field-${field.key}'),
-              field: field,
-              currentProcedure: _currentProcedure,
-              controller: _controllerFor(field.key, _entry.valueOf(field.key)),
-              onManage: _protectedRecordKeys.contains(field.key)
-                  ? null
-                  : (field.isRegistryField
-                      ? _manageRegistries
-                      : (!field.isSystem && provider.allFields.any((f) => f.key == field.key)
-                          ? () => _editCustomFieldDefinition(field)
-                          : null)),
-              onDelete: _protectedRecordKeys.contains(field.key)
-                  ? null
-                  : (!field.isSystem && !field.isRegistryField && provider.allFields.any((f) => f.key == field.key)
-                      ? () => _deleteCustomFieldDefinition(field)
-                      : () => _confirmHideFieldFromThisRecord(field)),
+          if (copiedFields.isNotEmpty) ...[
+            Text(
+              'Report information',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            for (final field in copiedFields) ...[
+              _RecordValueField(
+                key: ValueKey('record-field-${field.key}'),
+                field: field,
+                currentProcedure: _currentProcedure,
+                controller: _controllerFor(
+                  field.key,
+                  _entry.valueOf(field.key),
+                ),
+                readOnly:
+                    !_editReportValues ||
+                    _protectedRecordKeys.contains(field.key),
+              ),
+              if (_entry.originalReportValues.containsKey(field.key) &&
+                  _controllerFor(field.key, _entry.valueOf(field.key)).text !=
+                      _entry.originalReportValues[field.key])
+                Text(
+                  'Original: ${_entry.originalReportValues[field.key]}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              const SizedBox(height: 12),
+            ],
+            if (!_editReportValues)
+              TextButton.icon(
+                onPressed: () => setState(() => _editReportValues = true),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Edit record information'),
+              ),
           ],
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _save,
-            icon: _saving ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-            label: Text(_saving ? 'Saving...' : (_isExistingRecord ? 'Update Record' : 'Save to Records')),
-          ),
+          if (additionalFields.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Additional record information',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _currentProcedure.trim().isEmpty
+                  ? 'Information used for organizing Records.'
+                  : 'Extra information for $_currentProcedure records.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 10),
+            for (final field in additionalFields) ...[
+              _RecordValueField(
+                key: ValueKey('record-field-${field.key}'),
+                field: field,
+                currentProcedure: _currentProcedure,
+                controller: _controllerFor(
+                  field.key,
+                  _entry.valueOf(field.key),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
         ],
       ),
     );
@@ -1441,16 +578,14 @@ class _RecordValueField extends StatefulWidget {
   final RecordFieldDef field;
   final String currentProcedure;
   final TextEditingController controller;
-  final VoidCallback? onManage;
-  final VoidCallback? onDelete;
+  final bool readOnly;
 
   const _RecordValueField({
     super.key,
     required this.field,
     required this.currentProcedure,
     required this.controller,
-    this.onManage,
-    this.onDelete,
+    this.readOnly = false,
   });
 
   @override
@@ -1493,7 +628,9 @@ class _RecordValueFieldState extends State<_RecordValueField> {
     if (trimmed.isEmpty) return;
     if (!_allowsMultipleSuggestions) {
       _controller.text = trimmed;
-      _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
+      );
       return;
     }
     final existing = _controller.text.trim();
@@ -1508,19 +645,103 @@ class _RecordValueFieldState extends State<_RecordValueField> {
       if (parts.contains(trimmed.toLowerCase())) return;
       _controller.text = '$existing, $trimmed';
     }
-    _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
-  }
-
-  bool get _showSourceLabel => !widget.field.key.startsWith('section_');
-
-  String get _sourceLabel {
-    if (widget.field.isRegistryField) return 'registry';
-    if (!widget.field.isSystem && widget.field.isGlobal) return 'general';
-    if (!widget.field.isSystem) return 'procedure';
-    return 'template';
+    _controller.selection = TextSelection.collapsed(
+      offset: _controller.text.length,
+    );
   }
 
   static const int _maxVisibleSuggestions = 8;
+
+  List<String> get _configuredOptions {
+    final configured = widget.field.options.isNotEmpty
+        ? widget.field.options
+        : widget.field.builtInSuggestions;
+    if (widget.field.inputType == RecordInputType.yesNo && configured.isEmpty) {
+      return const <String>['Yes', 'No'];
+    }
+    return configured;
+  }
+
+  Widget _editableInput(ThemeData theme) {
+    final decoration = InputDecoration(
+      hintText: widget.field.hint,
+      suffixText: widget.field.unit.trim().isEmpty ? null : widget.field.unit,
+      filled: true,
+      fillColor: theme.colorScheme.surface,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+    );
+
+    if (widget.field.inputType == RecordInputType.yesNo ||
+        widget.field.inputType == RecordInputType.singleSelect) {
+      final options = _configuredOptions;
+      final current = _controller.text.trim();
+      return DropdownButtonFormField<String>(
+        initialValue: options.contains(current) ? current : null,
+        decoration: decoration,
+        isExpanded: true,
+        items: options
+            .map(
+              (option) => DropdownMenuItem<String>(
+                value: option,
+                child: Text(option, overflow: TextOverflow.ellipsis),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: (value) => _controller.text = value ?? '',
+      );
+    }
+
+    if (widget.field.inputType == RecordInputType.multiSelect) {
+      final selected = _controller.text
+          .split(RegExp(r'[,;\n]+'))
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      return InputDecorator(
+        decoration: decoration,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _configuredOptions
+              .map((option) {
+                final isSelected = selected.contains(option);
+                return FilterChip(
+                  label: Text(option),
+                  selected: isSelected,
+                  onSelected: (value) {
+                    final next = <String>{...selected};
+                    if (value) {
+                      next.add(option);
+                    } else {
+                      next.remove(option);
+                    }
+                    _controller.text = next.join('; ');
+                  },
+                );
+              })
+              .toList(growable: false),
+        ),
+      );
+    }
+
+    return TextField(
+      controller: _controller,
+      keyboardType: widget.field.inputType == RecordInputType.numeric
+          ? const TextInputType.numberWithOptions(decimal: true, signed: true)
+          : TextInputType.text,
+      minLines: widget.field.inputType == RecordInputType.freeText ? 1 : null,
+      maxLines: widget.field.inputType == RecordInputType.freeText ? 3 : 1,
+      decoration: decoration.copyWith(
+        suffixIcon: _controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear',
+                icon: const Icon(Icons.clear),
+                onPressed: _controller.clear,
+              ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1528,297 +749,64 @@ class _RecordValueFieldState extends State<_RecordValueField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.field.label,
-                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  if (_showSourceLabel) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      _sourceLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0.1,
-                        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.58),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (widget.onManage != null || widget.onDelete != null)
-              PopupMenuButton<String>(
-                tooltip: 'Manage field',
-                onSelected: (value) {
-                  if (value == 'manage') widget.onManage?.call();
-                  if (value == 'delete') widget.onDelete?.call();
-                },
-                itemBuilder: (_) => [
-                  if (widget.onManage != null)
-                    const PopupMenuItem(value: 'manage', child: Text('Manage field')),
-                  if (widget.onDelete != null)
-                    const PopupMenuItem(value: 'delete', child: Text('Delete / hide field')),
-                ],
-              ),
-          ],
+        Text(
+          widget.field.label,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 6),
-        TextField(
-          controller: _controller,
-          decoration: InputDecoration(
-            hintText: widget.field.hint,
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-            border: OutlineInputBorder(
+        if (widget.readOnly)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
               borderRadius: BorderRadius.circular(14),
             ),
-            suffixIcon: _controller.text.isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: _controller.clear,
+            child: Text(
+              _controller.text.trim().isEmpty
+                  ? 'Not recorded'
+                  : '${_controller.text.trim()}${widget.field.unit.trim().isEmpty ? '' : ' ${widget.field.unit.trim()}'}',
+              style: theme.textTheme.bodyLarge,
+            ),
+          )
+        else
+          _editableInput(theme),
+        if (!widget.readOnly &&
+            widget.field.inputType == RecordInputType.freeText) ...[
+          const SizedBox(height: 10),
+          FutureBuilder<List<String>>(
+            future: widget.field.isRegistryField
+                ? Future.value(widget.field.builtInSuggestions)
+                : context.read<RecordsProvider>().suggestions(
+                    widget.field.key,
+                    _allowsMultipleSuggestions ? '' : _controller.text,
+                    procedure:
+                        widget.field.key == RecordFieldCatalog.procedure.key
+                        ? ''
+                        : widget.currentProcedure,
                   ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        FutureBuilder<List<String>>(
-          future: widget.field.isRegistryField
-              ? Future.value(widget.field.builtInSuggestions)
-              : context.read<RecordsProvider>().suggestions(
-                  widget.field.key,
-                  _allowsMultipleSuggestions ? '' : _controller.text,
-                  procedure: widget.field.key == RecordFieldCatalog.procedure.key
-                      ? ''
-                      : widget.currentProcedure,
-                ),
-          builder: (context, snapshot) {
-            final options = snapshot.data ?? widget.field.builtInSuggestions;
-            if (options.isEmpty) return const SizedBox.shrink();
-            return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer.withOpacity(0.25),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: theme.colorScheme.primary.withOpacity(0.18)),
-              ),
-              child: Wrap(
+            builder: (context, snapshot) {
+              final options = snapshot.data ?? widget.field.builtInSuggestions;
+              if (options.isEmpty) return const SizedBox.shrink();
+              return Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: options.take(_maxVisibleSuggestions).map((option) {
-                  return ActionChip(
-                    label: Text(option),
-                    onPressed: () => _applySuggestion(option),
-                  );
-                }).toList(growable: false),
-              ),
-            );
-          },
-        ),
+                children: options
+                    .take(_maxVisibleSuggestions)
+                    .map((option) {
+                      return ActionChip(
+                        label: Text(option),
+                        onPressed: () => _applySuggestion(option),
+                      );
+                    })
+                    .toList(growable: false),
+              );
+            },
+          ),
+        ],
       ],
-    );
-  }
-}
-
-
-
-class _RegistryCard extends StatelessWidget {
-  final List<RecordRegistry> registries;
-  final List<String> entryRegistryIds;
-  final VoidCallback onAddRegistry;
-  final VoidCallback onCreateRegistry;
-  final Future<void> Function(RecordRegistry registry) onAddField;
-  final Future<void> Function(RecordRegistry registry) onRemoveRegistry;
-  final VoidCallback onManageRegistries;
-
-  const _RegistryCard({
-    required this.registries,
-    required this.entryRegistryIds,
-    required this.onAddRegistry,
-    required this.onCreateRegistry,
-    required this.onAddField,
-    required this.onRemoveRegistry,
-    required this.onManageRegistries,
-  });
-
-  Future<void> _openRegistryOptions(BuildContext context, List<RecordRegistry> active) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        final theme = Theme.of(sheetContext);
-        final maxHeight = MediaQuery.of(sheetContext).size.height * 0.82;
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Registry / Study options',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Optional research or audit fields. Registry data does not change the saved PDF.',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    leading: const Icon(Icons.playlist_add_outlined),
-                    title: const Text('Add this record to registry'),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      onAddRegistry();
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.add_circle_outline),
-                    title: const Text('Create new registry'),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      onCreateRegistry();
-                    },
-                  ),
-                  if (active.isNotEmpty) ...[
-                    const Divider(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      child: Text('Active registries', style: theme.textTheme.labelLarge),
-                    ),
-                    for (final registry in active)
-                      ListTile(
-                        leading: const Icon(Icons.science_outlined),
-                        title: Text(registry.title),
-                        subtitle: Text('${registry.fields.length} field${registry.fields.length == 1 ? '' : 's'}'),
-                        trailing: Wrap(
-                          spacing: 4,
-                          children: [
-                            IconButton(
-                              tooltip: 'Add registry field',
-                              icon: const Icon(Icons.add_box_outlined),
-                              onPressed: () {
-                                Navigator.pop(sheetContext);
-                                onAddField(registry);
-                              },
-                            ),
-                            IconButton(
-                              tooltip: 'Remove from this record',
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                Navigator.pop(sheetContext);
-                                onRemoveRegistry(registry);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.settings_outlined),
-                    title: const Text('Manage registries'),
-                    subtitle: const Text('Edit names, add/edit fields, delete test registries.'),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      onManageRegistries();
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final active = registries.where((registry) => entryRegistryIds.contains(registry.registryId)).toList(growable: false);
-
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.28),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _openRegistryOptions(context, active),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-          child: Row(
-            children: [
-              Icon(Icons.science_outlined, color: theme.colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Registry / Study',
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 6),
-                    if (active.isEmpty)
-                      Text(
-                        'Not assigned',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      )
-                    else
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: active.map((registry) {
-                          return Chip(
-                            visualDensity: VisualDensity.compact,
-                            label: Text(registry.title, overflow: TextOverflow.ellipsis),
-                            avatar: const Icon(Icons.check, size: 16),
-                          );
-                        }).toList(growable: false),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: () => _openRegistryOptions(context, active),
-                child: const Text('Options'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ScopeChip extends StatelessWidget {
-  final String label;
-  final int count;
-
-  const _ScopeChip({required this.label, required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text('$label: $count'),
     );
   }
 }

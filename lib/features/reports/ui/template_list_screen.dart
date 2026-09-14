@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../records/ui/records_field_picker.dart';
+import '../../access/providers/access_provider.dart';
+import '../../access/ui/upgrade_screen.dart';
 import 'package:provider/provider.dart';
 import '../../../core/ui/item_actions.dart';
 import '../../../core/utils/ids.dart';
@@ -139,6 +142,28 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
     await _load();
   }
 
+  Future<void> _newTemplate() async {
+    if (!await canAddTemplate(context) || !mounted) return;
+    final name = await askName(context, 'New template');
+    if (name == null || !mounted) return;
+    final template = TemplateDoc(
+      templateId: newId('tpl'),
+      updatedAt: DateTime.now(),
+      name: name,
+      groupName: _group ?? '',
+      roots: const [],
+    );
+    await context.read<TemplatesRepository>().saveTemplate(template);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TemplateEditorScreen(templateId: template.templateId),
+      ),
+    );
+    if (mounted) await _load();
+  }
+
   Future<void> _move(TemplateDoc doc) async {
     final target = await showItemActions(context, 'Move to group', [
       const ItemAction('ungrouped', 'Ungrouped', Icons.folder_off_outlined),
@@ -172,6 +197,7 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
     final action = await showItemActions(context, t.name, const [
       ItemAction('use', 'Use template', Icons.note_add_outlined),
       ItemAction('edit', 'Edit template', Icons.edit_outlined),
+      ItemAction('recordsFields', 'Records fields', Icons.table_rows_outlined),
       ItemAction('rename', 'Rename', Icons.drive_file_rename_outline),
       ItemAction('duplicate', 'Duplicate', Icons.copy_outlined),
       ItemAction('export', 'Export template', Icons.ios_share),
@@ -213,6 +239,10 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
         if (action == 'group') {
           await _move(doc);
         }
+        if (action == 'recordsFields') {
+          final selected = await chooseRecordsFields(context, doc);
+          if (selected != null) await repo.saveTemplate(selected);
+        }
         if (action == 'export') {
           await exportTemplate(doc);
         }
@@ -242,6 +272,8 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<TemplateListProvider>();
+    final access = context.watch<AccessProvider>().safeState;
+    final customCount = vm.templates.where((t) => !t.isBuiltIn).length;
     final templates = vm.templates
         .where((t) => _group == null || t.groupName == _group)
         .toList();
@@ -265,6 +297,28 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
         child: Column(
           children: [
             if (_busy || vm.loading) const LinearProgressIndicator(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    access.isPremiumLike
+                        ? 'Create up to ${access.maxSavedTemplates} custom templates.'
+                        : customCount >= access.maxSavedTemplates
+                        ? 'You’ve used your ${access.maxSavedTemplates} custom templates.'
+                        : 'Create up to ${access.maxSavedTemplates} custom templates on the Free plan.',
+                    textAlign: TextAlign.center,
+                  ),
+                  if (!access.isPremiumLike)
+                    TextButton(
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen())),
+                      child: const Text('See Premium for more'),
+                    ),
+                ],
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
@@ -390,6 +444,11 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _busy ? null : () => _run(_newTemplate),
+        icon: const Icon(Icons.add),
+        label: const Text('New template'),
       ),
     );
   }
