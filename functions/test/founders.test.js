@@ -11,6 +11,7 @@ const {
   createFounderService, registryRef, ACCESS, DAY_MS, isFounder, requireRegisteredUid,
 } = require("../founding-100");
 const { migrateFounders, auditAccounts } = require("../founder-migration");
+const { runFounderAdminJob } = require("../founder-admin-job");
 const db = getFirestore();
 const fixedNow = new Date("2026-09-27T12:00:00Z");
 const service = createFounderService(db, () => fixedNow);
@@ -134,6 +135,50 @@ test("migration rechecks trial dates before committing the reviewed plan", async
   const preview = await migrateFounders(db, options);
   await db.collection(ACCESS).doc("old").update({ trialEndsAtIso: "2026-07-22T00:00:00Z" });
   await assert.rejects(migrateFounders(db, { ...options, apply: true, expectedHash: preview.reviewHash }), /Review hash/);
+});
+
+test("private operator jobs preview, require the same review hash, and do not alter paid access", async () => {
+  const paid = db.collection(ACCESS).doc("paid-legacy");
+  const before = {
+    ownerType: "user", ownerId: "paid-legacy", authUid: "paid-legacy",
+    hasUsedTrial: true, plan: "premium", billingProvider: "google_play",
+    trialStartAtIso: "2026-07-01T00:00:00.000Z", trialEndsAtIso: "2026-09-23T00:00:00.000Z",
+  };
+  await paid.set(before);
+  const auth = { listUsers: async () => ({ users: [
+    { uid: "paid-legacy", providerData: [{ providerId: "password" }] },
+    { uid: "usr_unlinked", providerData: [] },
+  ] }) };
+  const jobs = db.collection("ripot_internal_founder_jobs");
+  const preview = jobs.doc("preview");
+  await preview.set({ action: "preview" });
+  await runFounderAdminJob(preview, db, auth);
+  const result = (await preview.get()).data();
+  assert.equal(result.status, "complete");
+  assert.equal(result.result.legacyCandidatesToAdd, 1);
+  assert.equal(result.result.registeredAccounts, 1);
+  assert.equal((await registryRef(db).get()).exists, false);
+  await runFounderAdminJob(preview, db, auth);
+  assert.equal((await registryRef(db).get()).exists, false);
+
+  const rejected = jobs.doc("rejected");
+  await rejected.set({ action: "apply", expectedHash: "0".repeat(64) });
+  await runFounderAdminJob(rejected, db, auth);
+  assert.equal((await rejected.get()).get("status"), "failed");
+  assert.equal((await registryRef(db).get()).exists, false);
+
+  const apply = jobs.doc("apply");
+  await apply.set({ action: "apply", expectedHash: result.result.reviewHash });
+  await runFounderAdminJob(apply, db, auth);
+  assert.equal((await apply.get()).get("status"), "complete");
+  assert.equal((await registryRef(db).get()).get("assignedCount"), 1);
+  const after = (await paid.get()).data();
+  for (const [key, value] of Object.entries(before)) assert.deepEqual(after[key], value);
+  assert.equal(after.founderNumber, 1);
+  const verification = jobs.doc("verification");
+  await verification.set({ action: "preview" });
+  await runFounderAdminJob(verification, db, auth);
+  assert.equal((await verification.get()).get("result").legacyCandidatesToAdd, 0);
 });
 
 test("audit separates accounts, linked installations, unlinked records, and unknown people", () => {

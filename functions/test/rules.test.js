@@ -69,7 +69,8 @@ test("activity, Founder ledger and purchase tokens remain private for every clie
     const db = context.firestore();
     for (const path of ["ripot_installation_activity/existing", "ripot_installation_activity/existing/events/day",
       "ripot_internal/founding_100", "ripot_internal/founding_100/members/alice",
-      "ripot_internal_play/alice", "ripot_internal_play_tokens/token"] ) {
+      "ripot_internal_play/alice", "ripot_internal_play_tokens/token",
+      "ripot_internal_founder_jobs/operator-preview"] ) {
       await assertFails(getDoc(doc(db, path)));
       await assertFails(setDoc(doc(db, path), { arbitrary: true }));
       await assertFails(deleteDoc(doc(db, path)));
