@@ -16,6 +16,7 @@ import 'features/auth/providers/auth_provider.dart';
 import 'features/records/data/records_repository.dart';
 import 'features/records/providers/records_provider.dart';
 import 'core/navigation/app_route_observer.dart';
+import 'core/firebase/installation_activity.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -30,6 +31,10 @@ class MyApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (_) => InstallationActivity()..initialize(),
+        ),
         ChangeNotifierProvider(create: (_) => LogbookRepository()..load()),
         Provider.value(value: reportsRepo),
         Provider.value(value: templatesRepo),
