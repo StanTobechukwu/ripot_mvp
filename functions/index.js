@@ -1,186 +1,37 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { GoogleAuth } = require("google-auth-library");
-const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { createHash } = require("node:crypto");
 
 initializeApp();
 const db = getFirestore();
 
+// Activity has its own attested endpoint and collection. It cannot grant access.
+const { createActivityService } = require("./installation-activity");
+exports.recordInstallationActivity = onCall({
+  enforceAppCheck: true,
+  maxInstances: 2,
+  concurrency: 20,
+  timeoutSeconds: 15,
+  memory: "256MiB",
+}, createActivityService(db));
+
 const ACCESS = "ripot_user_access";
-const INTERNAL = "ripot_internal";
-const COUNTER_DOC = "founding_100";
-const FOUNDING_MAX = 100;
-const FOUNDER_TRIAL_DAYS = 84;
-const STANDARD_TRIAL_DAYS = 21;
+const {
+  requireRegisteredUid, createFounderService, isFounder,
+} = require("./founding-100");
+const requireUid = requireRegisteredUid;
+const founders = createFounderService(db);
+// Free Founder access is independent of the optional paid Play offer.
+const FOUNDER_ANNUAL_OFFER_ENABLED = false;
 const FOUNDER_DISCOUNT_PERCENT = 25;
 
-function requireUid(request) {
-  const uid = request.auth?.uid;
-  if (!uid) throw new HttpsError("unauthenticated", "Sign in is required.");
-  return uid;
-}
+exports.syncFounderEntitlement = onCall(async (request) =>
+  founders.sync(requireUid(request)));
 
-function addDays(date, days) {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-}
-
-function dateFromAny(value) {
-  if (!value) return null;
-  if (value instanceof Timestamp) return value.toDate();
-  if (typeof value === "string") {
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-  return null;
-}
-
-async function assignFounderIfAvailable(tx, userRef, currentData) {
-  if (
-    currentData.founderCohort === "founding_100" &&
-    Number.isInteger(currentData.founderNumber)
-  ) {
-    return currentData.founderNumber;
-  }
-
-  const counterRef = db.collection(INTERNAL).doc(COUNTER_DOC);
-  const counterSnap = await tx.get(counterRef);
-  const counter = counterSnap.exists ? counterSnap.data() : {};
-  const assigned = Number(counter.assignedCount || 0);
-
-  if (assigned >= FOUNDING_MAX) return null;
-
-  const founderNumber = assigned + 1;
-
-  tx.set(
-    counterRef,
-    {
-      assignedCount: founderNumber,
-      maxFounders: FOUNDING_MAX,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  tx.set(
-    userRef,
-    {
-      founderCohort: "founding_100",
-      founderNumber,
-      founderFirstYearDiscountPercent: FOUNDER_DISCOUNT_PERCENT,
-      founderEarlyFeatureAccess: true,
-      founderAssignedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  return founderNumber;
-}
-
-// Compatibility/readback callable.
-// It deliberately does NOT trust the old client-written isEarlyUser flag.
-exports.syncFounderEntitlement = onCall(async (request) => {
-  const uid = requireUid(request);
-  const userRef = db.collection(ACCESS).doc(uid);
-  const snap = await userRef.get();
-
-  if (!snap.exists) {
-    return { founder: false };
-  }
-
-  const data = snap.data();
-
-  if (
-    data.founderCohort === "founding_100" &&
-    Number.isInteger(data.founderNumber)
-  ) {
-    return {
-      founder: true,
-      founderNumber: data.founderNumber,
-    };
-  }
-
-  return {
-    founder: false,
-    preservedExistingTrial:
-      data.hasUsedTrial === true &&
-      dateFromAny(data.trialStartAtIso || data.trialStartAt) !== null,
-  };
-});
-
-exports.activatePremiumTrial = onCall(async (request) => {
-  const uid = requireUid(request);
-  const userRef = db.collection(ACCESS).doc(uid);
-
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(userRef);
-    const data = snap.exists ? snap.data() : {};
-
-    if (data.plan === "premium") {
-      throw new HttpsError(
-        "failed-precondition",
-        "Premium is already active.",
-      );
-    }
-
-    const existingStart = dateFromAny(data.trialStartAtIso || data.trialStartAt);
-    const existingEnd = dateFromAny(data.trialEndsAtIso || data.trialEndsAt);
-
-    // One account gets one trial. Never restart it and never use a
-    // client-controlled field to grant Founder status.
-    if (data.hasUsedTrial === true || existingStart || existingEnd) {
-      return {
-        activated: false,
-        alreadyUsed: true,
-        founder:
-          data.founderCohort === "founding_100" &&
-          Number.isInteger(data.founderNumber),
-        founderNumber: Number.isInteger(data.founderNumber)
-          ? data.founderNumber
-          : null,
-        trialStartAtIso: existingStart?.toISOString() || null,
-        trialEndsAtIso: existingEnd?.toISOString() || null,
-      };
-    }
-
-    // Only a fresh authenticated server-side activation can consume a
-    // Founding 100 slot. Counter allocation is transactional.
-    const founderNumber = await assignFounderIfAvailable(tx, userRef, data);
-    const isFounder = founderNumber !== null;
-    const trialDays = isFounder ? FOUNDER_TRIAL_DAYS : STANDARD_TRIAL_DAYS;
-
-    const now = new Date();
-    const ends = addDays(now, trialDays);
-
-    tx.set(
-      userRef,
-      {
-        ownerType: "user",
-        ownerId: uid,
-        authUid: uid,
-        plan: "trial",
-        hasUsedTrial: true,
-        trialStartAtIso: now.toISOString(),
-        trialEndsAtIso: ends.toISOString(),
-        trialLengthDaysGranted: trialDays,
-        trialGrantedBy: isFounder ? "founding_100" : "standard_21_day",
-        entitlementAuthority: "cloud_function",
-        updatedAtIso: now.toISOString(),
-        lastSyncedAtIso: now.toISOString(),
-      },
-      { merge: true },
-    );
-
-    return {
-      activated: true,
-      founder: isFounder,
-      founderNumber,
-      trialDays,
-      trialStartAtIso: now.toISOString(),
-      trialEndsAtIso: ends.toISOString(),
-    };
-  });
-});
+exports.activatePremiumTrial = onCall(async (request) =>
+  founders.activate(requireUid(request)));
 
 // Google Play paid Premium verification.
 const PLAY_PACKAGE_NAME = "com.nduaguba.report";
@@ -319,7 +170,12 @@ async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
 
   const isFounderOffer = e.offerId === PLAY_FOUNDER_OFFER_ID;
   if (isFounderOffer) {
-    const eligible = current.founderCohort === "founding_100" && Number.isInteger(current.founderNumber) && current.founderDiscountRedeemed !== true;
+    // Restoring the same verified purchase is not a second redemption.
+    const previous = (await internalRef.get()).data();
+    const restoring = previous?.purchaseTokenHash === purchaseTokenHash &&
+      previous?.offerId === PLAY_FOUNDER_OFFER_ID;
+    const eligible = restoring || (FOUNDER_ANNUAL_OFFER_ENABLED &&
+      isFounder(current) && current.founderDiscountRedeemed !== true);
     if (!eligible) throw new HttpsError("failed-precondition", "The Founding 100 annual offer is not available for this account.");
   }
 
@@ -334,7 +190,7 @@ async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
       billingBasePlanId:e.basePlanId, billingOfferId:e.offerId, billingSubscriptionState:e.state,
       billingLatestOrderId:e.latestOrderId, playEntitlementExpiresAtIso:e.expiry?.toISOString() || null,
       billingLastVerifiedAtIso:nowIso, entitlementAuthority:"google_play_verified",
-      ...(isFounderOffer ? { founderDiscountRedeemed:true, founderDiscountRedeemedAtIso:nowIso } : {}),
+      ...(isFounderOffer ? { founderDiscountRedeemed:true, founderDiscountRedeemedAtIso:current.founderDiscountRedeemedAtIso || nowIso } : {}),
       updatedAtIso:nowIso, lastSyncedAtIso:nowIso,
     }, { merge:true }),
   ]);
@@ -345,10 +201,10 @@ exports.getBillingEligibility = onCall(async (request) => {
   const uid = requireUid(request);
   const snap = await db.collection(ACCESS).doc(uid).get();
   const data = snap.exists ? snap.data() : {};
-  const founder = data.founderCohort === "founding_100" && Number.isInteger(data.founderNumber);
+  const founder = isFounder(data);
   return { founder, founderNumber:founder ? data.founderNumber : null,
-    founderDiscountEligible: founder && data.founderDiscountRedeemed !== true,
-    founderDiscountPercent: founder ? FOUNDER_DISCOUNT_PERCENT : 0 };
+    founderDiscountEligible: FOUNDER_ANNUAL_OFFER_ENABLED && founder && data.founderDiscountRedeemed !== true,
+    founderDiscountPercent: FOUNDER_ANNUAL_OFFER_ENABLED && founder ? FOUNDER_DISCOUNT_PERCENT : 0 };
 });
 
 exports.verifyGooglePlaySubscription = onCall(async (request) => {

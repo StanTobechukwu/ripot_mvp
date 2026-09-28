@@ -65,6 +65,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Installation counts are independent of account entitlements. The attested
+    // recordInstallationActivity function is the only client reporting path.
+    // Admin SDK only: neither guests nor accounts can read, forge, or enumerate
+    // another installation's activity. No reports or patient data belong here.
+    match /ripot_installation_activity/{document=**} {
+      allow read, write: if false;
+    }
+
     // Structure-only cloud templates are account-owned.
     match /ripot_template_structures/{templateDocumentId} {
       allow read: if signedIn()
