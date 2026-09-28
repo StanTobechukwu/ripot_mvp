@@ -55,5 +55,41 @@ void main() {
       expect(state.trialLengthDays, 84);
       expect(state.isFounding100, isTrue);
     });
+
+    test('Founder identity does not grant lifetime Premium', () {
+      final state = AccessState.initial(installationId: 'install-1').copyWith(
+        plan: RipotPlan.trial,
+        founderCohort: 'founding_100',
+        founderNumber: 1,
+        hasUsedTrial: true,
+        trialStartAt: DateTime.utc(2020, 1, 1),
+        trialEndsAt: DateTime.utc(2020, 3, 25),
+      );
+
+      expect(state.isFounding100, isTrue);
+      expect(state.isPremiumLike, isFalse);
+      expect(state.canActivatePremiumTrial, isFalse);
+    });
+
+    test('invalid Founder numbers are not displayed as membership', () {
+      final state = AccessState.initial(installationId: 'install-1');
+      for (final number in [-1, 0, 101]) {
+        expect(
+          state.copyWith(
+            founderCohort: 'founding_100',
+            founderNumber: number,
+          ).isFounding100,
+          isFalse,
+        );
+      }
+    });
+
+    test('existing trial dates prevent a second activation invitation', () {
+      final state = AccessState.initial(installationId: 'install-1').copyWith(
+        trialStartAt: DateTime.utc(2020, 1, 1),
+        trialEndsAt: DateTime.utc(2020, 1, 22),
+      );
+      expect(state.canActivatePremiumTrial, isFalse);
+    });
   });
 }

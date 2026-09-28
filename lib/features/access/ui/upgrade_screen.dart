@@ -107,8 +107,8 @@ class UpgradeScreen extends StatelessWidget {
                   if (access.isFounding100) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Founding 100 • Founder #${access.founderNumber} • '
-                      '${access.founderFirstYearDiscountPercent}% off your first paid year',
+                      'Founding 100 • Founder #${access.founderNumber}\n'
+                      'Your founder number is permanent. Your free Premium trial lasts 84 days in total.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -207,7 +207,8 @@ class UpgradeScreen extends StatelessWidget {
           if (!access.isPremiumLike && access.canActivatePremiumTrial) ...[
             const SizedBox(height: 8),
             Text(
-              'No payment is required to start the trial. One trial is available per Ripot account.',
+              'The first 100 eligible accounts to start a trial receive 84 days of free Premium. Later accounts receive 21 days. '
+              'No payment is required. One trial per registered Ripot account.',
               style: theme.textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),

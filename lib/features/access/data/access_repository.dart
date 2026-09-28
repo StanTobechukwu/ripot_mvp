@@ -180,11 +180,11 @@ class AccessRepository {
     final remoteFounderNumber = _nullableIntFromJson(data['founderNumber']);
     final remoteFounderDiscount = _intFromJson(
       data['founderFirstYearDiscountPercent'],
-      fallback: state.founderFirstYearDiscountPercent,
+      fallback: 0,
     );
     final remoteFounderEarlyAccess = data['founderEarlyFeatureAccess'] is bool
         ? data['founderEarlyFeatureAccess'] as bool
-        : state.founderEarlyFeatureAccess;
+        : false;
 
     final hasMeaningfulRemoteState =
         remotePlan != null ||
@@ -205,8 +205,8 @@ class AccessRepository {
       premiumStartedAt: remotePremiumStart ?? state.premiumStartedAt,
       premiumExpiresAt: _dateFromJson(data['playEntitlementExpiresAtIso']),
       hasUsedTrial: remoteHasUsedTrial ?? state.hasUsedTrial,
-      founderCohort: remoteFounderCohort ?? state.founderCohort,
-      founderNumber: remoteFounderNumber ?? state.founderNumber,
+      founderCohort: remoteFounderCohort,
+      founderNumber: remoteFounderNumber,
       founderFirstYearDiscountPercent: remoteFounderDiscount,
       founderEarlyFeatureAccess: remoteFounderEarlyAccess,
       updatedAt: remoteUpdatedAt ?? state.updatedAt,
