@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../../../core/firebase/installation_activity.dart';
 
 Future<void> openAccountSheet(BuildContext context) {
   return showModalBottomSheet<void>(
@@ -17,8 +18,9 @@ class _AccountSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final activity = context.watch<InstallationActivity>();
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -67,6 +69,18 @@ class _AccountSheet extends StatelessWidget {
                       },
                 icon: const Icon(Icons.logout),
                 label: const Text('Sign out'),
+              ),
+            ],
+            if (activity.available) ...[
+              const Divider(height: 28),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Share basic app activity'),
+                subtitle: const Text(
+                  'Help us count installations and recent use. Sends app version and dates used, linked to your account when signed in. Report and patient content stays out of this data. Turning this off stops future activity sharing.',
+                ),
+                value: activity.enabled,
+                onChanged: activity.ready ? activity.setEnabled : null,
               ),
             ],
           ],
