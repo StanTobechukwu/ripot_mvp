@@ -65,6 +65,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Operator preview/apply jobs are created only through the project console.
+    // Firebase Auth clients cannot trigger a privileged migration or see UIDs.
+    match /ripot_internal_founder_jobs/{jobId} {
+      allow read, write: if false;
+    }
+
     // Installation counts are independent of account entitlements. The attested
     // recordInstallationActivity function is the only client reporting path.
     // Admin SDK only: neither guests nor accounts can read, forge, or enumerate
