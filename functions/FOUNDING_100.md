@@ -61,6 +61,34 @@ between migration and deployment short. If the old backend grants a trial in
 between, run and review the migration again before deployment; inconsistent
 registers fail closed. Do not reset a mismatched counter to zero.
 
+### Private console job when local Admin credentials are unavailable
+
+The same `migrateFounders` transaction can run inside the Firebase project
+without downloading a service-account key. Deploy the tested private operator
+trigger and its explicit client-deny rule first:
+
+```sh
+firebase deploy --project ripot-4edf7 --only firestore:rules,functions:founderMigrationJob
+```
+
+In the Firebase console's Firestore **Data** tab, create a document in the root
+collection `ripot_internal_founder_jobs` with an automatic document ID and one
+string field, `action: preview`. Wait for `status: complete`; review `result`
+including the existing count, eligible registered accounts, original trial
+dates, proposed numbers, and `reviewHash`. The job is read-only. If its status
+is `failed`, stop and investigate; do not guess a counter or a Founder number.
+
+Create a second document in that collection with two string fields:
+`action: apply` and `expectedHash: <the exact reviewed reviewHash>`.
+The backend lists registered Authentication accounts afresh and rechecks the
+plan in one Firestore transaction. If records changed, the job fails and you
+must create another preview. If it completes, create a fresh `preview` document
+and confirm `legacyCandidatesToAdd: 0`, a consistent Founder register, and
+the preserved trial and paid fields before deploying the remaining functions.
+The Firestore client rules deny all reads and writes to these jobs, including
+signed-in app users. Keep the job results within the project console because
+they include private account UIDs.
+
 ```sh
 firebase deploy --project YOUR_PROJECT --only functions
 ```

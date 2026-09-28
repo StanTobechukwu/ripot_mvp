@@ -1,11 +1,26 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { GoogleAuth } = require("google-auth-library");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { createHash } = require("node:crypto");
 
 initializeApp();
 const db = getFirestore();
+
+// An operator creates preview/apply documents in the Firebase console. App
+// clients cannot create or read these jobs. Never accept a project override.
+const { runFounderAdminJob } = require('./founder-admin-job');
+exports.founderMigrationJob = onDocumentCreated({
+  document: 'ripot_internal_founder_jobs/{jobId}', region: 'us-central1',
+  maxInstances: 1, timeoutSeconds: 120, memory: '256MiB',
+}, async (event) => {
+  if (process.env.GCLOUD_PROJECT !== 'ripot-4edf7') {
+    throw new Error('Founder migration is restricted to the Ripot project.');
+  }
+  if (event.data) await runFounderAdminJob(event.data.ref, db, getAuth());
+});
 
 // Activity has its own attested endpoint and collection. It cannot grant access.
 const { createActivityService } = require("./installation-activity");

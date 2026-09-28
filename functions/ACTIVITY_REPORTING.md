@@ -8,8 +8,9 @@ The new collection has an explicit recursive client deny. The previous default
 deny already prevented direct access; this makes the reporting contract explicit.
 It does **not** make old app versions send telemetry or restore missing history.
 
-The backend endpoint and Flutter sender in this commit still require deployment
-and a normal app release. Reporting is disabled in builds unless
+The `recordInstallationActivity` endpoint was deployed to `ripot-4edf7` on
+2026-09-28. The Flutter sender still requires an app release. Reporting is
+disabled in builds unless
 `RIPOT_ACTIVITY_ENABLED=true` is supplied. Do not label the rollout complete
 until a Play-installed release produces a verified observation.
 
@@ -82,9 +83,9 @@ May-to-rollout guest events cannot be reconstructed.
 1. Review and register the Android app with Firebase App Check / Play Integrity
    using the Play app-signing SHA-256 certificate. Verify the Firebase project
    linked in Play Console. Keep Firestore/Auth/other existing service enforcement
-   unchanged. The current Ripot Android app is not registered; its form requires
-   the SHA-256 fingerprint and acceptance of Google's displayed API terms. No
-   attestation provider or service enforcement was enabled during this work.
+   unchanged. The Ripot Android app was registered with Play Integrity on
+   2026-09-28, using the Play app-signing SHA-256 fingerprint. Existing service
+   enforcement remains in monitoring mode.
    Do not use debug-provider tokens in a public release.
 2. Deploy **only** the activity callable from the repository root:
 
@@ -131,8 +132,6 @@ denial, sensitive-field rejection, repeated/concurrent guest observations,
 verified account linkage, unchanged paid/Founder records, existing template
 operations, and empty/stale report semantics.
 
-Deployment limitations in this workspace: GitHub writes returned HTTP 403 and
-Firebase Cloud Shell showed Site Unavailable. Flutter setup was blocked by
-automatic approval review after the bootstrap attempted an instance-metadata
-connection; it was not retried or bypassed. The live rules update succeeded,
-but no new function or app build has been deployed here.
+The rules update and activity callable are live. The Mac integration passed all
+66 Flutter feature tests. A reporting-enabled Android app build has not yet
+been published, so the new activity collection is not a source of live counts.
