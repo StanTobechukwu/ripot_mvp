@@ -27,7 +27,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Rename registry'));
+    await tester.tap(find.byTooltip('Registry options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename registry'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'Renamed clinic');
     await tester.tap(find.text('Save'));
@@ -40,8 +42,16 @@ void main() {
     await tester.enterText(find.byType(TextFormField), 'New name');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
-    expect(find.text('New name'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('New name')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: find.byType(Card), matching: find.text('New name')),
+      findsOneWidget,
+    );
     final data = await patients.load();
+    expect(data.patients.single.name, 'New name');
     expect(data.patients.single.id, patient.id);
     expect(data.patients.single.reference, '123');
     expect(tester.takeException(), isNull);

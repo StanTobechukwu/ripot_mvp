@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
-import '../../registry/ui/registry_screen.dart';
 
 class RecordDetailsScreen extends StatefulWidget {
   final RecordEntry initialEntry;
@@ -347,25 +346,12 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   ? null
                   : () => Navigator.pop(sheetContext, 'field'),
             ),
-            ListTile(
-              leading: const Icon(Icons.science_outlined),
-              title: const Text('Add to Registry'),
-              onTap: () => Navigator.pop(sheetContext, 'registries'),
-            ),
           ],
         ),
       ),
     );
     if (!mounted) return;
     if (action == 'field') await _addProcedureField();
-    if (action == 'registries' && mounted) {
-      final values = Map<String, String>.from(_entry.values);
-      for (final e in _controllers.entries) {
-        if (e.key != RecordFieldCatalog.reportId.key)
-          values[e.key] = e.value.text.trim();
-      }
-      await openRegistry(context, source: _entry.copyWith(values: values));
-    }
   }
 
   Future<void> _save() async {

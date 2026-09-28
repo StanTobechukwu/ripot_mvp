@@ -287,7 +287,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     final existing = await provider.repo.loadByReportId(vm.doc.reportId);
 
-    if (existing != null || !mounted) {
+    if (!mounted) {
       return;
     }
 
@@ -303,17 +303,15 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Add this report to Records?',
+                  existing == null ? 'Add this report to Records?' : 'Review this report in Records?',
                   style: Theme.of(
                     sheetContext,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'The PDF has been saved. Records are optional, '
-                  'but they make this final report easier to find later '
-                  'in list or table form.',
-                ),
+                Text(existing == null
+                  ? 'The PDF has been saved. Records are optional, but they make this final report easier to find later in list or table form.'
+                  : 'Review the included fields. Existing Record corrections are kept for fields you retain.'),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -328,7 +326,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       child: FilledButton.icon(
                         onPressed: () => Navigator.pop(sheetContext, true),
                         icon: const Icon(Icons.library_add_outlined),
-                        label: const Text('Add to Records'),
+                        label: Text(existing == null ? 'Add to Records' : 'Review fields'),
                       ),
                     ),
                   ],
@@ -346,7 +344,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     final selected = await prepareReportRecords(context, vm.doc);
     if (selected == null || !mounted) return;
-    final draft = await provider.draftForReport(selected);
+    final draft = await provider.draftForReport(selected, applyFieldSelection: true);
 
     if (!mounted) return;
 
@@ -362,7 +360,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (saved == true) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Report added to Records.')));
+      ).showSnackBar(SnackBar(content: Text(existing == null
+          ? 'Report added to Records.' : 'Record updated.')));
     }
   }
 

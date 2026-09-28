@@ -109,7 +109,9 @@ class _PasswordDialogState extends State<_PasswordDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Keep this passphrase safe. Ripot cannot recover it.'),
+            Text(widget.creating
+              ? 'This encrypted file is restored inside Ripot. To view data in Excel, use Export CSV. Keep the passphrase safe; Ripot cannot recover it.'
+              : 'Enter the passphrase you used when creating this Registry backup.'),
             TextFormField(
               controller: password,
               obscureText: true,
@@ -173,10 +175,15 @@ Future<void> registryBackup(
       'ripot-registry-${DateTime.now().millisecondsSinceEpoch}.ripotregistry',
       'application/octet-stream',
     );
-    _notice(
-      context,
-      'Backup export opened. Confirm the file is saved; keep a copy off this device. Source PDFs are not included.',
-    );
+    if (!context.mounted) return;
+    await showDialog<void>(context: context, builder: (c) => AlertDialog(
+      title: const Text('How to open your backup'),
+      content: const SingleChildScrollView(child: Text(
+        'Confirm the .ripotregistry file is saved in your chosen location. It is encrypted and will not open in a PDF viewer or spreadsheet.\n\n'
+        'In Ripot, open Registry → Restore, or a registry’s ⋮ menu → Restore backup. Select the file and enter your passphrase. Restoration creates a separate copy.\n\n'
+        'For a spreadsheet, choose Export CSV instead. Backups include Registry data, but not source PDFs.')),
+      actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Done'))],
+    ));
   } catch (e) {
     _notice(context, 'Backup failed: $e');
   }
@@ -222,63 +229,71 @@ Future<RecordRegistry?> registryRestore(BuildContext context) async {
   }
 }
 
-class RegistryTableView extends StatelessWidget {
+class RegistryTableView extends StatefulWidget {
   final RegistryTableData data;
   final ValueChanged<String>? onPatient;
   const RegistryTableView({super.key, required this.data, this.onPatient});
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text(
-          'Scroll sideways for more fields. Dates beneath values show when they were observed.',
-        ),
-      ),
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          showCheckboxColumn: false,
-          headingRowHeight: 82,
-          dataRowMinHeight: 60,
-          dataRowMaxHeight: 120,
-          columns: [
-            for (final h in data.headers)
-              DataColumn(
-                label: SizedBox(
-                  width: 150,
-                  child: Text(h, maxLines: 4, overflow: TextOverflow.ellipsis),
-                ),
-              ),
+  State<RegistryTableView> createState() => _RegistryTableViewState();
+}
+
+class _RegistryTableViewState extends State<RegistryTableView> {
+  final Set<String> _hidden = {};
+
+  Future<void> _columns() async {
+    final hidden = {..._hidden};
+    final accepted = await showDialog<bool>(context: context, builder: (c) =>
+      StatefulBuilder(builder: (c, update) => AlertDialog(
+        title: const Text('Visible columns'),
+        content: SizedBox(width: 400, child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [for (final h in widget.data.headers.skip(1))
+            CheckboxListTile(title: Text(h), value: !hidden.contains(h),
+              onChanged: (v) => update(() { if (v == true) { hidden.remove(h); } else { hidden.add(h); } })),
           ],
-          rows: [
-            for (var i = 0; i < data.rows.length; i++)
-              DataRow(
-                onSelectChanged: onPatient == null
-                    ? null
-                    : (_) => onPatient!(data.patientIds[i]),
-                cells: [
-                  for (final v in data.rows[i])
-                    DataCell(
-                      SizedBox(
-                        width: 150,
-                        child: Tooltip(
-                          message: v,
-                          child: Text(
-                            v.isEmpty ? '—' : v,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-          ],
-        ),
-      ),
+        ))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Apply')),
+        ],
+      )));
+    if (accepted == true && mounted) setState(() { _hidden.clear(); _hidden.addAll(hidden); });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
+    final columns = [for (var i = 1; i < data.headers.length; i++)
+      if (!_hidden.contains(data.headers[i])) i];
+    final height = 100.0 * MediaQuery.textScalerOf(context).scale(14) / 14;
+    Widget cell(String value, {bool heading = false, bool identity = false, String? patientId}) =>
+      InkWell(onTap: patientId == null || widget.onPatient == null ? null : () => widget.onPatient!(patientId),
+        child: Container(width: identity ? 132 : 170, height: height,
+          padding: const EdgeInsets.all(10), alignment: Alignment.centerLeft,
+          decoration: BoxDecoration(
+            color: heading ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
+            border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor))),
+          child: Tooltip(message: value, child: Text(value.isEmpty ? '—' : value,
+            maxLines: 4, overflow: TextOverflow.ellipsis,
+            style: heading ? Theme.of(context).textTheme.labelLarge : null)),
+        ));
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      TextButton.icon(onPressed: _columns, icon: const Icon(Icons.view_column_outlined), label: const Text('Columns')),
+      const Text('Swipe sideways for more fields. Dates beneath measurements show when they were recorded.'),
+      const SizedBox(height: 12),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Column(children: [cell(data.headers.first, heading: true, identity: true),
+          for (var i = 0; i < data.rows.length; i++)
+            cell('${data.rows[i][0]}\n${data.rows[i][1]}', identity: true, patientId: data.patientIds[i]),
+        ]),
+        Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+          child: Column(children: [
+            Row(children: [for (final i in columns) cell(data.headers[i], heading: true)]),
+            for (var r = 0; r < data.rows.length; r++)
+              Row(children: [for (final i in columns) cell(data.rows[r][i], patientId: data.patientIds[r])]),
+          ]))),
+      ]),
       if (data.rows.isEmpty) const Text('No saved observations to display.'),
-    ],
-  );
+    ]);
+  }
 }

@@ -11,13 +11,15 @@ class RegistryTableData {
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   // Retain different definitions/units as separate columns, never imply conversion.
   static String _identity(RecordFieldDef f) =>
-      [f.key, f.label, f.unit, f.groupName].join('\u0000');
+      [f.key, f.label, f.unit, f.groupName, f.patientDetail.toString()].join('\u0000');
 
   factory RegistryTableData.build(
     RecordRegistry registry,
     RegistryData data, {
     String? patientId,
+    bool allUpdates = false,
   }) {
+    final history = allUpdates || patientId != null;
     final patients = data.patients
         .where(
           (p) =>
@@ -50,17 +52,24 @@ class RegistryTableData {
       }
     }
     final columns = defs.entries.toList()
-      ..sort((a, b) => a.value.groupName.compareTo(b.value.groupName));
+      ..sort((a, b) {
+        final group = a.value.groupName.compareTo(b.value.groupName);
+        if (group != 0) return group;
+        final label = a.value.label.compareTo(b.value.label);
+        return label != 0 ? label : a.key.compareTo(b.key);
+      });
     final headers = <String>[
       'Patient',
       'Identifier',
       'Facility',
-      if (patientId != null) 'Observation date',
-      if (patientId != null) 'Source report',
+      'Ripot patient ID',
+      if (history) 'Observation date',
+      if (history) 'Entry type',
+      if (history) 'Source report',
       for (final c in columns)
         [
           c.value.groupName,
-          c.value.label,
+          '${c.value.label}${c.value.patientDetail ? ' · Patient detail' : ''}',
           if (c.value.unit.isNotEmpty) '(${c.value.unit})',
         ].where((s) => s.isNotEmpty).join('\n'),
     ];
@@ -78,16 +87,32 @@ class RegistryTableData {
       return dated ? '$raw\n${date(u.observedAt)}' : raw;
     }
 
+    String latest(String id, MapEntry<String, RecordFieldDef> c) {
+      final candidates = updates.where((u) => u.patientId == id &&
+        u.values.containsKey(c.value.key) &&
+        u.definitions[c.value.key] != null &&
+        _identity(u.definitions[c.value.key]!) == c.key).toList();
+      if (c.value.patientDetail) {
+        candidates.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+        // An explicitly cleared patient detail must not resurrect an older value.
+        return candidates.isEmpty ? '' : value(candidates.first, c, false);
+      }
+      return candidates.map((u) => value(u, c, true))
+        .firstWhere((v) => v.isNotEmpty, orElse: () => '');
+    }
+
     final rows = <List<String>>[];
     final ids = <String>[];
-    if (patientId != null) {
+    if (history) {
       for (final u in updates) {
         final p = patients.firstWhere((p) => p.id == u.patientId);
         rows.add([
           p.name,
           p.reference,
           p.facility,
+          p.id,
           date(u.observedAt),
+          u.patientDetails ? 'Patient details' : 'Dated measurement',
           u.sourceReportId,
           for (final c in columns) value(u, c, false),
         ]);
@@ -99,11 +124,9 @@ class RegistryTableData {
           p.name,
           p.reference,
           p.facility,
+          p.id,
           for (final c in columns)
-            updates
-                .where((u) => u.patientId == p.id)
-                .map((u) => value(u, c, true))
-                .firstWhere((v) => v.isNotEmpty, orElse: () => ''),
+            latest(p.id, c),
         ]);
         ids.add(p.id);
       }

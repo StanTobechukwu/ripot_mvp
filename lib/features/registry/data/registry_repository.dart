@@ -35,6 +35,7 @@ class RegistryPatient {
 class RegistryUpdate {
   final String id, registryId, patientId, patientName, sourceReportId;
   final DateTime observedAt, recordedAt;
+  final bool patientDetails;
   final Map<String, String> values;
   final Map<String, RecordFieldDef> definitions;
   const RegistryUpdate({
@@ -47,6 +48,7 @@ class RegistryUpdate {
     required this.values,
     required this.definitions,
     this.sourceReportId = '',
+    this.patientDetails = false,
   });
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -54,6 +56,7 @@ class RegistryUpdate {
     'patientId': patientId,
     'patientName': patientName,
     'sourceReportId': sourceReportId,
+    'patientDetails': patientDetails,
     'observedAt': observedAt.toIso8601String(),
     'recordedAt': recordedAt.toIso8601String(),
     'values': values,
@@ -65,6 +68,7 @@ class RegistryUpdate {
     patientId: j['patientId'] as String,
     patientName: j['patientName'] as String,
     sourceReportId: j['sourceReportId'] as String? ?? '',
+    patientDetails: j['patientDetails'] == true,
     observedAt: DateTime.parse(j['observedAt'] as String),
     recordedAt: DateTime.parse(j['recordedAt'] as String),
     values: Map<String, String>.from(j['values'] as Map),
@@ -137,7 +141,7 @@ class RegistryRepository {
     final raw = (await SharedPreferences.getInstance()).getString(storageKey);
     if (raw == null) return const RegistryData();
     final j = jsonDecode(raw) as Map<String, dynamic>;
-    if (j['version'] != 1) {
+    if (![1, 2].contains(j['version'])) {
       throw const FormatException('Unsupported Registry data version');
     }
     return RegistryData(
@@ -166,7 +170,7 @@ class RegistryRepository {
         final ok = await (await SharedPreferences.getInstance()).setString(
           storageKey,
           jsonEncode({
-            'version': 1,
+            'version': 2,
             'patients': data.patients.map((p) => p.toJson()).toList(),
             'updates': data.updates.map((u) => u.toJson()).toList(),
           }),
@@ -308,6 +312,10 @@ class RegistryRepository {
       final def = update.definitions[entry.key];
       if (def == null) throw ArgumentError('Missing field definition.');
       final number = double.tryParse(entry.value);
+      if (update.patientDetails != def.patientDetail) {
+        throw ArgumentError("Patient details and dated values must be saved separately.");
+      }
+      if (update.patientDetails && entry.value.trim().isEmpty) continue;
       if (def.inputType == RecordInputType.numeric &&
           (number == null || !number.isFinite)) {
         throw ArgumentError('${def.label} must be a number.');

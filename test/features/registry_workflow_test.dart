@@ -8,6 +8,7 @@ import 'package:ripot/features/registry/domain/registry_table.dart';
 import 'package:ripot/features/registry/services/registry_backup.dart';
 import 'package:ripot/features/registry/services/registry_backup_cipher.dart';
 import 'package:ripot/features/registry/ui/registry_screen.dart';
+import 'package:ripot/features/registry/ui/registry_tools.dart';
 import 'package:ripot/features/records/data/records_repository.dart';
 import 'package:ripot/features/records/domain/record_models.dart';
 
@@ -117,7 +118,7 @@ void main() {
     expect(find.text('Registry: hbv'),findsOneWidget);
     expect(find.text(' · NAUTH'),findsNothing);
     await tester.tap(find.text('History table'));await tester.pumpAndSettle();
-    expect(find.byType(DataTable),findsOneWidget);
+    expect(find.byType(RegistryTableView),findsOneWidget);
     await tester.tap(find.byTooltip('Remove patient from registry'));await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));await tester.pumpAndSettle();
     expect((await repo.load()).patients.length,1);

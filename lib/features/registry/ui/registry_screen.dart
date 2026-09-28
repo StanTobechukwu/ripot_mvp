@@ -136,7 +136,7 @@ class _RegistryScreenState extends State<RegistryScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Registry data stays on this device. Open a registry to export its table or create an encrypted backup. Use Restore above to recover a Registry backup.',
+                'Registry stays on this device or browser. Create an encrypted backup regularly; restore it with Restore above. Follow your organisation’s policy for patient data.',
               ),
               const SizedBox(height: 16),
               if (_registries!.isEmpty)
@@ -172,6 +172,7 @@ class RegistryPatientsScreen extends StatefulWidget {
 }
 
 class _RegistryPatientsScreenState extends State<RegistryPatientsScreen> {
+  bool _allUpdates = false;
   bool _table = false;
   final _repo = RegistryRepository();
   RegistryData _data = const RegistryData();
@@ -433,6 +434,30 @@ class _RegistryPatientsScreenState extends State<RegistryPatientsScreen> {
     }
   }
 
+  Future<void> _renameRegistry() async {
+    final title = await _askText(context, 'Rename registry', 'Registry name',
+      initial: _registry.title, action: 'Save');
+    if (title == null || !mounted) return;
+    try {
+      await context.read<RecordsRepository>().updateRegistry(
+        registryId: _registry.registryId, title: title, description: _registry.description);
+      if (mounted) await _load();
+    } catch (e) {
+      if (mounted) _error(context, e);
+    }
+  }
+
+  Widget _controlPair(Widget first, Widget second) => LayoutBuilder(
+    builder: (context, constraints) {
+      final wideText = MediaQuery.textScalerOf(context).scale(14) > 20;
+      if (constraints.maxWidth < 300 || wideText) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [first, const SizedBox(height: 8), second]);
+      }
+      return Row(children: [Expanded(child: first), const SizedBox(width: 8), Expanded(child: second)]);
+    },
+  );
+
   @override
   Widget build(BuildContext context) {
     final patients = _data.patients.where(
@@ -451,41 +476,67 @@ class _RegistryPatientsScreenState extends State<RegistryPatientsScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Rename registry',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () async {
-              final title = await _askText(
-                context,
-                'Rename registry',
-                'Registry name',
-                initial: _registry.title,
-                action: 'Save',
+            tooltip: 'Export / Backup',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: _loading || _failure != null ? null : () async {
+              final choice = await showModalBottomSheet<String>(
+                context: context,
+                showDragHandle: true,
+                builder: (sheetContext) => SafeArea(
+                  child: SingleChildScrollView(child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.table_chart_outlined),
+                        title: const Text('CSV for Excel'),
+                        subtitle: const Text('Current search results and selected latest/all updates view.'),
+                        onTap: () => Navigator.pop(sheetContext, 'csv'),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.backup_outlined),
+                        title: const Text('Encrypted registry backup'),
+                        subtitle: const Text('Entire registry, fields and history. Requires a passphrase. Does not include report PDFs.'),
+                        onTap: () => Navigator.pop(sheetContext, 'backup'),
+                      ),
+                    ],
+                  )),
+                ),
               );
-              if (title == null || !mounted || !context.mounted) return;
-              try {
-                await context.read<RecordsRepository>().updateRegistry(
-                  registryId: _registry.registryId,
-                  title: title,
-                  description: _registry.description,
-                );
-                await _load();
-              } catch (e) {
-                if (mounted && context.mounted) _error(context, e);
+              if (!mounted) return;
+              if (choice == 'csv') {
+                await registryExport(context, RegistryTableData.build(
+                  _registry, RegistryData(patients: patients.toList(), updates: _data.updates),
+                  allUpdates: _allUpdates));
+              } else if (choice == 'backup') {
+                await registryBackup(context, _registry);
               }
             },
           ),
-          IconButton(
-            tooltip: 'Registry fields',
-            icon: const Icon(Icons.tune),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => RegistryFieldsScreen(registry: _registry),
-                ),
-              );
-              await _load();
+          PopupMenuButton<String>(
+            tooltip: 'Registry options',
+            onSelected: (action) async {
+              if (action == 'rename') await _renameRegistry();
+              if (action == 'fields') {
+                await Navigator.push(context, MaterialPageRoute<void>(
+                  builder: (_) => RegistryFieldsScreen(registry: _registry)));
+                if (mounted) await _load();
+              }
+              if (action == 'restore') {
+                final restored = await registryRestore(context);
+                if (!mounted) return;
+                await _load();
+                if (restored != null && mounted) {
+                  await Navigator.push(context, MaterialPageRoute<void>(
+                    builder: (_) => RegistryPatientsScreen(registry: restored)));
+                  if (mounted) await _load();
+                }
+              }
             },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'fields', child: Text('Registry fields')),
+              PopupMenuItem(value: 'rename', child: Text('Rename registry')),
+              PopupMenuItem(value: 'restore', child: Text('Restore backup')),
+            ],
           ),
         ],
       ),
@@ -510,45 +561,36 @@ class _RegistryPatientsScreenState extends State<RegistryPatientsScreen> {
                       'Use an existing patient below, or choose Create patient from report. Then review and save the values to finish importing.',
                     ),
                   ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      icon: Icon(
-                        _table ? Icons.view_list : Icons.table_chart_outlined,
-                      ),
-                      label: Text(_table ? 'List view' : 'Table view'),
-                      onPressed: () => setState(() => _table = !_table),
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.download_outlined),
-                      label: const Text('Export CSV'),
-                      onPressed: () => registryExport(
-                        context,
-                        RegistryTableData.build(
-                          _registry,
-                          RegistryData(
-                            patients: patients.toList(),
-                            updates: _data.updates,
-                          ),
-                        ),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.backup_outlined),
-                      label: const Text('Backup'),
-                      onPressed: () => registryBackup(context, _registry),
-                    ),
-                  ],
-                ),
                 TextField(
                   decoration: const InputDecoration(
-                    labelText: 'Search name, identifier or facility',
+                    hintText: 'Search name, identifier or facility',
                     prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (v) => setState(() => _query = v),
                 ),
+                const SizedBox(height: 12),
+                Align(alignment: Alignment.centerLeft, child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Column(children: [
+                    _controlPair(
+                      OutlinedButton.icon(
+                        icon: Icon(_table ? Icons.view_list : Icons.table_chart_outlined),
+                        label: Text(_table ? 'List view' : 'Table view'),
+                        onPressed: () => setState(() => _table = !_table),
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.history),
+                        label: Text(_allUpdates ? 'Latest values' : 'All updates'),
+                        onPressed: () => setState(() { _allUpdates = !_allUpdates; _table = true; }),
+                      ),
+                    ),
+                  ]),
+                )),
+                const SizedBox(height: 8),
+                Text(_table
+                  ? (_allUpdates ? 'Showing all updates' : 'Showing latest values')
+                  : 'Showing patients'),
                 const SizedBox(height: 12),
                 if (patients.isEmpty)
                   const Text('No patients found. Add a patient to begin.'),
@@ -560,6 +602,7 @@ class _RegistryPatientsScreenState extends State<RegistryPatientsScreen> {
                         patients: patients.toList(),
                         updates: _data.updates,
                       ),
+                      allUpdates: _allUpdates,
                     ),
                     onPatient: (id) => _openPatient(
                       _data.patients.firstWhere((p) => p.id == id),
@@ -689,7 +732,7 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
     }
   }
 
-  Future<void> _add({RecordEntry? source}) async {
+  Future<void> _add({RecordEntry? source, bool patientDetails = false}) async {
     final registries = await context.read<RecordsRepository>().loadRegistries();
     if (!mounted || !context.mounted) return;
     final registry = registries.firstWhere(
@@ -703,6 +746,8 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
           registry: registry,
           patient: _patient,
           source: source,
+          patientDetails: patientDetails,
+          previousUpdates: _updates,
         ),
       ),
     );
@@ -737,8 +782,10 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
   Future<void> _deleteUpdate(RegistryUpdate update) async {
     final yes = await registryConfirm(
       context,
-      'Delete dated update?',
-      'Delete the update for ${_patientLabel(_patient)} observed on ${_date(update.observedAt)}? This cannot be undone. The patient, other updates and source report are kept.',
+      update.patientDetails ? 'Delete patient details revision?' : 'Delete dated update?',
+      update.patientDetails
+        ? 'Delete this patient details revision? Earlier values may become current again. This cannot be undone. Other entries are kept.'
+        : 'Delete the update for ${_patientLabel(_patient)} observed on ${_date(update.observedAt)}? This cannot be undone. The patient, other updates and source report are kept.',
       'Delete update',
     );
     if (!yes || !mounted) return;
@@ -775,6 +822,23 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
     } catch (e) {
       if (mounted) _error(context, e);
     }
+  }
+
+  List<Widget> _patientDetailsSummary() {
+    final revisions = _updates.where((u) => u.patientDetails).toList()
+      ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    final seen = <String>{};
+    final widgets = <Widget>[];
+    for (final revision in revisions) {
+      for (final entry in revision.values.entries) {
+        if (!seen.add(entry.key)) continue;
+        if (entry.value.isEmpty) continue;
+        final definition = revision.definitions[entry.key];
+        widgets.add(Padding(padding: const EdgeInsets.only(top: 6),
+          child: Text('${definition?.label ?? entry.key}: ${entry.value} ${definition?.unit ?? ''}'.trim())));
+      }
+    }
+    return widgets;
   }
 
   @override
@@ -846,6 +910,7 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text('Registry: ${widget.registry.title}'),
                 ),
+                ..._patientDetailsSummary(),
               ],
             ),
           ),
@@ -859,6 +924,11 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
               icon: Icon(_table ? Icons.view_list : Icons.table_chart_outlined),
               label: Text(_table ? 'History cards' : 'History table'),
               onPressed: () => setState(() => _table = !_table),
+            ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.person_outline),
+              label: const Text('Patient details'),
+              onPressed: () => _add(patientDetails: true),
             ),
             OutlinedButton.icon(
               icon: const Icon(Icons.download_outlined),
@@ -901,13 +971,13 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: IconButton(
-                        tooltip: 'Delete dated update',
+                        tooltip: u.patientDetails ? 'Delete patient details revision' : 'Delete dated update',
                         icon: const Icon(Icons.delete_outline),
                         onPressed: () => _deleteUpdate(u),
                       ),
                     ),
                     Text(
-                      _date(u.observedAt),
+                      u.patientDetails ? 'Patient details · ${_date(u.recordedAt)}' : _date(u.observedAt),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text(
@@ -957,12 +1027,16 @@ class RegistryUpdateScreen extends StatefulWidget {
   final RegistryPatient patient;
   final RecordEntry? source;
   final bool createPatient;
+  final bool patientDetails;
+  final List<RegistryUpdate> previousUpdates;
   const RegistryUpdateScreen({
     super.key,
     required this.registry,
     required this.patient,
     this.source,
     this.createPatient = false,
+    this.patientDetails = false,
+    this.previousUpdates = const [],
   });
   @override
   State<RegistryUpdateScreen> createState() => _RegistryUpdateScreenState();
@@ -997,6 +1071,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
             }.contains(e.key)) {
           continue;
         }
+        if (defs[e.key]?.patientDetail == true) continue;
         defs[e.key] =
             source.fieldDefinitions[e.key] ??
             defs[e.key] ??
@@ -1009,7 +1084,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
               hint: '',
             );
       }
-    _fields = defs.values.toList();
+    _fields = defs.values.where((f) => f.patientDetail == widget.patientDetails).toList();
     // The source facility belongs to this dated event, not the patient's
     // directory identity. It remains visible and editable before saving.
     if ((source?.valueOf(RecordFieldCatalog.facility.key) ?? '').trim().isNotEmpty) {
@@ -1017,9 +1092,18 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
     }
     for (final f in _fields) {
       _controllers[f.key] = TextEditingController(
-        text: source?.values[f.key] ?? '',
+        text: widget.patientDetails
+            ? _previousValue(f)
+            : source?.values[f.key] ?? '',
       );
     }
+  }
+
+  String _previousValue(RecordFieldDef field) {
+    final history = widget.previousUpdates.where((u) => u.patientDetails &&
+      u.values.containsKey(field.key) && u.definitions[field.key]?.unit == field.unit).toList()
+      ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    return history.isEmpty ? '' : history.first.values[field.key] ?? '';
   }
 
   @override
@@ -1032,12 +1116,17 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    if (widget.patientDetails && _fields.every((f) =>
+        _controllers[f.key]!.text.trim() == _previousValue(f))) {
+      Navigator.pop(context, true);
+      return;
+    }
     final values = {
       for (final f in _fields)
         if ((widget.source == null ||
                 _selected.contains(f.key) ||
                 !widget.source!.values.containsKey(f.key)) &&
-            _controllers[f.key]!.text.trim().isNotEmpty)
+            (widget.patientDetails || _controllers[f.key]!.text.trim().isNotEmpty))
           f.key: _controllers[f.key]!.text.trim(),
     };
     if (values.isEmpty) {
@@ -1049,6 +1138,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
       await RegistryRepository().addUpdate(
         RegistryUpdate(
           id: _id,
+          patientDetails: widget.patientDetails,
           registryId: widget.registry.registryId,
           patientId: widget.patient.id,
           patientName: _patientLabel(widget.patient),
@@ -1074,12 +1164,12 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Add dated update')),
+    appBar: AppBar(title: Text(widget.patientDetails ? 'Patient details' : 'Add dated update')),
     bottomNavigationBar: SafeArea(
       minimum: const EdgeInsets.all(16),
       child: FilledButton(
         onPressed: _saving || _fields.isEmpty ? null : _save,
-        child: Text(_saving ? 'Saving…' : 'Save update'),
+        child: Text(_saving ? 'Saving…' : widget.patientDetails ? 'Save patient details' : 'Save update'),
       ),
     ),
     body: Form(
@@ -1091,7 +1181,9 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
             _patientLabel(widget.patient),
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          ListTile(
+          if (widget.patientDetails)
+            const Text('Enter once and edit when needed. Previous versions remain in history.'),
+          if (!widget.patientDetails) ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Date of observation'),
             subtitle: Text(_date(_observed)),
@@ -1110,11 +1202,11 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
           ),
           if (widget.source != null)
             const Text(
-              'Choose the report values to include. Saving here does not change the report or Records.',
+              'Choose the dated report values to include. Patient details are edited separately on the patient page. Saving does not change the report or Records.',
             ),
           if (_fields.isEmpty) ...[
             const Text(
-              'Add fields to choose what to record, including units and groups such as Full blood count.',
+              'Add fields and choose Patient detail or Dated measurement. Only fields for this view appear here.',
             ),
             OutlinedButton.icon(
               icon: const Icon(Icons.add),
@@ -1136,7 +1228,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
                   (r) => r.registryId == widget.registry.registryId,
                 );
                 setState(() {
-                  _fields = [...registry.fields];
+                  _fields = registry.fields.where((f) => f.patientDetail == widget.patientDetails).toList();
                   for (final f in _fields) {
                     _controllers.putIfAbsent(
                       f.key,
@@ -1304,6 +1396,7 @@ class _RegistryFieldsScreenState extends State<RegistryFieldsScreen> {
         group = TextEditingController(text: existing?.groupName),
         options = TextEditingController(text: existing?.options.join('\n'));
     var type = existing?.inputType ?? RecordInputType.freeText;
+    var patientDetail = existing?.patientDetail ?? false;
     final existingGroups =
         _fields
             .map((field) => field.groupName.trim())
@@ -1335,6 +1428,15 @@ class _RegistryFieldsScreenState extends State<RegistryFieldsScreen> {
                       ),
                       validator: (v) =>
                           (v ?? '').trim().isEmpty ? 'Enter a name' : null,
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Patient detail'),
+                      subtitle: Text(patientDetail
+                        ? 'Enter once, e.g. sex or date of birth'
+                        : 'Dated measurement, e.g. weight or haemoglobin'),
+                      value: patientDetail,
+                      onChanged: (v) => setLocal(() => patientDetail = v),
                     ),
                     DropdownButtonFormField<RecordInputType>(
                       initialValue: type,
@@ -1414,7 +1516,7 @@ class _RegistryFieldsScreenState extends State<RegistryFieldsScreen> {
                       ),
                     ],
                     const Text(
-                      'Changes apply to new updates. Previous values keep their original labels and units.',
+                      'Changes apply to future entries. Changing Patient detail does not move old values; enter the current value in the new view. History keeps its original labels and units.',
                     ),
                   ],
                 ),
@@ -1444,6 +1546,7 @@ class _RegistryFieldsScreenState extends State<RegistryFieldsScreen> {
         isSystem: false,
         registryId: widget.registry.registryId,
         inputType: type,
+        patientDetail: patientDetail,
         unit: type == RecordInputType.numeric ? unit.text.trim() : '',
         groupName: group.text.trim(),
         options: options.text
@@ -1467,7 +1570,7 @@ class _RegistryFieldsScreenState extends State<RegistryFieldsScreen> {
 
   Widget _fieldTile(RecordFieldDef field) => ListTile(
     title: Text(field.label),
-    subtitle: field.unit.isEmpty ? null : Text(field.unit),
+    subtitle: Text([field.patientDetail ? 'Patient detail' : 'Dated measurement', field.unit].where((v) => v.isNotEmpty).join(' · ')),
     onTap: _saving ? null : () => _add(existing: field),
     trailing: IconButton(
       tooltip: 'Retire field',
@@ -1508,7 +1611,7 @@ class _RegistryFieldsScreenState extends State<RegistryFieldsScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
-          'Define once, use for each dated update. Leave measurements blank when they were not taken.',
+          'Choose patient details entered once or measurements recorded over time. Leave measurements blank when they were not taken.',
         ),
         const SizedBox(height: 8),
         Align(

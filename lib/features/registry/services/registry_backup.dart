@@ -9,14 +9,14 @@ class RegistrySnapshot {
   const RegistrySnapshot(this.registry, this.data);
   Map<String, dynamic> toJson() => {
     'format': 'ripot-registry-snapshot',
-    'version': 1,
+    'version': 2,
     'registry': registry.toJson(),
     'patients': data.patients.map((p) => p.toJson()).toList(),
     'updates': data.updates.map((u) => u.toJson()).toList(),
   };
 
   factory RegistrySnapshot.parse(Map<String, dynamic> json) {
-    if (json['format'] != 'ripot-registry-snapshot' || json['version'] != 1) {
+    if (json['format'] != 'ripot-registry-snapshot' || ![1, 2].contains(json['version'])) {
       throw const FormatException('Unsupported Registry backup');
     }
     final r = RecordRegistry.fromJson(
@@ -114,6 +114,7 @@ class RegistrySnapshot {
               patientId: ids[u.patientId]!,
               patientName: u.patientName,
               sourceReportId: u.sourceReportId,
+              patientDetails: u.patientDetails,
               observedAt: u.observedAt,
               recordedAt: u.recordedAt,
               values: u.values,

@@ -15,8 +15,11 @@ List<SectionNode> _sections(List<SectionNode> roots) => [
 
 Future<TemplateDoc?> chooseRecordsFields(
   BuildContext context,
-  TemplateDoc template,
-) async {
+  TemplateDoc template, {
+  bool forReport = false,
+  ValueChanged<bool>? onRememberChanged,
+}) async {
+  var remember = false;
   final subjects = {
     for (final f in template.subjectInfo.fields)
       if (f.addToRecords) f.key,
@@ -37,10 +40,21 @@ Future<TemplateDoc?> chooseRecordsFields(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  template.templateId.isEmpty
-                      ? 'Choose fields for this report. The PDF stays unchanged.'
+                  forReport
+                      ? 'Review fields for this report. Unchecked fields will be excluded when you save Records. The PDF stays unchanged.'
                       : 'These choices will be reused for this template. The PDF stays unchanged.',
                 ),
+                if (onRememberChanged != null)
+                  CheckboxListTile(
+                    title: const Text('Remember for this template'),
+                    subtitle: const Text('Use these defaults for future reports.'),
+                    value: remember,
+                    onChanged: (value) => setLocal(() {
+                      remember = value ?? false;
+                      onRememberChanged(remember);
+                    }),
+                  ),
+                if (template.subjectInfo.enabled)
                 for (final f in template.subjectInfo.fields)
                   CheckboxListTile(
                     title: Text(f.title),
@@ -113,9 +127,7 @@ Future<ReportDoc?> prepareReportRecords(
 }) async {
   final records = context.read<RecordsRepository>();
   final templates = context.read<TemplatesRepository>();
-  if (!force && await records.loadByReportId(report.reportId) != null) {
-    return report;
-  }
+  final existing = await records.loadByReportId(report.reportId);
   TemplateDoc? template;
   if (report.sourceTemplateId.isNotEmpty) {
     try {
@@ -125,21 +137,59 @@ Future<ReportDoc?> prepareReportRecords(
     }
   }
   if (!context.mounted) return null;
-  final source =
-      template ??
-      TemplateDoc(
-        templateId: '',
-        updatedAt: DateTime.now(),
-        name: report.reportTitle,
-        roots: report.roots,
-        subjectInfo: report.subjectInfoDef,
-      );
-  final selected = source.recordsConfigured && !force
-      ? source
-      : await chooseRecordsFields(context, source);
+  // The report owns the field list: its template may have changed since creation.
+  var current = report;
+  if (existing != null) {
+    current = records.withSavedRecordSelection(report, existing);
+  } else if (template != null && template.recordsConfigured) {
+    final sectionFlags = {
+      for (final s in _sections(template.roots)) s.id: s.addToRecords,
+    };
+    final subjectFlags = {
+      for (final f in template.subjectInfo.fields) f.key: f.addToRecords,
+    };
+    SectionNode defaults(SectionNode s) => s.copyWith(
+      addToRecords: sectionFlags[s.id] ?? s.addToRecords,
+      children: s.children.map((n) => n is SectionNode ? defaults(n) : n).toList(),
+    );
+    current = report.copyWith(
+      roots: report.roots.map(defaults).toList(),
+      subjectInfoDef: report.subjectInfoDef.copyWith(fields: [
+        for (final f in report.subjectInfoDef.fields)
+          f.copyWith(addToRecords: subjectFlags[f.key] ?? f.addToRecords),
+      ]),
+    );
+  }
+  final source = TemplateDoc(
+    templateId: template?.templateId ?? '',
+    updatedAt: DateTime.now(),
+    name: report.reportTitle,
+    roots: current.roots,
+    subjectInfo: current.subjectInfoDef,
+  );
+  var remember = false;
+  final selected = await chooseRecordsFields(
+    context, source, forReport: true,
+    onRememberChanged: template == null ? null : (value) => remember = value,
+  );
   if (selected == null) return null;
-  if (template != null && !identical(selected, source)) {
-    await templates.saveTemplate(selected);
+  if (template != null && remember) {
+    // Update flags only; never replace a newer template with an older report.
+    final flags = {for (final s in _sections(selected.roots)) s.id: s.addToRecords};
+    final subjects = {for (final f in selected.subjectInfo.fields) f.key: f.addToRecords};
+    SectionNode patchTemplate(SectionNode s) => s.copyWith(
+      addToRecords: flags[s.id] ?? s.addToRecords,
+      children: s.children.map((n) => n is SectionNode ? patchTemplate(n) : n).toList(),
+    );
+    await templates.saveTemplate(template.copyWith(
+      recordsConfigured: true,
+      updatedAt: DateTime.now(),
+      roots: template.roots.map(patchTemplate).toList(),
+      subjectInfo: template.subjectInfo.copyWith(fields: [
+        for (final f in template.subjectInfo.fields)
+          f.copyWith(addToRecords: subjects[f.key] ?? f.addToRecords),
+      ]),
+    ));
   }
   final flags = {
     for (final s in _sections(selected.roots)) s.id: s.addToRecords,

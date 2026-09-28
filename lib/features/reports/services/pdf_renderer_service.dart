@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -91,9 +92,13 @@ class PdfRendererService {
     final double contentFontSize = 11.5 * fontScale;
     final double reportTitleFontSize = contentFontSize;
 
+    final unicodeFallback = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/NotoSans-Regular.ttf'),
+    );
     final theme = pw.ThemeData.withFont(
       base: pw.Font.helvetica(),
       bold: pw.Font.helveticaBold(),
+      fontFallback: [unicodeFallback],
     );
 
     final metrics =

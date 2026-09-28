@@ -991,7 +991,49 @@ class RecordsRepository {
     return rows;
   }
 
-  Future<RecordEntry> buildDraftForReport(ReportDoc doc) async {
+  String _sectionRecordKey(ReportDoc doc, SectionNode section) =>
+      doc.sourceTemplateId.isEmpty
+          ? _recordKeyForSectionTitle(section)
+          : 'template_${doc.sourceTemplateId}_section_${section.id}';
+
+  ReportDoc withSavedRecordSelection(ReportDoc doc, RecordEntry entry) {
+    bool included(String key) => entry.values.containsKey(key) ||
+        (entry.fieldDefinitions.containsKey(key) &&
+         !RecordFieldCatalog.coreFields.any((field) => field.key == key));
+    SectionNode patch(SectionNode s) => s.copyWith(
+      addToRecords: included(_sectionRecordKey(doc, s)),
+      children: s.children.map((n) => n is SectionNode ? patch(n) : n).toList(),
+    );
+    return doc.copyWith(
+      roots: doc.roots.map(patch).toList(),
+      subjectInfoDef: doc.subjectInfoDef.copyWith(fields: [
+        for (final f in doc.subjectInfoDef.fields)
+          f.copyWith(addToRecords: included(_recordKeyForSubjectField(f.key, f.title))),
+      ]),
+    );
+  }
+
+  Set<String> _uncheckedReportKeys(ReportDoc doc) {
+    final keys = <String>{};
+    void visit(SectionNode s) {
+      if (!s.addToRecords) keys.add(_sectionRecordKey(doc, s));
+      for (final child in s.children.whereType<SectionNode>()) { visit(child); }
+    }
+    for (final root in doc.roots) { visit(root); }
+    if (doc.subjectInfoDef.enabled) {
+      for (final field in doc.subjectInfoDef.fields) {
+        if (!field.addToRecords) {
+          keys.add(_recordKeyForSubjectField(field.key, field.title));
+        }
+      }
+    }
+    // Required report metadata is retained regardless of field aliases.
+    keys.removeAll({RecordFieldCatalog.reportId.key, RecordFieldCatalog.reportDate.key,
+      RecordFieldCatalog.procedure.key, RecordFieldCatalog.doctor.key, RecordFieldCatalog.facility.key});
+    return keys;
+  }
+
+  Future<RecordEntry> buildDraftForReport(ReportDoc doc, {bool applyFieldSelection = false}) async {
     final now = nowIso();
     final derived = _recordValuesForReport(doc);
     final existing = await loadByReportId(doc.reportId);
@@ -1003,6 +1045,17 @@ class RecordsRepository {
       final mergedDefinitions = Map<String, RecordFieldDef>.from(
         existing.fieldDefinitions,
       );
+
+      final originalValues = Map<String, String>.from(existing.originalReportValues);
+      if (applyFieldSelection) {
+        for (final key in _uncheckedReportKeys(doc).difference(derived.values.keys.toSet())) {
+          mergedValues.remove(key);
+          mergedLabels.remove(key);
+          mergedSources.remove(key);
+          mergedDefinitions.remove(key);
+          originalValues.remove(key);
+        }
+      }
 
       // Existing values (including deliberate blanks) are a saved snapshot.
       // New selected fields may be added, but never overwrite a record correction.
@@ -1027,6 +1080,7 @@ class RecordsRepository {
         fieldLabels: mergedLabels,
         fieldSources: mergedSources,
         fieldDefinitions: mergedDefinitions,
+        originalReportValues: originalValues,
       );
     }
 

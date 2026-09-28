@@ -48,8 +48,8 @@ class RecordsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<RecordEntry> draftForReport(ReportDoc doc) =>
-      repo.buildDraftForReport(doc);
+  Future<RecordEntry> draftForReport(ReportDoc doc, {bool applyFieldSelection = false}) =>
+      repo.buildDraftForReport(doc, applyFieldSelection: applyFieldSelection);
 
   Future<void> saveRecord(RecordEntry entry) async {
     await repo.saveRecord(entry);

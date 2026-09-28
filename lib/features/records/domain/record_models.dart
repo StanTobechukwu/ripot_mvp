@@ -24,6 +24,7 @@ class RecordFieldDef {
   final List<String> options;
   final String unit;
   final String groupName;
+  final bool patientDetail;
 
   const RecordFieldDef({
     required this.key,
@@ -39,6 +40,7 @@ class RecordFieldDef {
     this.options = const <String>[],
     this.unit = '',
     this.groupName = '',
+    this.patientDetail = false,
   });
 
   RecordFieldDef copyWith({
@@ -55,6 +57,7 @@ class RecordFieldDef {
     List<String>? options,
     String? unit,
     String? groupName,
+    bool? patientDetail,
   }) {
     return RecordFieldDef(
       key: key ?? this.key,
@@ -71,6 +74,7 @@ class RecordFieldDef {
       options: options ?? this.options,
       unit: unit ?? this.unit,
       groupName: groupName ?? this.groupName,
+      patientDetail: patientDetail ?? this.patientDetail,
     );
   }
 
@@ -104,6 +108,7 @@ class RecordFieldDef {
     'options': options,
     'unit': unit,
     'groupName': groupName,
+    'patientDetail': patientDetail,
   };
 
   factory RecordFieldDef.fromJson(Map<String, dynamic> json) {
@@ -137,6 +142,7 @@ class RecordFieldDef {
       options: options,
       unit: (json['unit'] ?? '').toString(),
       groupName: (json['groupName'] ?? '').toString(),
+      patientDetail: json['patientDetail'] == true,
     );
   }
 }

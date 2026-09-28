@@ -5,7 +5,9 @@ import 'dart:typed_data';
 Future<void> downloadBytes({required List<int> bytes, required String fileName}) async {
   final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
   final lowerName = fileName.toLowerCase();
-  final mimeType = lowerName.endsWith('.csv')
+  final mimeType = lowerName.endsWith('.ripotregistry') || lowerName.endsWith('.ripotbackup')
+      ? 'application/octet-stream'
+      : lowerName.endsWith('.csv')
       ? 'text/csv'
       : lowerName.endsWith('.zip')
           ? 'application/zip'

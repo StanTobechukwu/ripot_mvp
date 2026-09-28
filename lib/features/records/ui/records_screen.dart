@@ -16,7 +16,6 @@ import '../../reports/data/reports_repository.dart';
 import '../../reports/ui/saved_pdf_viewer_screen.dart';
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
-import '../../registry/ui/registry_screen.dart';
 import '../../reports/services/pdf_actions_service.dart';
 import '../data/records_repository.dart';
 import 'record_view_screen.dart';
@@ -87,6 +86,164 @@ class _RecordsScreenState extends State<RecordsScreen> {
   _RecordsSort _sort = _RecordsSort.newestFirst;
   String _procedureFilter = 'All report types';
   String _facilityFilter = 'All facilities';
+
+  Widget _viewToggle() => OutlinedButton.icon(
+                    icon: Icon(_mode == RecordsViewMode.list ? Icons.table_rows_outlined : Icons.view_list_outlined),
+                    label: Text(_mode == RecordsViewMode.list ? 'Table view' : 'List view'),
+                    onPressed: () => setState(() => _mode = _mode == RecordsViewMode.list ? RecordsViewMode.table : RecordsViewMode.list),
+                  );
+
+  int get _activeFilterCount => (_procedureFilter == 'All report types' ? 0 : 1) +
+    (_facilityFilter == 'All facilities' ? 0 : 1) + (_sort == _RecordsSort.newestFirst ? 0 : 1);
+
+  Widget _filterControls(List<String> procedureOptions, List<String> facilityOptions, {
+    required String procedure, required String facility, required _RecordsSort sort,
+    required ValueChanged<String> onProcedure, required ValueChanged<String> onFacility,
+    required ValueChanged<_RecordsSort> onSort, bool stacked = false,
+  }) => LayoutBuilder(builder: (context, constraints) {
+    final fieldWidth = stacked ? constraints.maxWidth : (constraints.maxWidth - 20) / 3;
+    return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  alignment: WrapAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: fieldWidth,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        value: procedureOptions.contains(procedure)
+                            ? procedure
+                            : 'All report types',
+                        decoration: const InputDecoration(
+                          labelText: 'Procedure / Report Type',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: procedureOptions
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Tooltip(
+                                  message: value,
+                                  child: Text(
+                                    _compactFilterLabel(value),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          onProcedure(value);
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: fieldWidth,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        value: facilityOptions.contains(facility)
+                            ? facility
+                            : 'All facilities',
+                        decoration: const InputDecoration(
+                          labelText: 'Facility',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: facilityOptions
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(
+                                  value,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          onFacility(value);
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: fieldWidth,
+                      child: DropdownButtonFormField<_RecordsSort>(
+                        isExpanded: true,
+                        value: sort,
+                        decoration: const InputDecoration(
+                          labelText: 'Sort',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: _RecordsSort.newestFirst,
+                            child: Text(
+                              'Newest first',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: _RecordsSort.oldestFirst,
+                            child: Text(
+                              'Oldest first',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: _RecordsSort.procedureAZ,
+                            child: Text(
+                              'Report type A–Z',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          onSort(value);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+  });
+
+  Future<void> _showFilters(List<String> procedures, List<String> facilities) async {
+    FocusScope.of(context).unfocus();
+    var procedure = _procedureFilter;
+    var facility = _facilityFilter;
+    var sort = _sort;
+    final applied = await showModalBottomSheet<bool>(
+      context: context, isScrollControlled: true, useSafeArea: true,
+      builder: (sheetContext) => StatefulBuilder(builder: (sheetContext, update) =>
+        SingleChildScrollView(child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.paddingOf(sheetContext).bottom),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Filter & sort', style: Theme.of(sheetContext).textTheme.titleLarge),
+            const SizedBox(height: 20),
+            _filterControls(procedures, facilities, procedure: procedure, facility: facility, sort: sort,
+              stacked: true, onProcedure: (v) => update(() => procedure = v),
+              onFacility: (v) => update(() => facility = v), onSort: (v) => update(() => sort = v)),
+            const SizedBox(height: 16),
+            Wrap(alignment: WrapAlignment.end, spacing: 8, children: [
+              TextButton(onPressed: () => update(() {
+                procedure = 'All report types'; facility = 'All facilities'; sort = _RecordsSort.newestFirst;
+              }), child: const Text('Reset')),
+              TextButton(onPressed: () => Navigator.pop(sheetContext), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(sheetContext, true), child: const Text('Apply')),
+            ]),
+          ]),
+        )),
+      ),
+    );
+    if (applied == true && mounted) setState(() {
+      _procedureFilter = procedure; _facilityFilter = facility; _sort = sort;
+    });
+  }
 
   @override
   void initState() {
@@ -366,30 +523,30 @@ class _RecordsScreenState extends State<RecordsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Export records',
+                'Export / Backup',
                 style: Theme.of(
                   sheetContext,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               const Text(
-                'Export the currently filtered records. Use CSV for metadata-only merging, or Records Package to include saved PDFs.',
+                'Both options include only the currently filtered records. Clear search and filters to include all records.',
               ),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.table_chart_outlined),
-                title: const Text('Export as CSV'),
+                title: const Text('CSV for Excel'),
                 subtitle: const Text(
-                  'Record list only. Best for analysis and metadata merge.',
+                  'Record values for spreadsheets and Ripot import. No PDFs.',
                 ),
                 onTap: () => Navigator.pop(sheetContext, 'csv'),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('Export as Records Package'),
-                subtitle: const Text('Record list plus available PDF reports.'),
+                title: const Text('Records backup package'),
+                subtitle: const Text('Record values and available PDFs. Not encrypted. Excludes editable reports, templates and field settings.'),
                 onTap: () => Navigator.pop(sheetContext, 'package'),
               ),
             ],
@@ -564,10 +721,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
     }
     if (!mounted) return;
     await _showExportDoneSheet(
-      title: 'Records package exported',
+      title: 'Records backup package saved',
       fileName: fileName,
       helper:
-          'This package contains the record list and available PDF reports. Keep it as backup or share it with another Ripot user.',
+          'Contains the filtered record values and available PDFs. In Records, use Import / Restore and choose Records package. This is not a full app backup; field settings and editable reports are not included.',
       onOpen: () {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -591,7 +748,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Import / Merge records',
+                'Import / Restore',
                 style: Theme.of(
                   sheetContext,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
@@ -611,7 +768,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('Merge Records Package'),
+                title: const Text('Restore / merge Records package'),
                 subtitle: const Text('Record details and PDFs.'),
                 onTap: () => Navigator.pop(sheetContext, 'package'),
               ),
@@ -884,35 +1041,15 @@ class _RecordsScreenState extends State<RecordsScreen> {
       appBar: AppBar(
         title: const Text('Records'),
         actions: [
-          IconButton(
-            tooltip: 'Registry',
-            icon: const Icon(Icons.people_outline),
-            onPressed: () => openRegistry(context),
-          ),
-          SegmentedButton<RecordsViewMode>(
-            segments: const [
-              ButtonSegment(
-                value: RecordsViewMode.list,
-                icon: Icon(Icons.view_list_outlined),
-                label: Text('List'),
-              ),
-              ButtonSegment(
-                value: RecordsViewMode.table,
-                icon: Icon(Icons.table_rows_outlined),
-                label: Text('Table'),
-              ),
-            ],
-            selected: {_mode},
-            onSelectionChanged: (value) => setState(() => _mode = value.first),
-          ),
-          const SizedBox(width: 8),
+          if (MediaQuery.sizeOf(context).width >= 760)
+            Padding(padding: const EdgeInsets.only(right: 8), child: _viewToggle()),
           IconButton(
             tooltip: 'Import / Merge',
             onPressed: _importOrMerge,
             icon: const Icon(Icons.file_upload_outlined),
           ),
           IconButton(
-            tooltip: 'Export records',
+            tooltip: 'Export / Backup',
             onPressed: rows.isEmpty
                 ? null
                 : () => _exportRecords(rows, tableFields),
@@ -925,6 +1062,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
                   decoration: const InputDecoration(
@@ -935,113 +1073,33 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   onChanged: vm.setQuery,
                 ),
                 const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        value: procedureOptions.contains(_procedureFilter)
-                            ? _procedureFilter
-                            : 'All report types',
-                        decoration: const InputDecoration(
-                          labelText: 'Procedure / Report Type',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: procedureOptions
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Tooltip(
-                                  message: value,
-                                  child: Text(
-                                    _compactFilterLabel(value),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _procedureFilter = value);
-                        },
-                      ),
+                if (MediaQuery.sizeOf(context).width < 760)
+                  Wrap(spacing: 8, runSpacing: 4, children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.tune),
+                      label: Text(_activeFilterCount == 0 ? 'Filter & sort' : 'Filter & sort ($_activeFilterCount)'),
+                      onPressed: () => _showFilters(procedureOptions, facilityOptions),
                     ),
-                    SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        value: facilityOptions.contains(_facilityFilter)
-                            ? _facilityFilter
-                            : 'All facilities',
-                        decoration: const InputDecoration(
-                          labelText: 'Facility',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: facilityOptions
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(
-                                  value,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _facilityFilter = value);
-                        },
-                      ),
-                    ),
-                    SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<_RecordsSort>(
-                        isExpanded: true,
-                        value: _sort,
-                        decoration: const InputDecoration(
-                          labelText: 'Sort',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: _RecordsSort.newestFirst,
-                            child: Text(
-                              'Newest first',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: _RecordsSort.oldestFirst,
-                            child: Text(
-                              'Oldest first',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: _RecordsSort.procedureAZ,
-                            child: Text(
-                              'Report type A–Z',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _sort = value);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                  _viewToggle(),
+                ]),
+                if (MediaQuery.sizeOf(context).width >= 760) ...[
+                  _filterControls(procedureOptions, facilityOptions,
+                    procedure: _procedureFilter, facility: _facilityFilter, sort: _sort,
+                    onProcedure: (v) => setState(() => _procedureFilter = v),
+                    onFacility: (v) => setState(() => _facilityFilter = v),
+                    onSort: (v) => setState(() => _sort = v)),
+                ],
+                if (_activeFilterCount > 0)
+                  Row(children: [
+                    Expanded(child: Text([
+                      if (_procedureFilter != 'All report types') _procedureFilter,
+                      if (_facilityFilter != 'All facilities') _facilityFilter,
+                      if (_sort != _RecordsSort.newestFirst) _sort == _RecordsSort.oldestFirst ? 'Oldest first' : 'Report type A–Z',
+                    ].join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                    TextButton(onPressed: () => setState(() {
+                      _procedureFilter = 'All report types'; _facilityFilter = 'All facilities'; _sort = _RecordsSort.newestFirst;
+                    }), child: const Text('Clear')),
+                  ]),
               ],
             ),
           ),
@@ -1049,11 +1107,13 @@ class _RecordsScreenState extends State<RecordsScreen> {
             child: vm.loading
                 ? const Center(child: CircularProgressIndicator())
                 : rows.isEmpty
-                ? const Center(
+                ? Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Text(
-                        'No records yet. Save a report to PDF first, then optionally add Record Details to include it here.',
+                        vm.records.isEmpty
+                          ? 'No records yet. Complete a report, then add it to Records.'
+                          : 'No matching records. Try another search or clear the filters.',
                         textAlign: TextAlign.center,
                       ),
                     ),

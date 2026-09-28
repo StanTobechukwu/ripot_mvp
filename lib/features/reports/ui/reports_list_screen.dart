@@ -42,7 +42,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   int _section = 0;
 
   Future<void> _selectSection(int index) async {
-    if (index == 2 && !context.read<AccessProvider>().safeState.canUseRecords) {
+    if ((index == 1 || index == 2) && !context.read<AccessProvider>().safeState.canUseRecords) {
       await showPremiumFeatureSheet(context, PremiumFeature.records);
       return;
     }
@@ -56,12 +56,56 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     onDestinationSelected: _selectSection,
     destinations: const [
       NavigationDestination(icon: Icon(Icons.description_outlined), label: 'Reports'),
-      NavigationDestination(icon: Icon(Icons.library_books_outlined), label: 'Templates'),
       NavigationDestination(icon: Icon(Icons.table_rows_outlined), label: 'Records'),
+      NavigationDestination(icon: Icon(Icons.people_outline), label: 'Registry'),
       NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Logbook'),
     ],
   );
   IncomingFileService? _incomingFileService;
+
+  Future<void> _manageTemplates() async {
+    await Navigator.push(context, MaterialPageRoute<void>(
+      builder: (_) => const TemplatesListScreen(),
+    ));
+    if (mounted) await _refreshReports();
+  }
+
+  Future<void> _newReport() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('New report'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.library_books_outlined),
+              title: const Text('Use a template'),
+              onTap: () => Navigator.pop(sheetContext, 'template'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.note_add_outlined),
+              title: const Text('Start from scratch'),
+              onTap: () => Navigator.pop(sheetContext, 'scratch'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'template') {
+      await _manageTemplates();
+      return;
+    }
+    context.read<ReportEditorProvider>().newReport();
+    await Navigator.push(context, MaterialPageRoute<void>(
+      builder: (_) => const ReportEditorScreen(),
+    ));
+    if (mounted) await _refreshReports();
+  }
 
   Future<void> _refreshReports() async {
     if (!mounted) return;
@@ -227,7 +271,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         const ItemAction('share', 'Share PDF', Icons.ios_share),
       ItemAction(
         'records',
-        report.hasPdf ? 'Add to Records' : 'Records · Generate report first',
+        report.hasPdf ? 'Add to Records' : 'Records · Complete report first',
         Icons.table_rows_outlined,
       ),
       ItemAction(
@@ -279,9 +323,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             final openEditor = await showDialog<bool>(
               context: context,
               builder: (dialogContext) => AlertDialog(
-                title: const Text('Generate the report first'),
+                title: const Text('Complete report first'),
                 content: const Text(
-                  'Records are created from the finished PDF report. Continue editing, then generate the report to add it to Records.',
+                  'Finish editing and generate the PDF to add this report to Records.',
                 ),
                 actions: [
                   TextButton(
@@ -309,7 +353,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
           if (!context.mounted) return;
           final selected = await prepareReportRecords(context, doc);
           if (selected == null) return;
-          final draft = await records.buildDraftForReport(selected);
+          final draft = await records.buildDraftForReport(selected, applyFieldSelection: true);
           if (!context.mounted) return;
           await Navigator.push(
             context,
@@ -380,8 +424,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         body: KeyedSubtree(
           key: ValueKey(_section),
           child: switch (_section) {
-            1 => const TemplatesListScreen(),
-            2 => const RecordsScreen(),
+            1 => const RecordsScreen(),
+            2 => const RegistryScreen(),
             _ => const LogbookScreen(),
           },
         ),
@@ -426,11 +470,6 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         leadingWidth: 132,
         title: const SizedBox.shrink(),
         actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.people_outline),
-            label: const Text('Registry'),
-            onPressed: () => openRegistry(context),
-          ),
           Consumer<AuthProvider>(
             builder: (context, auth, _) => IconButton(
               icon: Icon(
@@ -449,8 +488,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             icon: const Icon(Icons.more_horiz_rounded),
             onSelected: (value) {
               switch (value) {
-                case 'registry':
-                  openRegistry(context);
+                case 'templates':
+                  _manageTemplates();
                   break;
                 case 'premium':
                   _openPremium(context);
@@ -458,6 +497,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               }
             },
             itemBuilder: (_) => [
+              const PopupMenuItem(value: 'templates', child: Text('Manage templates')),
               const PopupMenuItem(
                   value: 'premium',
                   child: Text('Ripot Premium'),
@@ -472,15 +512,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         elevation: 6,
-        onPressed: () async {
-          context.read<ReportEditorProvider>().newReport();
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ReportEditorScreen()),
-          );
-          if (!context.mounted) return;
-          await _refreshReports();
-        },
+        onPressed: _newReport,
         icon: const Icon(Icons.add),
         label: const Text('New Report'),
       ),
@@ -562,33 +594,40 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                         ),
                         contentPadding: const EdgeInsets.fromLTRB(
                           16,
-                          10,
+                          4,
                           8,
-                          10,
+                          4,
                         ),
-                        title: Text(
-                          r.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(
+                              r.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            )),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: badgeText,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.65),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  !r.hasPdf && MediaQuery.sizeOf(context).width < 600
+                                      ? 'Draft' : badgeText,
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                badgeText,
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(r.subtitle),
-                            ],
-                          ),
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(r.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
                         ),
                         onTap: () => _handleOpen(context, r),
                         onLongPress: () => _reportActions(context, r),
