@@ -97,14 +97,17 @@ class AccessState {
   bool get canActivatePremiumTrial {
     // One trial per account. Only the server may grant it and choose its dates.
     if (plan == RipotPlan.premium || isPremiumLike) return false;
-    return !hasUsedTrial;
+    return !hasUsedTrial && trialStartAt == null && trialEndsAt == null;
   }
 
   bool get hadTrialButExpired =>
       hasUsedTrial && !isPremiumLike && plan != RipotPlan.premium;
 
   bool get isFounding100 =>
-      founderCohort == 'founding_100' && founderNumber != null;
+      founderCohort == 'founding_100' &&
+      founderNumber != null &&
+      founderNumber! >= 1 &&
+      founderNumber! <= 100;
 
   int get daysRemaining {
     final endsAt = effectiveTrialEndsAt;
