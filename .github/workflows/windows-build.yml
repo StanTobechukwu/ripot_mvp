@@ -31,10 +31,36 @@ jobs:
         shell: pwsh
         run: ./tools/windows/build_windows.ps1
 
-      - name: Upload installer, portable bundle and checksums
+      - name: Verify hashes, install, launch twice and uninstall
+        shell: pwsh
+        env:
+          RIPOT_SOURCE_COMMIT: ${{ github.sha }}
+        run: ./tools/windows/check_windows_package.ps1 -ArtifactDirectory build/windows-distribution -ExpectedCommit $env:RIPOT_SOURCE_COMMIT -OutputDirectory verified
+
+      - name: Upload installer download
         uses: actions/upload-artifact@v4
         with:
-          name: ripot-windows-${{ github.run_number }}
-          path: build/windows-distribution/*/*
+          name: ripot-windows-installer-${{ github.run_number }}
+          path: verified/Ripot-Setup-*.exe
           if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload portable download
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-windows-portable-${{ github.run_number }}
+          path: verified/Ripot-*-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload validation report, checksums and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-windows-validation-${{ github.run_number }}
+          path: |
+            verified/*.json
+            verified/*.txt
+            verified/*.png
+          if-no-files-found: warn
           retention-days: 30

@@ -80,7 +80,15 @@ try {
 
     $commit = (& git rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Cannot record the source commit.' }
-    $dirty = @(& git status --porcelain).Count -gt 0
+    # Flutter rewrites generated registrants with LF on Windows. With autocrlf,
+    # status can report those files as modified even when their Git blobs match.
+    # Compare actual content with HEAD, including staged edits, and check new files.
+    & git diff --quiet --no-ext-diff HEAD --
+    $trackedChanges = $LASTEXITCODE
+    if ($trackedChanges -notin @(0, 1)) { throw 'Cannot verify tracked source contents.' }
+    $untrackedFiles = @(& git ls-files --others --exclude-standard)
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot verify untracked source files.' }
+    $dirty = ($trackedChanges -eq 1) -or ($untrackedFiles.Count -gt 0)
     $sha = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
     $manifest = [ordered]@{
         product = 'Ripot'; version = $version; build = [int]$build
