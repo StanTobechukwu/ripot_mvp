@@ -1,0 +1,52 @@
+name: Check Windows installer
+
+on:
+  push:
+    branches:
+      - codex/windows-package-check
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  check-package:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the built Windows package
+        uses: actions/download-artifact@v4
+        with:
+          name: ripot-windows-5
+          path: package
+          run-id: 36757939747
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify hashes, install, launch twice and uninstall
+        shell: pwsh
+        run: ./tools/windows/check_windows_package.ps1 -ArtifactDirectory package -ExpectedCommit 5c8c386362341d2676c4b831d9446822a299e7e1 -OutputDirectory verified
+      - name: Upload separate installer download
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-windows-installer-46
+          path: verified/Ripot-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload separate portable download
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-windows-portable-46
+          path: verified/Ripot-*-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload validation report and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-windows-validation-46
+          path: |
+            verified/*.json
+            verified/*.txt
+            verified/*.png
+          if-no-files-found: warn
+          retention-days: 30
