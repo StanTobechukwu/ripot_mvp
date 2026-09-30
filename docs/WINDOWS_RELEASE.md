@@ -39,6 +39,13 @@ Windows app still require a Windows PC. The build remains internal-test until
 those checks pass. Native Firebase plugin binaries may still be bundled as
 transitive Flutter dependencies; the Windows account path does not use them.
 
+The pinned Firebase Auth plugin needs FlutterFire's Windows MSVC fix
+([upstream #16840](https://github.com/firebase/flutterfire/pull/16840)).
+`windows/firebase_auth_windows_compat.cmake` applies those two conversions to a
+build-directory copy of its C++ source. It leaves the Pub cache, generated files,
+and Android/web dependencies unchanged, and does nothing once the dependency
+already contains the fix.
+
 References:
 - https://firebase.google.com/docs/reference/rest/auth
 - https://firebase.google.com/docs/firestore/use-rest-api
