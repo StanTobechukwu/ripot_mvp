@@ -1,16 +1,25 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/firebase/sync_identity.dart';
+import '../../../core/firebase/account_functions.dart';
+import '../../../core/firebase/account_runtime.dart';
+import '../../../core/firebase/account_session.dart';
+import '../../../core/firebase/cloud_documents.dart';
 import '../../../core/utils/ids.dart';
 import '../domain/access_state.dart';
 import 'account_access_cache.dart';
 
 class AccessRepository {
+  AccessRepository({AccountSession? session, CloudDocuments? documents})
+    : _sessionOverride = session,
+      _documentsOverride = documents;
+  final AccountSession? _sessionOverride;
+  final CloudDocuments? _documentsOverride;
+  AccountSession? get _session => _sessionOverride ?? AccountRuntime.session;
+  CloudDocuments? get _documents =>
+      _documentsOverride ?? AccountRuntime.documents;
   static const _installationIdKey = 'access.installationId';
 
   Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
@@ -30,8 +39,9 @@ class AccessRepository {
     if (uid == null) return null;
     final cached = _loadAccountCache(await _prefs, uid);
     if (_currentAuthUid() != uid || cached == null) return null;
-    if (cached.plan == RipotPlan.premium && cached.premiumExpiresAt == null)
+    if (cached.plan == RipotPlan.premium && cached.premiumExpiresAt == null) {
       return null;
+    }
     return _normalizeState(cached);
   }
 
@@ -68,7 +78,9 @@ class AccessRepository {
         refreshPlay: refreshPlay,
       ),
     );
+    if (_currentAuthUid() != authUid) return _withoutAccountEntitlement(state);
     await _saveAccountCache(prefs, authUid, state);
+    if (_currentAuthUid() != authUid) return _withoutAccountEntitlement(state);
     unawaited(_syncToFirestore(state));
     return state;
   }
@@ -79,6 +91,7 @@ class AccessRepository {
     if (authUid == null) return;
 
     final prefs = await _prefs;
+    if (_currentAuthUid() != authUid) return;
     await _saveAccountCache(prefs, authUid, normalized);
     await _syncToFirestore(normalized);
   }
@@ -86,7 +99,13 @@ class AccessRepository {
   AccessState? _loadAccountCache(SharedPreferences prefs, String authUid) {
     final raw = prefs.getString(AccountAccessCache.keyForUid(authUid));
     if (raw == null || raw.trim().isEmpty) return null;
-    return AccountAccessCache.decodeForUid(raw, authUid: authUid);
+    final cached = AccountAccessCache.decodeForUid(raw, authUid: authUid);
+    // An administrator override with no expiry must be re-verified online;
+    // neither the quick load nor the full offline load can extend it forever.
+    if (cached?.plan == RipotPlan.premium && cached?.premiumExpiresAt == null) {
+      return null;
+    }
+    return cached;
   }
 
   Future<void> _saveAccountCache(
@@ -101,9 +120,8 @@ class AccessRepository {
   }
 
   String? _currentAuthUid() {
-    if (Firebase.apps.isEmpty) return null;
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid.trim();
+      final uid = _session?.currentUser?.uid.trim();
       return uid == null || uid.isEmpty ? null : uid;
     } catch (_) {
       return null;
@@ -218,32 +236,29 @@ class AccessRepository {
     required String authUid,
     bool refreshPlay = true,
   }) async {
-    if (Firebase.apps.isEmpty) return state;
+    final documents = _documents;
+    if (documents == null) return state;
 
     if (_currentAuthUid() != authUid) {
       return _withoutAccountEntitlement(state);
     }
 
     try {
-      if (refreshPlay)
+      if (refreshPlay) {
         try {
-          final callable = FirebaseFunctions.instance.httpsCallable(
+          await AccountFunctions.call(
             'refreshPlayEntitlement',
-          );
-          await callable
-              .call(<String, dynamic>{})
-              .timeout(const Duration(seconds: 8));
+            timeout: const Duration(seconds: 8),
+          ).timeout(const Duration(seconds: 8));
         } catch (_) {}
+      }
 
-      final snap = await FirebaseFirestore.instance
-          .collection('ripot_user_access')
-          .doc(authUid)
-          .get(const GetOptions(source: Source.server))
+      final data = await documents
+          .get('ripot_user_access', authUid, serverOnly: true)
           .timeout(const Duration(seconds: 8));
       if (_currentAuthUid() != authUid) {
         return _withoutAccountEntitlement(state);
       }
-      final data = snap.data();
       if (data == null) return _withoutAccountEntitlement(state);
 
       var next = _applyPersistedRemoteAccessState(state, data);
@@ -286,19 +301,19 @@ class AccessRepository {
 
       return next;
     } catch (_) {
-      return state;
+      return _currentAuthUid() == authUid
+          ? state
+          : _withoutAccountEntitlement(state);
     }
   }
 
   Future<_AccessRemoteConfig> _loadRemoteConfigSafely() async {
-    if (Firebase.apps.isEmpty) return const _AccessRemoteConfig.defaults();
+    final documents = _documents;
+    if (documents == null) return const _AccessRemoteConfig.defaults();
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('ripot_app_config')
-          .doc('access')
-          .get()
+      final data = await documents
+          .get('ripot_app_config', 'access')
           .timeout(const Duration(seconds: 3));
-      final data = snap.data();
       if (data == null) return const _AccessRemoteConfig.defaults();
       return _AccessRemoteConfig.fromJson(data);
     } catch (_) {
@@ -307,40 +322,36 @@ class AccessRepository {
   }
 
   Future<void> _syncToFirestore(AccessState state) async {
-    if (Firebase.apps.isEmpty) return;
+    final documents = _documents;
+    if (documents == null) return;
     try {
-      final identity = await SyncIdentityResolver().resolve();
+      final identity = await SyncIdentityResolver(session: _session).resolve();
 
       // Entitlement is server-authoritative. Flutter may sync only harmless
       // account/device metadata, and only for a signed-in account.
       if (!identity.isSignedInUser || identity.authUid == null) return;
 
-      final db = FirebaseFirestore.instance;
-      await db.collection('ripot_user_access').doc(identity.authUid).set({
+      await documents.merge('ripot_user_access', identity.authUid!, {
         'ownerType': 'user',
         'ownerId': identity.authUid,
         'authUid': identity.authUid,
         'installationId': identity.installationId,
         'lastSeenInstallationId': identity.installationId,
         'lastClientSeenAtIso': DateTime.now().toIso8601String(),
-      }, SetOptions(merge: true));
+      });
     } catch (_) {
       // Stability first: never fail local save because cloud sync is unavailable.
     }
   }
 
   Future<AccessState?> activatePremiumTrialForSignedInAccount() async {
-    if (Firebase.apps.isEmpty) return null;
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _session?.currentUser;
     if (user == null) return null;
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable(
-        'activatePremiumTrial',
-      );
-      final result = await callable.call(<String, dynamic>{});
+      final result = await AccountFunctions.call('activatePremiumTrial');
       if (_currentAuthUid() != user.uid) return null;
-      final data = Map<String, dynamic>.from(result.data as Map);
+      final data = Map<String, dynamic>.from(result as Map);
       // Only a newly granted trial is installed from the callable response.
       // An already-used response is reconciled from the authoritative document.
       if (data['activated'] != true) return null;
@@ -368,24 +379,21 @@ class AccessRepository {
   }
 
   Future<void> syncFounderEntitlementForSignedInAccount() async {
-    if (Firebase.apps.isEmpty) return;
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _session?.currentUser;
     if (user == null) return;
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable(
-        'syncFounderEntitlement',
-      );
-      await callable.call(<String, dynamic>{});
+      await AccountFunctions.call('syncFounderEntitlement');
     } catch (_) {
       // Non-blocking: normal access refresh still runs.
     }
   }
 
   Future<void> migrateCloudIdentityToSignedInUser() async {
-    if (Firebase.apps.isEmpty) return;
+    final documents = _documents;
+    if (documents == null) return;
     try {
-      final identity = await SyncIdentityResolver().resolve();
+      final identity = await SyncIdentityResolver(session: _session).resolve();
       if (!identity.isSignedInUser || identity.authUid == null) return;
 
       // Never copy installation-level trial/Premium fields into an account.
@@ -393,18 +401,15 @@ class AccessRepository {
       //
       // Existing account entitlement remains untouched. New trial entitlement
       // is granted only by the server-authoritative Cloud Function.
-      await FirebaseFirestore.instance
-          .collection('ripot_user_access')
-          .doc(identity.authUid)
-          .set({
-            'ownerType': 'user',
-            'ownerId': identity.authUid,
-            'authUid': identity.authUid,
-            'installationId': identity.installationId,
-            'lastSeenInstallationId': identity.installationId,
-            'legacyInstallationIdObserved': identity.installationId,
-            'lastMigrationCheckAtIso': DateTime.now().toIso8601String(),
-          }, SetOptions(merge: true));
+      await documents.merge('ripot_user_access', identity.authUid!, {
+        'ownerType': 'user',
+        'ownerId': identity.authUid,
+        'authUid': identity.authUid,
+        'installationId': identity.installationId,
+        'lastSeenInstallationId': identity.installationId,
+        'legacyInstallationIdObserved': identity.installationId,
+        'lastMigrationCheckAtIso': DateTime.now().toIso8601String(),
+      });
     } catch (_) {}
   }
 }

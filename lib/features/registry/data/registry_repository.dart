@@ -72,7 +72,7 @@ class RegistryUpdate {
     observedAt: DateTime.parse(j['observedAt'] as String),
     recordedAt: DateTime.parse(j['recordedAt'] as String),
     values: Map<String, String>.from(j['values'] as Map),
-    definitions: (j['definitions'] as Map).map(
+    definitions: (j['definitions'] as Map? ?? const {}).map(
       (k, v) => MapEntry(
         k as String,
         RecordFieldDef.fromJson(Map<String, dynamic>.from(v as Map)),
@@ -263,6 +263,137 @@ class RegistryRepository {
     );
   });
 
+  /// Identity and static details are committed together. Dated history and
+  /// enrollments keep the same patient ID and their original snapshots.
+  Future<void> editPatient({
+    required RegistryPatient expected,
+    required String name,
+    required String reference,
+    required String facility,
+    RegistryUpdate? details,
+  }) => _change((data) {
+    final current = data.patients.firstWhere(
+      (p) => p.id == expected.id,
+      orElse: () => throw StateError('Patient not found.'),
+    );
+    if (current.name != expected.name ||
+        current.reference != expected.reference ||
+        current.facility != expected.facility) {
+      throw StateError(
+        'Patient details changed. Reopen the editor and try again.',
+      );
+    }
+    if (name.trim().isEmpty && reference.trim().isEmpty) {
+      throw ArgumentError('Enter a name or patient identifier.');
+    }
+    final directoryChanged =
+        current.reference.trim().toLowerCase() !=
+            reference.trim().toLowerCase() ||
+        current.facility.trim().toLowerCase() != facility.trim().toLowerCase();
+    if (directoryChanged &&
+        reference.trim().isNotEmpty &&
+        data.patients.any(
+          (p) =>
+              p.id != current.id &&
+              p.reference.trim().toLowerCase() ==
+                  reference.trim().toLowerCase() &&
+              p.facility.trim().toLowerCase() == facility.trim().toLowerCase(),
+        )) {
+      throw StateError(
+        'This identifier and facility already belong to another patient.',
+      );
+    }
+    if (details != null) {
+      if (!details.patientDetails ||
+          details.patientId != current.id ||
+          !current.registryIds.contains(details.registryId) ||
+          details.sourceReportId.isNotEmpty ||
+          data.updates.any((u) => u.id == details.id)) {
+        throw ArgumentError('Invalid patient details revision.');
+      }
+      _validateValues(details);
+    }
+    return RegistryData(
+      patients: [
+        for (final p in data.patients)
+          if (p.id == current.id)
+            RegistryPatient(
+              id: p.id,
+              name: name.trim(),
+              reference: reference.trim(),
+              facility: facility.trim(),
+              registryIds: p.registryIds,
+            )
+          else
+            p,
+      ],
+      updates: [...data.updates, ?details],
+    );
+  });
+
+  /// Explicitly correct one saved entry; never turn an edit into a new visit,
+  /// change its units, or rewrite a source report. Reject stale editors.
+  Future<void> correctUpdate({
+    required RegistryUpdate expected,
+    required Map<String, String> values,
+    required DateTime observedAt,
+  }) => _change((data) {
+    final current = data.updates.firstWhere(
+      (u) =>
+          u.id == expected.id &&
+          u.registryId == expected.registryId &&
+          u.patientId == expected.patientId,
+      orElse: () => throw StateError('This entry no longer exists.'),
+    );
+    if (jsonEncode(current.toJson()) != jsonEncode(expected.toJson())) {
+      throw StateError(
+        'This entry changed. Reopen it before making a correction.',
+      );
+    }
+    if (values.keys.any((key) => !current.values.containsKey(key))) {
+      throw ArgumentError('Use a new update to add another field.');
+    }
+    final corrected = RegistryUpdate(
+      id: current.id,
+      registryId: current.registryId,
+      patientId: current.patientId,
+      patientName: current.patientName,
+      observedAt: current.patientDetails ? current.observedAt : observedAt,
+      recordedAt: current.recordedAt,
+      patientDetails: current.patientDetails,
+      sourceReportId: current.sourceReportId,
+      values: values,
+      definitions: current.definitions,
+    );
+    _validateValues(corrected);
+    return RegistryData(
+      patients: data.patients,
+      updates: [
+        for (final u in data.updates)
+          if (u.id == current.id) corrected else u,
+      ],
+    );
+  });
+
+  static void _validateValues(RegistryUpdate update) {
+    if (update.values.isEmpty) throw ArgumentError('Enter at least one value.');
+    for (final entry in update.values.entries) {
+      final def = update.definitions[entry.key];
+      if (def == null) throw ArgumentError('Missing field definition.');
+      if (update.patientDetails != def.patientDetail) {
+        throw ArgumentError(
+          'Patient details and dated values must be saved separately.',
+        );
+      }
+      if (update.patientDetails && entry.value.trim().isEmpty) continue;
+      final number = double.tryParse(entry.value);
+      if (def.inputType == RecordInputType.numeric &&
+          (number == null || !number.isFinite)) {
+        throw ArgumentError('${def.label} must be a number.');
+      }
+    }
+  }
+
   Future<void> addUpdate(
     RegistryUpdate update, {
     RegistryPatient? newPatient,
@@ -308,19 +439,7 @@ class RegistryRepository {
         'This report is already in this registry. Open the patient history.',
       );
     }
-    for (final entry in update.values.entries) {
-      final def = update.definitions[entry.key];
-      if (def == null) throw ArgumentError('Missing field definition.');
-      final number = double.tryParse(entry.value);
-      if (update.patientDetails != def.patientDetail) {
-        throw ArgumentError("Patient details and dated values must be saved separately.");
-      }
-      if (update.patientDetails && entry.value.trim().isEmpty) continue;
-      if (def.inputType == RecordInputType.numeric &&
-          (number == null || !number.isFinite)) {
-        throw ArgumentError('${def.label} must be a number.');
-      }
-    }
+    _validateValues(update);
     return RegistryData(
       patients: data.patients,
       updates: [...data.updates, update],

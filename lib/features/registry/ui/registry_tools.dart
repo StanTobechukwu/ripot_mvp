@@ -31,8 +31,9 @@ Future<void> _deliver(
 }
 
 void _notice(BuildContext c, String s) {
-  if (c.mounted)
+  if (c.mounted) {
     ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(s)));
+  }
 }
 
 Future<void> registryExport(
@@ -46,12 +47,13 @@ Future<void> registryExport(
       'ripot-registry-${DateTime.now().millisecondsSinceEpoch}.csv',
       'text/csv',
     );
+    if (!context.mounted) return;
     _notice(
       context,
       'CSV export opened. Save the file in your chosen location.',
     );
   } catch (e) {
-    _notice(context, 'Export failed: $e');
+    if (context.mounted) _notice(context, 'Export failed: $e');
   }
 }
 
@@ -109,9 +111,11 @@ class _PasswordDialogState extends State<_PasswordDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(widget.creating
-              ? 'This encrypted file is restored inside Ripot. To view data in Excel, use Export CSV. Keep the passphrase safe; Ripot cannot recover it.'
-              : 'Enter the passphrase you used when creating this Registry backup.'),
+            Text(
+              widget.creating
+                  ? 'This encrypted file is restored inside Ripot. To view data in Excel, use Export CSV. Keep the passphrase safe; Ripot cannot recover it.'
+                  : 'Enter the passphrase you used when creating this Registry backup.',
+            ),
             TextFormField(
               controller: password,
               obscureText: true,
@@ -176,16 +180,27 @@ Future<void> registryBackup(
       'application/octet-stream',
     );
     if (!context.mounted) return;
-    await showDialog<void>(context: context, builder: (c) => AlertDialog(
-      title: const Text('How to open your backup'),
-      content: const SingleChildScrollView(child: Text(
-        'Confirm the .ripotregistry file is saved in your chosen location. It is encrypted and will not open in a PDF viewer or spreadsheet.\n\n'
-        'In Ripot, open Registry → Restore, or a registry’s ⋮ menu → Restore backup. Select the file and enter your passphrase. Restoration creates a separate copy.\n\n'
-        'For a spreadsheet, choose Export CSV instead. Backups include Registry data, but not source PDFs.')),
-      actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Done'))],
-    ));
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('How to open your backup'),
+        content: const SingleChildScrollView(
+          child: Text(
+            'Confirm the .ripotregistry file is saved in your chosen location. It is encrypted and will not open in a PDF viewer or spreadsheet.\n\n'
+            'In Ripot, open Registry → Restore, or a registry’s ⋮ menu → Restore backup. Select the file and enter your passphrase. Restoration creates a separate copy.\n\n'
+            'For a spreadsheet, choose Export CSV instead. Backups include Registry data, but not source PDFs.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
   } catch (e) {
-    _notice(context, 'Backup failed: $e');
+    if (context.mounted) _notice(context, 'Backup failed: $e');
   }
 }
 
@@ -197,8 +212,9 @@ Future<RecordRegistry?> registryRestore(BuildContext context) async {
     );
     if (file == null || !context.mounted) return null;
     final picked = file.files.single;
-    if (picked.size > RegistryBackupCipher.maxBytes || picked.bytes == null)
+    if (picked.size > RegistryBackupCipher.maxBytes || picked.bytes == null) {
       throw const FormatException('Choose a Registry backup under 40 MB.');
+    }
     final password = await showDialog<String>(
       context: context,
       builder: (_) => const _PasswordDialog(false),
@@ -215,12 +231,15 @@ Future<RecordRegistry?> registryRestore(BuildContext context) async {
           'Create a separate restored registry with ${snapshot.data.patients.length} patients and ${snapshot.data.updates.length} dated updates? Existing registries are kept. Restoring again creates another copy. Source PDFs are not included.',
           'Restore copy',
         ) ||
-        !context.mounted)
+        !context.mounted) {
       return null;
+    }
     final r = await snapshot.restoreCopy(context.read<RecordsRepository>());
+    if (!context.mounted) return r;
     _notice(context, 'Registry restored as a separate copy.');
     return r;
   } catch (e) {
+    if (!context.mounted) return null;
     _notice(
       context,
       'Could not restore backup. Check the file and passphrase. $e',
@@ -232,68 +251,247 @@ Future<RecordRegistry?> registryRestore(BuildContext context) async {
 class RegistryTableView extends StatefulWidget {
   final RegistryTableData data;
   final ValueChanged<String>? onPatient;
-  const RegistryTableView({super.key, required this.data, this.onPatient});
+  final ValueChanged<RegistryTableCell>? onCell;
+  final ValueChanged<RecordFieldDef>? onField;
+  const RegistryTableView({
+    super.key,
+    required this.data,
+    this.onPatient,
+    this.onCell,
+    this.onField,
+  });
   @override
   State<RegistryTableView> createState() => _RegistryTableViewState();
 }
 
 class _RegistryTableViewState extends State<RegistryTableView> {
-  final Set<String> _hidden = {};
+  // Identity is already pinned at the left. Keep measurements within reach on
+  // phones; directory and source identifiers remain available under Columns.
+  final Set<String> _hidden = {
+    'Identifier',
+    'Facility',
+    'Ripot patient ID',
+    'Source report',
+  };
 
   Future<void> _columns() async {
     final hidden = {..._hidden};
-    final accepted = await showDialog<bool>(context: context, builder: (c) =>
-      StatefulBuilder(builder: (c, update) => AlertDialog(
-        title: const Text('Visible columns'),
-        content: SizedBox(width: 400, child: SingleChildScrollView(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [for (final h in widget.data.headers.skip(1))
-            CheckboxListTile(title: Text(h), value: !hidden.contains(h),
-              onChanged: (v) => update(() { if (v == true) { hidden.remove(h); } else { hidden.add(h); } })),
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, update) => AlertDialog(
+          title: const Text('Visible columns'),
+          content: SizedBox(
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final h in widget.data.headers.skip(1))
+                    CheckboxListTile(
+                      title: Text(h),
+                      value: !hidden.contains(h),
+                      onChanged: (v) => update(() {
+                        if (v == true) {
+                          hidden.remove(h);
+                        } else {
+                          hidden.add(h);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Apply'),
+            ),
           ],
-        ))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Apply')),
-        ],
-      )));
-    if (accepted == true && mounted) setState(() { _hidden.clear(); _hidden.addAll(hidden); });
+        ),
+      ),
+    );
+    if (accepted == true && mounted) {
+      setState(() {
+        _hidden.clear();
+        _hidden.addAll(hidden);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    final columns = [for (var i = 1; i < data.headers.length; i++)
-      if (!_hidden.contains(data.headers[i])) i];
-    final height = 100.0 * MediaQuery.textScalerOf(context).scale(14) / 14;
-    Widget cell(String value, {bool heading = false, bool identity = false, String? patientId}) =>
-      InkWell(onTap: patientId == null || widget.onPatient == null ? null : () => widget.onPatient!(patientId),
-        child: Container(width: identity ? 132 : 170, height: height,
-          padding: const EdgeInsets.all(10), alignment: Alignment.centerLeft,
+    final columns = [
+      for (var i = 1; i < data.headers.length; i++)
+        if (!_hidden.contains(data.headers[i])) i,
+    ];
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    Widget cell(
+      String value, {
+      bool heading = false,
+      bool identity = false,
+      VoidCallback? onTap,
+      int? column,
+      Key? key,
+    }) {
+      final field =
+          column != null &&
+              column < data.fields.length &&
+              data.currentFields[column]
+          ? data.fields[column]
+          : null;
+      return InkWell(
+        key: key,
+        onTap: onTap,
+        onLongPress: heading && field != null && widget.onField != null
+            ? () => widget.onField!(field)
+            : onTap,
+        child: Container(
+          width: identity ? 124 : 172,
+          height: (heading ? 84 : 72) * scale,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
-            color: heading ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
-            border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor))),
-          child: Tooltip(message: value, child: Text(value.isEmpty ? '—' : value,
-            maxLines: 4, overflow: TextOverflow.ellipsis,
-            style: heading ? Theme.of(context).textTheme.labelLarge : null)),
-        ));
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      TextButton.icon(onPressed: _columns, icon: const Icon(Icons.view_column_outlined), label: const Text('Columns')),
-      const Text('Swipe sideways for more fields. Dates beneath measurements show when they were recorded.'),
-      const SizedBox(height: 12),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Column(children: [cell(data.headers.first, heading: true, identity: true),
-          for (var i = 0; i < data.rows.length; i++)
-            cell('${data.rows[i][0]}\n${data.rows[i][1]}', identity: true, patientId: data.patientIds[i]),
-        ]),
-        Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
-          child: Column(children: [
-            Row(children: [for (final i in columns) cell(data.headers[i], heading: true)]),
-            for (var r = 0; r < data.rows.length; r++)
-              Row(children: [for (final i in columns) cell(data.rows[r][i], patientId: data.patientIds[r])]),
-          ]))),
-      ]),
-      if (data.rows.isEmpty) const Text('No saved observations to display.'),
-    ]);
+            color: heading
+                ? Theme.of(context).colorScheme.surfaceContainerHighest
+                : null,
+            border: Border(
+              bottom: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Tooltip(
+                  message: value,
+                  child: Text(
+                    value.isEmpty ? (onTap == null ? '—' : '+ Add') : value,
+                    maxLines: heading ? 4 : 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: heading
+                        ? Theme.of(context).textTheme.labelLarge
+                        : value.isEmpty && onTap != null
+                        ? TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              if (heading && field != null && widget.onField != null)
+                PopupMenuButton<String>(
+                  tooltip: '${field.label} field options',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.more_vert, size: 18),
+                  onSelected: (_) => widget.onField!(field),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit field')),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget valueCell(int row, int column) {
+      final editable = widget.onCell == null
+          ? null
+          : data.editableCell(row, column);
+      return cell(
+        data.rows[row][column],
+        key: ValueKey('registry-cell-$row-$column'),
+        onTap: editable == null ? null : () => widget.onCell!(editable),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            TextButton.icon(
+              onPressed: _columns,
+              icon: const Icon(Icons.view_column_outlined),
+              label: const Text('Columns'),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Table help',
+              icon: const Icon(Icons.help_outline),
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text('Using the table'),
+                  content: const SingleChildScrollView(
+                    child: Text(
+                      'Swipe sideways for more fields. The patient column stays in place.\n\n'
+                      'Tap a patient to open their history. Tap a value or + Add to enter data. '
+                      'Next field lets you fill several fields before saving one update.\n\n'
+                      'Latest dated values create a new dated update. Patient details create a new revision. '
+                      'Cells in All updates open an explicit correction to that entry.\n\n'
+                      'Dates beneath measurements show when they were observed. Earlier units stay separate. '
+                      'Use a column menu to edit its current field settings.',
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(c),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              children: [
+                cell(data.headers.first, heading: true, identity: true),
+                for (var i = 0; i < data.rows.length; i++)
+                  cell(
+                    [
+                      data.rows[i][0],
+                      data.rows[i][1],
+                    ].where((s) => s.isNotEmpty).join('\n'),
+                    identity: true,
+                    onTap: widget.onPatient == null
+                        ? null
+                        : () => widget.onPatient!(data.patientIds[i]),
+                  ),
+              ],
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        for (final i in columns)
+                          cell(data.headers[i], heading: true, column: i),
+                      ],
+                    ),
+                    for (var r = 0; r < data.rows.length; r++)
+                      Row(children: [for (final i in columns) valueCell(r, i)]),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (data.rows.isEmpty) const Text('No saved observations to display.'),
+      ],
+    );
   }
 }

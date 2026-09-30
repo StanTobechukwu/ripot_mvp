@@ -1,32 +1,40 @@
-name: Build Windows
+name: Build Windows installer
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/windows-download
+
+permissions:
+  contents: read
 
 jobs:
   build-windows:
     runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      CI: 'true'
 
     steps:
-      - name: Checkout code
+      - name: Check out the selected branch (including its registry update)
         uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.5'
           channel: stable
+          cache: true
 
-      - name: Enable Windows desktop
-        run: flutter config --enable-windows-desktop
+      - name: Test, build and package Ripot
+        shell: pwsh
+        run: ./tools/windows/build_windows.ps1
 
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build Windows release
-        run: flutter build windows --release
-
-      - name: Upload Windows build
+      - name: Upload installer, portable bundle and checksums
         uses: actions/upload-artifact@v4
         with:
-          name: ripot-windows-release
-          path: build/windows/x64/runner/Release/
+          name: ripot-windows-${{ github.run_number }}
+          path: build/windows-distribution/*/*
+          if-no-files-found: error
+          retention-days: 30

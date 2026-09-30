@@ -72,6 +72,7 @@ class MyApp extends StatelessWidget {
           create: (_) => RecordsProvider(repo: recordsRepo)..refresh(),
         ),
         ChangeNotifierProxyProvider<AccessProvider, AuthProvider>(
+          lazy: false,
           create: (context) => AuthProvider(
             accessProvider: context.read<AccessProvider>(),
             templatesRepository: templatesRepo,

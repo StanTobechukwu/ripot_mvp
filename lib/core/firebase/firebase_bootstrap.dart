@@ -2,9 +2,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../firebase_options.dart';
+import 'account_runtime.dart';
 
 class FirebaseBootstrap {
   static Future<void> initializeIfConfigured() async {
+    if (AccountRuntime.usesWindowsRest) {
+      await AccountRuntime.initializeWindows();
+      return;
+    }
     if (Firebase.apps.isNotEmpty) return;
 
     try {

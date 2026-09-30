@@ -17,7 +17,12 @@ class BillingProvider extends ChangeNotifier {
   static const foundingOfferTag = 'founding-100';
 
   AccessProvider _accessProvider;
-  final InAppPurchase _iap = InAppPurchase.instance;
+  // InAppPurchase has no Windows implementation. Do not even resolve its
+  // singleton or purchase stream on platforms without Google Play billing.
+  static bool get supportsGooglePlay =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  late final InAppPurchase _iap = InAppPurchase.instance;
+  bool _disposed = false;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   bool _loading = false;
   bool _available = false;
@@ -33,15 +38,17 @@ class BillingProvider extends ChangeNotifier {
 
   BillingProvider({required AccessProvider accessProvider})
     : _accessProvider = accessProvider {
-    _purchaseSubscription = _iap.purchaseStream.listen(
-      _onPurchaseUpdates,
-      onError: (Object error) {
-        _purchasePending = false;
-        _restoreInProgress = false;
-        _error = 'Google Play purchase update failed.';
-        notifyListeners();
-      },
-    );
+    if (supportsGooglePlay) {
+      _purchaseSubscription = _iap.purchaseStream.listen(
+        _onPurchaseUpdates,
+        onError: (Object error) {
+          _purchasePending = false;
+          _restoreInProgress = false;
+          _error = 'Google Play purchase update failed.';
+          notifyListeners();
+        },
+      );
+    }
     Future<void>.microtask(load);
   }
 
@@ -73,12 +80,12 @@ class BillingProvider extends ChangeNotifier {
       FirebaseAuth.instance.currentUser != null;
 
   Future<void> load() async {
-    if (_loading) return;
+    if (_loading || _disposed) return;
     _loading = true;
     _error = null;
     notifyListeners();
     try {
-      if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      if (!supportsGooglePlay) {
         _available = false;
         return;
       }
@@ -113,7 +120,7 @@ class BillingProvider extends ChangeNotifier {
       _error = 'Unable to load Google Play Premium plans right now.';
     } finally {
       _loading = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -146,6 +153,7 @@ class BillingProvider extends ChangeNotifier {
   }
 
   Future<bool> purchaseMonthly() async {
+    if (!supportsGooglePlay) return false;
     if (_monthly == null) {
       _error = 'Monthly Premium is not available from Google Play.';
       notifyListeners();
@@ -155,6 +163,7 @@ class BillingProvider extends ChangeNotifier {
   }
 
   Future<bool> purchaseAnnual() async {
+    if (!supportsGooglePlay) return false;
     await _refreshEligibility();
     final product = _founderDiscountEligible && _founderAnnual != null
         ? _founderAnnual
@@ -212,6 +221,7 @@ class BillingProvider extends ChangeNotifier {
   }
 
   Future<void> restorePurchases() async {
+    if (!supportsGooglePlay) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _error = 'Sign in to restore Premium purchases.';
@@ -370,6 +380,7 @@ class BillingProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _purchaseSubscription?.cancel();
     super.dispose();
   }

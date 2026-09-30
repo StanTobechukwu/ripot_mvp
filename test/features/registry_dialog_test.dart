@@ -37,19 +37,21 @@ void main() {
     expect(find.text('Renamed clinic'), findsOneWidget);
     await tester.tap(find.text('Old name'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Edit patient name'));
+    await tester.tap(find.text('Update'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField), 'New name');
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text('Edit patient details'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('patient-name')),
+      'New name',
+    );
+    await tester.tap(find.text('Save patient details'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: find.byType(AppBar), matching: find.text('New name')),
       findsOneWidget,
     );
-    expect(
-      find.descendant(of: find.byType(Card), matching: find.text('New name')),
-      findsOneWidget,
-    );
+    expect(find.text('New name'), findsOneWidget);
     final data = await patients.load();
     expect(data.patients.single.name, 'New name');
     expect(data.patients.single.id, patient.id);

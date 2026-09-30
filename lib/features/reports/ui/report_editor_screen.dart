@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../access/providers/access_provider.dart';
@@ -3121,6 +3122,8 @@ class _ImagesManagerState extends State<_ImagesManager> {
   @override
   Widget build(BuildContext context) {
     final vm = widget.vm;
+    final windowsImages =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
     final int crossAxisCount = 3;
     final int itemCount = vm.doc.images.length;
@@ -3177,7 +3180,7 @@ class _ImagesManagerState extends State<_ImagesManager> {
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Text(
-              'Endoscopy workflow: MediCap → clean USB flash drive → Mac/phone via USB-C adapter → import into Ripot.',
+              'Import saved images from your device or a connected USB drive.',
               style: TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ),
@@ -3219,35 +3222,40 @@ class _ImagesManagerState extends State<_ImagesManager> {
                       }
                     },
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('Gallery'),
+                    label: Text(windowsImages ? 'Choose images' : 'Gallery'),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () async {
-                      try {
-                        final file = await _imageService.pickFromCamera();
-                        if (!mounted) return;
-                        if (file == null) return;
-                        final access = context.read<AccessProvider>().safeState;
-                        if (vm.doc.images.length >= access.maxImagesPerReport) {
-                          await showPremiumFeatureSheet(
-                            context,
-                            PremiumFeature.moreImages,
-                          );
-                          return;
+                if (!windowsImages) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        try {
+                          final file = await _imageService.pickFromCamera();
+                          if (!mounted) return;
+                          if (file == null) return;
+                          final access = context
+                              .read<AccessProvider>()
+                              .safeState;
+                          if (vm.doc.images.length >=
+                              access.maxImagesPerReport) {
+                            await showPremiumFeatureSheet(
+                              context,
+                              PremiumFeature.moreImages,
+                            );
+                            return;
+                          }
+                          vm.addImages([file]);
+                          if (mounted) setState(() {});
+                        } catch (e) {
+                          _showErr(e);
                         }
-                        vm.addImages([file]);
-                        if (mounted) setState(() {});
-                      } catch (e) {
-                        _showErr(e);
-                      }
-                    },
-                    icon: const Icon(Icons.photo_camera_outlined),
-                    label: const Text('Camera'),
+                      },
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      label: const Text('Camera'),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

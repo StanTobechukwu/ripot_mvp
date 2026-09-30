@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/firebase/sync_identity.dart';
+import '../../../core/firebase/account_runtime.dart';
+import '../../../core/firebase/account_session.dart';
+import '../../../core/firebase/cloud_documents.dart';
 import '../../access/data/access_repository.dart';
 import '../domain/models/nodes.dart';
 import '../domain/models/template_doc.dart';
@@ -34,10 +35,24 @@ class TemplateSummary {
 }
 
 class TemplatesRepository {
-  TemplatesRepository({AccessRepository? accessRepository})
-    : _accessRepository = accessRepository ?? AccessRepository();
+  TemplatesRepository({
+    AccessRepository? accessRepository,
+    AccountSession? session,
+    CloudDocuments? documents,
+  }) : _accessRepository =
+           accessRepository ??
+           AccessRepository(session: session, documents: documents),
+       _sessionOverride = session,
+       _documentsOverride = documents;
 
   final AccessRepository _accessRepository;
+  final AccountSession? _sessionOverride;
+  final CloudDocuments? _documentsOverride;
+  AccountSession? get _session => _sessionOverride ?? AccountRuntime.session;
+  CloudDocuments? get _documents =>
+      _documentsOverride ?? AccountRuntime.documents;
+  Future<SyncIdentity> _identity() =>
+      SyncIdentityResolver(session: _session).resolve();
 
   static const _indexKey = 'templates.index';
   static const _prefix = 'templates.doc.';
@@ -138,9 +153,10 @@ class TemplatesRepository {
       return local;
     }
 
+    final uid = _session?.currentUser?.uid;
     final remote = await _loadRemoteTemplateOrNull(templateId);
 
-    if (remote != null) {
+    if (remote != null && uid != null && _session?.currentUser?.uid == uid) {
       await _cacheTemplateLocally(remote);
 
       return remote;
@@ -192,8 +208,9 @@ class TemplatesRepository {
     final names = (prefs.getStringList('templates.groups.v1') ?? [])
         .where((n) => n != name)
         .toList();
-    if (!await prefs.setStringList('templates.groups.v1', names))
+    if (!await prefs.setStringList('templates.groups.v1', names)) {
       throw StateError('Could not remove group');
+    }
   }
 
   Future<void> updateTemplateRecordFieldSettings({
@@ -297,21 +314,23 @@ class TemplatesRepository {
   }
 
   Future<List<TemplateSummary>> _listRemoteTemplates() async {
-    if (Firebase.apps.isEmpty) {
+    final documents = _documents;
+    if (documents == null) {
       return const [];
     }
 
     try {
-      final identity = await SyncIdentityResolver().resolve();
+      final identity = await _identity();
+      if (!identity.isSignedInUser) return const [];
 
-      final query = await FirebaseFirestore.instance
-          .collection('ripot_template_structures')
-          .where('ownerType', isEqualTo: identity.ownerType)
-          .where('ownerId', isEqualTo: identity.ownerId)
-          .get();
+      final query = await documents.query(
+        'ripot_template_structures',
+        equals: {'ownerType': identity.ownerType, 'ownerId': identity.ownerId},
+      );
+      if (_session?.currentUser?.uid != identity.authUid) return const [];
 
-      return query.docs.map((doc) {
-        final data = doc.data();
+      return query.map((doc) {
+        final data = doc.data;
 
         return TemplateSummary(
           templateId: data['templateId'] as String? ?? doc.id,
@@ -343,26 +362,30 @@ class TemplatesRepository {
   }
 
   Future<TemplateDoc?> _loadRemoteTemplateOrNull(String templateId) async {
-    if (Firebase.apps.isEmpty) {
+    final documents = _documents;
+    if (documents == null) {
       return null;
     }
 
     try {
-      final identity = await SyncIdentityResolver().resolve();
+      final identity = await _identity();
+      if (!identity.isSignedInUser) return null;
 
-      final query = await FirebaseFirestore.instance
-          .collection('ripot_template_structures')
-          .where('ownerType', isEqualTo: identity.ownerType)
-          .where('ownerId', isEqualTo: identity.ownerId)
-          .where('templateId', isEqualTo: templateId)
-          .limit(1)
-          .get();
+      final query = await documents.query(
+        'ripot_template_structures',
+        equals: {
+          'ownerType': identity.ownerType,
+          'ownerId': identity.ownerId,
+          'templateId': templateId,
+        },
+        limit: 1,
+      );
 
-      if (query.docs.isEmpty) {
+      if (query.isEmpty || _session?.currentUser?.uid != identity.authUid) {
         return null;
       }
 
-      final data = query.docs.first.data();
+      final data = query.first.data;
 
       return TemplateCodec.templateFromJson(data);
     } catch (_) {
@@ -388,14 +411,16 @@ class TemplatesRepository {
   }
 
   Future<void> _syncStructureOnlyTemplate(TemplateDoc template) async {
-    if (Firebase.apps.isEmpty) {
+    final documents = _documents;
+    final uid = _session?.currentUser?.uid;
+    if (documents == null || uid == null) {
       return;
     }
 
     try {
       final access = await _accessRepository.load(refreshPlay: false);
 
-      if (!access.isPremiumLike) {
+      if (!access.isPremiumLike || _session?.currentUser?.uid != uid) {
         return;
       }
 
@@ -405,22 +430,24 @@ class TemplatesRepository {
             .toList(growable: false),
       );
 
-      final identity = await SyncIdentityResolver().resolve();
+      final identity = await _identity();
+      if (identity.authUid != uid) return;
 
-      await FirebaseFirestore.instance
-          .collection('ripot_template_structures')
-          .doc('${identity.documentKey}_${template.templateId}')
-          .set({
-            ...TemplateCodec.templateToJson(structureOnly),
-            'templateId': template.templateId,
-            'ownerType': identity.ownerType,
-            'ownerId': identity.ownerId,
-            'ownerInstallationId': identity.installationId,
-            'authUid': identity.authUid,
-            'planAtSync': access.plan.name,
-            'isStructureOnly': true,
-            'syncedAtIso': DateTime.now().toIso8601String(),
-          }, SetOptions(merge: true));
+      await documents.merge(
+        'ripot_template_structures',
+        '${identity.documentKey}_${template.templateId}',
+        {
+          ...TemplateCodec.templateToJson(structureOnly),
+          'templateId': template.templateId,
+          'ownerType': identity.ownerType,
+          'ownerId': identity.ownerId,
+          'ownerInstallationId': identity.installationId,
+          'authUid': identity.authUid,
+          'planAtSync': access.plan.name,
+          'isStructureOnly': true,
+          'syncedAtIso': DateTime.now().toIso8601String(),
+        },
+      );
     } catch (_) {
       // Cloud sync must never block
       // local template saving.
@@ -428,40 +455,48 @@ class TemplatesRepository {
   }
 
   Future<void> _deleteRemoteTemplate(String templateId) async {
-    if (Firebase.apps.isEmpty) {
+    final documents = _documents;
+    if (documents == null) {
       return;
     }
 
     try {
-      final identity = await SyncIdentityResolver().resolve();
+      final identity = await _identity();
+      if (!identity.isSignedInUser) return;
 
-      await FirebaseFirestore.instance
-          .collection('ripot_template_structures')
-          .doc('${identity.documentKey}_$templateId')
-          .delete();
+      await documents.delete(
+        'ripot_template_structures',
+        '${identity.documentKey}_$templateId',
+      );
     } catch (_) {}
   }
 
   Future<void> migrateCloudTemplatesToSignedInUser() async {
-    if (Firebase.apps.isEmpty) {
+    // Windows has no legacy native-Firebase installation data. Existing local
+    // templates stay local; signed-in template structures load by account UID.
+    final documents = _documents;
+    if (documents == null || AccountRuntime.usesWindowsRest) {
       return;
     }
 
     try {
-      final identity = await SyncIdentityResolver().resolve();
+      final identity = await _identity();
 
       if (!identity.isSignedInUser || identity.authUid == null) {
         return;
       }
 
-      final query = await FirebaseFirestore.instance
-          .collection('ripot_template_structures')
-          .where('ownerType', isEqualTo: 'local')
-          .where('ownerInstallationId', isEqualTo: identity.installationId)
-          .get();
+      final query = await documents.query(
+        'ripot_template_structures',
+        equals: {
+          'ownerType': 'local',
+          'ownerInstallationId': identity.installationId,
+        },
+      );
 
-      for (final doc in query.docs) {
-        final data = doc.data();
+      for (final doc in query) {
+        if (_session?.currentUser?.uid != identity.authUid) return;
+        final data = doc.data;
 
         final templateId = data['templateId'] as String?;
 
@@ -469,18 +504,19 @@ class TemplatesRepository {
           continue;
         }
 
-        await FirebaseFirestore.instance
-            .collection('ripot_template_structures')
-            .doc('${identity.authUid}_$templateId')
-            .set({
-              ...data,
-              'ownerType': 'user',
-              'ownerId': identity.authUid,
-              'authUid': identity.authUid,
-              'ownerInstallationId': identity.installationId,
-              'migratedFromInstallationId': identity.installationId,
-              'migratedAtIso': DateTime.now().toIso8601String(),
-            }, SetOptions(merge: true));
+        await documents.merge(
+          'ripot_template_structures',
+          '${identity.authUid}_$templateId',
+          {
+            ...data,
+            'ownerType': 'user',
+            'ownerId': identity.authUid,
+            'authUid': identity.authUid,
+            'ownerInstallationId': identity.installationId,
+            'migratedFromInstallationId': identity.installationId,
+            'migratedAtIso': DateTime.now().toIso8601String(),
+          },
+        );
       }
     } catch (_) {
       // Never block template usage

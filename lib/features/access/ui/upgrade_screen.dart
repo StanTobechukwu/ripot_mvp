@@ -191,18 +191,23 @@ class UpgradeScreen extends StatelessWidget {
               ),
             )
           else if (access.hadTrialButExpired && auth.isSignedIn)
-            const Card(
+            Card(
               child: ListTile(
-                leading: Icon(Icons.lock_clock_outlined),
-                title: Text('Premium Trial ended'),
+                leading: const Icon(Icons.lock_clock_outlined),
+                title: const Text('Premium Trial ended'),
                 subtitle: Text(
-                  'Choose a Premium plan below to continue using premium features.',
+                  BillingProvider.supportsGooglePlay
+                      ? 'Choose a Premium plan below to continue using premium features.'
+                      : 'Subscribe in Ripot on Android, then sign in here with the same Ripot account.',
                 ),
               ),
             ),
           if (auth.isSignedIn && access.plan != RipotPlan.premium) ...[
             const SizedBox(height: 12),
-            const _BillingPlansCard(),
+            if (BillingProvider.supportsGooglePlay)
+              const _BillingPlansCard()
+            else
+              const _AccountPremiumCard(),
           ],
           if (!access.isPremiumLike && access.canActivatePremiumTrial) ...[
             const SizedBox(height: 8),
@@ -236,6 +241,72 @@ class UpgradeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AccountPremiumCard extends StatefulWidget {
+  const _AccountPremiumCard();
+
+  @override
+  State<_AccountPremiumCard> createState() => _AccountPremiumCardState();
+}
+
+class _AccountPremiumCardState extends State<_AccountPremiumCard> {
+  bool _refreshing = false;
+
+  Future<void> _refresh() async {
+    setState(() => _refreshing = true);
+    try {
+      await context.read<AccessProvider>().refresh();
+      if (!mounted) return;
+      final active = context.read<AccessProvider>().safeState.isPremiumLike;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            active
+                ? 'Your Premium features are active.'
+                : 'No active Premium access was confirmed. Check your connection and Ripot account.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to refresh Premium access. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Use your Ripot Premium account',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Subscriptions are purchased and managed in Ripot on Android through Google Play. '
+            'Sign in here with the same Ripot account to use verified Premium access. '
+            'Your reports and registry data stay on each device; signing in does not transfer them.',
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _refreshing ? null : _refresh,
+            icon: const Icon(Icons.refresh),
+            label: Text(_refreshing ? 'Refreshing…' : 'Refresh Premium access'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _BillingPlansCard extends StatelessWidget {
