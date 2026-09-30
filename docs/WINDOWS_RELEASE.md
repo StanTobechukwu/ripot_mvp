@@ -7,9 +7,17 @@ older `main` branch.
 
 ## Status
 
-The native Windows source, installer definition and CI build workflow are
-prepared. This is an **internal test build**, not a finished public release.
-The Windows executable has not been compiled or run in the Linux workspace.
+The native Windows app and Inno Setup installer have compiled successfully on
+GitHub's Windows 2022 runner. This is an **internal test build**, not a finished
+public release. The workflow also verifies source provenance and package hashes,
+installs the app, opens it twice and uninstalls it before offering downloads.
+
+On 30 September 2026, [Windows run #6](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/36762051718)
+passed all 122 app tests (one emulator-only test skipped), the native build and
+all installer checks. The captured startup screen shows My Reports and the
+Reports, Records, Registry and Logbook tabs. The built app source is commit
+`ed7bf8b46f7e3599c0bf872fc4696532b15e7e02`; its source-content check is clean.
+This smoke check does not establish live account or complete workflow readiness.
 
 The Windows account integration now uses Firebase's documented Auth and
 Firestore REST APIs and authenticated callable HTTP protocol. Windows startup
@@ -34,9 +42,10 @@ unlock offline Premium. A revoked refresh credential signs the account out when
 the server reports it; an offline app cannot discover revocation immediately.
 
 The implementation is tested locally, including Firebase Auth/Firestore
-emulators. Live production sign-in, native encrypted storage and the compiled
-Windows app still require a Windows PC. The build remains internal-test until
-those checks pass. Native Firebase plugin binaries may still be bundled as
+emulators. Live production sign-in, native encrypted storage and the report,
+registry and backup workflows still require end-to-end Windows validation.
+The build remains internal-test until those checks pass. Native Firebase plugin
+binaries may still be bundled as
 transitive Flutter dependencies; the Windows account path does not use them.
 
 The pinned Firebase Auth plugin needs FlutterFire's Windows MSVC fix
@@ -74,7 +83,7 @@ ARM64 and 32-bit Windows are not targets of this first package. There is no
 automatic desktop updater. Later versions use the same installer AppId and
 install location; users download and run the new installer.
 
-## Build using GitHub from a Mac
+## Build using GitHub from any device
 
 Commit the latest app code and this patch to the branch
 `codex/windows-download`, then push that branch. Its Windows workflow starts on
@@ -82,9 +91,19 @@ push. The existing `main` branch may be older; do not build from it or reset you
 project to it.
 
 In GitHub, open **Actions → Build Windows installer → the run for your branch**.
-After it passes, download the `ripot-windows-<run number>` artifact and unzip it.
-You will find the installer, portable ZIP, `windows-release.json` and
-`SHA256SUMS.txt`. These are build artifacts, not public download links.
+After it passes, the run provides three separate artifacts:
+
+- `ripot-windows-installer-<run number>`: unzip to get the installer EXE.
+- `ripot-windows-portable-<run number>`: contains the portable app ZIP.
+- `ripot-windows-validation-<run number>`: release manifest, checksums,
+  installation log, check results and a startup screenshot when available.
+
+These artifacts expire after 30 days and are not permanent public download
+links. A Windows laptop or Mac is not required to run the cloud build.
+
+The source check compares Git-normalized contents against the recorded commit
+and detects untracked source files. Flutter's LF rewrites of generated Windows
+files are not treated as source edits when their Git contents are unchanged.
 
 The same workflow can be run manually with `workflow_dispatch` once available
 in the repository's Actions UI. This work does not merge a branch, create a
