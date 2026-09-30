@@ -15,6 +15,29 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Set up matching Flutter for provenance check
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: stable
+          cache: true
+      - name: Identify generated source changes
+        shell: pwsh
+        run: |
+          Write-Host 'Checkout status:'
+          git status --short
+          flutter config --enable-windows-desktop
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency restore failed.' }
+          Write-Host 'Status after dependency restore:'
+          git status --short
+          git diff --stat
+          git diff -- windows/flutter/generated_plugin_registrant.cc windows/flutter/generated_plugins.cmake linux/flutter/generated_plugin_registrant.cc linux/flutter/generated_plugins.cmake macos/Flutter/GeneratedPluginRegistrant.swift .metadata pubspec.lock
+          flutter test
+          if ($LASTEXITCODE -ne 0) { throw 'Windows tests failed.' }
+          Write-Host 'Status after tests:'
+          git status --short
+          git diff --stat
       - name: Download the built Windows package
         uses: actions/download-artifact@v4
         with:
