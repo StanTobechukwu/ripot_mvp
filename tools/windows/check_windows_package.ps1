@@ -65,8 +65,10 @@ try {
     if ($manifests.Count -ne 1) { throw 'Expected one Windows release manifest.' }
     $releaseDirectory = $manifests[0].DirectoryName
     $manifest = Get-Content ($manifests[0].FullName) -Raw | ConvertFrom-Json
+    $report.installer = $manifest
+    Copy-Item ($manifests[0].FullName) $output
     if ($manifest.sourceCommit -ne $ExpectedCommit -or $manifest.sourceDirty) {
-        throw 'Package source differs from the expected committed Windows build.'
+        throw "Package source verification failed: commit=$($manifest.sourceCommit); dirty=$($manifest.sourceDirty)."
     }
     if ($manifest.releaseStage -ne 'internal-test') { throw 'Expected the internal Windows test package.' }
     if ([IO.Path]::GetFileName($manifest.filename) -ne $manifest.filename) { throw 'Invalid installer filename.' }
