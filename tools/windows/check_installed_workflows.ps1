@@ -34,10 +34,43 @@ Add-Type -ReferencedAssemblies ([Accessibility.IAccessible].Assembly.Location) @
 using System;
 using System.Runtime.InteropServices;
 using Accessibility;
+public sealed class RipotAccessibleNode {
+    private readonly IAccessible accessible;
+    private readonly int child;
+    public string Name { get; private set; }
+    public object Role { get; private set; }
+    public string DefaultAction { get; private set; }
+    public bool Enabled { get; private set; }
+    public bool Offscreen { get; private set; }
+    public int Left, Top, Width, Height;
+    public RipotAccessibleNode(IAccessible acc, int id) {
+        accessible = acc; child = id;
+        Name = acc.get_accName(id); Role = acc.get_accRole(id);
+        DefaultAction = acc.get_accDefaultAction(id);
+        int state = Convert.ToInt32(acc.get_accState(id));
+        Enabled = (state & 1) == 0; Offscreen = (state & 0x18000) != 0;
+        acc.accLocation(out Left, out Top, out Width, out Height, id);
+    }
+    public void Invoke() { accessible.accDoDefaultAction(child); }
+    public void SetValue(string value) { accessible.set_accValue(child, value); }
+}
 public static class RipotMsaa {
     [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h, uint command);
     [DllImport("oleacc.dll")] public static extern int AccessibleObjectFromWindow(IntPtr h, uint id, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IAccessible result);
     [DllImport("oleacc.dll")] public static extern int AccessibleChildren(IAccessible parent, int start, int count, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex=2)] object[] children, out int obtained);
+    public static RipotAccessibleNode Read(object raw, int id) {
+        return new RipotAccessibleNode((IAccessible)raw, id);
+    }
+    public static object[] Children(object raw) {
+        IAccessible acc = (IAccessible)raw;
+        int count = acc.accChildCount;
+        if (count < 0 || count > 1000) throw new InvalidOperationException("Invalid child count.");
+        object[] children = new object[count];
+        int obtained;
+        AccessibleChildren(acc, 0, count, children, out obtained);
+        if (obtained < count) Array.Resize(ref children, obtained);
+        return children;
+    }
     public static IAccessible Root(IntPtr window) {
         var child = GetWindow(window, 5);
         if (child == IntPtr.Zero) throw new InvalidOperationException("Flutter child window missing.");
@@ -52,29 +85,13 @@ public static class RipotMsaa {
 function Read-Accessible($Container, [int]$ChildId, [int]$Depth = 0) {
     if ($Depth -gt 30) { return }
     try {
-        $left = 0; $top = 0; $width = 0; $height = 0
-        $Container.accLocation([ref]$left, [ref]$top, [ref]$width, [ref]$height, $ChildId)
-        $state = [int]$Container.get_accState($ChildId)
-        [pscustomobject]@{
-            Name = $Container.get_accName($ChildId)
-            Role = $Container.get_accRole($ChildId)
-            DefaultAction = $Container.get_accDefaultAction($ChildId)
-            Enabled = ($state -band 1) -eq 0
-            Offscreen = ($state -band 0x18000) -ne 0
-            Left = $left; Top = $top; Width = $width; Height = $height
-            Container = $Container; ChildId = $ChildId
-        }
+        [RipotMsaa]::Read($Container, $ChildId)
         if ($ChildId -ne 0) { return }
-        $count = $Container.accChildCount
-        if ($count -le 0) { return }
-        $children = [object[]]::new($count)
-        $obtained = 0
-        $null = [RipotMsaa]::AccessibleChildren($Container, 0, $count, $children, [ref]$obtained)
-        for ($i = 0; $i -lt $obtained; $i++) {
-            if ($children[$i] -is [int]) {
-                Read-Accessible $Container ([int]$children[$i]) ($Depth + 1)
-            } else {
-                Read-Accessible ([Accessibility.IAccessible]$children[$i]) 0 ($Depth + 1)
+        foreach ($child in [RipotMsaa]::Children($Container)) {
+            if ($child -is [int]) {
+                Read-Accessible $Container ([int]$child) ($Depth + 1)
+            } elseif ($null -ne $child) {
+                Read-Accessible $child 0 ($Depth + 1)
             }
         }
     } catch { Write-Warning ('Accessibility node: ' + $_.Exception.Message) }
@@ -119,7 +136,7 @@ function Click-Label([string]$Name) {
     if ($matches.Count -ne 1) { throw "Expected one visible '$Name' control, found $($matches.Count)." }
     $el = $matches[0]
     if ($el.DefaultAction) {
-        $el.Container.accDoDefaultAction($el.ChildId)
+        $el.Invoke()
     } else {
         $r = $el
         if ($r.Width -le 0 -or $r.Height -le 0) { throw "'$Name' has no clickable bounds." }
