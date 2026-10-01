@@ -174,6 +174,24 @@ try {
     Click-Label 'Use a template'
     Save-State '03-templates'
     $report.checks += 'Installed release opened the new-report menu and template selector through native accessibility controls.'
+    Click-Label "2D Echocardiography`nUpdated 5 Sep 2026"
+    Save-State '04-echo-form'
+    Click-Label 'Save progress'
+    Save-State '05-saved-draft'
+    $report.checks += 'Opened the built-in echo form and invoked Save progress.'
+    Click-Label 'Preview'
+    Save-State '06-report-preview'
+    Stop-Process -Id $app.Id -Force
+    $app = Start-Process (Join-Path $install 'ripot.exe') -WorkingDirectory $install -PassThru
+    Start-Sleep -Seconds 8
+    $app.Refresh()
+    $null = [RipotDesktop]::MoveWindow($app.MainWindowHandle, 20, 20, 960, 700, $true)
+    $null = [RipotDesktop]::SetForegroundWindow($app.MainWindowHandle)
+    Save-State '07-reopened-draft-list'
+    Click-Label 'Records'
+    Save-State '08-records-access'
+    Click-Label 'Registry'
+    Save-State '09-registry-access'
     $report.result = 'passed'
 } catch {
     $report.result = 'failed'
