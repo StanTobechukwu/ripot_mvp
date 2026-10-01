@@ -163,9 +163,18 @@ function Fill-Field([string]$Name, [string]$Value) {
     if ($field.Count -ne 1 -or $field[0].Value -ne $Value) { throw "'$Name' did not retain the fictional test value." }
 }
 
+function Click-WindowPoint([int]$X, [int]$Y) {
+    $rect = [RipotDesktop+Rect]::new()
+    if (-not [RipotDesktop]::GetWindowRect($app.MainWindowHandle, [ref]$rect)) { throw 'App window unavailable.' }
+    $null = [RipotDesktop]::SetCursorPos($rect.Left + $X, $rect.Top + $Y)
+    [RipotDesktop]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
+    [RipotDesktop]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Seconds 2
+}
+
 try {
     $manifest = Get-Content (Join-Path $package 'windows-release.json') -Raw | ConvertFrom-Json
-    if ($manifest.sourceCommit -ne 'ed7bf8b46f7e3599c0bf872fc4696532b15e7e02' -or $manifest.sourceDirty) { throw 'Unexpected installer source.' }
+    if ($manifest.sourceCommit -ne '599633c46f7d860fd2f8c24daa46e4baf60f865e' -or $manifest.sourceDirty) { throw 'Unexpected installer source.' }
     $installer = Join-Path $package $manifest.filename
     if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne $manifest.sha256) { throw 'Installer checksum mismatch.' }
     $report.sourceCommit = $manifest.sourceCommit
@@ -200,9 +209,12 @@ try {
     $report.checks += 'Opened the built-in echo form and invoked Save progress.'
     Click-Label 'Preview'
     Save-State '06-report-preview'
-    Click-Label 'Save final PDF'
+    # The custom save icon exposes its tooltip as text, not as a button in MSAA.
+    # This point is its observed centre in the fixed 960x700 window (run #7).
+    Click-WindowPoint 924 60
+    Save-State '06a-finalize-confirmation'
     Click-Label 'Save PDF'
-    Save-State '06a-pdf-saved'
+    Save-State '06b-pdf-saved'
     Click-Label 'Not now'
     $pdfDirectory = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'reports'
     $pdfs = @(Get-ChildItem $pdfDirectory -Filter '*.pdf' -File)
@@ -224,6 +236,9 @@ try {
 } catch {
     $report.result = 'failed'
     $report.error = $_.Exception.Message
+    if ($null -ne $app -and -not $app.HasExited) {
+        try { Save-State 'failure-state' } catch { Write-Warning 'Failure screenshot unavailable.' }
+    }
     throw
 } finally {
     if ($null -ne $app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force }
