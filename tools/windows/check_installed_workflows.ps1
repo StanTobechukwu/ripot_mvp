@@ -15,7 +15,7 @@ $output = (Resolve-Path $OutputDirectory).Path
 $install = Join-Path $env:RUNNER_TEMP ('ripot-ui-' + [guid]::NewGuid())
 $report = [ordered]@{ result = 'incomplete'; checks = @(); screenshots = @() }
 $app = $null
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, Accessibility
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms, Accessibility
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
@@ -154,7 +154,10 @@ function Click-Label([string]$Name) {
 function Fill-Field([string]$Name, [string]$Value) {
     $matches = @((Get-AppElements) | Where-Object { $_.Name -eq $Name -and $_.Role -eq 42 -and $_.Enabled })
     if ($matches.Count -ne 1) { throw "Expected one '$Name' input, found $($matches.Count)." }
-    $matches[0].SetValue($Value)
+    if ($Value -notmatch '^[A-Za-z0-9 -]+$') { throw 'Only fixed fictional ASCII fixture values are allowed.' }
+    Click-Label $Name
+    [System.Windows.Forms.SendKeys]::SendWait('^a')
+    [System.Windows.Forms.SendKeys]::SendWait($Value)
     Start-Sleep -Milliseconds 500
     $field = @((Get-AppElements) | Where-Object { $_.Name -eq $Name -and $_.Role -eq 42 })
     if ($field.Count -ne 1 -or $field[0].Value -ne $Value) { throw "'$Name' did not retain the fictional test value." }
