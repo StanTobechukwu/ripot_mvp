@@ -19,6 +19,15 @@ Reports, Records, Registry and Logbook tabs. The built app source is commit
 `ed7bf8b46f7e3599c0bf872fc4696532b15e7e02`; its source-content check is clean.
 This smoke check does not establish live account or complete workflow readiness.
 
+On 1 October 2026, the installed run #6 package also passed the native
+[template navigation check](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/36819886009).
+It opened New Report, Use a template and the template selector on a disposable
+Windows runner. This uses the exact installer hash, not a separately built app.
+It does not yet establish report export or Premium workflow readiness.
+
+The Records CSV and backup export screens now respect cancellation of the
+desktop Save as dialog; they show success only when a file was saved.
+
 The Windows account integration now uses Firebase's documented Auth and
 Firestore REST APIs and authenticated callable HTTP protocol. Windows startup
 does not initialize the development-only native Firebase Auth/Firestore SDKs.
@@ -182,6 +191,8 @@ python3 tools/windows/prepare_landing_download.py \
 
 This checks the executable's PE header, size and SHA-256, then copies it and adds
 two download buttons. It clearly labels the page as an internal preview.
+`tools/windows/landing-download-preview.patch` records the current preview's
+HTML and hosting-header changes for review; the installer is supplied separately.
 Existing page/config files are backed up outside the hosted folder. Re-running
 updates the links without duplicating controls. Current mobile layouts, Android
 and web links, screenshots, and product/privacy copy are preserved.

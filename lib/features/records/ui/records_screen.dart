@@ -653,7 +653,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
     if (kIsWeb) {
       await downloadBytes(bytes: bytes, fileName: fileName);
     } else {
-      await ripotDownloadCsv(bytes: bytes, fileName: fileName);
+      final saved = await ripotDownloadCsv(bytes: bytes, fileName: fileName);
+      if (saved == null) return;
     }
     if (!mounted) return;
     await _showExportDoneSheet(
@@ -717,7 +718,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
     if (kIsWeb) {
       await downloadBytes(bytes: bytes, fileName: fileName);
     } else {
-      await ripotDownloadRecordsPackage(bytes: bytes, fileName: fileName);
+      final saved = await ripotDownloadRecordsPackage(bytes: bytes, fileName: fileName);
+      if (saved == null) return;
     }
     if (!mounted) return;
     await _showExportDoneSheet(

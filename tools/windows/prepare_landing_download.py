@@ -116,7 +116,7 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False) -> None:
         updated = updated.replace('Download for Windows</a>', 'Download Windows test build</a>')
         updated = updated.replace('Available on Android, Windows &amp; web', 'Android &amp; web · Windows test build')
         notice = ('<!--ripot-windows-preview-start--><aside style="padding:14px;background:#fff4d6;color:#473609;text-align:center">'
-                  '<strong>Internal preview.</strong> Windows sign-in and subscription support still need production integration. '
+                  '<strong>Internal preview.</strong> Windows sign-in, Premium and clinical workflows still need final validation. '
                   'Use fictional data only. This is not a public Windows release.</aside><!--ripot-windows-preview-end-->')
         updated = once(updated, '<main id="main" tabindex="-1">', '<main id="main" tabindex="-1">' + notice)
     headers = hosting.setdefault('headers', [])
