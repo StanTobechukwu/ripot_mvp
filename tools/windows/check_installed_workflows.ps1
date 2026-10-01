@@ -38,6 +38,7 @@ public sealed class RipotAccessibleNode {
     private readonly IAccessible accessible;
     private readonly int child;
     public string Name { get; private set; }
+    public string Value { get; private set; }
     public object Role { get; private set; }
     public string DefaultAction { get; private set; }
     public bool Enabled { get; private set; }
@@ -46,6 +47,7 @@ public sealed class RipotAccessibleNode {
     public RipotAccessibleNode(IAccessible acc, int id) {
         accessible = acc; child = id;
         Name = acc.get_accName(id); Role = acc.get_accRole(id);
+        Value = acc.get_accValue(id);
         DefaultAction = acc.get_accDefaultAction(id);
         int state = Convert.ToInt32(acc.get_accState(id));
         Enabled = (state & 1) == 0; Offscreen = (state & 0x18000) != 0;
@@ -98,13 +100,15 @@ function Read-Accessible($Container, [int]$ChildId, [int]$Depth = 0) {
 }
 
 function Get-AppElements {
-    $root = [RipotMsaa]::Root($app.MainWindowHandle)
-    if ($null -eq $root) {
-        Start-Sleep -Seconds 2
+    for ($attempt = 0; $attempt -lt 5; $attempt++) {
         $root = [RipotMsaa]::Root($app.MainWindowHandle)
+        if ($null -ne $root) {
+            $nodes = @(Read-Accessible $root 0)
+            if ($nodes.Count -gt 1) { return $nodes }
+        }
+        Start-Sleep -Milliseconds 500
     }
-    if ($null -eq $root) { throw 'Flutter accessibility tree is not ready.' }
-    Read-Accessible $root 0
+    throw 'Flutter accessibility tree is not ready.'
 }
 
 function Save-State([string]$Name) {
@@ -112,7 +116,7 @@ function Save-State([string]$Name) {
     $rows = @()
     foreach ($el in (Get-AppElements)) {
         $rows += [ordered]@{
-            name = $el.Name; role = $el.Role
+            name = $el.Name; value = $el.Value; role = $el.Role
             enabled = $el.Enabled; offscreen = $el.Offscreen
             rect = @($el.Left, $el.Top, $el.Width, $el.Height)
             action = $el.DefaultAction
@@ -132,7 +136,7 @@ function Save-State([string]$Name) {
 }
 
 function Click-Label([string]$Name) {
-    $matches = @((Get-AppElements) | Where-Object { $_.Name -eq $Name -and $_.Enabled -and -not $_.Offscreen })
+    $matches = @((Get-AppElements) | Where-Object { ($_.Name -eq $Name -or ($_.Name -split '\r?\n')[0] -eq $Name) -and $_.Enabled -and -not $_.Offscreen })
     if ($matches.Count -ne 1) { throw "Expected one visible '$Name' control, found $($matches.Count)." }
     $el = $matches[0]
     if ($el.DefaultAction) {
@@ -145,6 +149,15 @@ function Click-Label([string]$Name) {
         [RipotDesktop]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
     }
     Start-Sleep -Seconds 2
+}
+
+function Fill-Field([string]$Name, [string]$Value) {
+    $matches = @((Get-AppElements) | Where-Object { $_.Name -eq $Name -and $_.Role -eq 42 -and $_.Enabled })
+    if ($matches.Count -ne 1) { throw "Expected one '$Name' input, found $($matches.Count)." }
+    $matches[0].SetValue($Value)
+    Start-Sleep -Milliseconds 500
+    $field = @((Get-AppElements) | Where-Object { $_.Name -eq $Name -and $_.Role -eq 42 })
+    if ($field.Count -ne 1 -or $field[0].Value -ne $Value) { throw "'$Name' did not retain the fictional test value." }
 }
 
 try {
@@ -176,11 +189,23 @@ try {
     $report.checks += 'Installed release opened the new-report menu and template selector through native accessibility controls.'
     Click-Label "2D Echocardiography`nUpdated 5 Sep 2026"
     Save-State '04-echo-form'
+    Fill-Field 'Report Title / Topic' 'Windows echo test - fictional'
+    Fill-Field 'Subject Name *' 'FICTIONAL TEST PATIENT'
+    Fill-Field 'Subject ID' 'WIN-TEST-001'
     Click-Label 'Save progress'
     Save-State '05-saved-draft'
     $report.checks += 'Opened the built-in echo form and invoked Save progress.'
     Click-Label 'Preview'
     Save-State '06-report-preview'
+    Click-Label 'Save final PDF'
+    Click-Label 'Save PDF'
+    Save-State '06a-pdf-saved'
+    Click-Label 'Not now'
+    $pdfDirectory = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'reports'
+    $pdfs = @(Get-ChildItem $pdfDirectory -Filter '*.pdf' -File)
+    if ($pdfs.Count -ne 1 -or $pdfs[0].Length -lt 1000) { throw 'Expected one nonempty fictional PDF.' }
+    Copy-Item $pdfs[0].FullName (Join-Path $output 'fictional-windows-echo.pdf')
+    $report.checks += 'Saved a fictional echo PDF through the installed application.'
     Stop-Process -Id $app.Id -Force
     $app = Start-Process (Join-Path $install 'ripot.exe') -WorkingDirectory $install -PassThru
     Start-Sleep -Seconds 8
