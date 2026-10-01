@@ -12,18 +12,30 @@ GitHub's Windows 2022 runner. This is an **internal test build**, not a finished
 public release. The workflow also verifies source provenance and package hashes,
 installs the app, opens it twice and uninstalls it before offering downloads.
 
-On 30 September 2026, [Windows run #6](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/36762051718)
+On 1 October 2026, [Windows run #7](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/36820201343)
 passed all 122 app tests (one emulator-only test skipped), the native build and
 all installer checks. The captured startup screen shows My Reports and the
 Reports, Records, Registry and Logbook tabs. The built app source is commit
-`ed7bf8b46f7e3599c0bf872fc4696532b15e7e02`; its source-content check is clean.
+`599633c46f7d860fd2f8c24daa46e4baf60f865e`; its source-content check is clean.
 This smoke check does not establish live account or complete workflow readiness.
 
-On 1 October 2026, the installed run #6 package also passed the native
-[template navigation check](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/36819886009).
-It opened New Report, Use a template and the template selector on a disposable
-Windows runner. This uses the exact installer hash, not a separately built app.
-It does not yet establish report export or Premium workflow readiness.
+The same installer passed the native
+[installed workflow check #9](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/36821071697).
+On a disposable Windows runner, it opened the template selector, selected the
+echo template, accepted fictional subject details, saved progress, rendered and
+saved a final PDF, restarted and reopened that PDF from My Reports. The signed-out
+Free session displayed the expected Premium prompts for Records and Registry.
+It did not unlock or test signed-in Premium workflows. The evidence artifact
+contains the fictional PDF, screenshots and accessibility snapshots.
+
+The saved PDF contains E/E′, Septal E′ and Lateral E′; the prime glyphs render
+correctly in the independent MuPDF check. Native PDFium preview is readable.
+One local Poppler render showed substituted-font spacing differences; check the
+intended Windows PDF viewer and printer before public release.
+
+Installer SHA-256:
+`2b69562376d0a0e4c932d4d84e77a1caafe294005ee97ef26e67fccfde1fd20b`
+(19,081,098 bytes). Artifacts expire on 31 October 2026.
 
 The Records CSV and backup export screens now respect cancellation of the
 desktop Save as dialog; they show success only when a file was saved.
@@ -51,8 +63,10 @@ unlock offline Premium. A revoked refresh credential signs the account out when
 the server reports it; an offline app cannot discover revocation immediately.
 
 The implementation is tested locally, including Firebase Auth/Firestore
-emulators. Live production sign-in, native encrypted storage and the report,
-registry and backup workflows still require end-to-end Windows validation.
+emulators. Live production sign-in, native encrypted storage, image/signature
+capture, printing, and the registry and backup workflows still require
+end-to-end Windows validation. Basic template-to-PDF creation and reopening
+have passed against the installed package as described above.
 The build remains internal-test until those checks pass. Native Firebase plugin
 binaries may still be bundled as
 transitive Flutter dependencies; the Windows account path does not use them.
@@ -193,6 +207,10 @@ This checks the executable's PE header, size and SHA-256, then copies it and add
 two download buttons. It clearly labels the page as an internal preview.
 `tools/windows/landing-download-preview.patch` records the current preview's
 HTML and hosting-header changes for review; the installer is supplied separately.
+On 1 October the prepared preview passed its static checks and both Windows
+buttons returned the exact run #7 installer over local HTTP with matching size
+and SHA-256. Browser/mobile visual review was not completed because the cloud
+browser could not open the local preview. No Firebase deployment was performed.
 Existing page/config files are backed up outside the hosted folder. Re-running
 updates the links without duplicating controls. Current mobile layouts, Android
 and web links, screenshots, and product/privacy copy are preserved.
