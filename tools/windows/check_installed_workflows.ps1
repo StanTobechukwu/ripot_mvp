@@ -227,11 +227,20 @@ try {
     $app.Refresh()
     $null = [RipotDesktop]::MoveWindow($app.MainWindowHandle, 20, 20, 960, 700, $true)
     $null = [RipotDesktop]::SetForegroundWindow($app.MainWindowHandle)
-    Save-State '07-reopened-draft-list'
+    Save-State '07-reopened-report-list'
+    $saved = @((Get-AppElements) | Where-Object { $_.Name -like 'Windows echo test - fictional*' -and $_.Name.Contains('PDF Report') })
+    if ($saved.Count -ne 1) { throw 'The finalized fictional report did not survive restart.' }
+    Click-Label 'Windows echo test - fictional'
+    Save-State '07a-reopened-pdf'
+    Click-Label 'Back'
+    $report.checks += 'The finalized report persisted across restart and reopened from My Reports.'
     Click-Label 'Records'
     Save-State '08-records-access'
+    Click-Label 'Continue with Free'
     Click-Label 'Registry'
     Save-State '09-registry-access'
+    Click-Label 'Continue with Free'
+    $report.checks += 'The unsigned-in Free session correctly displays the Premium access prompt for Records and Registry.'
     $report.result = 'passed'
 } catch {
     $report.result = 'failed'
