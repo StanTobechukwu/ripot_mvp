@@ -1,0 +1,41 @@
+name: Check installed Windows workflows
+
+on:
+  push:
+    branches: [codex/windows-ui-check]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  installed-app:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the verified installer
+        uses: actions/download-artifact@v4
+        with:
+          name: ripot-windows-installer-6
+          run-id: 36762051718
+          path: package
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download its provenance
+        uses: actions/download-artifact@v4
+        with:
+          name: ripot-windows-validation-6
+          run-id: 36762051718
+          path: package
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Inspect the installed app with native Windows accessibility
+        shell: pwsh
+        run: ./tools/windows/check_installed_workflows.ps1 -ArtifactDirectory package -OutputDirectory workflow-check
+      - name: Save workflow evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-windows-workflow-check-${{ github.run_number }}
+          path: workflow-check/*
+          if-no-files-found: error
+          retention-days: 30
