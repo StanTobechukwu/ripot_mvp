@@ -15,7 +15,7 @@ $output = (Resolve-Path $OutputDirectory).Path
 $install = Join-Path $env:RUNNER_TEMP ('ripot-ui-' + [guid]::NewGuid())
 $report = [ordered]@{ result = 'incomplete'; checks = @(); screenshots = @() }
 $app = $null
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, Accessibility
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
@@ -30,22 +30,75 @@ public static class RipotDesktop {
 }
 '@
 
+Add-Type -ReferencedAssemblies ([Accessibility.IAccessible].Assembly.Location) @'
+using System;
+using System.Runtime.InteropServices;
+using Accessibility;
+public static class RipotMsaa {
+    [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h, uint command);
+    [DllImport("oleacc.dll")] public static extern int AccessibleObjectFromWindow(IntPtr h, uint id, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IAccessible result);
+    [DllImport("oleacc.dll")] public static extern int AccessibleChildren(IAccessible parent, int start, int count, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex=2)] object[] children, out int obtained);
+    public static IAccessible Root(IntPtr window) {
+        var child = GetWindow(window, 5);
+        if (child == IntPtr.Zero) throw new InvalidOperationException("Flutter child window missing.");
+        var iid = new Guid("618736E0-3C3D-11CF-810C-00AA00389B71");
+        IAccessible root;
+        AccessibleObjectFromWindow(child, 0xFFFFFFFC, ref iid, out root);
+        return root;
+    }
+}
+'@
+
+function Read-Accessible($Container, [int]$ChildId, [int]$Depth = 0) {
+    if ($Depth -gt 30) { return }
+    try {
+        $left = 0; $top = 0; $width = 0; $height = 0
+        $Container.accLocation([ref]$left, [ref]$top, [ref]$width, [ref]$height, $ChildId)
+        $state = [int]$Container.get_accState($ChildId)
+        [pscustomobject]@{
+            Name = $Container.get_accName($ChildId)
+            Role = $Container.get_accRole($ChildId)
+            DefaultAction = $Container.get_accDefaultAction($ChildId)
+            Enabled = ($state -band 1) -eq 0
+            Offscreen = ($state -band 0x18000) -ne 0
+            Left = $left; Top = $top; Width = $width; Height = $height
+            Container = $Container; ChildId = $ChildId
+        }
+        if ($ChildId -ne 0) { return }
+        $count = $Container.accChildCount
+        if ($count -le 0) { return }
+        $children = [object[]]::new($count)
+        $obtained = 0
+        $null = [RipotMsaa]::AccessibleChildren($Container, 0, $count, $children, [ref]$obtained)
+        for ($i = 0; $i -lt $obtained; $i++) {
+            if ($children[$i] -is [int]) {
+                Read-Accessible $Container ([int]$children[$i]) ($Depth + 1)
+            } else {
+                Read-Accessible ([Accessibility.IAccessible]$children[$i]) 0 ($Depth + 1)
+            }
+        }
+    } catch { Write-Warning ('Accessibility node: ' + $_.Exception.Message) }
+}
+
 function Get-AppElements {
-    $root = [System.Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
-    return $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    $root = [RipotMsaa]::Root($app.MainWindowHandle)
+    if ($null -eq $root) {
+        Start-Sleep -Seconds 2
+        $root = [RipotMsaa]::Root($app.MainWindowHandle)
+    }
+    if ($null -eq $root) { throw 'Flutter accessibility tree is not ready.' }
+    Read-Accessible $root 0
 }
 
 function Save-State([string]$Name) {
     Start-Sleep -Seconds 2
     $rows = @()
     foreach ($el in (Get-AppElements)) {
-        $c = $el.Current
-        $r = $c.BoundingRectangle
         $rows += [ordered]@{
-            name = $c.Name; type = $c.ControlType.ProgrammaticName
-            id = $c.AutomationId; enabled = $c.IsEnabled; offscreen = $c.IsOffscreen
-            rect = @($r.Left, $r.Top, $r.Width, $r.Height)
-            patterns = @($el.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName })
+            name = $el.Name; role = $el.Role
+            enabled = $el.Enabled; offscreen = $el.Offscreen
+            rect = @($el.Left, $el.Top, $el.Width, $el.Height)
+            action = $el.DefaultAction
         }
     }
     $rows | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $output "$Name-ui.json") -Encoding utf8
@@ -62,14 +115,13 @@ function Save-State([string]$Name) {
 }
 
 function Click-Label([string]$Name) {
-    $matches = @((Get-AppElements) | Where-Object { $_.Current.Name -eq $Name -and $_.Current.IsEnabled -and -not $_.Current.IsOffscreen })
+    $matches = @((Get-AppElements) | Where-Object { $_.Name -eq $Name -and $_.Enabled -and -not $_.Offscreen })
     if ($matches.Count -ne 1) { throw "Expected one visible '$Name' control, found $($matches.Count)." }
     $el = $matches[0]
-    $pattern = $null
-    if ($el.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
-        $pattern.Invoke()
+    if ($el.DefaultAction) {
+        $el.Container.accDoDefaultAction($el.ChildId)
     } else {
-        $r = $el.Current.BoundingRectangle
+        $r = $el
         if ($r.Width -le 0 -or $r.Height -le 0) { throw "'$Name' has no clickable bounds." }
         $null = [RipotDesktop]::SetCursorPos([int]($r.Left + $r.Width / 2), [int]($r.Top + $r.Height / 2))
         [RipotDesktop]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
@@ -88,8 +140,6 @@ try {
     $setup = Start-Process $installer -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=`"$install`"") -PassThru
     if (-not $setup.WaitForExit(60000)) { Stop-Process -Id $setup.Id -Force; throw 'Installer timed out.' }
     if ($setup.ExitCode -ne 0) { throw 'Installer failed.' }
-    # Enables Flutter's normal Windows accessibility support on this disposable desktop.
-    $null = [RipotDesktop]::SystemParametersInfo(0x0047, 1, [IntPtr]::Zero, 2)
     $app = Start-Process (Join-Path $install 'ripot.exe') -WorkingDirectory $install -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(45)
     do {
@@ -114,7 +164,6 @@ try {
     throw
 } finally {
     if ($null -ne $app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force }
-    $null = [RipotDesktop]::SystemParametersInfo(0x0047, 0, [IntPtr]::Zero, 2)
     $uninstaller = Join-Path $install 'unins000.exe'
     if (Test-Path $uninstaller) {
         $remove = Start-Process $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -PassThru
