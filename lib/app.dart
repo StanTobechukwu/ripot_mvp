@@ -19,6 +19,7 @@ import 'core/navigation/app_route_observer.dart';
 import 'core/firebase/installation_activity.dart';
 import 'features/auth/ui/startup_account_gate.dart';
 import 'features/access/ui/access_recheck.dart';
+import 'features/update/play_update_prompt.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -96,7 +97,9 @@ class MyApp extends StatelessWidget {
         ),
         navigatorObservers: [appRouteObserver],
         builder: (_, child) => AccessRecheck(child: child ?? const SizedBox.shrink()),
-        home: const StartupAccountGate(child: ReportsListScreen()),
+        home: const StartupAccountGate(
+          child: PlayUpdatePrompt(child: ReportsListScreen()),
+        ),
       ),
     );
   }
