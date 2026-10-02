@@ -1881,16 +1881,38 @@ class _RegistryFieldsScreenState extends State<RegistryFieldsScreen> {
                       validator: (v) =>
                           (v ?? '').trim().isEmpty ? 'Enter a name' : null,
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Patient detail'),
-                      subtitle: Text(
-                        patientDetail
-                            ? 'Enter once, e.g. sex or date of birth'
-                            : 'Dated measurement, e.g. weight or haemoglobin',
+                    DropdownButtonFormField<bool>(
+                      initialValue: patientDetail,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Field type',
                       ),
-                      value: patientDetail,
-                      onChanged: (v) => setLocal(() => patientDetail = v),
+                      items: const [
+                        DropdownMenuItem<bool>(
+                          value: true,
+                          child: Text('Patient detail'),
+                        ),
+                        DropdownMenuItem<bool>(
+                          value: false,
+                          child: Text('Dated measurement'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setLocal(() => patientDetail = v);
+                        }
+                      },
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6, bottom: 4),
+                        child: Text(
+                          patientDetail
+                              ? 'Fixed information, e.g. sex or date of birth.'
+                              : 'Recorded on a date and followed over time, e.g. weight or haemoglobin.',
+                        ),
+                      ),
                     ),
                     DropdownButtonFormField<RecordInputType>(
                       initialValue: type,
