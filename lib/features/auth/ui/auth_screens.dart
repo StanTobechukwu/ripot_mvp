@@ -91,7 +91,8 @@ class _AccountSheet extends StatelessWidget {
 }
 
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key});
+  const SignInScreen({super.key, this.onWelcomeCompleted});
+  final VoidCallback? onWelcomeCompleted;
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
@@ -120,7 +121,11 @@ class _SignInScreenState extends State<SignInScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Signed in successfully.')),
       );
-      Navigator.pop(context);
+      if (widget.onWelcomeCompleted != null) {
+        widget.onWelcomeCompleted!();
+      } else {
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -128,15 +133,23 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign in')),
+      appBar: AppBar(
+        title: Text(widget.onWelcomeCompleted != null ? 'Ripot' : 'Sign in'),
+      ),
       body: _AuthScaffold(
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.onWelcomeCompleted != null) ...[
+                Text('Welcome to Ripot',
+                    style: Theme.of(context).textTheme.headlineMedium),
+                const SizedBox(height: 12),
+              ],
               Text(
-                'Sign in to sync templates and keep access across devices.',
+                'Sign in to use your trial or Premium access across devices. '
+                'Your reports stay on this device.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 20),
@@ -175,11 +188,29 @@ class _SignInScreenState extends State<SignInScreen> {
               TextButton(
                 onPressed: auth.busy
                     ? null
-                    : () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignUpScreen()));
+                    : () async {
+                        if (widget.onWelcomeCompleted == null) {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignUpScreen()));
+                          return;
+                        }
+                        final completed = await Navigator.push<bool>(context,
+                          MaterialPageRoute(builder: (_) => const SignUpScreen(welcomeFlow: true)));
+                        if (mounted && completed == true) {
+                          widget.onWelcomeCompleted!();
+                        }
                       },
                 child: const Text('Create account'),
               ),
+              if (widget.onWelcomeCompleted != null) ...[
+                const Divider(height: 24),
+                TextButton(
+                  onPressed: auth.busy ? null : widget.onWelcomeCompleted,
+                  child: const Text('Continue without an account'),
+                ),
+                Text('You can sign in later from the account icon.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
             ],
           ),
         ),
@@ -189,7 +220,8 @@ class _SignInScreenState extends State<SignInScreen> {
 }
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+  const SignUpScreen({super.key, this.welcomeFlow = false});
+  final bool welcomeFlow;
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -220,7 +252,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Account created successfully.')),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     }
   }
 
@@ -236,7 +268,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Create an account to keep synced templates and access status across platforms.',
+                'Create an account to use your trial or Premium access across devices. '
+                'Your reports stay on this device.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 20),
@@ -275,10 +308,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 onPressed: auth.busy
                     ? null
                     : () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignInScreen()));
+                        if (widget.welcomeFlow) {
+                          Navigator.pop(context, false);
+                        } else {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignInScreen()));
+                        }
                       },
                 child: const Text('Already have an account? Sign in'),
               ),
+              if (widget.welcomeFlow)
+                TextButton(
+                  onPressed: auth.busy ? null : () => Navigator.pop(context, true),
+                  child: const Text('Continue without an account'),
+                ),
             ],
           ),
         ),

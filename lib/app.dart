@@ -17,6 +17,7 @@ import 'features/records/data/records_repository.dart';
 import 'features/records/providers/records_provider.dart';
 import 'core/navigation/app_route_observer.dart';
 import 'core/firebase/installation_activity.dart';
+import 'features/auth/ui/startup_account_gate.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -93,7 +94,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
         ),
         navigatorObservers: [appRouteObserver],
-        home: const ReportsListScreen(),
+        home: const StartupAccountGate(child: ReportsListScreen()),
       ),
     );
   }
