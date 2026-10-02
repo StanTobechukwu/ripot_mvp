@@ -72,16 +72,11 @@ void main() {
     final access = AccessProvider(repo: repo);
     await access.load();
     final auth = PromptAuth(access, signedIn: !guest);
-    addTearDown(() async {
-      await tester.pumpWidget(const SizedBox.shrink());
-      auth.dispose();
-      access.dispose();
-    });
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<AccessProvider>.value(value: access),
-          ChangeNotifierProvider<AuthProvider>.value(value: auth),
+          ChangeNotifierProvider<AccessProvider>(create: (_) => access),
+          ChangeNotifierProvider<AuthProvider>(create: (_) => auth),
         ],
         child: MaterialApp(
           home: Builder(

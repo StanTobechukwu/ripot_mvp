@@ -7,6 +7,10 @@ on:
       - codex/windows-download
       - codex/trial-aware-report-limits
 
+concurrency:
+  group: windows-installer-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
