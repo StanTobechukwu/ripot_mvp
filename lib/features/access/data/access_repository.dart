@@ -10,11 +10,20 @@ import '../../../core/firebase/cloud_documents.dart';
 import '../../../core/utils/ids.dart';
 import '../domain/access_state.dart';
 import 'account_access_cache.dart';
+import 'windows_access_cache.dart';
 
 class AccessRepository {
-  AccessRepository({AccountSession? session, CloudDocuments? documents})
-    : _sessionOverride = session,
-      _documentsOverride = documents;
+  AccessRepository({
+    AccountSession? session,
+    CloudDocuments? documents,
+    ProtectedAccessCache? protectedCache,
+  }) : _sessionOverride = session,
+       _documentsOverride = documents,
+       _protectedCacheOverride = protectedCache;
+  final ProtectedAccessCache? _protectedCacheOverride;
+  ProtectedAccessCache? get _protectedCache =>
+      _protectedCacheOverride ??
+      (AccountRuntime.usesWindowsRest ? const WindowsAccessCache() : null);
   final AccountSession? _sessionOverride;
   final CloudDocuments? _documentsOverride;
   AccountSession? get _session => _sessionOverride ?? AccountRuntime.session;
@@ -37,7 +46,7 @@ class AccessRepository {
   Future<AccessState?> loadCached() async {
     final uid = _currentAuthUid();
     if (uid == null) return null;
-    final cached = _loadAccountCache(await _prefs, uid);
+    final cached = await _loadAccountCache(await _prefs, uid);
     if (_currentAuthUid() != uid || cached == null) return null;
     if (cached.plan == RipotPlan.premium && cached.premiumExpiresAt == null) {
       return null;
@@ -64,7 +73,7 @@ class AccessRepository {
       );
     }
 
-    final cached = _loadAccountCache(prefs, authUid);
+    final cached = await _loadAccountCache(prefs, authUid);
     final configured = _normalizeState(
       _applyConfig(
         cached ?? AccessState.initial(installationId: installationId),
@@ -96,14 +105,43 @@ class AccessRepository {
     await _syncToFirestore(normalized);
   }
 
-  AccessState? _loadAccountCache(SharedPreferences prefs, String authUid) {
-    final raw = prefs.getString(AccountAccessCache.keyForUid(authUid));
+  Future<AccessState?> _loadAccountCache(
+    SharedPreferences prefs,
+    String authUid,
+  ) async {
+    String? raw;
+    try {
+      final protected = _protectedCache;
+      raw = protected == null
+          ? prefs.getString(AccountAccessCache.keyForUid(authUid))
+          : await protected.read(authUid);
+    } catch (_) {
+      // Never fall back to an editable preferences entitlement on Windows.
+      return null;
+    }
     if (raw == null || raw.trim().isEmpty) return null;
-    final cached = AccountAccessCache.decodeForUid(raw, authUid: authUid);
+    var cached = AccountAccessCache.decodeForUid(raw, authUid: authUid);
     // An administrator override with no expiry must be re-verified online;
     // neither the quick load nor the full offline load can extend it forever.
     if (cached?.plan == RipotPlan.premium && cached?.premiumExpiresAt == null) {
       return null;
+    }
+    if (cached != null) {
+      // A pre-upgrade cache is not a fresh verification. Keep account/trial
+      // history, but require an online check before granting Premium.
+      final verified = cached.accessVerifiedAt;
+      final maximum = verified?.add(AccessState.offlineAllowance);
+      final deadline = cached.offlineAccessUntil;
+      cached = cached.copyWith(
+        offlineAccessUntil: maximum == null || deadline == null
+            ? DateTime.fromMillisecondsSinceEpoch(0)
+            : (deadline.isBefore(maximum) ? deadline : maximum),
+      );
+      final now = DateTime.now();
+      if (cached.accessLastSeenAt == null ||
+          now.isAfter(cached.accessLastSeenAt!)) {
+        cached = cached.copyWith(accessLastSeenAt: now);
+      }
     }
     return cached;
   }
@@ -113,10 +151,19 @@ class AccessRepository {
     String authUid,
     AccessState state,
   ) async {
-    await prefs.setString(
-      AccountAccessCache.keyForUid(authUid),
-      AccountAccessCache.encode(authUid: authUid, state: state),
-    );
+    final encoded = AccountAccessCache.encode(authUid: authUid, state: state);
+    try {
+      final protected = _protectedCache;
+      if (protected != null) {
+        await protected.write(authUid, encoded);
+        await prefs.remove(AccountAccessCache.keyForUid(authUid));
+      } else {
+        await prefs.setString(AccountAccessCache.keyForUid(authUid), encoded);
+      }
+    } catch (_) {
+      // A storage failure cannot undo a verified online grant. It simply means
+      // that another online check will be needed on the next launch.
+    }
   }
 
   String? _currentAuthUid() {
@@ -163,6 +210,9 @@ class AccessRepository {
       trialEndsAt: null,
       premiumStartedAt: null,
       premiumExpiresAt: null,
+      accessVerifiedAt: null,
+      offlineAccessUntil: null,
+      accessLastSeenAt: null,
       hasUsedTrial: false,
       founderCohort: null,
       founderNumber: null,
@@ -259,9 +309,14 @@ class AccessRepository {
       if (_currentAuthUid() != authUid) {
         return _withoutAccountEntitlement(state);
       }
-      if (data == null) return _withoutAccountEntitlement(state);
+      if (data == null) return _withoutAccountEntitlement(state).verifiedNow();
 
       var next = _applyPersistedRemoteAccessState(state, data);
+      // A normal paid entitlement must have a server-supplied expiry. Only an
+      // explicit administrator override below may be open-ended online.
+      if (next.plan == RipotPlan.premium && next.premiumExpiresAt == null) {
+        next = next.copyWith(plan: RipotPlan.free);
+      }
 
       final adminTrialEndsAt = _dateFromJson(
         data['adminTrialEndsAtIso'] ?? data['adminTrialEndsAt'],
@@ -299,6 +354,23 @@ class AccessRepository {
         );
       }
 
+      // This timestamp is refreshed only by a successful server-only read,
+      // never by an offline load or writing the local cache back to disk.
+      next = next.verifiedNow();
+      if (next.plan == RipotPlan.premium && overridePlan != 'premium') {
+        // Reading a stale Firestore document is not a fresh Play verification.
+        // A failing Play refresh must not keep extending an annual subscriber's
+        // offline window after a refund or revocation.
+        final paidVerifiedAt = _dateFromJson(data['billingLastVerifiedAtIso']);
+        final paidDeadline = paidVerifiedAt?.add(AccessState.offlineAllowance);
+        if (paidDeadline == null ||
+            paidDeadline.isBefore(next.offlineAccessUntil!)) {
+          next = next.copyWith(
+            offlineAccessUntil:
+                paidDeadline ?? DateTime.fromMillisecondsSinceEpoch(0),
+          );
+        }
+      }
       return next;
     } catch (_) {
       return _currentAuthUid() == authUid
@@ -364,15 +436,17 @@ class AccessRepository {
             installationId: await getOrCreateInstallationId(),
           );
       if (_currentAuthUid() != user.uid) return null;
-      return initial.copyWith(
-        plan: RipotPlan.trial,
-        trialStartAt: start,
-        trialEndsAt: end,
-        hasUsedTrial: true,
-        updatedAt: DateTime.now(),
-        founderCohort: data['founder'] == true ? 'founding_100' : null,
-        founderNumber: _nullableIntFromJson(data['founderNumber']),
-      );
+      return initial
+          .copyWith(
+            plan: RipotPlan.trial,
+            trialStartAt: start,
+            trialEndsAt: end,
+            hasUsedTrial: true,
+            updatedAt: DateTime.now(),
+            founderCohort: data['founder'] == true ? 'founding_100' : null,
+            founderNumber: _nullableIntFromJson(data['founderNumber']),
+          )
+          .verifiedNow();
     } catch (_) {
       return null;
     }

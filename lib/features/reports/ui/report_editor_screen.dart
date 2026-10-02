@@ -2,11 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../access/providers/access_provider.dart';
-import '../../access/ui/upgrade_screen.dart';
 import '../../access/ui/premium_prompt.dart';
 
 import '../domain/models/nodes.dart';
-import '../data/templates_repository.dart';
+import 'template_actions.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/image_services.dart';
 import '../services/media_ref.dart';
@@ -1120,18 +1119,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                   if (!mounted) return;
                   if (includeContent == null) return;
 
-                  final access = context.read<AccessProvider>().safeState;
-                  final repo = context.read<TemplatesRepository>();
-                  final templates = await repo.listTemplates();
-                  if (templates.where((t) => !t.isBuiltIn).length >=
-                      access.maxSavedTemplates) {
-                    if (!mounted) return;
-                    await showPremiumFeatureSheet(
-                      context,
-                      PremiumFeature.moreTemplates,
-                    );
-                    return;
-                  }
+                  if (!await canAddTemplate(context) || !mounted) return;
 
                   await vm.saveAsTemplate(
                     name: name.trim(),
@@ -3375,8 +3363,8 @@ class _ImagesManagerState extends State<_ImagesManager> {
   ) async {
     final access = context.read<AccessProvider>().safeState;
     if (!access.canUseImageLabels) {
-      await showPremiumFeatureSheet(context, PremiumFeature.imageLabels);
-      return;
+      final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.imageLabels);
+      if (!unlocked || !context.mounted) return;
     }
 
     final controller = TextEditingController(text: img.label);

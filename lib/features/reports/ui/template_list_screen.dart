@@ -3,7 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../records/ui/records_field_picker.dart';
 import '../../access/providers/access_provider.dart';
-import '../../access/ui/upgrade_screen.dart';
+import '../../access/ui/premium_prompt.dart';
 import 'package:provider/provider.dart';
 import '../../../core/ui/item_actions.dart';
 import '../../../core/utils/ids.dart';
@@ -313,8 +313,8 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
                   ),
                   if (!access.isPremiumLike)
                     TextButton(
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradeScreen())),
-                      child: const Text('See Premium for more'),
+                      onPressed: () => showPremiumFeatureSheet(context, PremiumFeature.moreTemplates),
+                      child: const Text('Explore more templates'),
                     ),
                 ],
               ),

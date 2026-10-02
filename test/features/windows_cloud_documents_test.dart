@@ -334,6 +334,7 @@ void main() {
             : document({
                 'plan': 'premium',
                 'playEntitlementExpiresAtIso': expiry.toIso8601String(),
+                'billingLastVerifiedAtIso': DateTime.now().toIso8601String(),
               });
       };
       final repo = AccessRepository(session: session, documents: documents);
@@ -365,12 +366,12 @@ void main() {
         AccountAccessCache.encode(authUid: 'account-a', state: state),
       );
       final premium =
-          AccessState.initial(
-            installationId: 'fictional-installation',
-          ).copyWith(
-            plan: RipotPlan.premium,
-            premiumExpiresAt: DateTime.now().add(const Duration(hours: 2)),
-          );
+          AccessState.initial(installationId: 'fictional-installation')
+              .copyWith(
+                plan: RipotPlan.premium,
+                premiumExpiresAt: DateTime.now().add(const Duration(hours: 2)),
+              )
+              .verifiedNow();
       await cache(premium);
       expect((await repo.load(refreshPlay: false)).isPremiumLike, isTrue);
       session.user = const AccountUser(uid: 'account-b');

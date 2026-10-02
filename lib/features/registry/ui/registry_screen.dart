@@ -29,8 +29,8 @@ Future<T?> _registryDialog<T>({
 
 Future<void> openRegistry(BuildContext context, {RecordEntry? source}) async {
   if (!context.read<AccessProvider>().safeState.canUseRecords) {
-    await showPremiumFeatureSheet(context, PremiumFeature.records);
-    return;
+    final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.registry);
+    if (!unlocked || !context.mounted) return;
   }
   await Navigator.push(
     context,

@@ -5,59 +5,11 @@ import 'package:provider/provider.dart';
 import '../domain/access_state.dart';
 import '../providers/access_provider.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../auth/ui/auth_screens.dart';
+import 'premium_access_action.dart';
 import '../../billing/providers/billing_provider.dart';
 
 class UpgradeScreen extends StatelessWidget {
   const UpgradeScreen({super.key});
-
-  Future<void> _startTrial(BuildContext context) async {
-    final auth = context.read<AuthProvider>();
-    if (!auth.isSignedIn) {
-      await openAccountSheet(context);
-      if (!context.mounted) return;
-      if (!context.read<AuthProvider>().isSignedIn) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Signed in. Tap Start Premium trial when you are ready.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    await context.read<AccessProvider>().refresh();
-    if (!context.mounted) return;
-    final access = context.read<AccessProvider>().safeState;
-    if (!access.canActivatePremiumTrial) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            access.hadTrialButExpired
-                ? 'This account has already used its Premium trial.'
-                : 'Premium access is already active.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    final activated = await context
-        .read<AccessProvider>()
-        .activatePremiumTrial();
-    if (!context.mounted) return;
-    final updated = context.read<AccessProvider>().safeState;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          activated
-              ? 'Premium Trial started. Ends ${updated.trialEndDateLabel}.'
-              : 'Premium Trial could not be started.',
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,16 +114,10 @@ class UpgradeScreen extends StatelessWidget {
           const SizedBox(height: 12),
           const _PlanComparison(),
           const SizedBox(height: 16),
-          if (access.canActivatePremiumTrial)
-            FilledButton.icon(
-              onPressed: () => _startTrial(context),
-              icon: const Icon(Icons.workspace_premium_outlined),
-              label: Text(
-                auth.isSignedIn
-                    ? 'Start Premium trial'
-                    : 'Sign in to start Premium trial',
-              ),
-            )
+          if (!auth.isSignedIn ||
+              !access.hasCurrentVerification ||
+              access.canActivatePremiumTrial)
+            PremiumAccessAction(onViewPlans: () {})
           else if (access.isPremiumLike)
             Card(
               child: ListTile(
@@ -202,12 +148,28 @@ class UpgradeScreen extends StatelessWidget {
                 ),
               ),
             ),
-          if (auth.isSignedIn && access.plan != RipotPlan.premium) ...[
+          if (auth.isSignedIn &&
+              access.hasCurrentVerification &&
+              !access.isPremiumLike &&
+              !access.canActivatePremiumTrial) ...[
             const SizedBox(height: 12),
             if (BillingProvider.supportsGooglePlay)
               const _BillingPlansCard()
             else
               const _AccountPremiumCard(),
+          ],
+          if (auth.isSignedIn &&
+              BillingProvider.supportsGooglePlay &&
+              (access.isPremiumLike ||
+                  access.canActivatePremiumTrial ||
+                  !access.hasCurrentVerification)) ...[
+            TextButton.icon(
+              onPressed: context.watch<BillingProvider>().canRestore
+                  ? () => context.read<BillingProvider>().restorePurchases()
+                  : null,
+              icon: const Icon(Icons.restore),
+              label: const Text('Restore an existing subscription'),
+            ),
           ],
           if (!access.isPremiumLike && access.canActivatePremiumTrial) ...[
             const SizedBox(height: 8),
@@ -477,7 +439,12 @@ class _AccessStatusText extends StatelessWidget {
         'Sign in to view your Premium status. Premium trials and subscriptions are linked to your Ripot account.',
       );
     }
-    if (access.plan == RipotPlan.premium) {
+    if (access.needsOnlineVerification) {
+      return const Text(
+        'Reconnect to confirm your Premium access. Saved reports and drafts remain available.',
+      );
+    }
+    if (access.plan == RipotPlan.premium && access.isPremiumLike) {
       return const Text('Premium features are active.');
     }
     if (access.isTrialActive) {
@@ -513,7 +480,8 @@ class _PlanComparison extends StatelessWidget {
       ['Ripot branding removed', 'No', 'Yes'],
       ['Advanced layout/margins', 'No', 'Yes'],
       ['Your templates (built-ins excluded)', '4', '20'],
-      ['Saved reports', '10', '100'],
+      ['Finalized reports on this device', '10', '100'],
+      ['Drafts (excluded from report limit)', 'Unlimited', 'Unlimited'],
       ['Records table and filters', 'No', 'Yes'],
     ];
     return Card(

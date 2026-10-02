@@ -19,7 +19,8 @@ Future<bool> canAddTemplate(BuildContext context) async {
   if (templates.where((t) => !t.isBuiltIn).length < access.maxSavedTemplates)
     return true;
   if (!access.isPremiumLike) {
-    await showPremiumFeatureSheet(context, PremiumFeature.moreTemplates);
+    final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.moreTemplates);
+    if (unlocked && context.mounted) return canAddTemplate(context);
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

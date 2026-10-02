@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,7 +29,15 @@ class ReportSummary {
   bool get canContinueEditing => !isFinalized;
 }
 
+class FinalizedReportLimitException implements Exception {
+  const FinalizedReportLimitException(this.limit);
+  final int limit;
+}
+
 class ReportsRepository {
+  // Serialize finalizations across repository instances. Two pending saves must
+  // not both take the last available slot. Draft saves remain unrestricted.
+  static Future<void> _finalizationTail = Future<void>.value();
   static const _reportsIndexKey = 'reports.index';
   static const _reportPrefix = 'reports.doc.';
   static const _pdfPrefix = 'reports.pdf.';
@@ -156,6 +165,39 @@ class ReportsRepository {
   }
 
   Future<void> savePdfBytesForReport(
+    String reportId,
+    Uint8List bytes, {
+    required ReportDoc doc,
+    required int Function() maxFinalizedReports,
+  }) {
+    final completion = Completer<void>();
+    _finalizationTail = _finalizationTail.then((_) async {
+      try {
+        if (reportId != doc.reportId || bytes.isEmpty) {
+          throw ArgumentError(
+            'A matching report and non-empty PDF are required.',
+          );
+        }
+        final reports = await listReports();
+        final alreadyFinal = reports.any(
+          (report) => report.reportId == reportId && report.isFinalReport,
+        );
+        final limit = maxFinalizedReports();
+        if (!alreadyFinal &&
+            reports.where((report) => report.isFinalReport).length >= limit) {
+          throw FinalizedReportLimitException(limit);
+        }
+        await saveReport(doc);
+        await _persistFinalPdf(reportId, bytes, doc: doc);
+        completion.complete();
+      } catch (error, stack) {
+        completion.completeError(error, stack);
+      }
+    });
+    return completion.future;
+  }
+
+  Future<void> _persistFinalPdf(
     String reportId,
     Uint8List bytes, {
     required ReportDoc doc,

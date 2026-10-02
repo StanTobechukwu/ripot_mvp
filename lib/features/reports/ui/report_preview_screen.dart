@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/web/file_download.dart';
 import '../../access/providers/access_provider.dart';
-import '../../access/ui/upgrade_screen.dart';
+import '../../access/ui/premium_prompt.dart';
 import '../../records/providers/records_provider.dart';
 import '../../records/ui/record_details_screen.dart';
 import '../data/letterhead_repository.dart';
@@ -114,7 +114,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   Future<String> _savePdfToLocal(Uint8List bytes, ReportDoc doc) async {
     final repo = context.read<ReportsRepository>();
 
-    await repo.savePdfBytesForReport(doc.reportId, bytes, doc: doc);
+    final access = context.read<AccessProvider>();
+    await repo.savePdfBytesForReport(doc.reportId, bytes, doc: doc,
+      maxFinalizedReports: () => access.safeState.maxSavedReports);
 
     return repo.pdfFileNameForDoc(doc);
   }
@@ -147,138 +149,61 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   Future<void> _onSavePressed() async {
     if (_saving) return;
 
+    setState(() => _saving = true);
     final vm = context.read<ReportEditorProvider>();
     final reportsRepo = context.read<ReportsRepository>();
-    final access = context.read<AccessProvider>().safeState;
-
-    final currentReports = await reportsRepo.listReports();
-
-    final isExisting = currentReports.any((r) => r.reportId == vm.doc.reportId);
-
-    if (!isExisting && currentReports.length >= access.maxSavedReports) {
-      if (!mounted) return;
-
-      final open = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Report limit reached'),
-          content: Text(
-            'Free plan allows up to '
-            '${access.maxSavedReports} saved reports. '
-            'Start a premium trial to save more.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Later'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('See Premium'),
-            ),
-          ],
-        ),
-      );
-
-      if (open == true && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-        );
-      }
-
-      return;
-    }
-
-    final shouldContinue = await _confirmFinalizePdf();
-
-    if (!shouldContinue || !mounted) {
-      return;
-    }
-
-    setState(() => _saving = true);
-
+    final accessProvider = context.read<AccessProvider>();
     try {
+      // Save editable work before checking the final-PDF allowance.
       await vm.save();
-
-      final bytes = await _buildBytes();
-
-      final fileName = await _savePdfToLocal(bytes, vm.doc);
-
+      final reports = await reportsRepo.listReports();
       if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('PDF saved: $fileName')));
-
-      await _offerAddToRecords();
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
+      final alreadyFinal = reports.any((r) => r.reportId == vm.doc.reportId && r.isFinalReport);
+      if (!alreadyFinal && reports.where((r) => r.isFinalReport).length >= accessProvider.safeState.maxSavedReports) {
+        final proceed = await _offerMoreReports();
+        if (!proceed || !mounted) return;
       }
+      if (!await _confirmFinalizePdf() || !mounted) return;
+      final bytes = await _buildBytes();
+      if (!mounted) return;
+      final fileName = await _savePdfToLocal(bytes, vm.doc);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF saved: $fileName')));
+      await _offerAddToRecords();
+    } on FinalizedReportLimitException {
+      // Rechecked at the write: handles another save or expiry while rendering.
+      if (mounted) await _offerMoreReports();
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('The final PDF could not be saved. Please try again.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<bool> _offerMoreReports() async {
+    final access = context.read<AccessProvider>().safeState;
+    if (!access.isPremiumLike) {
+      return showPremiumFeatureSheet(context, PremiumFeature.moreReports,
+        message: 'Your draft has been saved.');
+    }
+    await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Finalized report limit reached'),
+      content: Text('Your plan keeps up to ${access.maxSavedReports} finalized reports on this device. '
+        'Your draft and existing reports are safe. Export any reports you want to keep before choosing to remove them to make space.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Keep draft'))],
+    ));
+    return false;
   }
 
   Future<void> _offerAddToRecords() async {
     final access = context.read<AccessProvider>().safeState;
 
     if (!access.canUseRecords) {
-      if (!mounted) return;
-
-      final shouldUpgrade = await showModalBottomSheet<bool>(
-        context: context,
-        showDragHandle: true,
-        builder: (sheetContext) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Records is a Premium feature',
-                  style: Theme.of(
-                    sheetContext,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Your PDF has been saved. Upgrade to add finalized reports '
-                  'to searchable Records tables and procedure filters.',
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(sheetContext, false),
-                        child: const Text('Not now'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => Navigator.pop(sheetContext, true),
-                        icon: const Icon(Icons.workspace_premium_outlined),
-                        label: const Text('View Premium'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
-      if (shouldUpgrade == true && mounted) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-        );
-      }
-
-      return;
+      final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.records,
+        message: 'Your PDF has been saved. Adding it to Records is optional.');
+      if (!unlocked || !mounted) return;
     }
 
     final vm = context.read<ReportEditorProvider>();
@@ -369,36 +294,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     final access = context.read<AccessProvider>().safeState;
 
     if (!access.canUseLetterhead) {
-      if (!mounted) return;
-
-      final open = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Premium feature'),
-          content: const Text(
-            'Letterhead options are available in Premium Trial and Premium.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Later'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('See Premium'),
-            ),
-          ],
-        ),
-      );
-
-      if (open == true && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-        );
-      }
-
-      return;
+      final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.customLetterhead);
+      if (!unlocked || !mounted) return;
     }
 
     final vm = context.read<ReportEditorProvider>();

@@ -13,7 +13,6 @@ import '../../records/data/records_repository.dart';
 import '../data/reports_repository.dart';
 
 import '../../access/providers/access_provider.dart';
-import '../../access/ui/upgrade_screen.dart';
 import '../data/templates_repository.dart';
 import '../services/template_file_actions.dart';
 import '../domain/models/nodes.dart';
@@ -72,32 +71,7 @@ class _TemplateEditorBody extends StatelessWidget {
           templates.where((t) => !t.isBuiltIn).length >=
               access.maxSavedTemplates) {
         if (!context.mounted) return false;
-        final open = await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Template limit reached'),
-            content: Text(
-              'Free plan allows up to ${access.maxSavedTemplates} templates. Start a premium trial to save more.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Later'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('See Premium'),
-              ),
-            ],
-          ),
-        );
-        if (open == true && context.mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-          );
-        }
-        return false;
+        if (!await canAddTemplate(context) || !context.mounted) return false;
       }
 
       final doc = vm.buildForSave(

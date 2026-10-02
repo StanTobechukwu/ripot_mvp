@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+import '../providers/access_provider.dart';
+import 'premium_access_action.dart';
 import 'upgrade_screen.dart';
 
 enum PremiumFeature {
@@ -9,6 +12,7 @@ enum PremiumFeature {
   removeBranding,
   customMargins,
   records,
+  registry,
   premiumTemplate,
   moreTemplates,
   moreReports,
@@ -53,9 +57,15 @@ PremiumPromptContent premiumPromptContent(PremiumFeature feature) {
       );
     case PremiumFeature.records:
       return const PremiumPromptContent(
-        title: 'Turn reports into structured records',
+        title: 'Records is included with Premium',
         body:
-            'Premium unlocks Records, filtering and structured-data workflows.',
+            'Organize finalized reports in searchable tables, with filters to help you find them.',
+      );
+    case PremiumFeature.registry:
+      return const PremiumPromptContent(
+        title: 'Registry is included with Premium',
+        body:
+            'Keep patient details and dated updates together in your registry.',
       );
     case PremiumFeature.premiumTemplate:
       return const PremiumPromptContent(
@@ -73,7 +83,7 @@ PremiumPromptContent premiumPromptContent(PremiumFeature feature) {
       return const PremiumPromptContent(
         title: 'Save more reports',
         body:
-            'You have reached the Free saved-report limit. Premium increases your report allowance.',
+            'Free keeps up to 10 finalized reports on this device; Premium keeps up to 100. Drafts do not count. Your existing reports stay available.',
       );
     case PremiumFeature.advancedLayout:
       return const PremiumPromptContent(
@@ -83,67 +93,62 @@ PremiumPromptContent premiumPromptContent(PremiumFeature feature) {
   }
 }
 
-Future<void> showPremiumFeatureSheet(
+Future<bool> showPremiumFeatureSheet(
   BuildContext context,
-  PremiumFeature feature,
-) async {
+  PremiumFeature feature, {
+  String? message,
+}) async {
+  if (context.read<AccessProvider>().safeState.isPremiumLike) return true;
   final copy = premiumPromptContent(feature);
-  final action = await showModalBottomSheet<String>(
+  final unlocked = await showModalBottomSheet<bool>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (sheetContext) {
-      final theme = Theme.of(sheetContext);
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.workspace_premium_outlined,
-                    color: theme.colorScheme.primary,
+    builder: (sheetContext) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              copy.title,
+              style: Theme.of(
+                sheetContext,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            if (message != null) ...[Text(message), const SizedBox(height: 8)],
+            Text(copy.body),
+            const SizedBox(height: 12),
+            PremiumAccessAction(
+              onUnlocked: () => Navigator.pop(sheetContext, true),
+              onViewPlans: () async {
+                await Navigator.push(
+                  sheetContext,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const UpgradeScreen(),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      copy.title,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(copy.body),
-              const SizedBox(height: 8),
-              Text(
-                'Start your available Premium trial or view Premium options.',
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () => Navigator.pop(sheetContext, 'premium'),
-                child: const Text('See Premium'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(sheetContext, 'later'),
-                child: const Text('Continue with Free'),
-              ),
-            ],
-          ),
+                );
+                if (sheetContext.mounted &&
+                    sheetContext
+                        .read<AccessProvider>()
+                        .safeState
+                        .isPremiumLike) {
+                  Navigator.pop(sheetContext, true);
+                }
+              },
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(sheetContext, false),
+              child: const Text('Not now'),
+            ),
+          ],
         ),
-      );
-    },
+      ),
+    ),
   );
-  if (action == 'premium' && context.mounted) {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-    );
-  }
+  return unlocked == true &&
+      context.mounted &&
+      context.read<AccessProvider>().safeState.isPremiumLike;
 }

@@ -1,0 +1,25 @@
+name: Check report limits and account access
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/trial-aware-report-limits]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Analyze access and report changes
+        run: flutter analyze --no-pub --no-fatal-infos lib/app.dart lib/features/access lib/features/reports/ui/report_preview_screen.dart lib/features/reports/data/reports_repository.dart lib/features/reports/ui/template_actions.dart lib/features/reports/ui/template_editor_screen.dart lib/features/reports/ui/template_list_screen.dart lib/features/reports/ui/report_editor_screen.dart lib/features/reports/ui/reports_list_screen.dart lib/features/records/ui/records_screen.dart lib/features/registry/ui/registry_screen.dart test/features/access
+      - name: Verify report storage, trials, offline access and Windows account flows
+        run: flutter test --no-pub test/features/access test/features/account_welcome_test.dart test/features/windows_account_runtime_test.dart test/features/windows_billing_test.dart test/features/windows_cloud_documents_test.dart test/features/windows_account_session_test.dart test/features/windows_account_functions_test.dart --reporter expanded

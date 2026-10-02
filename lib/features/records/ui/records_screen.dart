@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/web/file_download.dart';
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/upgrade_screen.dart';
+import '../../access/ui/premium_access_action.dart';
 import '../../reports/data/reports_repository.dart';
 import '../../reports/ui/saved_pdf_viewer_screen.dart';
 import '../domain/record_models.dart';
@@ -961,18 +962,16 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Upgrade to organize finalized reports in searchable list and table views, filter by report type, and export record tables.',
+                        'Organize finalized reports in searchable list and table views, filter by report type, and export record tables.',
                       ),
                       const SizedBox(height: 16),
-                      FilledButton.icon(
-                        onPressed: () => Navigator.push(
+                      PremiumAccessAction(
+                        onViewPlans: () => Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const UpgradeScreen(),
                           ),
                         ),
-                        icon: const Icon(Icons.workspace_premium_outlined),
-                        label: const Text('View Premium'),
                       ),
                     ],
                   ),

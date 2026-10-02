@@ -18,6 +18,7 @@ import 'features/records/providers/records_provider.dart';
 import 'core/navigation/app_route_observer.dart';
 import 'core/firebase/installation_activity.dart';
 import 'features/auth/ui/startup_account_gate.dart';
+import 'features/access/ui/access_recheck.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -94,6 +95,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
         ),
         navigatorObservers: [appRouteObserver],
+        builder: (_, child) => AccessRecheck(child: child ?? const SizedBox.shrink()),
         home: const StartupAccountGate(child: ReportsListScreen()),
       ),
     );

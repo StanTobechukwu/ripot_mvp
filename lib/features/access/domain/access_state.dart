@@ -21,6 +21,10 @@ class AccessState {
   final bool founderEarlyFeatureAccess;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? accessVerifiedAt;
+  final DateTime? offlineAccessUntil;
+  final DateTime? accessLastSeenAt;
+  static const offlineAllowance = Duration(hours: 72);
 
   /// Remote-controllable access settings. Defaults are deliberately safe so the
   /// app still works when Firebase/Firestore is unavailable.
@@ -37,6 +41,9 @@ class AccessState {
     required this.isEarlyUser,
     required this.createdAt,
     required this.updatedAt,
+    this.accessVerifiedAt,
+    this.offlineAccessUntil,
+    this.accessLastSeenAt,
     this.trialStartAt,
     this.trialEndsAt,
     this.premiumStartedAt,
@@ -88,11 +95,47 @@ class AccessState {
     return DateTime.now().isBefore(endsAt);
   }
 
+  // Trial dates still describe the server's trial even when offline access
+  // needs rechecking. Billing must not offer a second purchase during that trial.
   bool get isPremiumLike =>
-      (plan == RipotPlan.premium &&
-          (premiumExpiresAt == null ||
-              DateTime.now().isBefore(premiumExpiresAt!))) ||
-      isTrialActive;
+      _offlineWindowValid &&
+      ((plan == RipotPlan.premium &&
+              (premiumExpiresAt == null ||
+                  DateTime.now().isBefore(premiumExpiresAt!))) ||
+          isTrialActive);
+
+  bool get _offlineWindowValid {
+    final now = DateTime.now();
+    if (offlineAccessUntil != null && !now.isBefore(offlineAccessUntil!)) {
+      return false;
+    }
+    // Small clock corrections are harmless; a substantial rollback must be
+    // checked online before restoring Premium access.
+    for (final stamp in [accessVerifiedAt, accessLastSeenAt]) {
+      if (stamp != null &&
+          now.isBefore(stamp.subtract(const Duration(minutes: 5)))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool get hasCurrentVerification =>
+      accessVerifiedAt != null &&
+      offlineAccessUntil != null &&
+      _offlineWindowValid;
+
+  bool get needsOnlineVerification =>
+      (plan == RipotPlan.premium || isTrialActive) && !hasCurrentVerification;
+
+  AccessState verifiedNow() {
+    final now = DateTime.now();
+    return copyWith(
+      accessVerifiedAt: now,
+      accessLastSeenAt: now,
+      offlineAccessUntil: now.add(offlineAllowance),
+    );
+  }
 
   bool get canActivatePremiumTrial {
     // One trial per account. Only the server may grant it and choose its dates.
@@ -122,6 +165,7 @@ class AccessState {
     return _dateOnly(endsAt);
   }
 
+  // Stored final PDFs only. Editable drafts do not consume this allowance.
   int get maxSavedReports => isPremiumLike ? 100 : 10;
   int get maxSavedTemplates => isPremiumLike ? 20 : 4;
   int get maxImagesPerReport => isPremiumLike ? 12 : 4;
@@ -139,7 +183,7 @@ class AccessState {
       case RipotPlan.free:
         return 'Free';
       case RipotPlan.trial:
-        return isTrialActive ? 'Premium Trial' : 'Free';
+        return isPremiumLike ? 'Premium Trial' : 'Free';
       case RipotPlan.premium:
         return isPremiumLike ? 'Premium' : 'Free';
     }
@@ -158,6 +202,9 @@ class AccessState {
     int? founderFirstYearDiscountPercent,
     bool? founderEarlyFeatureAccess,
     DateTime? updatedAt,
+    Object? accessVerifiedAt = _unset,
+    Object? offlineAccessUntil = _unset,
+    Object? accessLastSeenAt = _unset,
     bool? earlyAccessEnabled,
     int? earlyAccessDurationDays,
     Object? earlyAccessCutoffAt = _unset,
@@ -195,6 +242,15 @@ class AccessState {
           founderEarlyFeatureAccess ?? this.founderEarlyFeatureAccess,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      accessVerifiedAt: identical(accessVerifiedAt, _unset)
+          ? this.accessVerifiedAt
+          : accessVerifiedAt as DateTime?,
+      offlineAccessUntil: identical(offlineAccessUntil, _unset)
+          ? this.offlineAccessUntil
+          : offlineAccessUntil as DateTime?,
+      accessLastSeenAt: identical(accessLastSeenAt, _unset)
+          ? this.accessLastSeenAt
+          : accessLastSeenAt as DateTime?,
       earlyAccessEnabled: earlyAccessEnabled ?? this.earlyAccessEnabled,
       earlyAccessDurationDays:
           earlyAccessDurationDays ?? this.earlyAccessDurationDays,
@@ -228,6 +284,9 @@ class AccessState {
       'founderEarlyFeatureAccess': founderEarlyFeatureAccess,
       'createdAtIso': createdAt.toIso8601String(),
       'updatedAtIso': updatedAt.toIso8601String(),
+      'accessVerifiedAtIso': accessVerifiedAt?.toIso8601String(),
+      'offlineAccessUntilIso': offlineAccessUntil?.toIso8601String(),
+      'accessLastSeenAtIso': accessLastSeenAt?.toIso8601String(),
       'earlyAccessEnabled': earlyAccessEnabled,
       'earlyAccessDurationDays': earlyAccessDurationDays,
       'earlyAccessCutoffAtIso': earlyAccessCutoffAt?.toIso8601String(),
@@ -277,6 +336,15 @@ class AccessState {
           (json['founderEarlyFeatureAccess'] as bool?) ?? false,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      accessVerifiedAt: DateTime.tryParse(
+        (json['accessVerifiedAtIso'] as String?) ?? '',
+      ),
+      offlineAccessUntil: DateTime.tryParse(
+        (json['offlineAccessUntilIso'] as String?) ?? '',
+      ),
+      accessLastSeenAt: DateTime.tryParse(
+        (json['accessLastSeenAtIso'] as String?) ?? '',
+      ),
       earlyAccessEnabled: (json['earlyAccessEnabled'] as bool?) ?? false,
       earlyAccessDurationDays: _intFromJson(
         json['earlyAccessDurationDays'],

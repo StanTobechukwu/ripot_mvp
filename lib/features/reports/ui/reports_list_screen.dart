@@ -43,8 +43,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
 
   Future<void> _selectSection(int index) async {
     if ((index == 1 || index == 2) && !context.read<AccessProvider>().safeState.canUseRecords) {
-      await showPremiumFeatureSheet(context, PremiumFeature.records);
-      return;
+      final unlocked = await showPremiumFeatureSheet(context,
+        index == 1 ? PremiumFeature.records : PremiumFeature.registry);
+      if (!unlocked || !mounted) return;
     }
     if (!mounted) return;
     setState(() => _section = index);
@@ -345,8 +346,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             return;
           }
           if (!context.read<AccessProvider>().safeState.canUseRecords) {
-            await showPremiumFeatureSheet(context, PremiumFeature.records);
-            return;
+            final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.records);
+            if (!unlocked || !context.mounted) return;
           }
           final records = context.read<RecordsRepository>();
           final doc = await repo.loadReport(report.reportId);
