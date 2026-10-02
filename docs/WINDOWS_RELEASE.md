@@ -1,5 +1,26 @@
 # Ripot Windows preparation
 
+## 2 October 2026 publication update
+
+The owner authorised public distribution of 1.0.12 (47). The exact installer
+from source `328bc59874a93a97ae5a451ee386885d65cef77a`, SHA-256
+`c674627f8972a3d8be2340579b31042333f63117cd851be4c9c0865f90694718`, is published at
+https://github.com/StanTobechukwu/ripot_mvp/releases/tag/windows-v1.0.12-47.
+It passed installer and native guest report workflow checks. Paid-account
+Windows verification remains outstanding; the installer is unsigned.
+
+The initial landing deployment was rejected because Firebase Spark Hosting
+blocks executable files. The corrected deployment keeps the installer on
+GitHub Releases and the landing page/checksum on Firebase. Use the preparer's
+`--installer-url` option with the published asset URL. It removes the matching
+staged EXE and adds executable patterns to the Hosting ignore list. Do not
+rename executables to bypass Firebase's restriction.
+
+Source for the hosting restriction:
+https://firebase.google.com/docs/hosting/faq-and-troubleshooting
+
+The notes below retain earlier build history and validation limitations.
+
 This branch starts from **1.0.11+46 with the updated registry**, including direct
 table editing, field creation from either registry or patient, patient history,
 and the compact Add/Update menus. It does not replace that registry with the

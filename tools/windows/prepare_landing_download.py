@@ -15,6 +15,7 @@ import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 def digest(path: Path) -> str:
@@ -31,15 +32,18 @@ def once(text: str, old: str, new: str) -> str:
     return text.replace(old, new, 1)
 
 
-def update_index(text: str, release: dict) -> str:
+def update_index(text: str, release: dict, installer_url: str | None = None) -> str:
     text = re.sub(r'<!--ripot-windows-preview-start-->.*?<!--ripot-windows-preview-end-->', '', text, flags=re.S)
     text = text.replace('Android &amp; web · Windows test build', 'Available on Android, Windows &amp; web')
     # This marker allows later versions to update their URL and details in place.
     filename = release['filename']
-    installer_url = f'downloads/windows/{filename}'
-    checksum_url = f'{installer_url}.sha256'
+    local_url = f'downloads/windows/{filename}'
+    checksum_url = f'{local_url}.sha256'
+    external = installer_url is not None
+    installer_url = installer_url or local_url
     label = f"Version {release['version']} · {release['sizeBytes'] / (1024 * 1024):.1f} MB"
-    button = (f'<a class="btn btn-outline" data-ripot-windows-download href="{installer_url}" download>'
+    download_attribute = '' if external else ' download'
+    button = (f'<a class="btn btn-outline" data-ripot-windows-download href="{html.escape(installer_url, quote=True)}"{download_attribute}>'
               'Download for Windows</a>')
     note = (f'<p class="plan-note" data-ripot-windows-note>Windows 10/11 · Intel/AMD 64-bit PCs · '
             f'{html.escape(label)}. <a href="{checksum_url}" style="color:inherit">SHA-256 checksum</a></p>')
@@ -106,7 +110,8 @@ def update_windows_notes(text: str, release: dict) -> str:
     return text
 
 
-def prepare(landing: Path, release_dir: Path, *, preview: bool = False) -> None:
+def prepare(landing: Path, release_dir: Path, *, preview: bool = False,
+            installer_url: str | None = None) -> None:
     landing, release_dir = landing.resolve(), release_dir.resolve()
     index_path = landing / 'y/index.html'
     config_path = landing / 'firebase.json'
@@ -130,6 +135,12 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False) -> None:
         raise ValueError('Invalid release version.')
     if filename != f"Ripot-Setup-{release['version']}-{release['build']}-windows-x64.exe":
         raise ValueError('Installer name does not match its version/build.')
+    if installer_url:
+        parsed_url = urlsplit(installer_url)
+        if (parsed_url.scheme != 'https' or not parsed_url.netloc or
+                parsed_url.username or parsed_url.password or parsed_url.query or
+                parsed_url.fragment or not parsed_url.path.endswith('/' + filename)):
+            raise ValueError('Use the verified HTTPS download URL for this exact installer filename.')
     installer = release_dir / filename
     if installer.stat().st_size != release['sizeBytes'] or digest(installer) != release['sha256']:
         raise ValueError('Installer checksum or size does not match windows-release.json.')
@@ -145,7 +156,7 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False) -> None:
     # for a trusted build, code signing or testing the installer on Windows.
 
     source = index_path.read_text(encoding='utf-8')
-    updated = update_windows_notes(update_index(source, release), release)
+    updated = update_windows_notes(update_index(source, release, installer_url), release)
     if preview:
         updated = updated.replace('Download for Windows</a>', 'Download Windows test build</a>')
         updated = updated.replace('Available on Android, Windows &amp; web', 'Android &amp; web · Windows test build')
@@ -164,6 +175,11 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False) -> None:
     }
     headers[:] = [rule for rule in headers if rule.get('source') != download_rule['source']]
     headers.append(download_rule)
+    if installer_url:
+        ignored = hosting.setdefault('ignore', [])
+        for pattern in ('**/*.exe', '**/*.dll', '**/*.bat', '**/*.apk', '**/*.ipa'):
+            if pattern not in ignored:
+                ignored.append(pattern)
     downloads = landing / 'y/downloads/windows'
     target = downloads / filename
     if target.exists() and digest(target) != release['sha256']:
@@ -175,12 +191,21 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False) -> None:
     shutil.copy2(index_path, backup / 'index.html')
     shutil.copy2(config_path, backup / 'firebase.json')
     downloads.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(installer, target)
+    if installer_url:
+        # Spark Hosting blocks executables. Serve the real EXE from a verified
+        # release host; do not disguise or rename it to evade that restriction.
+        if target.exists():
+            target.unlink()
+        release = {**release, 'downloadUrl': installer_url}
+    else:
+        shutil.copy2(installer, target)
     (downloads / f'{filename}.sha256').write_text(f"{release['sha256']}  {filename}\n", encoding='ascii')
     (downloads / 'windows-release.json').write_text(json.dumps(release, indent=2) + '\n', encoding='utf-8')
     config_path.write_text(json.dumps(config, indent=2) + '\n', encoding='utf-8')
     index_path.write_text(updated, encoding='utf-8')
-    print(f'Prepared {filename} and two download buttons in {index_path}')
+    print(f'Prepared two download buttons in {index_path}')
+    if installer_url:
+        print(f'Installer served externally: {installer_url}')
     print(f'Original page/config saved in {backup}')
     print('Nothing has been deployed. From the landing folder, run:')
     print('  python3 verify_landing.py')
@@ -197,9 +222,11 @@ def main() -> int:
     parser.add_argument('--landing', required=True, type=Path)
     parser.add_argument('--release-dir', required=True, type=Path)
     parser.add_argument('--preview', action='store_true', help='Prepare a clearly labelled local preview for an internal test build.')
+    parser.add_argument('--installer-url', help='Verified HTTPS installer download URL; keeps EXE files out of Firebase Spark Hosting.')
     args = parser.parse_args()
     try:
-        prepare(args.landing, args.release_dir, preview=args.preview)
+        prepare(args.landing, args.release_dir, preview=args.preview,
+                installer_url=args.installer_url)
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f'No download published: {error}', file=sys.stderr)
         return 1

@@ -1,0 +1,61 @@
+name: Publish verified Windows download
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/windows-github-release]
+    paths: [.github/workflows/publish-windows-release.yml]
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Retrieve the installer that passed the native Windows checks
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 36981815193
+          artifact-ids: 11215946945
+          merge-multiple: true
+          path: release
+      - name: Verify the exact approved installer
+        working-directory: release
+        run: |
+          echo 'c674627f8972a3d8be2340579b31042333f63117cd851be4c9c0865f90694718  Ripot-Setup-1.0.12-47-windows-x64.exe' > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          test "$(stat --format=%s Ripot-Setup-1.0.12-47-windows-x64.exe)" = 19082516
+      - name: Publish Windows download assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > release-notes.txt <<'NOTES'
+          Ripot for Windows 10/11, Intel/AMD 64-bit PCs.
+
+          Download and run Ripot-Setup-1.0.12-47-windows-x64.exe.
+          This installer is unsigned; Windows may display an unknown-publisher warning.
+
+          This release includes a welcome screen, clearer trial and Premium prompts,
+          and saved final-PDF limits of 10 on Free and 100 during an active trial or Premium.
+          Eligible accounts can activate a free Premium trial in Ripot. Paid subscriptions
+          use Google Play on Android; sign in with the same Ripot account on Windows.
+
+          The installer passed hash verification, install, startup, uninstall and native
+          draft/PDF/report restart checks. Live paid-account sign-in and online/offline
+          Premium verification remain outstanding. Source: 328bc59874a93a97ae5a451ee386885d65cef77a.
+          NOTES
+          gh release create windows-v1.0.12-47 \
+            --target 328bc59874a93a97ae5a451ee386885d65cef77a \
+            --title 'Ripot for Windows 1.0.12 (47)' \
+            --notes-file release-notes.txt \
+            release/Ripot-Setup-1.0.12-47-windows-x64.exe release/SHA256SUMS.txt
+          gh release view windows-v1.0.12-47 --json url,assets > release/published-release.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-publication-evidence
+          path: release/published-release.json
