@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - codex/windows-download
+      - codex/trial-aware-report-limits
 
 permissions:
   contents: read
@@ -36,6 +37,21 @@ jobs:
         env:
           RIPOT_SOURCE_COMMIT: ${{ github.sha }}
         run: ./tools/windows/check_windows_package.ps1 -ArtifactDirectory build/windows-distribution -ExpectedCommit $env:RIPOT_SOURCE_COMMIT -OutputDirectory verified
+
+      - name: Check report saving and account prompts in the installed app
+        shell: powershell
+        env:
+          RIPOT_SOURCE_COMMIT: ${{ github.sha }}
+        run: ./tools/windows/check_installed_workflows.ps1 -ArtifactDirectory verified -OutputDirectory workflow-check -ExpectedCommit $env:RIPOT_SOURCE_COMMIT
+
+      - name: Upload installed workflow evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-windows-workflow-check-${{ github.run_number }}
+          path: workflow-check/*
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Upload installer download
         uses: actions/upload-artifact@v4

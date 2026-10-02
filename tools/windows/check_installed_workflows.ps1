@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ArtifactDirectory,
-    [Parameter(Mandatory)][string]$OutputDirectory
+    [Parameter(Mandatory)][string]$OutputDirectory,
+    [string]$ExpectedCommit = '599633c46f7d860fd2f8c24daa46e4baf60f865e'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -174,7 +175,7 @@ function Click-WindowPoint([int]$X, [int]$Y) {
 
 try {
     $manifest = Get-Content (Join-Path $package 'windows-release.json') -Raw | ConvertFrom-Json
-    if ($manifest.sourceCommit -ne '599633c46f7d860fd2f8c24daa46e4baf60f865e' -or $manifest.sourceDirty) { throw 'Unexpected installer source.' }
+    if ($manifest.sourceCommit -ne $ExpectedCommit -or $manifest.sourceDirty) { throw 'Unexpected installer source.' }
     $installer = Join-Path $package $manifest.filename
     if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne $manifest.sha256) { throw 'Installer checksum mismatch.' }
     $report.sourceCommit = $manifest.sourceCommit
@@ -193,6 +194,11 @@ try {
     $null = [RipotDesktop]::MoveWindow($app.MainWindowHandle, 20, 20, 960, 700, $true)
     $null = [RipotDesktop]::SetForegroundWindow($app.MainWindowHandle)
     Start-Sleep -Seconds 8
+    if (@((Get-AppElements) | Where-Object { $_.Name -eq 'Continue without an account' }).Count -gt 0) {
+        Save-State '00-account-welcome'
+        Click-Label 'Continue without an account'
+        $report.checks += 'Account welcome allows a guest to continue without starting a trial.'
+    }
     Save-State '01-home'
     Click-Label 'New Report'
     Save-State '02-new-report'
@@ -236,10 +242,10 @@ try {
     $report.checks += 'The finalized report persisted across restart and reopened from My Reports.'
     Click-Label 'Records'
     Save-State '08-records-access'
-    Click-Label 'Continue with Free'
+    Click-Label 'Not now'
     Click-Label 'Registry'
     Save-State '09-registry-access'
-    Click-Label 'Continue with Free'
+    Click-Label 'Not now'
     $report.checks += 'The unsigned-in Free session correctly displays the Premium access prompt for Records and Registry.'
     $report.result = 'passed'
 } catch {

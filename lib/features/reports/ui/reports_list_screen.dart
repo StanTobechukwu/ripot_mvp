@@ -546,7 +546,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                     size: 16,
                   ),
                   label: Text(
-                    access.isTrialActive
+                    access.needsOnlineVerification
+                        ? 'Reconnect to confirm Premium'
+                        : access.isTrialActive
                         ? 'Premium trial • ${access.daysRemaining} days remaining'
                         : access.badgeLabel == 'Premium'
                         ? 'Premium'
