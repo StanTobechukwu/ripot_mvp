@@ -61,3 +61,27 @@ This bounds normal offline use and protects cached values from ordinary
 preferences editing. It is not a claim of tamper-proof DRM on a user-controlled
 computer. No Windows checkout, payment-provider webhook or new deployment is
 included.
+
+## Verified Windows build, 2 October 2026
+
+Version **1.0.12, build 47** was built from commit
+`328bc59874a93a97ae5a451ee386885d65cef77a`.
+The installer SHA-256 is
+`c674627f8972a3d8be2340579b31042333f63117cd851be4c9c0865f90694718`.
+
+- [Access checks](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/36981815334)
+  passed analysis and all 77 targeted tests.
+- [Windows build](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/36981815193)
+  passed packaging, installation, launch/relaunch and uninstall checks.
+- Native workflow evidence for that same installer confirms guest continuation,
+  template selection, draft saving, PDF finalization and reopening after restart,
+  plus the Free-account prompts for Records and Registry.
+- The landing preparation now explains eligible free trials before paid Google
+  Play subscriptions and discloses the installer signature status.
+
+The build remains an unsigned internal test release. These checks do not prove
+live paid-account access, Windows credential persistence or offline access with
+a real verified subscription. The public landing page has not been deployed
+with this build. Do not change its release manifest to public to bypass those
+remaining checks. No customer account or purchase was changed during this
+verification.

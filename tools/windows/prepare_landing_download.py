@@ -72,6 +72,40 @@ def update_index(text: str, release: dict) -> str:
     return text[:download_start] + download + text[download_end:]
 
 
+def update_windows_notes(text: str, release: dict) -> str:
+    # Keep trial eligibility visible before explaining the paid Android flow.
+    # Replacing these marked paragraphs also updates older prepared previews.
+    for marker in ('payment', 'signature'):
+        text, count = re.subn(
+            rf'<p\b[^>]*\bdata-ripot-windows-{marker}\b[^>]*>.*?</p>\s*',
+            '', text, flags=re.S)
+        if count > 1:
+            raise ValueError(f'Unexpected duplicate Windows {marker} notes.')
+    notes = (
+        '<p class="plan-note" data-ripot-windows-payment>'
+        'Eligible accounts can activate a free Premium trial in Ripot. '
+        'Paid subscriptions are purchased on Android through Google Play. '
+        'Sign in with the same Ripot account on Windows. '
+        'Direct checkout on Windows is not yet available.</p>')
+    if release.get('signatureStatus') == 'NotSigned':
+        notes += (
+            '\n            <p class="plan-note" data-ripot-windows-signature>'
+            'This Windows installer is unsigned. Windows may show an '
+            'unknown-publisher warning.</p>')
+    elif release.get('signatureStatus') != 'Valid':
+        notes += (
+            '\n            <p class="plan-note" data-ripot-windows-signature>'
+            'A verified digital signature is not recorded for this Windows '
+            'installer.</p>')
+    text, count = re.subn(
+        r'<p\b[^>]*\bdata-ripot-windows-note\b[^>]*>.*?</p>',
+        lambda match: match.group(0) + '\n            ' + notes,
+        text, flags=re.S)
+    if count != 1:
+        raise ValueError('Expected one Windows download details paragraph.')
+    return text
+
+
 def prepare(landing: Path, release_dir: Path, *, preview: bool = False) -> None:
     landing, release_dir = landing.resolve(), release_dir.resolve()
     index_path = landing / 'y/index.html'
@@ -111,7 +145,7 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False) -> None:
     # for a trusted build, code signing or testing the installer on Windows.
 
     source = index_path.read_text(encoding='utf-8')
-    updated = update_index(source, release)
+    updated = update_windows_notes(update_index(source, release), release)
     if preview:
         updated = updated.replace('Download for Windows</a>', 'Download Windows test build</a>')
         updated = updated.replace('Available on Android, Windows &amp; web', 'Android &amp; web · Windows test build')
