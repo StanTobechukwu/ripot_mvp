@@ -4,6 +4,20 @@ import 'package:provider/provider.dart';
 import '../domain/record_models.dart';
 import '../providers/records_provider.dart';
 
+bool _expectedNarrativeRecordField(String label) {
+  return {
+    'diagnosis',
+    'diagnoses',
+    'impression',
+    'conclusion',
+    'note',
+    'notes',
+    'recommendation',
+    'recommendations',
+    'comments',
+  }.contains(label.trim().toLowerCase());
+}
+
 class RecordDetailsScreen extends StatefulWidget {
   final RecordEntry initialEntry;
 
@@ -303,13 +317,45 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     );
 
     if (created == true && mounted && labelController.text.trim().isNotEmpty) {
+      final label = labelController.text.trim();
+      if (inputType == RecordInputType.freeText &&
+          !_expectedNarrativeRecordField(label)) {
+        final include = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Add narrative field to Records?'),
+            content: Text(
+              '“$label” is free text. Records work best with structured fields '
+              'for filtering, comparison and export. Add this narrative field '
+              'only when a structured input would lose important meaning.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Choose structured instead'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Add narrative field'),
+              ),
+            ],
+          ),
+        );
+        if (include != true || !mounted) {
+          labelController.dispose();
+          optionsController.dispose();
+          unitController.dispose();
+          return;
+        }
+      }
+
       final options = optionsController.text
           .split(RegExp(r'[,;\n\r]+'))
           .map((value) => value.trim())
           .where((value) => value.isNotEmpty)
           .toList(growable: false);
       await context.read<RecordsProvider>().addCustomField(
-        label: labelController.text.trim(),
+        label: label,
         procedureScope: procedure,
         inputType: inputType,
         options: inputType == RecordInputType.yesNo
