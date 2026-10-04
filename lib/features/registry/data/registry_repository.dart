@@ -532,6 +532,21 @@ class RegistryRepository {
     }
     if (data.updates.any((u) => u.id == update.id)) return data;
     if (update.sourceReportId.isNotEmpty &&
+        (data.patients.any(
+              (p) =>
+                  p.id != update.patientId &&
+                  p.relatedReportIds.contains(update.sourceReportId),
+            ) ||
+            data.updates.any(
+              (u) =>
+                  u.patientId != update.patientId &&
+                  u.sourceReportId == update.sourceReportId,
+            ))) {
+      throw StateError(
+        'This report is already linked to another patient.',
+      );
+    }
+    if (update.sourceReportId.isNotEmpty &&
         data.updates.any(
           (u) =>
               u.registryId == update.registryId &&
