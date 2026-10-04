@@ -13,6 +13,21 @@ List<SectionNode> _sections(List<SectionNode> roots) => [
   ],
 ];
 
+bool _expectedNarrativeSection(SectionNode section) {
+  final title = section.title.trim().toLowerCase();
+  return {
+    'diagnosis',
+    'diagnoses',
+    'impression',
+    'conclusion',
+    'note',
+    'notes',
+    'recommendation',
+    'recommendations',
+    'comments',
+  }.contains(title);
+}
+
 Future<TemplateDoc?> chooseRecordsFields(
   BuildContext context,
   TemplateDoc template, {
@@ -73,12 +88,16 @@ Future<TemplateDoc?> chooseRecordsFields(
                     title: Text(s.title),
                     subtitle: Text(
                       s.inputType == FieldInputType.freeText
-                          ? 'Narrative text · less suitable for filtering and analytics'
+                          ? (_expectedNarrativeSection(s)
+                              ? 'Narrative clinical field · kept as text'
+                              : 'Narrative text · consider a structured input when possible')
                           : 'Structured value${s.unit.isEmpty ? '' : ' · ${s.unit}'}',
                     ),
                     value: sections.contains(s.id),
                     onChanged: (v) async {
-                      if (v == true && s.inputType == FieldInputType.freeText) {
+                      if (v == true &&
+                          s.inputType == FieldInputType.freeText &&
+                          !_expectedNarrativeSection(s)) {
                         final keep = await showDialog<bool>(
                           context: c,
                           builder: (warningContext) => AlertDialog(
