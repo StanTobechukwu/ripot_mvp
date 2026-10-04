@@ -1419,13 +1419,30 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                             return InkWell(
                               onTap: () => _openRegistryImage(image),
                               borderRadius: BorderRadius.circular(10),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: RefImage(
-                                  image.ref,
-                                  width: 82,
-                                  height: 82,
-                                  fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: 96,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: RefImage(
+                                        image.ref,
+                                        width: 82,
+                                        height: 64,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    if (image.label.trim().isNotEmpty)
+                                      Text(
+                                        image.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall,
+                                      ),
+                                  ],
                                 ),
                               ),
                             );
@@ -1653,6 +1670,50 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
     } catch (e) {
       if (mounted) _error(context, e);
     }
+  }
+
+  Future<void> _editRegistryImageLabel(
+    RegistryImageAttachment image,
+  ) async {
+    final controller = TextEditingController(text: image.label);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Image caption'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 60,
+          decoration: const InputDecoration(
+            labelText: 'Caption (optional)',
+            hintText: 'e.g. Ulcer at week 4',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    final label = controller.text.trim();
+    controller.dispose();
+    if (saved != true || !mounted) return;
+    setState(() {
+      final index = _images.indexWhere((item) => item.id == image.id);
+      if (index < 0) return;
+      _images[index] = RegistryImageAttachment(
+        id: image.id,
+        ref: image.ref,
+        label: label,
+        sourceReportId: image.sourceReportId,
+      );
+    });
   }
 
   String _previousValue(RecordFieldDef field) {
@@ -1938,33 +1999,65 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
                     final direct = _images
                         .where((image) => image.sourceReportId.isEmpty)
                         .toList(growable: false)[index];
-                    return Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: RefImage(
-                            direct.ref,
-                            width: 78,
-                            height: 78,
-                            fit: BoxFit.cover,
+                    return SizedBox(
+                      width: 96,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: RefImage(
+                                direct.ref,
+                                width: 78,
+                                height: 78,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
-                        ),
-                        Positioned(
-                          right: 2,
-                          top: 2,
-                          child: IconButton.filledTonal(
-                            visualDensity: VisualDensity.compact,
-                            onPressed: _saving
-                                ? null
-                                : () => setState(
-                                      () => _images.removeWhere(
-                                        (image) => image.id == direct.id,
-                                      ),
-                                    ),
-                            icon: const Icon(Icons.close, size: 16),
+                          if (direct.label.trim().isNotEmpty)
+                            Positioned(
+                              left: 4,
+                              right: 18,
+                              bottom: 2,
+                              child: Text(
+                                direct.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Column(
+                              children: [
+                                IconButton.filledTonal(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Edit caption',
+                                  onPressed: _saving
+                                      ? null
+                                      : () => _editRegistryImageLabel(direct),
+                                  icon: const Icon(Icons.edit_outlined, size: 15),
+                                ),
+                                IconButton.filledTonal(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Remove image',
+                                  onPressed: _saving
+                                      ? null
+                                      : () => setState(
+                                            () => _images.removeWhere(
+                                              (image) => image.id == direct.id,
+                                            ),
+                                          ),
+                                  icon: const Icon(Icons.close, size: 16),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     );
                   },
                 ),
