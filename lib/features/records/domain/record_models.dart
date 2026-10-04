@@ -82,6 +82,13 @@ class RecordFieldDef {
       procedureScope.trim().isEmpty && registryId.trim().isEmpty;
   bool get isRegistryField => registryId.trim().isNotEmpty;
 
+  /// Structured values can be filtered, compared and exported reliably.
+  bool get isStructured => inputType != RecordInputType.freeText;
+
+  /// Narrative text remains available for fields such as Impression/Notes,
+  /// but should not be treated as a normal analyzable Records column.
+  bool get isNarrative => inputType == RecordInputType.freeText;
+
   bool appliesToProcedure(String procedureName) {
     if (isRegistryField) return true;
     if (isGlobal) return true;
