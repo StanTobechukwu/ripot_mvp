@@ -134,7 +134,11 @@ class RegistrySnapshot {
       for (final image in update.images) {
         if (media.containsKey(image.id)) continue;
         final bytes = await readFileBytes(image.ref);
-        if (bytes == null || bytes.isEmpty) continue;
+        if (bytes == null || bytes.isEmpty) {
+          throw StateError(
+            'A Registry image is unavailable. Re-add or remove the broken image before creating a backup.',
+          );
+        }
         media[image.id] = bytesToDataUri(
           bytes,
           mimeType: _mimeFor(image.ref, bytes),
