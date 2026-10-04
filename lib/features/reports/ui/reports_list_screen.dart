@@ -7,6 +7,7 @@ import '../../logbook/ui/logbook_screen.dart';
 import '../../logbook/ui/log_entry_editor.dart';
 import '../../logbook/ui/log_entry_detail.dart';
 import '../../records/ui/record_details_screen.dart';
+import '../../records/data/records_repository.dart';
 import '../../records/ui/records_field_picker.dart';
 import '../../registry/ui/registry_screen.dart';
 import 'package:provider/provider.dart';
@@ -263,6 +264,23 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     ReportSummary report,
   ) async {
     final book = context.read<LogbookRepository>();
+    final recordsRepo = context.read<RecordsRepository>();
+    var recordStatus = RecordReportStatus.notAdded;
+    if (report.hasPdf) {
+      try {
+        final doc = await context.read<ReportsRepository>().loadReport(report.reportId);
+        recordStatus = await recordsRepo.statusForReport(doc);
+      } catch (_) {
+        recordStatus = RecordReportStatus.notAdded;
+      }
+    }
+    final recordActionLabel = !report.hasPdf
+        ? 'Records · Complete report first'
+        : switch (recordStatus) {
+            RecordReportStatus.notAdded => 'Add to Records',
+            RecordReportStatus.current => 'View Record',
+            RecordReportStatus.reportChanged => 'Update Record',
+          };
     final action = await showItemActions(context, report.title, [
       if (report.canContinueEditing)
         const ItemAction('edit', 'Continue editing', Icons.edit_outlined),
@@ -272,8 +290,10 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         const ItemAction('share', 'Share PDF', Icons.ios_share),
       ItemAction(
         'records',
-        report.hasPdf ? 'Add to Records' : 'Records · Complete report first',
-        Icons.table_rows_outlined,
+        recordActionLabel,
+        recordStatus == RecordReportStatus.current
+            ? Icons.library_add_check_outlined
+            : Icons.table_rows_outlined,
       ),
       ItemAction(
         'log',
@@ -352,9 +372,25 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
           final records = context.read<RecordsRepository>();
           final doc = await repo.loadReport(report.reportId);
           if (!context.mounted) return;
+          final status = await records.statusForReport(doc);
+          if (status == RecordReportStatus.current) {
+            final existing = await records.loadByReportId(report.reportId);
+            if (existing != null && context.mounted) {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RecordDetailsScreen(initialEntry: existing),
+                ),
+              );
+            }
+            break;
+          }
           final selected = await prepareReportRecords(context, doc);
           if (selected == null) return;
-          final draft = await records.buildDraftForReport(selected, applyFieldSelection: true);
+          final draft = await records.buildDraftForReport(
+            selected,
+            applyFieldSelection: true,
+          );
           if (!context.mounted) return;
           await Navigator.push(
             context,
