@@ -11,6 +11,18 @@ import '../../../core/utils/ids.dart';
 import '../../../core/web/file_download.dart';
 import '../../records/data/records_repository.dart';
 
+import '../data/reports_repository.dart';
+
+import '../../access/providers/access_provider.dart';
+import '../data/templates_repository.dart';
+import '../services/template_file_actions.dart';
+import '../domain/models/nodes.dart';
+import '../domain/models/template_doc.dart';
+import '../domain/models/report_doc.dart';
+import '../domain/serialization/template_codec.dart';
+import '../providers/template_editor_provider.dart';
+import 'subject_info_block_editor.dart';
+
 bool _recordsNarrativeTitle(String title) {
   return {
     'diagnosis',
@@ -24,17 +36,6 @@ bool _recordsNarrativeTitle(String title) {
     'comments',
   }.contains(title.trim().toLowerCase());
 }
-import '../data/reports_repository.dart';
-
-import '../../access/providers/access_provider.dart';
-import '../data/templates_repository.dart';
-import '../services/template_file_actions.dart';
-import '../domain/models/nodes.dart';
-import '../domain/models/template_doc.dart';
-import '../domain/models/report_doc.dart';
-import '../domain/serialization/template_codec.dart';
-import '../providers/template_editor_provider.dart';
-import 'subject_info_block_editor.dart';
 
 class TemplateEditorScreen extends StatelessWidget {
   final String templateId;
