@@ -219,8 +219,8 @@ class RegistrySnapshot {
               ),
               images: [
                 for (final image in u.images)
-                  if (restoredImages[image.id] case final restored?)
-                    restored,
+                  if (restoredImages[image.id] != null)
+                    restoredImages[image.id]!,
               ],
             ),
         ],
