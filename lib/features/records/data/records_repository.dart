@@ -23,6 +23,8 @@ class _RecordBuildData {
   final Map<String, RecordFieldDef> definitions;
 }
 
+enum RecordReportStatus { notAdded, current, reportChanged }
+
 class RecordsMergeResult {
   final int imported;
   final int updated;
@@ -605,6 +607,30 @@ class RecordsRepository {
     return loadByRecordId(recordId);
   }
 
+  Future<RecordReportStatus> statusForReport(ReportDoc doc) async {
+    final existing = await loadByReportId(doc.reportId);
+    if (existing == null) return RecordReportStatus.notAdded;
+
+    final selectedDoc = withSavedRecordSelection(doc, existing);
+    final derived = _recordValuesForReport(selectedDoc);
+    final previous = existing.originalReportValues.isEmpty
+        ? existing.values
+        : existing.originalReportValues;
+
+    for (final entry in derived.values.entries) {
+      if ((previous[entry.key] ?? '') != entry.value) {
+        return RecordReportStatus.reportChanged;
+      }
+    }
+    for (final key in previous.keys) {
+      if ((existing.fieldSources[key] ?? '') == 'template' &&
+          !derived.values.containsKey(key)) {
+        return RecordReportStatus.reportChanged;
+      }
+    }
+    return RecordReportStatus.current;
+  }
+
   Future<void> saveRecord(RecordEntry entry) async {
     final prefs = await _prefs;
     await prefs.setString(_recordKey(entry.recordEntryId), entry.encode());
@@ -1046,7 +1072,9 @@ class RecordsRepository {
         existing.fieldDefinitions,
       );
 
-      final originalValues = Map<String, String>.from(existing.originalReportValues);
+      final originalValues = existing.originalReportValues.isEmpty
+          ? Map<String, String>.from(existing.values)
+          : Map<String, String>.from(existing.originalReportValues);
       if (applyFieldSelection) {
         for (final key in _uncheckedReportKeys(doc).difference(derived.values.keys.toSet())) {
           mergedValues.remove(key);
@@ -1057,22 +1085,29 @@ class RecordsRepository {
         }
       }
 
-      // Existing values (including deliberate blanks) are a saved snapshot.
-      // New selected fields may be added, but never overwrite a record correction.
+      // Synchronise report-derived values without destroying deliberate Record
+      // corrections. A field is considered user-corrected when its current
+      // Record value differs from the report snapshot saved at the last sync.
       for (final entry in derived.values.entries) {
-        if (entry.value.trim().isEmpty) continue;
-        mergedValues.putIfAbsent(entry.key, () => entry.value);
+        final previousSourceValue = originalValues[entry.key];
+        final currentRecordValue = mergedValues[entry.key];
+        final userCorrected =
+            previousSourceValue != null &&
+            currentRecordValue != null &&
+            currentRecordValue != previousSourceValue;
+        if (!userCorrected) {
+          mergedValues[entry.key] = entry.value;
+        }
+        originalValues[entry.key] = entry.value;
       }
       for (final entry in derived.labels.entries) {
-        if (entry.value.trim().isEmpty) continue;
-        mergedLabels.putIfAbsent(entry.key, () => entry.value);
+        mergedLabels[entry.key] = entry.value;
       }
       for (final entry in derived.sources.entries) {
-        if (entry.value.trim().isEmpty) continue;
-        mergedSources.putIfAbsent(entry.key, () => entry.value);
+        mergedSources[entry.key] = entry.value;
       }
       for (final e in derived.definitions.entries) {
-        mergedDefinitions.putIfAbsent(e.key, () => e.value);
+        mergedDefinitions[e.key] = e.value;
       }
 
       return existing.copyWith(
