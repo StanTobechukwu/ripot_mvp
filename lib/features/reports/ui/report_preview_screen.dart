@@ -10,6 +10,7 @@ import '../../../core/web/file_download.dart';
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/premium_prompt.dart';
 import '../../records/providers/records_provider.dart';
+import '../../records/data/records_repository.dart';
 import '../../records/ui/record_details_screen.dart';
 import '../data/letterhead_repository.dart';
 import '../data/reports_repository.dart';
@@ -210,8 +211,19 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     final provider = context.read<RecordsProvider>();
 
     final existing = await provider.repo.loadByReportId(vm.doc.reportId);
+    final status = await provider.repo.statusForReport(vm.doc);
 
     if (!mounted) {
+      return;
+    }
+
+    if (status == RecordReportStatus.current && existing != null) {
+      await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecordDetailsScreen(initialEntry: existing),
+        ),
+      );
       return;
     }
 
@@ -227,15 +239,17 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  existing == null ? 'Add this report to Records?' : 'Review this report in Records?',
+                  status == RecordReportStatus.notAdded
+                      ? 'Add this report to Records?'
+                      : 'Update this Record from the report?',
                   style: Theme.of(
                     sheetContext,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                Text(existing == null
+                Text(status == RecordReportStatus.notAdded
                   ? 'The PDF has been saved. Records are optional, but they make this final report easier to find later in list or table form.'
-                  : 'Review the included fields. Existing Record corrections are kept for fields you retain.'),
+                  : 'The report has changed since this Record was last synced. Review the included fields. Deliberate Record corrections are preserved.'),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -250,7 +264,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       child: FilledButton.icon(
                         onPressed: () => Navigator.pop(sheetContext, true),
                         icon: const Icon(Icons.library_add_outlined),
-                        label: Text(existing == null ? 'Add to Records' : 'Review fields'),
+                        label: Text(
+                          status == RecordReportStatus.notAdded
+                              ? 'Add to Records'
+                              : 'Update Record',
+                        ),
                       ),
                     ),
                   ],
@@ -284,8 +302,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (saved == true) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(existing == null
-          ? 'Report added to Records.' : 'Record updated.')));
+      ).showSnackBar(SnackBar(content: Text(
+        status == RecordReportStatus.notAdded
+            ? 'Report added to Records.'
+            : 'Record updated from report.',
+      )));
     }
   }
 
