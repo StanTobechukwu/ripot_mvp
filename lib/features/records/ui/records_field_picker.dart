@@ -73,17 +73,43 @@ Future<TemplateDoc?> chooseRecordsFields(
                     title: Text(s.title),
                     subtitle: Text(
                       s.inputType == FieldInputType.freeText
-                          ? 'Text'
+                          ? 'Narrative text · less suitable for filtering and analytics'
                           : 'Structured value${s.unit.isEmpty ? '' : ' · ${s.unit}'}',
                     ),
                     value: sections.contains(s.id),
-                    onChanged: (v) => setLocal(() {
-                      if (v == true) {
-                        sections.add(s.id);
-                      } else {
-                        sections.remove(s.id);
+                    onChanged: (v) async {
+                      if (v == true && s.inputType == FieldInputType.freeText) {
+                        final keep = await showDialog<bool>(
+                          context: c,
+                          builder: (warningContext) => AlertDialog(
+                            title: const Text('Add narrative text to Records?'),
+                            content: Text(
+                              '“${s.title}” is free text. It will be kept as narrative information, '
+                              'but it will be less useful for filtering, comparison and analytics. '
+                              'Use a structured field instead when possible.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(warningContext, false),
+                                child: const Text('Keep out of Records'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(warningContext, true),
+                                child: const Text('Include text'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (keep != true) return;
                       }
-                    }),
+                      setLocal(() {
+                        if (v == true) {
+                          sections.add(s.id);
+                        } else {
+                          sections.remove(s.id);
+                        }
+                      });
+                    },
                   ),
               ],
             ),
