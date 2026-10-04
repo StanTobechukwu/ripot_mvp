@@ -62,7 +62,7 @@ void main() {
     final repo = RegistryRepository();
     await repo.importCopy(RegistryData(patients: [patient], updates: [entry('s', sex, 'Male', 1)]));
     final snapshot = await RegistrySnapshot.capture(registry);
-    expect(snapshot.toJson()['version'], 2);
+    expect(snapshot.toJson()['version'], 3);
     final restored = await RegistrySnapshot.parse(snapshot.toJson()).restoreCopy(RecordsRepository());
     final data = await repo.load();
     expect(data.updates.length, 2);
