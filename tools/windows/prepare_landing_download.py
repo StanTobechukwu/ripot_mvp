@@ -201,6 +201,25 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False,
         shutil.copy2(installer, target)
     (downloads / f'{filename}.sha256').write_text(f"{release['sha256']}  {filename}\n", encoding='ascii')
     (downloads / 'windows-release.json').write_text(json.dumps(release, indent=2) + '\n', encoding='utf-8')
+
+    # Ripot Windows 1.0.13+ can check this small public manifest on startup.
+    # It never installs silently; the app only offers the verified download URL.
+    updates = landing / 'y/updates'
+    updates.mkdir(parents=True, exist_ok=True)
+    public_download_url = release.get('downloadUrl') or f'https://ripot.app/{local_url}'
+    update_manifest = {
+        'product': 'Ripot',
+        'platform': 'windows',
+        'version': release['version'],
+        'build': release['build'],
+        'downloadUrl': public_download_url,
+        'sha256': release['sha256'],
+    }
+    (updates / 'windows.json').write_text(
+        json.dumps(update_manifest, indent=2) + '\n',
+        encoding='utf-8',
+    )
+
     config_path.write_text(json.dumps(config, indent=2) + '\n', encoding='utf-8')
     index_path.write_text(updated, encoding='utf-8')
     print(f'Prepared two download buttons in {index_path}')
