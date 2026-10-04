@@ -7,12 +7,14 @@ import '../../records/domain/record_models.dart';
 class RegistryPatient {
   final String id, name, reference, facility;
   final List<String> registryIds;
+  final List<String> relatedReportIds;
   const RegistryPatient({
     required this.id,
     required this.name,
     this.reference = '',
     this.facility = '',
     this.registryIds = const [],
+    this.relatedReportIds = const [],
   });
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -20,6 +22,7 @@ class RegistryPatient {
     'reference': reference,
     'facility': facility,
     'registryIds': registryIds,
+    'relatedReportIds': relatedReportIds,
   };
   factory RegistryPatient.fromJson(Map<String, dynamic> j) => RegistryPatient(
     id: j['id'] as String,
@@ -27,7 +30,37 @@ class RegistryPatient {
     reference: j['reference'] as String? ?? '',
     facility: j['facility'] as String? ?? '',
     registryIds: List<String>.from(j['registryIds'] as List? ?? []),
+    relatedReportIds: List<String>.from(j['relatedReportIds'] as List? ?? []),
   );
+}
+
+class RegistryImageAttachment {
+  final String id;
+  final String ref;
+  final String label;
+  final String sourceReportId;
+
+  const RegistryImageAttachment({
+    required this.id,
+    required this.ref,
+    this.label = '',
+    this.sourceReportId = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'ref': ref,
+    'label': label,
+    'sourceReportId': sourceReportId,
+  };
+
+  factory RegistryImageAttachment.fromJson(Map<String, dynamic> j) =>
+      RegistryImageAttachment(
+        id: (j['id'] ?? '').toString(),
+        ref: (j['ref'] ?? '').toString(),
+        label: (j['label'] ?? '').toString(),
+        sourceReportId: (j['sourceReportId'] ?? '').toString(),
+      );
 }
 
 /// Each update keeps its own definitions, units and patient identity snapshot.
@@ -38,6 +71,7 @@ class RegistryUpdate {
   final bool patientDetails;
   final Map<String, String> values;
   final Map<String, RecordFieldDef> definitions;
+  final List<RegistryImageAttachment> images;
   const RegistryUpdate({
     required this.id,
     required this.registryId,
@@ -47,6 +81,7 @@ class RegistryUpdate {
     required this.recordedAt,
     required this.values,
     required this.definitions,
+    this.images = const [],
     this.sourceReportId = '',
     this.patientDetails = false,
   });
@@ -61,6 +96,7 @@ class RegistryUpdate {
     'recordedAt': recordedAt.toIso8601String(),
     'values': values,
     'definitions': definitions.map((k, v) => MapEntry(k, v.toJson())),
+    'images': images.map((image) => image.toJson()).toList(growable: false),
   };
   factory RegistryUpdate.fromJson(Map<String, dynamic> j) => RegistryUpdate(
     id: j['id'] as String,
@@ -71,13 +107,20 @@ class RegistryUpdate {
     patientDetails: j['patientDetails'] == true,
     observedAt: DateTime.parse(j['observedAt'] as String),
     recordedAt: DateTime.parse(j['recordedAt'] as String),
-    values: Map<String, String>.from(j['values'] as Map),
+    values: Map<String, String>.from(j['values'] as Map? ?? const {}),
     definitions: (j['definitions'] as Map? ?? const {}).map(
       (k, v) => MapEntry(
         k as String,
         RecordFieldDef.fromJson(Map<String, dynamic>.from(v as Map)),
       ),
     ),
+    images: ((j['images'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((image) => RegistryImageAttachment.fromJson(
+              Map<String, dynamic>.from(image),
+            ))
+        .where((image) => image.id.isNotEmpty && image.ref.isNotEmpty)
+        .toList(growable: false),
   );
 }
 
@@ -115,6 +158,7 @@ class RegistryRepository {
               registryIds: p.registryIds
                   .where((id) => id != registryId)
                   .toList(),
+              relatedReportIds: p.relatedReportIds,
             ),
       ],
       updates: data.updates
@@ -233,6 +277,7 @@ class RegistryRepository {
               reference: p.reference,
               facility: p.facility,
               registryIds: p.registryIds,
+              relatedReportIds: p.relatedReportIds,
             )
           else
             p,
@@ -255,6 +300,7 @@ class RegistryRepository {
               reference: p.reference,
               facility: p.facility,
               registryIds: {...p.registryIds, registryId}.toList(),
+              relatedReportIds: p.relatedReportIds,
             )
           else
             p,
@@ -262,6 +308,58 @@ class RegistryRepository {
       updates: data.updates,
     );
   });
+
+  Future<void> linkReport(String patientId, String reportId) => _change((data) {
+    final id = reportId.trim();
+    if (id.isEmpty) throw ArgumentError('Choose a report.');
+    if (!data.patients.any((p) => p.id == patientId)) {
+      throw StateError('Patient not found.');
+    }
+    if (data.patients.any(
+      (p) => p.id != patientId && p.relatedReportIds.contains(id),
+    )) {
+      throw StateError('This report is already linked to another patient.');
+    }
+    return RegistryData(
+      patients: [
+        for (final p in data.patients)
+          if (p.id == patientId)
+            RegistryPatient(
+              id: p.id,
+              name: p.name,
+              reference: p.reference,
+              facility: p.facility,
+              registryIds: p.registryIds,
+              relatedReportIds: {...p.relatedReportIds, id}.toList(),
+            )
+          else
+            p,
+      ],
+      updates: data.updates,
+    );
+  });
+
+  Future<void> unlinkReport(String patientId, String reportId) => _change(
+    (data) => RegistryData(
+      patients: [
+        for (final p in data.patients)
+          if (p.id == patientId)
+            RegistryPatient(
+              id: p.id,
+              name: p.name,
+              reference: p.reference,
+              facility: p.facility,
+              registryIds: p.registryIds,
+              relatedReportIds: p.relatedReportIds
+                  .where((id) => id != reportId)
+                  .toList(),
+            )
+          else
+            p,
+      ],
+      updates: data.updates,
+    ),
+  );
 
   /// Identity and static details are committed together. Dated history and
   /// enrollments keep the same patient ID and their original snapshots.
@@ -323,6 +421,7 @@ class RegistryRepository {
               reference: reference.trim(),
               facility: facility.trim(),
               registryIds: p.registryIds,
+              relatedReportIds: p.relatedReportIds,
             )
           else
             p,
@@ -337,6 +436,7 @@ class RegistryRepository {
     required RegistryUpdate expected,
     required Map<String, String> values,
     required DateTime observedAt,
+    List<RegistryImageAttachment>? images,
   }) => _change((data) {
     final current = data.updates.firstWhere(
       (u) =>
@@ -364,6 +464,7 @@ class RegistryRepository {
       sourceReportId: current.sourceReportId,
       values: values,
       definitions: current.definitions,
+      images: images ?? current.images,
     );
     _validateValues(corrected);
     return RegistryData(
@@ -376,7 +477,9 @@ class RegistryRepository {
   });
 
   static void _validateValues(RegistryUpdate update) {
-    if (update.values.isEmpty) throw ArgumentError('Enter at least one value.');
+    if (update.values.isEmpty && update.images.isEmpty) {
+      throw ArgumentError('Enter at least one value or add an image.');
+    }
     for (final entry in update.values.entries) {
       final def = update.definitions[entry.key];
       if (def == null) throw ArgumentError('Missing field definition.');
@@ -427,7 +530,6 @@ class RegistryRepository {
     )) {
       throw StateError('Select a patient enrolled in this registry.');
     }
-    if (update.values.isEmpty) throw ArgumentError('Enter at least one value.');
     if (data.updates.any((u) => u.id == update.id)) return data;
     if (update.sourceReportId.isNotEmpty &&
         data.updates.any(
@@ -440,8 +542,27 @@ class RegistryRepository {
       );
     }
     _validateValues(update);
+    final linkedPatients = update.sourceReportId.isEmpty
+        ? data.patients
+        : [
+            for (final p in data.patients)
+              if (p.id == update.patientId)
+                RegistryPatient(
+                  id: p.id,
+                  name: p.name,
+                  reference: p.reference,
+                  facility: p.facility,
+                  registryIds: p.registryIds,
+                  relatedReportIds: {
+                    ...p.relatedReportIds,
+                    update.sourceReportId,
+                  }.toList(),
+                )
+              else
+                p,
+          ];
     return RegistryData(
-      patients: data.patients,
+      patients: linkedPatients,
       updates: [...data.updates, update],
     );
   });
