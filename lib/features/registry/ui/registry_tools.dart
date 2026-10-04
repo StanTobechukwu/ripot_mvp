@@ -188,7 +188,7 @@ Future<void> registryBackup(
           child: Text(
             'Confirm the .ripotregistry file is saved in your chosen location. It is encrypted and will not open in a PDF viewer or spreadsheet.\n\n'
             'In Ripot, open Registry → Restore, or a registry’s ⋮ menu → Restore backup. Select the file and enter your passphrase. Restoration creates a separate copy.\n\n'
-            'For a spreadsheet, choose Export CSV instead. Backups include Registry data, but not source PDFs.',
+            'For a spreadsheet, choose Export CSV instead. Backups include Registry data and selected Registry images, but not source PDFs.',
           ),
         ),
         actions: [
@@ -228,7 +228,7 @@ Future<RecordRegistry?> registryRestore(BuildContext context) async {
     if (!await registryConfirm(
           context,
           'Restore ${snapshot.registry.title}?',
-          'Create a separate restored registry with ${snapshot.data.patients.length} patients and ${snapshot.data.updates.length} dated updates? Existing registries are kept. Restoring again creates another copy. Source PDFs are not included.',
+          'Create a separate restored registry with ${snapshot.data.patients.length} patients and ${snapshot.data.updates.length} dated updates? Existing registries are kept. Selected Registry images are restored; source PDFs are not included. Restoring again creates another copy.',
           'Restore copy',
         ) ||
         !context.mounted) {
