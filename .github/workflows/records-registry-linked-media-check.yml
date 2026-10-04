@@ -39,10 +39,13 @@ jobs:
           lib/features/registry
           lib/features/reports/ui/report_preview_screen.dart
           lib/features/reports/ui/reports_list_screen.dart
+          lib/features/reports/ui/template_editor_screen.dart
           lib/features/update
           lib/core/platform/external_url.dart
           lib/core/platform/external_url_io.dart
           lib/core/platform/external_url_stub.dart
+      - name: Check Windows landing preparer syntax
+        run: python3 -m py_compile tools/windows/prepare_landing_download.py
       - name: Run Records and Registry tests
         run: >
           flutter test --no-pub
