@@ -1988,7 +1988,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
             if (_images.any((image) => image.sourceReportId.isEmpty)) ...[
               const SizedBox(height: 8),
               SizedBox(
-                height: 78,
+                height: 96,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _images
