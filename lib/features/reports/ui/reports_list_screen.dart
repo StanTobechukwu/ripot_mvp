@@ -29,7 +29,6 @@ import '../../records/providers/records_provider.dart';
 import '../../../core/navigation/app_route_observer.dart';
 import '../../../core/platform/incoming_file_service.dart';
 import '../data/templates_repository.dart';
-import '../../records/data/records_repository.dart';
 
 class ReportsListScreen extends StatefulWidget {
   const ReportsListScreen({super.key});
