@@ -1625,12 +1625,13 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
     );
     if (choice == null || !mounted) return;
     try {
-      final refs = choice == 'camera'
-          ? [
-              if (await _imageService.pickFromCamera() case final ref?)
-                ref,
-            ]
-          : await _imageService.pickMultiFromGallery();
+      final refs = <String>[];
+      if (choice == 'camera') {
+        final ref = await _imageService.pickFromCamera();
+        if (ref != null && ref.trim().isNotEmpty) refs.add(ref);
+      } else {
+        refs.addAll(await _imageService.pickMultiFromGallery());
+      }
       if (refs.isEmpty || !mounted) return;
       setState(() {
         for (final ref in refs) {
