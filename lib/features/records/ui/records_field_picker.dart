@@ -56,8 +56,8 @@ Future<TemplateDoc?> chooseRecordsFields(
               children: [
                 Text(
                   forReport
-                      ? 'Review fields for this report. Unchecked fields will be excluded when you save Records. The PDF stays unchanged.'
-                      : 'These choices will be reused for this template. The PDF stays unchanged.',
+                      ? 'Records are structured-first. Choose reusable fields for this report. Narrative text can still be included when clinically useful. The PDF stays unchanged.'
+                      : 'Records are structured-first. Prefer Yes/No, choice or numeric fields for searchable and exportable data. Narrative clinical fields can still be included selectively.',
                 ),
                 if (onRememberChanged != null)
                   CheckboxListTile(
