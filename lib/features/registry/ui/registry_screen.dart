@@ -10,6 +10,8 @@ import '../domain/registry_table.dart';
 import 'registry_tools.dart';
 import '../../reports/data/reports_repository.dart';
 import '../../reports/ui/saved_pdf_viewer_screen.dart';
+import '../../reports/services/image_services.dart';
+import '../../reports/services/media_ref.dart';
 
 // Keep caller-owned controllers alive until the outgoing dialog is unmounted.
 Future<T?> _registryDialog<T>({
@@ -861,6 +863,8 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
   late RecordRegistry _registry;
   bool _editingCell = false;
   String? _failure;
+  List<ReportSummary> _allReports = const [];
+  List<ReportSummary> _relatedReports = const [];
   @override
   void initState() {
     super.initState();
@@ -883,6 +887,7 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
           .read<RecordsRepository>()
           .loadRegistries();
       final data = await _repo.load();
+      final reports = await context.read<ReportsRepository>().listReports();
       _registry = registries.firstWhere(
         (r) => r.registryId == widget.registry.registryId,
         orElse: () => widget.registry,
@@ -892,22 +897,32 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
         orElse: () => _patient,
       );
       if (mounted) {
-        setState(
-          () => _updates =
-              data.updates
-                  .where(
-                    (u) =>
-                        u.patientId == _patient.id &&
-                        u.registryId == widget.registry.registryId,
-                  )
-                  .toList()
-                ..sort((a, b) {
-                  final date = b.observedAt.compareTo(a.observedAt);
-                  return date == 0
-                      ? b.recordedAt.compareTo(a.recordedAt)
-                      : date;
-                }),
-        );
+        final updates =
+            data.updates
+                .where(
+                  (u) =>
+                      u.patientId == _patient.id &&
+                      u.registryId == widget.registry.registryId,
+                )
+                .toList()
+              ..sort((a, b) {
+                final date = b.observedAt.compareTo(a.observedAt);
+                return date == 0
+                    ? b.recordedAt.compareTo(a.recordedAt)
+                    : date;
+              });
+        final relatedIds = <String>{
+          ..._patient.relatedReportIds,
+          for (final update in updates)
+            if (update.sourceReportId.isNotEmpty) update.sourceReportId,
+        };
+        setState(() {
+          _updates = updates;
+          _allReports = reports;
+          _relatedReports = reports
+              .where((report) => relatedIds.contains(report.reportId))
+              .toList(growable: false);
+        });
       }
     } catch (e) {
       if (mounted) setState(() => _failure = e.toString());
@@ -993,6 +1008,97 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
     } finally {
       _editingCell = false;
     }
+  }
+
+  Future<void> _linkReport() async {
+    final linked = <String>{
+      ..._patient.relatedReportIds,
+      for (final update in _updates)
+        if (update.sourceReportId.isNotEmpty) update.sourceReportId,
+    };
+    final candidates = _allReports
+        .where((report) => report.hasPdf && !linked.contains(report.reportId))
+        .toList(growable: false);
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No other finalized reports are available to link.')),
+      );
+      return;
+    }
+    final reportId = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * .65,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              const ListTile(
+                title: Text('Link existing report'),
+                subtitle: Text(
+                  'Choose a report that belongs to this patient. Ripot will not link reports automatically by name alone.',
+                ),
+              ),
+              for (final report in candidates)
+                ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: Text(report.title),
+                  subtitle: Text(report.subtitle),
+                  onTap: () => Navigator.pop(sheetContext, report.reportId),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (reportId == null || !mounted) return;
+    try {
+      await _repo.linkReport(_patient.id, reportId);
+      await _load();
+    } catch (e) {
+      if (mounted) _error(context, e);
+    }
+  }
+
+  Future<void> _unlinkReport(String reportId) async {
+    try {
+      await _repo.unlinkReport(_patient.id, reportId);
+      await _load();
+    } catch (e) {
+      if (mounted) _error(context, e);
+    }
+  }
+
+  Future<void> _openRegistryImage(RegistryImageAttachment image) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              child: RefImage(
+                image.ref,
+                fit: BoxFit.contain,
+                width: double.infinity,
+                height: MediaQuery.sizeOf(dialogContext).height * .75,
+              ),
+            ),
+            Positioned(
+              right: 8,
+              top: 8,
+              child: IconButton.filledTonal(
+                onPressed: () => Navigator.pop(dialogContext),
+                icon: const Icon(Icons.close),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _remove() async {
@@ -1103,6 +1209,7 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
         PopupMenuButton<String>(
           tooltip: 'Patient options',
           onSelected: (action) async {
+            if (action == 'link') await _linkReport();
             if (action == 'remove') await _remove();
             if (action == 'export' && mounted && context.mounted) {
               await registryExport(
@@ -1116,6 +1223,7 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
             }
           },
           itemBuilder: (_) => const [
+            PopupMenuItem(value: 'link', child: Text('Link existing report')),
             PopupMenuItem(value: 'export', child: Text('Export CSV')),
             PopupMenuItem(
               value: 'remove',
@@ -1167,6 +1275,61 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
               onPressed: () => setState(() => _table = !_table),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Related reports',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _linkReport,
+                      icon: const Icon(Icons.link),
+                      label: const Text('Link report'),
+                    ),
+                  ],
+                ),
+                if (_relatedReports.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text('No reports linked to this patient yet.'),
+                  )
+                else
+                  for (final report in _relatedReports)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.description_outlined),
+                      title: Text(report.title),
+                      subtitle: Text(report.subtitle),
+                      onTap: () => _openSource(report.reportId),
+                      trailing: PopupMenuButton<String>(
+                        tooltip: 'Related report options',
+                        onSelected: (action) async {
+                          if (action == 'unlink') {
+                            await _unlinkReport(report.reportId);
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'unlink',
+                            child: Text('Unlink report'),
+                          ),
+                        ],
+                      ),
+                    ),
+              ],
+            ),
+          ),
         ),
         if (_failure != null) Text(_failure!),
         if (_updates.isEmpty)
@@ -1236,6 +1399,33 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: const Text('Open source report'),
                       ),
+                    if (u.images.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 82,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: u.images.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (_, index) {
+                            final image = u.images[index];
+                            return InkWell(
+                              onTap: () => _openRegistryImage(image),
+                              borderRadius: BorderRadius.circular(10),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: RefImage(
+                                  image.ref,
+                                  width: 82,
+                                  height: 82,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                     for (final group
                         in u.values.keys
                             .map((k) => u.definitions[k]?.groupName ?? '')
@@ -1304,6 +1494,10 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
   final _id = newId('observation');
   bool _saving = false;
   int _fieldIndex = 0;
+  final ImageService _imageService = ImageService();
+  final List<RegistryImageAttachment> _images = [];
+  List<RegistryImageAttachment> _reportImages = const [];
+  bool _loadingReportImages = false;
   late final TextEditingController _name, _reference, _facility;
   List<RecordFieldDef> get _visibleFields =>
       widget.quickEntry && _fields.isNotEmpty
@@ -1376,6 +1570,81 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
                 : source?.values[f.key] ?? ''),
       );
     }
+    _images.addAll(widget.correction?.images ?? const []);
+    if (source != null && !widget.patientDetails) {
+      _loadReportImages(source.linkedReportId);
+    }
+  }
+
+  Future<void> _loadReportImages(String reportId) async {
+    if (reportId.trim().isEmpty) return;
+    if (mounted) setState(() => _loadingReportImages = true);
+    try {
+      final doc = await ReportsRepository().loadReport(reportId);
+      final loaded = [
+        for (final image in doc.images)
+          RegistryImageAttachment(
+            id: 'report_${reportId}_${image.id}',
+            ref: image.filePath,
+            label: image.label,
+            sourceReportId: reportId,
+          ),
+      ];
+      if (mounted) {
+        setState(() {
+          _reportImages = loaded;
+          _loadingReportImages = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingReportImages = false);
+    }
+  }
+
+  Future<void> _addImagesFromDevice() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose images'),
+              onTap: () => Navigator.pop(sheetContext, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.pop(sheetContext, 'camera'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    try {
+      final refs = choice == 'camera'
+          ? [
+              if (await _imageService.pickFromCamera() case final ref?)
+                ref,
+            ]
+          : await _imageService.pickMultiFromGallery();
+      if (refs.isEmpty || !mounted) return;
+      setState(() {
+        for (final ref in refs) {
+          _images.add(
+            RegistryImageAttachment(
+              id: newId('registry_image'),
+              ref: ref,
+            ),
+          );
+        }
+      });
+    } catch (e) {
+      if (mounted) _error(context, e);
+    }
   }
 
   String _previousValue(RecordFieldDef field) {
@@ -1426,8 +1695,8 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
       Navigator.pop(context, true);
       return;
     }
-    if (values.isEmpty && !widget.editPatient) {
-      _error(context, 'Enter or select at least one value.');
+    if (values.isEmpty && _images.isEmpty && !widget.editPatient) {
+      _error(context, 'Enter a value or add an image.');
       return;
     }
     setState(() => _saving = true);
@@ -1450,6 +1719,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
           for (final f in _fields)
             if (values.containsKey(f.key)) f.key: f,
         },
+        images: List<RegistryImageAttachment>.from(_images),
         sourceReportId: widget.source?.linkedReportId ?? '',
       );
       if (widget.correction != null) {
@@ -1457,6 +1727,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
           expected: widget.correction!,
           values: values,
           observedAt: _observed,
+          images: List<RegistryImageAttachment>.from(_images),
         );
       } else if (widget.editPatient) {
         await repo.editPatient(
@@ -1497,7 +1768,9 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
       child: SafeArea(
         minimum: const EdgeInsets.all(16),
         child: FilledButton(
-          onPressed: _saving || (_fields.isEmpty && !widget.editPatient)
+          onPressed:
+              _saving ||
+                  (_fields.isEmpty && _images.isEmpty && !widget.editPatient)
               ? null
               : _save,
           child: Text(
@@ -1589,6 +1862,107 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
             const Text(
               'Choose the dated report values to include. Patient details are edited separately on the patient page. Saving does not change the report or Records.',
             ),
+          if (!widget.patientDetails) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Images',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _saving ? null : _addImagesFromDevice,
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  label: const Text('Add images'),
+                ),
+              ],
+            ),
+            if (_loadingReportImages)
+              const LinearProgressIndicator()
+            else if (_reportImages.isNotEmpty) ...[
+              const Text(
+                'Select any images from the source report that should appear with this dated Registry update.',
+              ),
+              const SizedBox(height: 8),
+              for (final reportImage in _reportImages)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: RefImage(
+                      reportImage.ref,
+                      width: 54,
+                      height: 54,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  title: Text(
+                    reportImage.label.trim().isEmpty
+                        ? 'Report image'
+                        : reportImage.label,
+                  ),
+                  subtitle: const Text('From source report'),
+                  value: _images.any((image) => image.id == reportImage.id),
+                  onChanged: _saving
+                      ? null
+                      : (selected) => setState(() {
+                          _images.removeWhere(
+                            (image) => image.id == reportImage.id,
+                          );
+                          if (selected == true) _images.add(reportImage);
+                        }),
+                ),
+            ],
+            if (_images.any((image) => image.sourceReportId.isEmpty)) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 78,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _images
+                      .where((image) => image.sourceReportId.isEmpty)
+                      .length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, index) {
+                    final direct = _images
+                        .where((image) => image.sourceReportId.isEmpty)
+                        .toList(growable: false)[index];
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: RefImage(
+                            direct.ref,
+                            width: 78,
+                            height: 78,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: IconButton.filledTonal(
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _saving
+                                ? null
+                                : () => setState(
+                                      () => _images.removeWhere(
+                                        (image) => image.id == direct.id,
+                                      ),
+                                    ),
+                            icon: const Icon(Icons.close, size: 16),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
           if (_fields.isEmpty && widget.correction == null) ...[
             const Text(
               'Add fields and choose Patient detail or Dated measurement. Only fields for this view appear here.',
