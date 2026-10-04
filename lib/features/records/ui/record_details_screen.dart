@@ -214,6 +214,11 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const Text(
+                  'Prefer structured fields (Yes/No, choice or numeric) when possible. '
+                  'Use narrative text only when the information cannot be represented reliably as structured data.',
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: labelController,
                   autofocus: true,
@@ -232,7 +237,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   items: const [
                     DropdownMenuItem(
                       value: RecordInputType.freeText,
-                      child: Text('Free text'),
+                      child: Text('Narrative text'),
                     ),
                     DropdownMenuItem(
                       value: RecordInputType.yesNo,
