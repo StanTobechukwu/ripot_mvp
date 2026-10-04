@@ -5,6 +5,10 @@ on:
     branches: [codex/records-registry-linked-media]
   workflow_dispatch:
 
+concurrency:
+  group: records-registry-linked-media-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
