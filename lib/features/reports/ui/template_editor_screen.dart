@@ -10,6 +10,20 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/ids.dart';
 import '../../../core/web/file_download.dart';
 import '../../records/data/records_repository.dart';
+
+bool _recordsNarrativeTitle(String title) {
+  return {
+    'diagnosis',
+    'diagnoses',
+    'impression',
+    'conclusion',
+    'note',
+    'notes',
+    'recommendation',
+    'recommendations',
+    'comments',
+  }.contains(title.trim().toLowerCase());
+}
 import '../data/reports_repository.dart';
 
 import '../../access/providers/access_provider.dart';
@@ -1103,7 +1117,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                         setState(() => _addToRecords = v ?? false),
                     title: const Text('Save to Records'),
                     subtitle: const Text(
-                      'Copy this value into Records. Text and structured values are both supported.',
+                      'Structured values are preferred for filtering, export and analysis.',
                     ),
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
@@ -1128,7 +1142,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Save to Records'),
                     subtitle: const Text(
-                      'Copy this text into Records, for example a diagnosis or impression.',
+                      'Narrative text is supported for fields such as diagnosis or impression, but is less useful for filtering and analysis.',
                     ),
                   ),
                 ],
@@ -1199,7 +1213,36 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      if (_addToRecords &&
+                          _inputType == FieldInputType.freeText &&
+                          !_recordsNarrativeTitle(_title.text)) {
+                        final include = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Save narrative text to Records?'),
+                            content: Text(
+                              '“${_title.text.trim().isEmpty ? 'This field' : _title.text.trim()}” '
+                              'is free text. Records work best with structured inputs '
+                              'for filtering, comparison and export. Include it only '
+                              'when a structured field would lose important meaning.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, false),
+                                child: const Text('Keep out of Records'),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, true),
+                                child: const Text('Include text'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (include != true || !mounted) return;
+                      }
                       final options = _inputType == FieldInputType.yesNo
                           ? const <String>['Yes', 'No']
                           : _inputType == FieldInputType.numeric
