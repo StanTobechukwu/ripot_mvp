@@ -1312,20 +1312,27 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                       title: Text(report.title),
                       subtitle: Text(report.subtitle),
                       onTap: () => _openSource(report.reportId),
-                      trailing: PopupMenuButton<String>(
-                        tooltip: 'Related report options',
-                        onSelected: (action) async {
-                          if (action == 'unlink') {
-                            await _unlinkReport(report.reportId);
-                          }
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: 'unlink',
-                            child: Text('Unlink report'),
-                          ),
-                        ],
-                      ),
+                      trailing: _updates.any(
+                        (update) => update.sourceReportId == report.reportId,
+                      )
+                          ? const Tooltip(
+                              message: 'Linked by a Registry update',
+                              child: Icon(Icons.link),
+                            )
+                          : PopupMenuButton<String>(
+                              tooltip: 'Related report options',
+                              onSelected: (action) async {
+                                if (action == 'unlink') {
+                                  await _unlinkReport(report.reportId);
+                                }
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'unlink',
+                                  child: Text('Unlink report'),
+                                ),
+                              ],
+                            ),
                     ),
               ],
             ),
