@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ripot/features/records/data/records_repository.dart';
 import 'package:ripot/features/registry/data/registry_repository.dart';
+import 'package:ripot/features/registry/services/registry_backup.dart';
 import 'package:ripot/features/reports/domain/models/nodes.dart';
 import 'package:ripot/features/reports/domain/models/report_doc.dart';
 
@@ -67,6 +68,44 @@ void main() {
       'Clinician corrected wording',
     );
     expect(updatedDraft.originalReportValues[findingKey], 'Polyp');
+  });
+
+  test('Registry encrypted snapshot carries selected image bytes', () async {
+    final records = RecordsRepository();
+    final registry = await records.createRegistry(title: 'Image registry');
+    final repo = RegistryRepository();
+    final patient = await repo.addPatient(
+      name: 'Backup Patient',
+      registryId: registry.registryId,
+    );
+    const imageRef = 'data:image/png;base64,iVBORw0KGgo=';
+
+    await repo.addUpdate(
+      RegistryUpdate(
+        id: 'backup_obs',
+        registryId: registry.registryId,
+        patientId: patient.id,
+        patientName: patient.name,
+        observedAt: DateTime(2026, 10, 4),
+        recordedAt: DateTime(2026, 10, 4, 13),
+        values: const {},
+        definitions: const {},
+        images: const [
+          RegistryImageAttachment(
+            id: 'backup_image',
+            ref: imageRef,
+            label: 'Serial image',
+          ),
+        ],
+      ),
+    );
+
+    final snapshot = await RegistrySnapshot.capture(registry);
+    expect(snapshot.media['backup_image'], startsWith('data:image/png;base64,'));
+
+    final parsed = RegistrySnapshot.parse(snapshot.toJson());
+    expect(parsed.data.updates.single.images.single.label, 'Serial image');
+    expect(parsed.media, contains('backup_image'));
   });
 
   test('Registry supports related reports and image-only dated updates', () async {
