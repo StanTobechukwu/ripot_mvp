@@ -887,7 +887,7 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
           .read<RecordsRepository>()
           .loadRegistries();
       final data = await _repo.load();
-      final reports = await context.read<ReportsRepository>().listReports();
+      final reports = await ReportsRepository().listReports();
       _registry = registries.firstWhere(
         (r) => r.registryId == widget.registry.registryId,
         orElse: () => widget.registry,
@@ -1148,7 +1148,7 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
 
   Future<void> _openSource(String reportId) async {
     try {
-      final repo = context.read<ReportsRepository>();
+      final repo = ReportsRepository();
       final bytes = await repo.loadPdfBytesForReport(reportId);
       if (!mounted) return;
       if (bytes == null || bytes.isEmpty) {
@@ -1292,10 +1292,10 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    TextButton.icon(
+                    IconButton(
+                      tooltip: 'Link report',
                       onPressed: _linkReport,
-                      icon: const Icon(Icons.link),
-                      label: const Text('Link report'),
+                      icon: const Icon(Icons.add_link),
                     ),
                   ],
                 ),
