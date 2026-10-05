@@ -246,7 +246,9 @@ try {
         if (-not $setup.WaitForExit(60000)) { Stop-Process -Id $setup.Id -Force; throw 'Upgrade timed out.' }
         if ($setup.ExitCode -ne 0) { throw 'Upgrade installation failed.' }
         $expectedFileVersion = "$($upgrade.version).$($upgrade.build)"
-        if ((Get-Item (Join-Path $install 'ripot.exe')).VersionInfo.FileVersion -ne $expectedFileVersion) { throw 'Installed upgrade version is incorrect.' }
+        $versionInfo = (Get-Item (Join-Path $install 'ripot.exe')).VersionInfo
+        $actualFileVersion = "$($versionInfo.FileMajorPart).$($versionInfo.FileMinorPart).$($versionInfo.FileBuildPart).$($versionInfo.FilePrivatePart)"
+        if ($actualFileVersion -ne $expectedFileVersion) { throw "Installed upgrade version is incorrect: $actualFileVersion" }
         if ((Get-FileHash $pdfs[0].FullName -Algorithm SHA256).Hash -ne $pdfHash) { throw 'Upgrade changed the saved report PDF.' }
         $report.upgradeSourceCommit = $upgrade.sourceCommit
         $report.upgradeInstallerSha256 = $upgrade.sha256
