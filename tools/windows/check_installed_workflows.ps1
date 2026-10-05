@@ -2,7 +2,9 @@
 param(
     [Parameter(Mandatory)][string]$ArtifactDirectory,
     [Parameter(Mandatory)][string]$OutputDirectory,
-    [string]$ExpectedCommit = '599633c46f7d860fd2f8c24daa46e4baf60f865e'
+    [string]$ExpectedCommit = '599633c46f7d860fd2f8c24daa46e4baf60f865e',
+    [string]$UpgradeDirectory = '',
+    [string]$ExpectedUpgradeCommit = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -228,6 +230,28 @@ try {
     Copy-Item $pdfs[0].FullName (Join-Path $output 'fictional-windows-echo.pdf')
     $report.checks += 'Saved a fictional echo PDF through the installed application.'
     Stop-Process -Id $app.Id -Force
+    if ($UpgradeDirectory) {
+        $upgrade = Get-Content (Join-Path $UpgradeDirectory 'windows-release.json') -Raw | ConvertFrom-Json
+        if (-not $ExpectedUpgradeCommit -or $upgrade.sourceCommit -ne $ExpectedUpgradeCommit -or $upgrade.sourceDirty) {
+            throw 'Unexpected upgrade source.'
+        }
+        if ([int]$upgrade.build -le [int]$manifest.build) { throw 'Upgrade must have a higher build.' }
+        if ([IO.Path]::GetFileName($upgrade.filename) -ne $upgrade.filename) { throw 'Invalid upgrade filename.' }
+        $upgradeInstaller = Join-Path $UpgradeDirectory $upgrade.filename
+        if ((Get-FileHash $upgradeInstaller -Algorithm SHA256).Hash -ne $upgrade.sha256 -or (Get-Item $upgradeInstaller).Length -ne $upgrade.sizeBytes) {
+            throw 'Upgrade installer verification failed.'
+        }
+        $pdfHash = (Get-FileHash $pdfs[0].FullName -Algorithm SHA256).Hash
+        $setup = Start-Process $upgradeInstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=`"$install`"") -PassThru
+        if (-not $setup.WaitForExit(60000)) { Stop-Process -Id $setup.Id -Force; throw 'Upgrade timed out.' }
+        if ($setup.ExitCode -ne 0) { throw 'Upgrade installation failed.' }
+        $expectedFileVersion = "$($upgrade.version).$($upgrade.build)"
+        if ((Get-Item (Join-Path $install 'ripot.exe')).VersionInfo.FileVersion -ne $expectedFileVersion) { throw 'Installed upgrade version is incorrect.' }
+        if ((Get-FileHash $pdfs[0].FullName -Algorithm SHA256).Hash -ne $pdfHash) { throw 'Upgrade changed the saved report PDF.' }
+        $report.upgradeSourceCommit = $upgrade.sourceCommit
+        $report.upgradeInstallerSha256 = $upgrade.sha256
+        $report.checks += "Installed build $($upgrade.build) over build $($manifest.build) without uninstalling; saved PDF bytes remained unchanged."
+    }
     $app = Start-Process (Join-Path $install 'ripot.exe') -WorkingDirectory $install -PassThru
     Start-Sleep -Seconds 8
     $app.Refresh()

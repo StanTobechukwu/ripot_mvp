@@ -1,61 +1,164 @@
-name: Publish verified Windows download
-
+name: Verify upgrade and publish Windows 1.0.13
 on:
   workflow_dispatch:
   push:
-    branches: [codex/windows-github-release]
-    paths: [.github/workflows/publish-windows-release.yml]
-
+    branches: [codex/release-1.0.13-48-publish]
+    paths: [.github/workflows/publish-windows-release.yml, tools/windows/check_installed_workflows.ps1]
 permissions:
   actions: read
-  contents: write
-
+  contents: read
+env:
+  RIPOT_BUILD_COMMIT: 79c3a0173aca7c47631b03784c4454527dad2c2a
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  android-handoff:
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
-      - name: Retrieve the installer that passed the native Windows checks
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: 36981815193
-          artifact-ids: 11215946945
+          run-id: 37279479836
+          pattern: ripot-android-unsigned-*
+          merge-multiple: true
+          path: android
+      - name: Verify and package the existing unsigned bundle for signing on Mac
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,shutil
+          root=pathlib.Path('android'); m=json.loads((root/'android-release.json').read_text())
+          assert m['sourceCommit']==os.environ['RIPOT_BUILD_COMMIT']
+          assert m['versionName']=='1.0.13' and m['versionCode']==48 and m['package']=='com.nduaguba.report'
+          aab=root/'Ripot-1.0.13-48-android-UNSIGNED.aab'
+          assert aab.stat().st_size==m['bytes'] and hashlib.sha256(aab.read_bytes()).hexdigest()==m['sha256']
+          (root/'Sign-Ripot.command').chmod(0o755)
+          (root/'START-HERE.txt').write_text('Ripot Android 1.0.13 (48)\n\nOn your release Mac, open Terminal in this extracted folder and run:\n  bash Sign-Ripot.command\nEnter the existing keystore password only in the local Java prompt.\nThe script creates Ripot-1.0.13-48-android-SIGNED.aab and verifies the upload certificate.\nUpload only the SIGNED file to your existing Ripot app in Play Console.\nFirst confirm version code 48 is unused across all tracks. If already used, request a higher build.\nTest through Internal testing before production. Install the update over the existing app; do not uninstall.\nThis package has not been uploaded to Google Play.\n')
+          (root/'PLAY-RELEASE-NOTES.txt').write_text('Improved Records with clearer Add, View and Update actions. Link related reports to Registry patients, add images to dated updates, and include those images in encrypted Registry backups. Clearer guidance when adding free-text fields to Records.\n')
+          archive=pathlib.Path(shutil.make_archive('Ripot-Android-1.0.13-48-sign-on-Mac','zip',root.parent,root.name))
+          data=archive.read_bytes(); size=24*1024*1024
+          assert len(data)<=3*size
+          for i in range(3):
+              part=pathlib.Path(f'part-{i}');part.mkdir()
+              (part/f'android.zip.part{i}').write_bytes(data[i*size:(i+1)*size])
+          pathlib.Path('part-0/package.json').write_text(json.dumps({'filename':archive.name,'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data),'sourceCommit':m['sourceCommit']},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-package-part-0
+          path: part-0/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-package-part-1
+          path: part-1/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-package-part-2
+          path: part-2/*
+  upgrade:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require three matching successful builds
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          foreach ($runId in @('37279479747', '37279479768', '37279479836')) {
+            gh run watch $runId --repo $env:GITHUB_REPOSITORY --exit-status
+            if ($LASTEXITCODE -ne 0) { throw "Build $runId failed." }
+            $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$runId" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or $run.head_sha -ne $env:RIPOT_BUILD_COMMIT) { throw "Build $runId has not passed for the expected source." }
+          }
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 37279479747
+          pattern: ripot-windows-installer-*
+          merge-multiple: true
+          path: upgrade
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 37279479747
+          pattern: ripot-windows-validation-*
+          merge-multiple: true
+          path: upgrade
+      - name: Retrieve verified published build 47
+        shell: pwsh
+        run: |
+          New-Item old -ItemType Directory | Out-Null
+          $filename = 'Ripot-Setup-1.0.12-47-windows-x64.exe'
+          Invoke-WebRequest "https://github.com/StanTobechukwu/ripot_mvp/releases/download/windows-v1.0.12-47/$filename" -OutFile "old/$filename"
+          $hash = 'c674627f8972a3d8be2340579b31042333f63117cd851be4c9c0865f90694718'
+          if ((Get-FileHash "old/$filename" -Algorithm SHA256).Hash -ne $hash -or (Get-Item "old/$filename").Length -ne 19082516) { throw 'Published build 47 does not match.' }
+          @{ filename=$filename; sha256=$hash; sizeBytes=19082516; version='1.0.12'; build=47; sourceDirty=$false; sourceCommit='328bc59874a93a97ae5a451ee386885d65cef77a' } | ConvertTo-Json | Set-Content old/windows-release.json
+      - name: Verify saved report survives upgrade from 47 to 48
+        shell: powershell
+        run: ./tools/windows/check_installed_workflows.ps1 -ArtifactDirectory old -OutputDirectory upgrade-check -ExpectedCommit 328bc59874a93a97ae5a451ee386885d65cef77a -UpgradeDirectory upgrade -ExpectedUpgradeCommit $env:RIPOT_BUILD_COMMIT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-47-to-48-upgrade-evidence
+          path: upgrade-check/*
+          if-no-files-found: warn
+  publish:
+    needs: upgrade
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 37279479747
+          pattern: ripot-windows-installer-*
           merge-multiple: true
           path: release
-      - name: Verify the exact approved installer
-        working-directory: release
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 37279479747
+          pattern: ripot-windows-validation-*
+          merge-multiple: true
+          path: release
+      - name: Verify the exact installer before publication
         run: |
-          echo 'c674627f8972a3d8be2340579b31042333f63117cd851be4c9c0865f90694718  Ripot-Setup-1.0.12-47-windows-x64.exe' > SHA256SUMS.txt
-          sha256sum --check SHA256SUMS.txt
-          test "$(stat --format=%s Ripot-Setup-1.0.12-47-windows-x64.exe)" = 19082516
-      - name: Publish Windows download assets
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path('release'); p=root/'windows-release.json'
+          m=json.loads(p.read_text(encoding='utf-8-sig'))
+          assert m['sourceCommit']==os.environ['RIPOT_BUILD_COMMIT'] and m['sourceDirty'] is False
+          assert (m['version'],m['build'],m['filename'])==('1.0.13',48,'Ripot-Setup-1.0.13-48-windows-x64.exe')
+          exe=root/m['filename']
+          assert exe.stat().st_size==m['sizeBytes'] and hashlib.sha256(exe.read_bytes()).hexdigest()==m['sha256']
+          check=json.loads((root/'windows-package-check.json').read_text(encoding='utf-8-sig'))
+          assert check['result']=='passed' and check['expectedCommit']==m['sourceCommit']
+          m['releaseStage']='public'
+          m['releaseNote']='Owner-authorised release. Automated tests, native guest report workflow and 47-to-48 report upgrade passed. Live paid-account and full native Registry/image workflow verification remain outstanding.'
+          p.write_text(json.dumps(m,indent=2)+'\n')
+          (root/'SHA256SUMS.txt').write_text(m['sha256']+'  '+m['filename']+'\n')
+          PY
+      - name: Publish new version without replacing old assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           cat > release-notes.txt <<'NOTES'
-          Ripot for Windows 10/11, Intel/AMD 64-bit PCs.
+          Ripot 1.0.13 (48) for Windows 10/11, Intel/AMD 64-bit PCs.
 
-          Download and run Ripot-Setup-1.0.12-47-windows-x64.exe.
-          This installer is unsigned; Windows may display an unknown-publisher warning.
+          Includes structured-first Records, Add/View/Update Record actions, related reports and dated images in Registry, encrypted Registry image backups, and a prompt for future Windows updates.
 
-          This release includes a welcome screen, clearer trial and Premium prompts,
-          and saved final-PDF limits of 10 on Free and 100 during an active trial or Premium.
-          Eligible accounts can activate a free Premium trial in Ripot. Paid subscriptions
-          use Google Play on Android; sign in with the same Ripot account on Windows.
+          Back up your local work, close Ripot, and run the installer over the existing installation. Do not uninstall first. Build 47 users download this update manually; build 48 can prompt for later releases once the website update manifest is deployed.
 
-          The installer passed hash verification, install, startup, uninstall and native
-          draft/PDF/report restart checks. Live paid-account sign-in and online/offline
-          Premium verification remain outstanding. Source: 328bc59874a93a97ae5a451ee386885d65cef77a.
+          Automated tests, clean install/startup checks, guest report/PDF workflow, and a 47-to-48 saved-report upgrade check passed. Live paid-account access and full native Registry/image workflows have not been verified end to end for this package.
+
+          This installer is unsigned; Windows may show an unknown-publisher warning. Signing in does not synchronize local patient data across devices.
           NOTES
-          gh release create windows-v1.0.12-47 \
-            --target 328bc59874a93a97ae5a451ee386885d65cef77a \
-            --title 'Ripot for Windows 1.0.12 (47)' \
-            --notes-file release-notes.txt \
-            release/Ripot-Setup-1.0.12-47-windows-x64.exe release/SHA256SUMS.txt
-          gh release view windows-v1.0.12-47 --json url,assets > release/published-release.json
+          gh release create windows-v1.0.13-48 --target "$RIPOT_BUILD_COMMIT" --title 'Ripot for Windows 1.0.13 (48)' --notes-file release-notes.txt release/Ripot-Setup-1.0.13-48-windows-x64.exe release/SHA256SUMS.txt release/windows-release.json
+          gh release view windows-v1.0.13-48 --json url,assets > release/published-release.json
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-publication-evidence
-          path: release/published-release.json
+          name: windows-1.0.13-48-public-release
+          path: release/*
