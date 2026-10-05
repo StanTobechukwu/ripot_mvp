@@ -206,7 +206,7 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False,
     # It never installs silently; the app only offers the verified download URL.
     updates = landing / 'y/updates'
     updates.mkdir(parents=True, exist_ok=True)
-    public_download_url = release.get('downloadUrl') or f'https://ripot.app/{local_url}'
+    public_download_url = release.get('downloadUrl') or f'https://ripot.app/downloads/windows/{filename}'
     update_manifest = {
         'product': 'Ripot',
         'platform': 'windows',
@@ -219,6 +219,12 @@ def prepare(landing: Path, release_dir: Path, *, preview: bool = False,
         json.dumps(update_manifest, indent=2) + '\n',
         encoding='utf-8',
     )
+
+    headers[:] = [rule for rule in headers if rule.get('source') != '/updates/windows.json']
+    headers.append({
+        'source': '/updates/windows.json',
+        'headers': [{'key': 'Cache-Control', 'value': 'no-cache, max-age=0, must-revalidate'}],
+    })
 
     config_path.write_text(json.dumps(config, indent=2) + '\n', encoding='utf-8')
     index_path.write_text(updated, encoding='utf-8')
