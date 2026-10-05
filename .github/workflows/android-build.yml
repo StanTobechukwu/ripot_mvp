@@ -3,7 +3,7 @@ name: Build Android Play bundle
 on:
   workflow_dispatch:
   push:
-    branches: [codex/google-play-update]
+    branches: [codex/google-play-update, codex/release-1.0.13-48]
 
 concurrency:
   group: android-bundle-${{ github.ref }}
@@ -45,6 +45,7 @@ jobs:
           java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle=build/app/outputs/bundle/release/app-release.aab --module=base > build/android-distribution/AndroidManifest.xml
           java -jar "$RUNNER_TEMP/bundletool.jar" dump config --bundle=build/app/outputs/bundle/release/app-release.aab > build/android-distribution/bundle-config.json
           python3 tools/android/inspect_bundle.py
+          cp tools/android/Sign-Ripot.command build/android-distribution/
       - name: Upload bundle awaiting signing on the release Mac
         uses: actions/upload-artifact@v4
         with:
