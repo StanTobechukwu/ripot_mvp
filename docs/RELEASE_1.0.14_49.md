@@ -30,3 +30,8 @@ Upload the new Play icon and reflect unlimited local Premium PDFs in the full de
 
 ## Existing decisions preserved
 Structured-first Records, explicit narrative opt-in, state-aware Add/View/Update Record, durable Registry images, patient/dated fields, separate Logbook, Android and Windows update prompts, aligned colonoscopy preview and demonstration signature.
+
+## Verification
+GitHub Actions run 39646495984 verified app source commit 87abb677af82c8bb943f66aa33e90d0afb8fbeb4: analysis completed without errors (lint warnings remain), all app tests passed, launcher icons were generated, exact starter templates exported, static links checked and the release web app compiled. The generated icons and pages are checked into this branch for subsequent builds. A small-screen test covers the Registry picker with the keyboard open.
+
+This is not confirmation of deployment, Play review, Windows installer testing, or a manual browser/device visual review.

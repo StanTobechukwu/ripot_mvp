@@ -1,0 +1,420 @@
+{
+  "app": "Ripot",
+  "ripotFileType": "template",
+  "ripotExportVersion": 1,
+  "template": {
+    "templateId": "ripot_starter_abdominopelvic_ultrasound",
+    "updatedAtIso": "2026-08-25T00:00:00.000",
+    "name": "Abdominopelvic Ultrasound",
+    "groupName": "",
+    "recordsConfigured": false,
+    "roots": [
+      {
+        "type": "section",
+        "id": "us_indication",
+        "title": "Clinical indication",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": true,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_liver",
+        "title": "Liver",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_gallbladder",
+        "title": "Gallbladder",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_biliary_tree",
+        "title": "Biliary tree",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_pancreas",
+        "title": "Pancreas",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_spleen",
+        "title": "Spleen",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_right_kidney",
+        "title": "Right kidney",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_left_kidney",
+        "title": "Left kidney",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_urinary_bladder",
+        "title": "Urinary bladder",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_uterus",
+        "title": "Uterus",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_endometrium",
+        "title": "Endometrium",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_right_adnexa",
+        "title": "Right ovary / adnexa",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_left_adnexa",
+        "title": "Left ovary / adnexa",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_prostate",
+        "title": "Prostate",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_other",
+        "title": "Other findings / Peritoneum",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_impression",
+        "title": "Impression",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": true,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "us_recommendation",
+        "title": "Recommendation",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      }
+    ],
+    "subjectInfo": {
+      "enabled": true,
+      "columns": 2,
+      "schemaVersion": 1,
+      "heading": "",
+      "fields": [
+        {
+          "key": "subjectName",
+          "title": "Subject Name",
+          "required": true,
+          "order": 0,
+          "isSystem": true,
+          "addToRecords": true
+        },
+        {
+          "key": "subjectId",
+          "title": "Subject ID",
+          "required": false,
+          "order": 1,
+          "isSystem": true,
+          "addToRecords": true
+        }
+      ]
+    },
+    "signature": {
+      "roleTitle": "Sonologist / Radiologist",
+      "name": "",
+      "credentials": "",
+      "assistantLabel": "Assistant",
+      "assistantName": "",
+      "signatureFilePath": null
+    }
+  }
+}

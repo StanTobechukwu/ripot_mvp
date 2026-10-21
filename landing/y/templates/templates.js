@@ -1,0 +1,1 @@
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{const text=b.dataset.copy==='url'?location.href:document.getElementById('outline').textContent;try{await navigator.clipboard.writeText(text);b.textContent='Copied';}catch{b.textContent='Select the text or copy the page address';}}));
