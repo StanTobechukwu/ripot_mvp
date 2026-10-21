@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import '../domain/public_template_links.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import '../../../core/ui/item_actions.dart';
@@ -42,9 +44,12 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   int _section = 0;
 
   Future<void> _selectSection(int index) async {
-    if ((index == 1 || index == 2) && !context.read<AccessProvider>().safeState.canUseRecords) {
-      final unlocked = await showPremiumFeatureSheet(context,
-        index == 1 ? PremiumFeature.records : PremiumFeature.registry);
+    if ((index == 1 || index == 2) &&
+        !context.read<AccessProvider>().safeState.canUseRecords) {
+      final unlocked = await showPremiumFeatureSheet(
+        context,
+        index == 1 ? PremiumFeature.records : PremiumFeature.registry,
+      );
       if (!unlocked || !mounted) return;
     }
     if (!mounted) return;
@@ -56,18 +61,31 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     selectedIndex: _section,
     onDestinationSelected: _selectSection,
     destinations: const [
-      NavigationDestination(icon: Icon(Icons.description_outlined), label: 'Reports'),
-      NavigationDestination(icon: Icon(Icons.table_rows_outlined), label: 'Records'),
-      NavigationDestination(icon: Icon(Icons.people_outline), label: 'Registry'),
-      NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Logbook'),
+      NavigationDestination(
+        icon: Icon(Icons.description_outlined),
+        label: 'Reports',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.table_rows_outlined),
+        label: 'Records',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.people_outline),
+        label: 'Registry',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.menu_book_outlined),
+        label: 'Logbook',
+      ),
     ],
   );
   IncomingFileService? _incomingFileService;
 
   Future<void> _manageTemplates() async {
-    await Navigator.push(context, MaterialPageRoute<void>(
-      builder: (_) => const TemplatesListScreen(),
-    ));
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const TemplatesListScreen()),
+    );
     if (mounted) await _refreshReports();
   }
 
@@ -102,9 +120,10 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       return;
     }
     context.read<ReportEditorProvider>().newReport();
-    await Navigator.push(context, MaterialPageRoute<void>(
-      builder: (_) => const ReportEditorScreen(),
-    ));
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const ReportEditorScreen()),
+    );
     if (mounted) await _refreshReports();
   }
 
@@ -144,6 +163,25 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         await _refreshAfterIncomingFile(initial);
       }
       await _refreshReports();
+      if (mounted && kIsWeb) {
+        final template = PublicTemplateLinks.resolve(Uri.base);
+        if (template != null) {
+          context.read<ReportEditorProvider>().newReportFromTemplate(template);
+          await Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const ReportEditorScreen()),
+          );
+          if (mounted) await _refreshReports();
+        } else if (Uri.base.queryParameters.containsKey('template')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'This template link is not available. Choose a template from Templates.',
+              ),
+            ),
+          );
+        }
+      }
     });
   }
 
@@ -267,7 +305,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     var recordStatus = RecordReportStatus.notAdded;
     if (report.hasPdf) {
       try {
-        final doc = await context.read<ReportsRepository>().loadReport(report.reportId);
+        final doc = await context.read<ReportsRepository>().loadReport(
+          report.reportId,
+        );
         recordStatus = await recordsRepo.statusForReport(doc);
       } catch (_) {
         recordStatus = RecordReportStatus.notAdded;
@@ -365,7 +405,10 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             return;
           }
           if (!context.read<AccessProvider>().safeState.canUseRecords) {
-            final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.records);
+            final unlocked = await showPremiumFeatureSheet(
+              context,
+              PremiumFeature.records,
+            );
             if (!unlocked || !context.mounted) return;
           }
           final records = context.read<RecordsRepository>();
@@ -533,11 +576,14 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'templates', child: Text('Manage templates')),
               const PopupMenuItem(
-                  value: 'premium',
-                  child: Text('Ripot Premium'),
-                ),
+                value: 'templates',
+                child: Text('Manage templates'),
+              ),
+              const PopupMenuItem(
+                value: 'premium',
+                child: Text('Ripot Premium'),
+              ),
             ],
           ),
           const SizedBox(width: 8),
@@ -630,34 +676,41 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                           ).colorScheme.surface,
                           child: Icon(icon),
                         ),
-                        contentPadding: const EdgeInsets.fromLTRB(
-                          16,
-                          4,
-                          8,
-                          4,
-                        ),
+                        contentPadding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
                         title: Row(
                           children: [
-                            Expanded(child: Text(
-                              r.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            )),
+                            Expanded(
+                              child: Text(
+                                r.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Tooltip(
                               message: badgeText,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.65),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surface.withValues(alpha: 0.65),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  !r.hasPdf && MediaQuery.sizeOf(context).width < 600
-                                      ? 'Draft' : badgeText,
-                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
+                                  !r.hasPdf &&
+                                          MediaQuery.sizeOf(context).width < 600
+                                      ? 'Draft'
+                                      : badgeText,
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
                                 ),
                               ),
                             ),
@@ -665,7 +718,11 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                         ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: Text(r.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            r.subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         onTap: () => _handleOpen(context, r),
                         onLongPress: () => _reportActions(context, r),

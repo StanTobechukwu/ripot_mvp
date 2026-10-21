@@ -34,12 +34,12 @@ config['headers'] = [
 ]
 (stage / 'firebase.json').write_text(json.dumps({'hosting': config}, indent=2) + '\n')
 (stage / '.firebaserc').write_text(json.dumps(aliases, indent=2) + '\n')
-(stage / 'Deploy-Web.command').write_text('''#!/bin/bash
+(stage / 'Deploy-Web.command').write_text(f'''#!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
 shasum -a 256 -c SHA256SUMS.txt
 firebase deploy --only hosting:webapp --project ripot-4edf7
-echo "Deployment completed. Open https://ripot-web.web.app and verify version 1.0.13 (48)."
+echo "Deployment completed. Open https://ripot-web.web.app and verify version {version} ({build})."
 ''')
 (stage / 'Deploy-Web.command').chmod(0o755)
 (stage / 'README.txt').write_text(f'''Ripot web {version} ({build})

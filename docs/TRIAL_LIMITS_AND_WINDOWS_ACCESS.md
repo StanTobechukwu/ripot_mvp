@@ -1,3 +1,5 @@
+> Historical release notes. The next update replaces the Premium/trial 100-PDF cap with unlimited local saved PDFs, subject to device/browser storage. Free remains 10.
+
 # Trial prompts, finalized-report limits and Windows access
 
 Prepared against the latest account-welcome branch, preserving the updated

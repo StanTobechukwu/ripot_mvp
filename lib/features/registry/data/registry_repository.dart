@@ -116,9 +116,11 @@ class RegistryUpdate {
     ),
     images: ((j['images'] as List?) ?? const [])
         .whereType<Map>()
-        .map((image) => RegistryImageAttachment.fromJson(
-              Map<String, dynamic>.from(image),
-            ))
+        .map(
+          (image) => RegistryImageAttachment.fromJson(
+            Map<String, dynamic>.from(image),
+          ),
+        )
         .where((image) => image.id.isNotEmpty && image.ref.isNotEmpty)
         .toList(growable: false),
   );
@@ -316,8 +318,11 @@ class RegistryRepository {
       throw StateError('Patient not found.');
     }
     if (data.patients.any(
-      (p) => p.id != patientId && p.relatedReportIds.contains(id),
-    )) {
+          (p) => p.id != patientId && p.relatedReportIds.contains(id),
+        ) ||
+        data.updates.any(
+          (u) => u.patientId != patientId && u.sourceReportId == id,
+        )) {
       throw StateError('This report is already linked to another patient.');
     }
     return RegistryData(
@@ -542,9 +547,7 @@ class RegistryRepository {
                   u.patientId != update.patientId &&
                   u.sourceReportId == update.sourceReportId,
             ))) {
-      throw StateError(
-        'This report is already linked to another patient.',
-      );
+      throw StateError('This report is already linked to another patient.');
     }
     if (update.sourceReportId.isNotEmpty &&
         data.updates.any(

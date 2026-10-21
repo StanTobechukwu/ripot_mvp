@@ -1,3 +1,5 @@
+> Historical release notes. The next update replaces the Premium/trial 100-PDF cap with unlimited local saved PDFs, subject to device/browser storage. Free remains 10.
+
 # Account entry, updates and access review
 
 Prepared from the current Windows source, version 1.0.11+46, retaining the updated

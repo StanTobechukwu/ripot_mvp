@@ -18,7 +18,7 @@ void main() {
     createdAtIso: '2026-10-02T00:00:00Z',
     updatedAtIso: '2026-10-02T00:00:00Z',
   );
-  Future<void> finish(String id, {int limit = 10}) =>
+  Future<void> finish(String id, {int? limit = 10}) =>
       repo.savePdfBytesForReport(
         id,
         bytes,
@@ -72,7 +72,7 @@ void main() {
       expect(await repo.loadPdfBytesForReport('draft'), isNull);
       expect((await repo.loadReport('draft')).reportId, 'draft');
       expect(await repo.isReportFinalized('draft'), isFalse);
-      await finish('draft', limit: 100);
+      await finish('draft', limit: null);
       expect(
         (await repo.listReports()).where((r) => r.isFinalReport),
         hasLength(11),
@@ -84,7 +84,7 @@ void main() {
     'expiry preserves excess PDFs and drafts; replacements use no new slot',
     () async {
       for (var i = 0; i < 12; i++) {
-        await finish('final-$i', limit: 100);
+        await finish('final-$i', limit: null);
       }
       await repo.saveReport(doc('new-draft'));
       await expectLater(
@@ -102,6 +102,25 @@ void main() {
         (await repo.listReports()).where((r) => r.isFinalReport),
         hasLength(10),
       );
+    },
+  );
+
+  test(
+    'unlimited permits the 101st PDF and expiry still preserves every PDF',
+    () async {
+      for (var i = 0; i < 101; i++) {
+        await finish('premium-$i', limit: null);
+      }
+      expect(
+        (await repo.listReports()).where((r) => r.isFinalReport),
+        hasLength(101),
+      );
+      await expectLater(
+        finish('after-expiry'),
+        throwsA(isA<FinalizedReportLimitException>()),
+      );
+      expect(await repo.loadPdfBytesForReport('premium-100'), bytes);
+      await finish('premium-100');
     },
   );
 
