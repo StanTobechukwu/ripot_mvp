@@ -1,6 +1,7 @@
 # Ripot 1.0.14 (49) — prepared update
 
 ## Changes
+- LinkedIn company-page link supplied by the founder: https://www.linkedin.com/company/ripot-technology/ (landing footer, contact page and template pages).
 - Premium and active trial: no saved-final-PDF count cap. Free stays at 10. Device/browser storage remains finite; existing PDFs stay accessible after expiry.
 - New approved R source artwork; the release workflow regenerates platform icons.
 - support@ripot.app on all landing/legal/contact pages and in the Account sheet.
@@ -22,7 +23,7 @@ Support email: support@ripot.app
 Upload the new Play icon and reflect unlimited local Premium PDFs in the full description after release. Screenshots must come from the released app.
 
 ## Still needed
-- Exact LinkedIn company-page URL. Do not guess /company/ripot (belongs to another organisation).
+
 - Real demonstration video, reviewed before publication.
 - Contributor-published/custom shareable template backend and review controls. The initial library credits Ripot and shares bundled starters only.
 - Obstetric/operative templates need content/design review before adding to the starter set.
