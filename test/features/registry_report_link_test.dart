@@ -90,7 +90,11 @@ void main() {
         ],
       );
       SharedPreferences.setMockInitialValues({
-        RegistryRepository.storageKey: jsonEncode(data.toJson()),
+        RegistryRepository.storageKey: jsonEncode({
+          'version': 2,
+          'patients': data.patients.map((p) => p.toJson()).toList(),
+          'updates': data.updates.map((u) => u.toJson()).toList(),
+        }),
       });
       expect(reportsOwnedByOtherPatients(data, patient.id), contains('r'));
       await expectLater(
@@ -176,6 +180,34 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Link to this patient?'), findsNothing);
       expect(find.text('name-only-report'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'patient linking remains usable with a small screen and keyboard',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            resizeToAvoidBottomInset: false,
+            body: ReportLinkPicker(
+              patient: patient,
+              reports: [report('small-screen-report')],
+              unavailableReportIds: const {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('small-screen-report'));
+      await tester.tap(find.text('small-screen-report'));
+      await tester.pumpAndSettle();
+      expect(find.text('Link to this patient?'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 }
