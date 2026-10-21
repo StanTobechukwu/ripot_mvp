@@ -2,6 +2,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ripot/features/access/domain/access_state.dart';
 
 void main() {
+  test(
+    'Premium and active trials have no count cap; Free and expired access keep 10',
+    () {
+      final free = AccessState.initial(installationId: 'test');
+      final now = DateTime.now();
+      expect(free.maxSavedReports, 10);
+      expect(free.copyWith(plan: RipotPlan.premium).maxSavedReports, isNull);
+      expect(
+        free
+            .copyWith(
+              plan: RipotPlan.trial,
+              trialEndsAt: now.add(const Duration(days: 1)),
+            )
+            .maxSavedReports,
+        isNull,
+      );
+      expect(
+        free
+            .copyWith(
+              plan: RipotPlan.premium,
+              premiumExpiresAt: now.subtract(const Duration(days: 1)),
+            )
+            .maxSavedReports,
+        10,
+      );
+      expect(
+        free
+            .copyWith(
+              plan: RipotPlan.premium,
+              offlineAccessUntil: now.subtract(const Duration(days: 1)),
+            )
+            .maxSavedReports,
+        10,
+      );
+    },
+  );
   group('AccessState server-authoritative trials', () {
     test('new installations are not assumed to be early users', () {
       final state = AccessState.initial(installationId: 'install-1');
@@ -75,10 +111,9 @@ void main() {
       final state = AccessState.initial(installationId: 'install-1');
       for (final number in [-1, 0, 101]) {
         expect(
-          state.copyWith(
-            founderCohort: 'founding_100',
-            founderNumber: number,
-          ).isFounding100,
+          state
+              .copyWith(founderCohort: 'founding_100', founderNumber: number)
+              .isFounding100,
           isFalse,
         );
       }

@@ -196,7 +196,7 @@ class UpgradeScreen extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           Text(
-            'Privacy note: Your reports remain on your device. Only basic account, subscription, and template information may be synced securely.',
+            '*Unlimited saved PDFs are subject to available device or browser storage. Keep a separate backup.\n\nPrivacy note: Your reports remain on your device. Only basic account, subscription, and template information may be synced securely.',
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -480,7 +480,7 @@ class _PlanComparison extends StatelessWidget {
       ['Ripot branding removed', 'No', 'Yes'],
       ['Advanced layout/margins', 'No', 'Yes'],
       ['Your templates (built-ins excluded)', '4', '20'],
-      ['Finalized reports on this device', '10', '100'],
+      ['Finalized reports on this device', '10', 'Unlimited*'],
       ['Drafts (excluded from report limit)', 'Unlimited', 'Unlimited'],
       ['Records table and filters', 'No', 'Yes'],
     ];

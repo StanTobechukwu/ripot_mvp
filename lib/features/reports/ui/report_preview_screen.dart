@@ -115,8 +115,12 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     final repo = context.read<ReportsRepository>();
 
     final access = context.read<AccessProvider>();
-    await repo.savePdfBytesForReport(doc.reportId, bytes, doc: doc,
-      maxFinalizedReports: () => access.safeState.maxSavedReports);
+    await repo.savePdfBytesForReport(
+      doc.reportId,
+      bytes,
+      doc: doc,
+      maxFinalizedReports: () => access.safeState.maxSavedReports,
+    );
 
     return repo.pdfFileNameForDoc(doc);
   }
@@ -158,8 +162,13 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       await vm.save();
       final reports = await reportsRepo.listReports();
       if (!mounted) return;
-      final alreadyFinal = reports.any((r) => r.reportId == vm.doc.reportId && r.isFinalReport);
-      if (!alreadyFinal && reports.where((r) => r.isFinalReport).length >= accessProvider.safeState.maxSavedReports) {
+      final alreadyFinal = reports.any(
+        (r) => r.reportId == vm.doc.reportId && r.isFinalReport,
+      );
+      final limit = accessProvider.safeState.maxSavedReports;
+      if (!alreadyFinal &&
+          limit != null &&
+          reports.where((r) => r.isFinalReport).length >= limit) {
         final proceed = await _offerMoreReports();
         if (!proceed || !mounted) return;
       }
@@ -168,15 +177,22 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       if (!mounted) return;
       final fileName = await _savePdfToLocal(bytes, vm.doc);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF saved: $fileName')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('PDF saved: $fileName')));
       await _offerAddToRecords();
     } on FinalizedReportLimitException {
       // Rechecked at the write: handles another save or expiry while rendering.
       if (mounted) await _offerMoreReports();
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('The final PDF could not be saved. Please try again.'),
-      ));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'The final PDF could not be saved. Please try again.',
+            ),
+          ),
+        );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -185,24 +201,25 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   Future<bool> _offerMoreReports() async {
     final access = context.read<AccessProvider>().safeState;
     if (!access.isPremiumLike) {
-      return showPremiumFeatureSheet(context, PremiumFeature.moreReports,
-        message: 'Your draft has been saved.');
+      return showPremiumFeatureSheet(
+        context,
+        PremiumFeature.moreReports,
+        message: 'Your draft has been saved.',
+      );
     }
-    await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
-      title: const Text('Finalized report limit reached'),
-      content: Text('Your plan keeps up to ${access.maxSavedReports} finalized reports on this device. '
-        'Your draft and existing reports are safe. Export any reports you want to keep before choosing to remove them to make space.'),
-      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Keep draft'))],
-    ));
-    return false;
+    // Access may have been upgraded between the failed write and this prompt.
+    return true;
   }
 
   Future<void> _offerAddToRecords() async {
     final access = context.read<AccessProvider>().safeState;
 
     if (!access.canUseRecords) {
-      final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.records,
-        message: 'Your PDF has been saved. Adding it to Records is optional.');
+      final unlocked = await showPremiumFeatureSheet(
+        context,
+        PremiumFeature.records,
+        message: 'Your PDF has been saved. Adding it to Records is optional.',
+      );
       if (!unlocked || !mounted) return;
     }
 
@@ -247,9 +264,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                Text(status == RecordReportStatus.notAdded
-                  ? 'The PDF has been saved. Records are optional, but they make this final report easier to find later in list or table form.'
-                  : 'The report has changed since this Record was last synced. Review the included fields. Deliberate Record corrections are preserved.'),
+                Text(
+                  status == RecordReportStatus.notAdded
+                      ? 'The PDF has been saved. Records are optional, but they make this final report easier to find later in list or table form.'
+                      : 'The report has changed since this Record was last synced. Review the included fields. Deliberate Record corrections are preserved.',
+                ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -286,7 +305,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     final selected = await prepareReportRecords(context, vm.doc);
     if (selected == null || !mounted) return;
-    final draft = await provider.draftForReport(selected, applyFieldSelection: true);
+    final draft = await provider.draftForReport(
+      selected,
+      applyFieldSelection: true,
+    );
 
     if (!mounted) return;
 
@@ -300,13 +322,15 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     if (!mounted) return;
 
     if (saved == true) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(
-        status == RecordReportStatus.notAdded
-            ? 'Report added to Records.'
-            : 'Record updated from report.',
-      )));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == RecordReportStatus.notAdded
+                ? 'Report added to Records.'
+                : 'Record updated from report.',
+          ),
+        ),
+      );
     }
   }
 
@@ -314,7 +338,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     final access = context.read<AccessProvider>().safeState;
 
     if (!access.canUseLetterhead) {
-      final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.customLetterhead);
+      final unlocked = await showPremiumFeatureSheet(
+        context,
+        PremiumFeature.customLetterhead,
+      );
       if (!unlocked || !mounted) return;
     }
 

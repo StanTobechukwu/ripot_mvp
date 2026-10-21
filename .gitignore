@@ -52,3 +52,5 @@ try_ripot_*.py
 
 # Firebase Functions dependencies
 functions/node_modules/
+
+__pycache__/

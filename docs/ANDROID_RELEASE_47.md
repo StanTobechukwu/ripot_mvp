@@ -1,3 +1,5 @@
+> Historical release notes. The next update replaces the Premium/trial 100-PDF cap with unlimited local saved PDFs, subject to device/browser storage. Free remains 10.
+
 # Google Play update: Ripot 1.0.12 (47)
 
 On 2 October 2026, Play Console showed production version 1.0.10 (45),

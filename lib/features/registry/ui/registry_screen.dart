@@ -1,3 +1,5 @@
+import 'report_link_picker.dart';
+import '../domain/report_link_match.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/ids.dart';
@@ -31,7 +33,10 @@ Future<T?> _registryDialog<T>({
 
 Future<void> openRegistry(BuildContext context, {RecordEntry? source}) async {
   if (!context.read<AccessProvider>().safeState.canUseRecords) {
-    final unlocked = await showPremiumFeatureSheet(context, PremiumFeature.registry);
+    final unlocked = await showPremiumFeatureSheet(
+      context,
+      PremiumFeature.registry,
+    );
     if (!unlocked || !context.mounted) return;
   }
   await Navigator.push(
@@ -907,9 +912,7 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                 .toList()
               ..sort((a, b) {
                 final date = b.observedAt.compareTo(a.observedAt);
-                return date == 0
-                    ? b.recordedAt.compareTo(a.recordedAt)
-                    : date;
+                return date == 0 ? b.recordedAt.compareTo(a.recordedAt) : date;
               });
         final relatedIds = <String>{
           ..._patient.relatedReportIds,
@@ -1011,50 +1014,39 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
   }
 
   Future<void> _linkReport() async {
-    final linked = <String>{
-      ..._patient.relatedReportIds,
-      for (final update in _updates)
-        if (update.sourceReportId.isNotEmpty) update.sourceReportId,
-    };
-    final candidates = _allReports
-        .where((report) => report.hasPdf && !linked.contains(report.reportId))
-        .toList(growable: false);
-    if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No other finalized reports are available to link.')),
-      );
-      return;
-    }
-    final reportId = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(sheetContext).height * .65,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            children: [
-              const ListTile(
-                title: Text('Link existing report'),
-                subtitle: Text(
-                  'Choose a report that belongs to this patient. Ripot will not link reports automatically by name alone.',
-                ),
-              ),
-              for (final report in candidates)
-                ListTile(
-                  leading: const Icon(Icons.description_outlined),
-                  title: Text(report.title),
-                  subtitle: Text(report.subtitle),
-                  onTap: () => Navigator.pop(sheetContext, report.reportId),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (reportId == null || !mounted) return;
     try {
+      // Refresh before opening: links may have changed on another screen.
+      await _load();
+      if (!mounted) return;
+      final data = await _repo.load();
+      if (!mounted) return;
+      final linked = <String>{
+        ..._patient.relatedReportIds,
+        for (final update in _updates)
+          if (update.sourceReportId.isNotEmpty) update.sourceReportId,
+      };
+      final candidates = _allReports
+          .where((report) => report.hasPdf && !linked.contains(report.reportId))
+          .toList(growable: false);
+      if (candidates.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No other finalized reports are available to link.'),
+          ),
+        );
+        return;
+      }
+      final reportId = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (_) => ReportLinkPicker(
+          patient: _patient,
+          reports: candidates,
+          unavailableReportIds: reportsOwnedByOtherPatients(data, _patient.id),
+        ),
+      );
+      if (reportId == null || !mounted) return;
       await _repo.linkReport(_patient.id, reportId);
       await _load();
     } catch (e) {
@@ -1312,9 +1304,11 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                       title: Text(report.title),
                       subtitle: Text(report.subtitle),
                       onTap: () => _openSource(report.reportId),
-                      trailing: _updates.any(
-                        (update) => update.sourceReportId == report.reportId,
-                      )
+                      trailing:
+                          _updates.any(
+                            (update) =>
+                                update.sourceReportId == report.reportId,
+                          )
                           ? const Tooltip(
                               message: 'Linked by a Registry update',
                               child: Icon(Icons.link),
@@ -1438,9 +1432,9 @@ class _RegistryPatientScreenState extends State<RegistryPatientScreen> {
                                         image.label,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.labelSmall,
                                       ),
                                   ],
                                 ),
@@ -1660,10 +1654,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
       setState(() {
         for (final ref in refs) {
           _images.add(
-            RegistryImageAttachment(
-              id: newId('registry_image'),
-              ref: ref,
-            ),
+            RegistryImageAttachment(id: newId('registry_image'), ref: ref),
           );
         }
       });
@@ -1672,9 +1663,7 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
     }
   }
 
-  Future<void> _editRegistryImageLabel(
-    RegistryImageAttachment image,
-  ) async {
+  Future<void> _editRegistryImageLabel(RegistryImageAttachment image) async {
     final controller = TextEditingController(text: image.label);
     final saved = await showDialog<bool>(
       context: context,
@@ -1938,8 +1927,9 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
                 Expanded(
                   child: Text(
                     'Images',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 TextButton.icon(
@@ -2039,7 +2029,10 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
                                   onPressed: _saving
                                       ? null
                                       : () => _editRegistryImageLabel(direct),
-                                  icon: const Icon(Icons.edit_outlined, size: 15),
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 15,
+                                  ),
                                 ),
                                 IconButton.filledTonal(
                                   visualDensity: VisualDensity.compact,
@@ -2047,10 +2040,10 @@ class _RegistryUpdateScreenState extends State<RegistryUpdateScreen> {
                                   onPressed: _saving
                                       ? null
                                       : () => setState(
-                                            () => _images.removeWhere(
-                                              (image) => image.id == direct.id,
-                                            ),
+                                          () => _images.removeWhere(
+                                            (image) => image.id == direct.id,
                                           ),
+                                        ),
                                   icon: const Icon(Icons.close, size: 16),
                                 ),
                               ],

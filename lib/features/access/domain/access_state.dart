@@ -166,7 +166,8 @@ class AccessState {
   }
 
   // Stored final PDFs only. Editable drafts do not consume this allowance.
-  int get maxSavedReports => isPremiumLike ? 100 : 10;
+  /// null means unlimited, subject to available device/browser storage.
+  int? get maxSavedReports => isPremiumLike ? null : 10;
   int get maxSavedTemplates => isPremiumLike ? 20 : 4;
   int get maxImagesPerReport => isPremiumLike ? 12 : 4;
 

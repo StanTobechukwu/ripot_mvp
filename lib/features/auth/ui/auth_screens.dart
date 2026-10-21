@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
@@ -38,7 +39,10 @@ class _AccountSheet extends StatelessWidget {
               FilledButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SignInScreen()),
+                  );
                 },
                 icon: const Icon(Icons.login),
                 label: const Text('Sign in'),
@@ -47,7 +51,10 @@ class _AccountSheet extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                  );
                 },
                 icon: const Icon(Icons.person_add_alt_1),
                 label: const Text('Create account'),
@@ -71,6 +78,30 @@ class _AccountSheet extends StatelessWidget {
                 label: const Text('Sign out'),
               ),
             ],
+            const Divider(height: 28),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.help_outline),
+              title: const Text('Contact Ripot support'),
+              subtitle: const SelectableText('support@ripot.app'),
+              trailing: IconButton(
+                tooltip: 'Copy support email',
+                icon: const Icon(Icons.copy),
+                onPressed: () async {
+                  await Clipboard.setData(
+                    const ClipboardData(text: 'support@ripot.app'),
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Support email copied')),
+                    );
+                  }
+                },
+              ),
+            ),
+            const Text(
+              'Please do not send patient-identifiable reports or images when requesting support.',
+            ),
             if (activity.available) ...[
               const Divider(height: 28),
               SwitchListTile.adaptive(
@@ -113,14 +144,14 @@ class _SignInScreenState extends State<SignInScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final ok = await context.read<AuthProvider>().signIn(
-          email: _emailCtrl.text,
-          password: _passwordCtrl.text,
-        );
+      email: _emailCtrl.text,
+      password: _passwordCtrl.text,
+    );
     if (!mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signed in successfully.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Signed in successfully.')));
       if (widget.onWelcomeCompleted != null) {
         widget.onWelcomeCompleted!();
       } else {
@@ -143,8 +174,10 @@ class _SignInScreenState extends State<SignInScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (widget.onWelcomeCompleted != null) ...[
-                Text('Welcome to Ripot',
-                    style: Theme.of(context).textTheme.headlineMedium),
+                Text(
+                  'Welcome to Ripot',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
                 const SizedBox(height: 12),
               ],
               Text(
@@ -157,31 +190,47 @@ class _SignInScreenState extends State<SignInScreen> {
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(labelText: 'Email'),
-                validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email.' : null,
+                validator: (v) => (v == null || !v.contains('@'))
+                    ? 'Enter a valid email.'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _passwordCtrl,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Password'),
-                validator: (v) => (v == null || v.length < 6) ? 'Password must be at least 6 characters.' : null,
+                validator: (v) => (v == null || v.length < 6)
+                    ? 'Password must be at least 6 characters.'
+                    : null,
               ),
               if (auth.error != null) ...[
                 const SizedBox(height: 12),
-                Text(auth.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(
+                  auth.error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ],
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: auth.busy ? null : _submit,
                 child: auth.busy
-                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Text('Sign in'),
               ),
               TextButton(
                 onPressed: auth.busy
                     ? null
                     : () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen(),
+                          ),
+                        );
                       },
                 child: const Text('Forgot password?'),
               ),
@@ -190,11 +239,21 @@ class _SignInScreenState extends State<SignInScreen> {
                     ? null
                     : () async {
                         if (widget.onWelcomeCompleted == null) {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignUpScreen()));
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SignUpScreen(),
+                            ),
+                          );
                           return;
                         }
-                        final completed = await Navigator.push<bool>(context,
-                          MaterialPageRoute(builder: (_) => const SignUpScreen(welcomeFlow: true)));
+                        final completed = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const SignUpScreen(welcomeFlow: true),
+                          ),
+                        );
                         if (mounted && completed == true) {
                           widget.onWelcomeCompleted!();
                         }
@@ -207,9 +266,11 @@ class _SignInScreenState extends State<SignInScreen> {
                   onPressed: auth.busy ? null : widget.onWelcomeCompleted,
                   child: const Text('Continue without an account'),
                 ),
-                Text('You can sign in later from the account icon.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  'You can sign in later from the account icon.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ],
           ),
@@ -244,9 +305,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final ok = await context.read<AuthProvider>().signUp(
-          email: _emailCtrl.text,
-          password: _passwordCtrl.text,
-        );
+      email: _emailCtrl.text,
+      password: _passwordCtrl.text,
+    );
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -277,31 +338,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(labelText: 'Email'),
-                validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email.' : null,
+                validator: (v) => (v == null || !v.contains('@'))
+                    ? 'Enter a valid email.'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _passwordCtrl,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Password'),
-                validator: (v) => (v == null || v.length < 6) ? 'Password must be at least 6 characters.' : null,
+                validator: (v) => (v == null || v.length < 6)
+                    ? 'Password must be at least 6 characters.'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _confirmCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Confirm password'),
-                validator: (v) => v != _passwordCtrl.text ? 'Passwords do not match.' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm password',
+                ),
+                validator: (v) =>
+                    v != _passwordCtrl.text ? 'Passwords do not match.' : null,
               ),
               if (auth.error != null) ...[
                 const SizedBox(height: 12),
-                Text(auth.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(
+                  auth.error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ],
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: auth.busy ? null : _submit,
                 child: auth.busy
-                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Text('Create account'),
               ),
               TextButton(
@@ -311,14 +386,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         if (widget.welcomeFlow) {
                           Navigator.pop(context, false);
                         } else {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignInScreen()));
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SignInScreen(),
+                            ),
+                          );
                         }
                       },
                 child: const Text('Already have an account? Sign in'),
               ),
               if (widget.welcomeFlow)
                 TextButton(
-                  onPressed: auth.busy ? null : () => Navigator.pop(context, true),
+                  onPressed: auth.busy
+                      ? null
+                      : () => Navigator.pop(context, true),
                   child: const Text('Continue without an account'),
                 ),
             ],
@@ -348,7 +430,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final ok = await context.read<AuthProvider>().sendPasswordReset(email: _emailCtrl.text);
+    final ok = await context.read<AuthProvider>().sendPasswordReset(
+      email: _emailCtrl.text,
+    );
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -378,17 +462,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(labelText: 'Email'),
-                validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email.' : null,
+                validator: (v) => (v == null || !v.contains('@'))
+                    ? 'Enter a valid email.'
+                    : null,
               ),
               if (auth.error != null) ...[
                 const SizedBox(height: 12),
-                Text(auth.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(
+                  auth.error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ],
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: auth.busy ? null : _submit,
                 child: auth.busy
-                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Text('Send reset email'),
               ),
             ],

@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ripot — Professional reports. Made simple.</title>
+  <meta name="description" content="A simple, complete clinical reporting tool. Use templates, capture images and signatures, and share polished PDFs. Optional Records, Registry and Logbook tools reuse selected report data.">
+  <meta name="theme-color" content="#047857">
+  <link rel="canonical" href="https://ripot.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Ripot">
+  <meta property="og:title" content="Ripot — Professional reports. Made simple.">
+  <meta property="og:description" content="Templates, images, signatures and polished PDFs in one reporting workflow. Local clinical data storage, with optional tools that make your report data go further.">
+  <meta property="og:url" content="https://ripot.app/">
+  <meta property="og:image" content="https://ripot.app/images/ripot-icon.png">
+  <meta property="og:image:alt" content="Ripot app icon">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Ripot — Professional reports. Made simple.">
+  <meta name="twitter:description" content="Create, sign and share professional clinical reports on Android, Windows and the web.">
+  <meta name="twitter:image" content="https://ripot.app/images/ripot-icon.png">
+  <link rel="icon" type="image/png" href="images/ripot-icon.png">
+  <link rel="apple-touch-icon" href="images/ripot-icon.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Ripot",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Android, Windows, Web",
+    "url": "https://ripot.app/",
+    "downloadUrl": "https://play.google.com/store/apps/details?id=com.nduaguba.report",
+    "publisher": {"@type": "Organization", "name": "Ripot Technologies Ltd"},
+    "description": "A simple, complete clinical reporting tool with reusable templates, image and signature capture, polished PDF export and sharing. Additional Records, Registry and Logbook tools can reuse selected report data."
+  }
+  </script>
+  <style>
+    :root{--bg:#f8fafc;--ink:#142522;--muted:#52615e;--line:#dce6e1;--green:#047857;--dark:#065f46;--soft:#ecfdf5;--gutter:clamp(1rem,4vw,2rem)}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;color:var(--ink);background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6}
+    a{color:inherit;text-decoration:none}
+    img{display:block;max-width:100%;height:auto}
+    summary{font:inherit;cursor:pointer}
+    :focus-visible{outline:3px solid #0e7490;outline-offset:4px}
+    .container{width:100%;max-width:1160px;margin-inline:auto;padding-inline:var(--gutter)}
+    section{padding-block:64px;scroll-margin-top:88px}
+    .section-white{background:#fff;border-block:1px solid var(--line)}
+    h1,h2,h3,p,figure{margin:0}
+    h1{max-width:100%;font-size:clamp(2.4rem,4.7vw,3.65rem);line-height:1.08;letter-spacing:-.045em;font-weight:750}
+    h1 span{color:var(--green)}
+    h2{max-width:26ch;font-size:clamp(1.8rem,3.2vw,2.45rem);line-height:1.15;letter-spacing:-.035em}
+    h3{font-size:1.125rem;line-height:1.35;letter-spacing:-.015em}
+    .intro{margin-top:14px;max-width:65ch;font-size:1.0625rem;color:var(--muted)}
+    .eyebrow{margin-bottom:12px;font-size:.75rem;font-weight:750;letter-spacing:.12em;text-transform:uppercase;color:var(--green)}
+    .text-link{color:var(--dark);text-decoration:underline;text-underline-offset:4px;font-weight:650}
+    .skip-link{position:absolute;z-index:100;top:-100px;left:16px;padding:12px;background:white}
+    .skip-link:focus{top:8px}
+    .topbar{position:sticky;top:0;z-index:20;background:#fffffff5;border-bottom:1px solid var(--line)}
+    .topbar-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-block:12px}
+    .brand{display:inline-flex;align-items:center;gap:10px;min-width:0}
+    .brand img{width:42px;height:42px;flex-shrink:0;border-radius:12px}
+    .brand-name{font-weight:750;font-size:1.625rem;letter-spacing:-.045em;line-height:1.15}
+    .brand-sub{display:block;font-size:.75rem;color:var(--muted);line-height:1.4}
+    .desktop-nav{display:flex;align-items:center;gap:22px;font-size:.875rem;font-weight:600}
+    .desktop-nav>a{display:inline-flex;align-items:center;min-height:44px}
+    .desktop-nav>a:not(.btn):hover,.footer-links a:hover{color:var(--green)}
+    .mobile-menu{display:none;position:relative;flex-shrink:0}
+    .mobile-menu summary{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding-inline:12px;border:1px solid var(--line);border-radius:10px;font-size:.875rem;font-weight:650;list-style:none}
+    .mobile-menu summary::-webkit-details-marker{display:none}
+    .mobile-menu summary::after{content:"+";font-size:1.125rem;line-height:1}
+    .mobile-menu[open] summary::after{content:"−"}
+    .mobile-menu nav{position:absolute;inset-inline-end:0;top:calc(100% + 10px);width:min(260px,calc(100vw - 32px));max-height:65vh;overflow-y:auto;padding:10px;background:white;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 35px #132e241a}
+    .mobile-menu nav a{display:flex;align-items:center;min-height:46px;padding:8px 12px;border-radius:8px;font-size:.9375rem}
+    .mobile-menu nav a:hover{background:var(--soft)}
+    .btn{display:inline-flex;justify-content:center;align-items:center;min-height:48px;padding:11px 18px;border:1px solid transparent;border-radius:11px;font-size:.9375rem;line-height:1.4;font-weight:700;text-align:center}
+    .btn-primary{background:var(--green);color:white;border-color:var(--green)}
+    .btn-primary:hover{background:var(--dark);color:white}
+    .btn-outline{color:var(--dark);border-color:#b7cdc2;background:white}
+    .btn-outline:hover{background:var(--soft)}
+    .hero-section{padding-block:46px 56px}
+    .hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:52px;align-items:center}
+    .hero-copy{min-width:0}
+    .badge{display:inline-flex;align-items:center;gap:7px;color:var(--dark);margin-bottom:18px;font-size:.8125rem;font-weight:650}
+    .badge::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
+    .lead{margin-top:18px;max-width:48ch;font-size:1.125rem;color:var(--muted)}
+    .cta-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+    .privacy-note{display:flex;align-items:flex-start;gap:8px;margin-top:16px;color:var(--dark);font-size:.8125rem}
+    .privacy-note svg{width:18px;height:18px;flex-shrink:0;margin-top:2px}
+    .hero-preview{min-width:0;padding:16px;border:1px solid #c8dfd3;border-radius:20px;background:#eff8f3;box-shadow:0 18px 45px #183f2b0d}
+    .preview-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:12px;font-size:.8125rem}
+    .preview-head span{color:var(--dark)}
+    .image-link{display:block;overflow:hidden;border-radius:10px;background:white}
+    .hero-preview img{width:100%}
+    .hero-preview figcaption{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin-top:12px;color:var(--muted);font-size:.75rem}
+    .feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:30px}
+    .feature-card{padding:22px;border:1px solid var(--line);border-radius:16px;background:white;min-width:0}
+    .feature-card p{margin-top:10px;color:var(--muted);font-size:.9375rem}
+    .feature-icon{display:grid;place-items:center;width:38px;height:38px;margin-bottom:18px;border-radius:10px;color:var(--green);background:var(--soft)}
+    .feature-icon svg{width:22px;height:22px}
+    .screen-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:30px}
+    .screen-card{min-width:0}
+    .screen-card .image-link{border:1px solid var(--line)}
+    .screen-card img{width:100%;aspect-ratio:1.7;object-fit:contain}
+    .screen-card figcaption{margin-top:18px}
+    .step-label{display:block;font-size:.75rem;font-weight:750;letter-spacing:.1em;color:var(--green);margin-bottom:6px}
+    .screen-card p{margin-top:8px;color:var(--muted);font-size:.9375rem}
+    .caption-note{margin-top:18px;font-size:.8125rem;color:var(--muted)}
+    .advanced-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:28px}
+    .advanced-grid .feature-card{background:var(--bg)}
+    .reuse-note{margin-top:20px;padding:16px 20px;border-left:3px solid var(--green);background:var(--soft);color:var(--dark);font-size:.9375rem}
+    .disclosure{margin-top:18px;border-top:1px solid var(--line)}
+    .disclosure summary{padding-block:14px;font-size:.9375rem;font-weight:650;color:var(--dark)}
+    .disclosure p{max-width:85ch;margin-bottom:16px;color:var(--muted);font-size:.9375rem}
+    .privacy-panel{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:40px;padding:34px;border:1px solid #c8dfd3;border-radius:20px;background:#f0f8f3}
+    .privacy-panel .intro{font-size:1rem}
+    .privacy-points{display:grid;gap:20px;min-width:0}
+    .privacy-points h3{font-size:1rem}
+    .privacy-points p{margin-top:6px;font-size:.9375rem;color:var(--muted)}
+    .privacy-policy-link{display:inline-flex;align-items:center;min-height:44px;margin-top:16px;font-size:.9375rem}
+    .privacy-footnote{font-size:.8125rem;color:var(--muted);margin-top:18px;max-width:95ch}
+    .download{padding-top:0}
+    .download-panel{padding:36px;background:var(--dark);border-radius:20px;color:white;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:32px;align-items:center}
+    .download-panel .intro{color:#e1f2e9;font-size:1rem}
+    .download-panel .cta-row{margin-top:0}
+    .download-panel .btn-primary{background:white;color:var(--dark);border-color:white}
+    .download-panel .btn-outline{border-color:#b4d9c5;background:transparent;color:white}
+    .download-panel .btn:hover{background:#e6f6ed;color:var(--dark)}
+    .plan-note{margin-top:14px;font-size:.8125rem;color:#e1f2e9}
+    footer{padding-block:36px;background:white;border-top:1px solid var(--line)}
+    .footer-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr) minmax(0,1fr);gap:30px}
+    .footer-summary{color:var(--muted);font-size:.875rem;margin-top:12px;max-width:34ch}
+    .footer-label{font-size:.75rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:750;margin-bottom:6px}
+    .footer-links{display:flex;flex-direction:column;align-items:flex-start}
+    .footer-links a{min-height:44px;display:inline-flex;align-items:center;padding-block:8px;font-size:.875rem;overflow-wrap:anywhere;max-width:100%}
+    .copyright{margin-top:22px;font-size:.75rem;color:var(--muted)}
+    @media(max-width:1040px){
+      .desktop-nav{gap:14px}.hero{gap:28px}
+      .feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .privacy-panel{gap:28px}
+    }
+    @media(max-width:800px){
+      .desktop-nav{display:none}.mobile-menu{display:block}
+      .hero{grid-template-columns:minmax(0,1fr);gap:28px}
+      .hero-copy,.hero-preview{max-width:620px}.hero-preview{width:100%}
+      .screen-grid,.advanced-grid{grid-template-columns:minmax(0,1fr);gap:22px}
+      .screen-card{max-width:620px}
+      .privacy-panel,.download-panel{grid-template-columns:minmax(0,1fr)}
+      .footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .footer-brand{grid-column:1 / -1}
+    }
+    @media(max-width:640px){
+      section{padding-block:36px;scroll-margin-top:76px}
+      .topbar-inner{padding-block:8px;gap:12px}
+      .brand img{width:36px;height:36px;border-radius:10px}
+      .brand-name{font-size:1.375rem}.brand-sub{font-size:.6875rem}
+      .hero-section{padding-block:26px 36px}
+      h1{font-size:clamp(2rem,8.8vw,2.55rem);line-height:1.1;max-width:100%}
+      h2{font-size:1.75rem;line-height:1.16}
+      .badge{font-size:.75rem;margin-bottom:12px}
+      .lead{font-size:1rem;margin-top:14px;line-height:1.55}
+      .cta-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:20px;gap:10px}
+      .btn{padding:11px 10px;font-size:.875rem}
+      .privacy-note{margin-top:13px;font-size:.75rem}
+      .hero-preview{padding:12px;border-radius:16px;box-shadow:none}
+      .hero-preview figcaption{font-size:.6875rem}
+      .intro{font-size:1rem;margin-top:12px}
+      .feature-grid{grid-template-columns:minmax(0,1fr);margin-top:24px;gap:12px}
+      .feature-card{padding:18px}
+      .feature-grid .feature-card{display:grid;grid-template-columns:36px minmax(0,1fr);column-gap:14px;align-items:start}
+      .feature-icon{width:36px;height:36px;margin:0;grid-row:1 / 3}
+      .feature-grid .feature-card p{margin-top:6px}
+      .feature-card h3{font-size:1rem}.feature-card p{font-size:.9375rem}
+      .screen-grid{margin-top:24px;gap:28px}.screen-card figcaption{margin-top:12px}
+      .advanced-grid{gap:12px;margin-top:24px}
+      .reuse-note{padding:14px 16px}
+      .privacy-panel,.download-panel{padding:22px 18px;border-radius:16px;gap:24px}
+      .privacy-points{gap:18px}.download{padding-top:0}.download-panel .cta-row{margin-top:0}
+      footer{padding-block:28px}.footer-grid{gap:24px 16px}
+    }
+    @media(max-width:359px){
+      .brand-sub{display:none}
+      .cta-row,.footer-grid{grid-template-columns:minmax(0,1fr)}
+    }
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+    h1,h2,h3,p,.btn{overflow-wrap:anywhere}
+    /* Responsive report preview rendered from the approved sample PDF. */
+    .hero-preview{max-width:410px;justify-self:center;width:100%;padding:18px;background:#e5f3ed;transform:none}
+    .hero-preview .report-focus{position:relative;aspect-ratio:0.706;box-shadow:0 5px 16px #163c2820;border-radius:3px}
+    .hero-preview .report-focus img{position:static;display:block;width:100%;max-width:100%;height:auto}
+    .preview-links{margin-top:8px;font-size:.75rem;color:var(--dark)}
+    .preview-links a{text-decoration:underline;text-underline-offset:3px}
+    .preview-head{font-size:.75rem;line-height:1.5}
+    .hero{grid-template-columns:1.15fr .85fr}
+    .image-link{position:relative;cursor:zoom-in}
+    .screen-card .image-link::after{content:'Enlarge ↗';position:absolute;bottom:10px;right:10px;background:#fff;color:#065f46;border:1px solid #b7cdc2;border-radius:20px;padding:6px 12px;font-size:.75rem;font-weight:650}
+    .screen-card{padding:12px;background:white;border:1px solid var(--line);border-radius:18px}
+    .screen-card .image-link{border:0;border-radius:9px}
+    .screen-card figcaption{padding:0 8px 10px}
+    .screen-grid{gap:16px}
+    .screen-card img{aspect-ratio:1.35;object-fit:cover;object-position:center}
+    .screen-card:nth-child(2) img{object-position:28% center}
+    .screen-card.report-card img{object-fit:contain;background:#e5eeea}
+    .screenshot-dialog{padding:0;border:0;border-radius:16px;width:min(1100px,94vw);max-width:94vw;height:min(850px,90dvh);max-height:90dvh;color:var(--ink);background:#f8fafc}
+    .screenshot-dialog::backdrop{background:#0b211de6}
+    .viewer-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:white;flex-wrap:wrap}
+    .viewer-bar h2{font-size:1rem;line-height:1.4;margin:0;max-width:50ch}
+    .viewer-actions{display:flex;gap:8px;flex-shrink:0}
+    .viewer-actions button{font:inherit;font-size:.875rem;min-height:44px;min-width:44px;padding:8px 12px;border:1px solid #b7cdc2;border-radius:8px;background:white;color:#065f46;cursor:pointer}
+    .viewer-body{overflow:auto;overscroll-behavior:contain;flex:1;padding:12px;background:#e5eeea}
+    .viewer-body img{display:block;width:100%;height:auto;max-width:none;margin:auto}
+    .viewer-body.zoomed img{width:1600px;max-width:none}
+    .viewer-content{height:100%;display:flex;flex-direction:column}
+    .viewer-help{margin:0;padding:8px 16px;font-size:.8rem;color:var(--muted);background:white}
+    body.viewer-open{overflow:hidden}
+    @media(max-width:800px){
+      .hero{grid-template-columns:minmax(0,1fr)}
+      .hero-copy{max-width:640px}
+      .hero-preview{max-width:370px;transform:none;justify-self:center}
+      .screen-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 0 16px;gap:14px;scrollbar-color:#528475 #dfebe5}
+      .screen-card{flex:0 0 88%;scroll-snap-align:start;max-width:510px}
+      .screen-card img{aspect-ratio:1.35}
+    }
+    @media(max-width:640px){
+      .hero-section{padding-top:24px}
+      .hero{gap:24px}
+      .hero-preview{max-width:320px;padding:12px}
+      .hero-preview .preview-head span{display:none}
+      .hero-preview figcaption{font-size:.7rem}
+      .feature-grid{margin-top:20px}
+      .screenshot-dialog{width:96vw;max-width:96vw;height:90dvh;border-radius:12px}
+      .viewer-bar{padding:10px 12px;gap:8px}
+      .viewer-bar h2{font-size:.875rem;width:100%}
+      .viewer-actions{margin-left:auto}
+      .screen-card{flex-basis:92%;padding:10px}
+      .screen-card figcaption{padding:0 4px 6px}
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#main" aria-label="Ripot home">
+        <img src="images/ripot-icon.png" alt="" width="42" height="42">
+        <span><span class="brand-name">Ripot</span><span class="brand-sub">Clinical reporting, made simple</span></span>
+      </a>
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <a href="#features">Reporting</a>
+        <a href="/templates/">Templates</a>
+        <a href="#registry-and-logbook">Additional features</a>
+        <a href="#privacy">Privacy</a>
+        <a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a>
+      </nav>
+      <details class="mobile-menu">
+        <summary>Menu</summary>
+        <nav aria-label="Mobile navigation">
+          <a href="#features">Reporting features</a><a href="#screens">See the workflow</a><a href="/templates/">Templates</a>
+          <a href="#registry-and-logbook">Additional features</a><a href="#privacy">Privacy</a>
+          <a href="#download">Get Ripot</a><a href="contact.html">Contact &amp; support</a><a href="https://www.linkedin.com/company/ripot-technology/" target="_blank" rel="noopener noreferrer">Follow Ripot on LinkedIn</a>
+        </nav>
+      </details>
+    </div>
+  </header>
+  <main id="main" tabindex="-1">
+    <section class="hero-section" aria-labelledby="hero-title">
+      <div class="container hero">
+        <div class="hero-copy">
+          <div class="badge">Available on Android, Windows &amp; web</div>
+          <h1 id="hero-title">Professional reports.<br><span>Made simple.</span></h1>
+          <p class="lead">A complete reporting workflow for doctors and healthcare professionals. Start with a template, add findings, images and signatures, then share a polished PDF. Less formatting. More focus on your work.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a>
+            <a class="btn btn-outline" data-ripot-windows-download href="https://github.com/StanTobechukwu/ripot_mvp/releases/download/windows-v1.0.13-48/Ripot-Setup-1.0.13-48-windows-x64.exe">Download for Windows</a>
+            <a class="btn btn-outline" href="https://ripot-web.web.app">Try Ripot Web</a>
+          </div>
+          <p class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg><span>Clinical data stays on your device or browser. <a class="text-link" href="#privacy">How privacy works</a></span></p>
+        </div>
+        <figure class="hero-preview">
+          <div class="preview-head"><strong>Your report, ready to share</strong><span>Letterhead · Signature · PDF</span></div>
+          <a class="image-link report-focus" href="images/ripot-colonoscopy-aligned-48.png" target="_blank" rel="noopener" aria-label="Open the report preview image at full size"><img src="images/ripot-colonoscopy-aligned-48.png" width="1191" height="1684" fetchpriority="high" alt="Sample Ripot colonoscopy report with aligned fields, three procedure photographs and a signature beside the signer"></a>
+          <figcaption><span>Sample colonoscopy report</span><span>Tap to enlarge ↗</span></figcaption>
+          <p class="preview-links"><a href="samples/ripot-colonoscopy-sample.pdf" target="_blank" rel="noopener">View sample PDF</a> · <a href="#sample-report-credits">Photo credits</a></p>
+        </figure>
+      </div>
+    </section>
+
+    <section id="features" class="section-white" aria-labelledby="features-title">
+      <div class="container">
+        <p class="eyebrow">The complete reporting workflow</p>
+        <h2 id="features-title">Create. Capture. Sign. Share.</h2>
+        <p class="intro">A simple workflow that helps you spend less time rebuilding and formatting reports.</p>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+            <h3>Templates that work your way</h3><p>Start with a built-in template or create your own. Combine text, choices and measurements, then reuse the structure next time.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3Z"/><circle cx="12" cy="13" r="4"/></svg></div>
+            <h3>Image &amp; signature capture</h3><p>Capture or attach clinical images and add your signature within the reporting workflow. Keep the supporting detail with the report.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 3h9l5 5v13H5Z M14 3v5h5M8 12h8M8 16h6"/></svg></div>
+            <h3>A professional finish</h3><p>Add your letterhead, preview the layout and export a polished PDF. Give your reports the presentation your work deserves.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.5 10.5 7-4M8.5 13.5l7 4"/></svg></div>
+            <h3>Save, print &amp; share</h3><p>Export your finished report as a PDF for printing or sharing through your chosen apps. You decide where each copy goes.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="screens" aria-labelledby="screens-title">
+      <div class="container">
+        <p class="eyebrow">See the workflow</p>
+        <h2 id="screens-title">From template to finished report.</h2>
+        <p class="intro">Build your structure once. Focus on the findings each time.</p>
+        <div class="screen-grid" aria-label="Reporting workflow screenshots" tabindex="0">
+          <figure class="screen-card">
+            <a class="image-link" href="images/editormode.png" target="_blank" rel="noopener" aria-label="Open the template editor image at full size"><img src="images/editormode.png" width="2880" height="1800" loading="lazy" alt="Ripot template editor with reusable report sections and fields"></a>
+            <figcaption><span class="step-label">01 / STRUCTURE</span><h3>Choose or create a template</h3><p>Set up the sections and fields that suit your reporting style.</p></figcaption>
+          </figure>
+          <figure class="screen-card">
+            <a class="image-link" href="images/new-formmode.png" target="_blank" rel="noopener" aria-label="Open the report form image at full size"><img src="images/new-formmode.png" width="3104" height="1826" loading="lazy" alt="Ripot report form with structured clinical findings"></a>
+            <figcaption><span class="step-label">02 / DOCUMENT</span><h3>Add findings and images</h3><p>Complete the guided fields and keep your report content together.</p></figcaption>
+          </figure>
+          <figure class="screen-card report-card">
+            <a class="image-link" href="images/ripot-colonoscopy-aligned-48.png" target="_blank" rel="noopener" aria-label="Open the finished report image at full size"><img src="images/ripot-colonoscopy-aligned-48.png" width="1191" height="1684" loading="lazy" alt="Sample Ripot PDF report with aligned findings, three colonoscopy photographs and a signature beside the signer"></a>
+            <figcaption><span class="step-label">03 / FINISH</span><h3>Preview, sign and share</h3><p>Review the finished layout and export a professional PDF.</p></figcaption>
+          </figure>
+        </div>
+        <p class="caption-note">Reporting examples and a sample PDF; layout varies by device and version. Swipe through on mobile. Tap any image to enlarge, then zoom in for detail.</p>
+        <details class="disclosure" id="sample-report-credits">
+          <summary>Sample report and photo credits</summary>
+          <p>The sample uses fictional patient, clinician and clinic details and a demonstration autograph. The three real colonoscopy photographs are illustrative and do not belong to the fictional patient. Photographs by melvil, via Wikimedia Commons: <a class="text-link" href="https://commons.wikimedia.org/wiki/File:Appendix-colonoscopy.jpg" target="_blank" rel="noopener">appendiceal orifice</a>, <a class="text-link" href="https://commons.wikimedia.org/wiki/File:Colonoscopy_splenic_flexure.jpg" target="_blank" rel="noopener">splenic flexure</a> and <a class="text-link" href="https://commons.wikimedia.org/wiki/File:Rectum-2016-12.jpg" target="_blank" rel="noopener">rectum</a>. Used under <a class="text-link" href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>, with scaling, rounded clipping and captions; those image adaptations retain the same licence. No endorsement is implied.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="registry-and-logbook" class="section-white" aria-labelledby="advanced-title">
+      <div class="container">
+        <p class="eyebrow">Beyond the report</p>
+        <h2 id="advanced-title">Additional features, when you need them.</h2>
+        <p class="intro">Ripot is a complete reporting tool on its own. Optional Records, Registry and Logbook tools help you organise information, follow patients and document experience.</p>
+        <div class="advanced-grid">
+          <article class="feature-card"><h3>Records</h3><p>Reuse selected details from completed reports. Search, filter by procedure or facility, and switch between lists and tables. Export to review your activity in a spreadsheet.</p></article>
+          <article class="feature-card"><h3>Registry</h3><p>Follow patients over time with patient details and dated updates. Group related measurements with units, compare latest values or full history in tables, and export for analysis.</p></article>
+          <article class="feature-card"><h3>Logbook &amp; Quick Log</h3><p>Keep track of procedures and your participation. Use report details for a log entry, or use Quick Log when a procedure does not need a full report. Filter and print your log.</p></article>
+        </div>
+        <p class="reuse-note"><strong>Less retyping. More value from your work.</strong> Reuse selected report data in these tools when you choose. Registry and Quick Log also work without creating a report.</p>
+        <details class="disclosure"><summary>Exports, backups and training-log use</summary><p>CSV exports open in spreadsheet tools for review and analysis. Records packages include exported record values and available PDFs; they are not encrypted or full app backups. Encrypted Registry backups restore inside Ripot with your passphrase and exclude report PDFs. Logbook has its own backup workflow. Acceptance of a logbook for official training depends on the relevant training body.</p></details>
+      </div>
+    </section>
+
+    <section id="privacy" aria-labelledby="privacy-title">
+      <div class="container">
+        <div class="privacy-panel">
+          <div>
+            <p class="eyebrow">Privacy matters</p><h2 id="privacy-title">Your clinical data stays with you.</h2>
+            <p class="intro">Completed clinical reports—including patient details, images, signatures and generated PDFs—stay on your device or in your browser. Ripot does not upload them to its servers.</p>
+            <a class="text-link privacy-policy-link" href="privacy.html">Read our privacy policy →</a>
+          </div>
+          <div class="privacy-points">
+            <div><h3>You choose what to share</h3><p>Exporting or sharing creates a copy wherever you choose to save or send it. Use destinations approved by your organisation.</p></div>
+            <div><h3>Clear about what may sync</h3><p>Account, subscription and reusable template structure may be processed or synced. Keep patient information out of template names and field labels.</p></div>
+            <div><h3>Keep a separate backup</h3><p>Local clinical data does not automatically sync between devices. Back up important data outside the original device; clearing browser storage or losing a device can remove local data.</p></div>
+          </div>
+        </div>
+        <p class="privacy-footnote">Protect your device, exported files and backup passphrases. Local storage is not a promise that every file is encrypted, and using Ripot does not replace your organisation’s data-handling responsibilities.</p>
+      </div>
+    </section>
+
+    <section id="download" class="download" aria-labelledby="download-title">
+      <div class="container">
+        <div class="download-panel">
+          <div><h2 id="download-title">Your next report, made simpler.</h2><p class="intro">Install Ripot on Android or Windows, or use it in your browser. Start with reporting; explore the additional tools when you need them.</p></div>
+          <div>
+            <div class="cta-row"><a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a><a class="btn btn-outline" data-ripot-windows-download href="https://github.com/StanTobechukwu/ripot_mvp/releases/download/windows-v1.0.13-48/Ripot-Setup-1.0.13-48-windows-x64.exe">Download for Windows</a><a class="btn btn-outline" href="https://ripot-web.web.app">Try Ripot Web</a></div>
+            <p class="plan-note" data-ripot-windows-note>Windows 10/11 · Intel/AMD 64-bit PCs · Version 1.0.13 · 18.2 MB. <a href="downloads/windows/Ripot-Setup-1.0.13-48-windows-x64.exe.sha256" style="color:inherit">SHA-256 checksum</a></p>
+            <p class="plan-note" data-ripot-windows-payment>Eligible accounts can activate a free Premium trial in Ripot. Paid subscriptions are purchased on Android through Google Play. Sign in with the same Ripot account on Windows. Direct checkout on Windows is not yet available.</p>
+            <p class="plan-note" data-ripot-windows-signature>This Windows installer is unsigned. Windows may show an unknown-publisher warning.</p>
+            <p class="plan-note" data-ripot-mac-web>On a Mac, <a href="https://ripot-web.web.app" style="color:inherit">use Ripot Web in your browser</a>.</p>
+            <p class="plan-note">Start free with built-in templates, up to 4 custom templates and 10 saved final PDFs per device. Drafts do not count towards the PDF limit. In the next app update, an active trial or Premium removes the saved-PDF count limit. Available device or browser storage still applies. Keep a separate backup. See Premium in the app for advanced features. Google Play shows pricing and availability for your country.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer id="contact">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand"><a class="brand" href="#main" aria-label="Ripot home"><img src="images/ripot-icon.png" alt="" width="42" height="42"><span class="brand-name">Ripot</span></a><p class="footer-summary">Simple, complete clinical reporting. Additional tools when you need them.</p><p class="footer-summary">A documentation tool, not a substitute for clinical judgement.</p></div>
+        <div><p class="footer-label">Explore</p><nav class="footer-links" aria-label="Explore Ripot"><a href="/templates/">Template library</a><a href="#features">Reporting features</a><a href="#registry-and-logbook">Records, Registry &amp; Logbook</a><a href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a><a href="https://ripot-web.web.app">Try Ripot Web</a></nav></div>
+        <div><p class="footer-label">Support &amp; privacy</p><nav class="footer-links" aria-label="Support and legal information"><a href="mailto:support@ripot.app">support@ripot.app</a><a href="privacy.html">Privacy policy</a><a href="terms.html">Terms of use</a><a href="disclaimer.html">Medical disclaimer</a><a href="delete-account.html">Delete account and data</a><a href="contact.html">Contact &amp; support</a><a href="https://www.linkedin.com/company/ripot-technology/" target="_blank" rel="noopener noreferrer">Follow Ripot on LinkedIn</a></nav></div>
+      </div>
+      <p class="copyright">© 2026 Ripot Technologies Ltd</p>
+    </div>
+  </footer>
+
+  <dialog class="screenshot-dialog" id="screenshot-viewer" aria-labelledby="viewer-title">
+    <div class="viewer-content">
+      <div class="viewer-bar"><h2 id="viewer-title">Ripot screenshot</h2>
+        <div class="viewer-actions"><button type="button" id="viewer-zoom" aria-pressed="false">Zoom in</button><button type="button" id="viewer-close" aria-label="Close screenshot viewer">Close ✕</button></div>
+      </div>
+      <p class="viewer-help">Zoom in to read the details. Scroll across or down to explore.</p>
+      <div class="viewer-body"><img id="viewer-image" alt=""></div>
+    </div>
+  </dialog>
+  <script>
+    function revealPhotoCredits() {
+      if (location.hash === '#sample-report-credits') document.getElementById('sample-report-credits').open = true;
+    }
+    document.querySelectorAll('a[href="#sample-report-credits"]').forEach(function(link) {
+      link.addEventListener('click', function() { document.getElementById('sample-report-credits').open = true; });
+    });
+    window.addEventListener('hashchange', revealPhotoCredits);
+    revealPhotoCredits();
+    const menu = document.querySelector('.mobile-menu');
+    menu.querySelectorAll('a').forEach(function(link) {
+      link.addEventListener('click', function() { menu.open = false; });
+    });
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape' && menu.open) {
+        menu.open = false;
+        menu.querySelector('summary').focus();
+      }
+    });
+    document.addEventListener('click', function(event) {
+      if (menu.open && !menu.contains(event.target)) menu.open = false;
+    });
+
+    const viewer = document.getElementById('screenshot-viewer');
+    const viewerImage = document.getElementById('viewer-image');
+    const viewerBody = viewer.querySelector('.viewer-body');
+    const zoomButton = document.getElementById('viewer-zoom');
+    let opener;
+    document.querySelectorAll('.image-link').forEach(function(link) {
+      link.addEventListener('click', function(event) {
+        if (!viewer.showModal || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        event.preventDefault();
+        opener = link;
+        viewerImage.src = link.href;
+        viewerImage.alt = link.querySelector('img').alt;
+        document.getElementById('viewer-title').textContent = link.closest('.hero-preview') ? 'Sample report in Ripot' : link.closest('figure').querySelector('h3').textContent;
+        viewerBody.classList.remove('zoomed');
+        zoomButton.textContent = 'Zoom in';
+        zoomButton.setAttribute('aria-pressed', 'false');
+        viewer.showModal();
+        document.body.classList.add('viewer-open');
+        viewerBody.scrollTo(0,0);
+      });
+    });
+    zoomButton.addEventListener('click', function() {
+      const zoomed = viewerBody.classList.toggle('zoomed');
+      zoomButton.textContent = zoomed ? 'Fit to screen' : 'Zoom in';
+      zoomButton.setAttribute('aria-pressed', String(zoomed));
+      viewerBody.scrollTo(0,0);
+    });
+    document.getElementById('viewer-close').addEventListener('click', function(){ viewer.close(); });
+    viewer.addEventListener('click', function(event){ if(event.target === viewer) viewer.close(); });
+    viewer.addEventListener('close', function(){ document.body.classList.remove('viewer-open'); if(opener) opener.focus(); });
+  </script>
+</body>
+</html>

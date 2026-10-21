@@ -1,0 +1,8 @@
+{
+  "product": "Ripot",
+  "platform": "windows",
+  "version": "1.0.13",
+  "build": 48,
+  "downloadUrl": "https://github.com/StanTobechukwu/ripot_mvp/releases/download/windows-v1.0.13-48/Ripot-Setup-1.0.13-48-windows-x64.exe",
+  "sha256": "52d33fae1a96d5a8bf8220ceb35b4c9f325d7d138e8ec41a9515ae12ade8ac5d"
+}

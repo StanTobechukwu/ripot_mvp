@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/models/report_doc.dart';
+import '../domain/report_facility.dart';
 import '../domain/serialization/report_codec.dart';
 import 'pdf_file_store.dart';
 
@@ -14,6 +15,7 @@ class ReportSummary {
   final DateTime updatedAt;
   final bool hasPdf;
   final bool isFinalized;
+  final String subjectName, subjectId, facility, reportDateIso;
 
   const ReportSummary({
     required this.reportId,
@@ -22,6 +24,10 @@ class ReportSummary {
     required this.updatedAt,
     required this.hasPdf,
     required this.isFinalized,
+    this.subjectName = '',
+    this.subjectId = '',
+    this.facility = '',
+    this.reportDateIso = '',
   });
 
   bool get isFinalReport => hasPdf;
@@ -151,6 +157,10 @@ class ReportsRepository {
             updatedAt: updated,
             hasPdf: hasPdf,
             isFinalized: isFinalized,
+            subjectName: doc.subjectInfo.valueOf('subjectName').trim(),
+            subjectId: doc.subjectInfo.valueOf('subjectId').trim(),
+            facility: reportFacility(doc),
+            reportDateIso: doc.reportDateIso,
           ),
         );
       } catch (_) {
@@ -168,7 +178,7 @@ class ReportsRepository {
     String reportId,
     Uint8List bytes, {
     required ReportDoc doc,
-    required int Function() maxFinalizedReports,
+    required int? Function() maxFinalizedReports,
   }) {
     final completion = Completer<void>();
     _finalizationTail = _finalizationTail.then((_) async {
@@ -184,6 +194,7 @@ class ReportsRepository {
         );
         final limit = maxFinalizedReports();
         if (!alreadyFinal &&
+            limit != null &&
             reports.where((report) => report.isFinalReport).length >= limit) {
           throw FinalizedReportLimitException(limit);
         }

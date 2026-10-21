@@ -83,7 +83,7 @@ PremiumPromptContent premiumPromptContent(PremiumFeature feature) {
       return const PremiumPromptContent(
         title: 'Save more reports',
         body:
-            'Free keeps up to 10 finalized reports on this device; Premium keeps up to 100. Drafts do not count. Your existing reports stay available.',
+            'Free keeps up to 10 finalized reports on this device; Premium has no saved-PDF count limit, subject to available storage. Drafts do not count. Your existing reports stay available.',
       );
     case PremiumFeature.advancedLayout:
       return const PremiumPromptContent(
