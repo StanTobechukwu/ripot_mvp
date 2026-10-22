@@ -13,6 +13,23 @@
     ],
     "headers": [
       {
+        "source": "/templates/catalog/**",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "https://ripot-web.web.app"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=300"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
+        ]
+      },
+      {
         "source": "**/*.@(html|xml|txt)",
         "headers": [
           {
