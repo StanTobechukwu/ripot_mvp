@@ -144,7 +144,7 @@ class UpgradeScreen extends StatelessWidget {
                 subtitle: Text(
                   BillingProvider.supportsGooglePlay
                       ? 'Choose a Premium plan below to continue using premium features.'
-                      : 'Subscribe in Ripot on Android, then sign in here with the same Ripot account.',
+                      : 'Web subscription checkout is being prepared. You can continue using Ripot Free while it becomes available.',
                 ),
               ),
             ),
@@ -255,8 +255,8 @@ class _AccountPremiumCardState extends State<_AccountPremiumCard> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Subscriptions are purchased and managed in Ripot on Android through Google Play. '
-            'Sign in here with the same Ripot account to use verified Premium access. '
+            'Your Ripot Premium access is linked to your Ripot account. '
+            'Sign in with the same account on supported devices to use verified Premium access. '
             'Your reports and registry data stay on each device; signing in does not transfer them.',
           ),
           const SizedBox(height: 12),
