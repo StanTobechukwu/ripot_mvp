@@ -92,7 +92,12 @@ const server = http.createServer((req, res) => {
     await form.waitFor({ state: 'attached', timeout: 60000 });
     assert(fetched.includes(payloadPath), 'App never fetched the unknown template payload');
     const numeric = page.getByRole('textbox', { name: /Enter number/ });
-    await numeric.fill('12.5');
+    // Flutter activates its editing bridge on focus. Send keyboard events after
+    // clicking, rather than replacing the accessibility input value directly.
+    await numeric.click();
+    await page.keyboard.type('12.5', { delay: 100 });
+    assert.equal(await numeric.inputValue(), '12.5');
+    await page.keyboard.press('Tab');
     await page.getByRole('button', { name: 'Save progress', exact: true }).click();
     await page.waitForFunction(() => Object.keys(localStorage).some(key =>
       key.startsWith('flutter.reports.doc.') && localStorage.getItem(key).includes('12.5')));
@@ -112,6 +117,14 @@ const server = http.createServer((req, res) => {
     }, null, 2));
   } catch (error) {
     if (page) {
+      const diagnostics = await page.evaluate(() => ({
+        reports: Object.fromEntries(Object.keys(localStorage)
+          .filter(key => key.includes('reports.doc.'))
+          .map(key => [key, localStorage.getItem(key)])),
+        fields: [...document.querySelectorAll('input[data-semantics-role="text-field"]')]
+          .map(input => ({ label: input.getAttribute('aria-label'), value: input.value })),
+      }));
+      fs.writeFileSync(path.join(out, 'failure-state.json'), JSON.stringify(diagnostics, null, 2));
       await page.screenshot({ path: path.join(out, 'failure.png'), fullPage: true }).catch(() => {});
       fs.writeFileSync(path.join(out, 'failure-dom.html'), await page.content());
     }
