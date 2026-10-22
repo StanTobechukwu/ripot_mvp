@@ -1,0 +1,58 @@
+name: Dynamic template checks
+on:
+  pull_request:
+    paths:
+      - 'lib/features/reports/**'
+      - 'tools/landing/**'
+      - 'landing/y/templates/downloads/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/dynamic-templates.yml'
+  workflow_dispatch:
+
+jobs:
+  landing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate generator syntax
+        run: python -m py_compile tools/landing/build_templates.py
+      - name: Generate catalogue and SEO pages
+        run: python tools/landing/build_templates.py
+      - name: Validate approved payloads and checksums
+        run: |
+          python - <<'PY'
+          import json, hashlib
+          from pathlib import Path
+          root=Path('landing/y/templates/catalog')
+          manifest=json.loads((root/'manifest.json').read_text())
+          assert manifest['schemaVersion']==1
+          assert len(manifest['templates'])>=4
+          for item in manifest['templates']:
+              assert item['status']=='approved'
+              assert item['url'].startswith('/templates/catalog/')
+              data=Path('landing/y'+item['url'].replace('/templates/catalog/','/templates/catalog/',1)).read_bytes()
+              assert hashlib.sha256(data).hexdigest()==item['sha256']
+              assert hashlib.sha256(data).hexdigest().startswith(item['version'])
+              doc=json.loads(data)
+              assert doc['ripotFileType']=='template'
+              assert doc['ripotExportVersion']==1
+              assert doc['template']['roots']
+          print('Validated',len(manifest['templates']),'versioned public templates')
+          PY
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.38.0'
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib/features/reports/data/public_template_catalog.dart lib/features/reports/ui/reports_list_screen.dart
+      - run: flutter analyze --no-pub
+      - run: flutter test
+      - run: flutter build web --release
