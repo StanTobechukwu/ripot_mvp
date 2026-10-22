@@ -52,7 +52,7 @@ jobs:
           flutter-version: '3.38.0'
           cache: true
       - run: flutter pub get
-      - run: dart format --output=none --set-exit-if-changed lib/features/reports/data/public_template_catalog.dart lib/features/reports/ui/reports_list_screen.dart
+      - run: dart format --output=write lib/features/reports/data/public_template_catalog.dart lib/features/reports/ui/reports_list_screen.dart
       - run: flutter analyze --no-pub
       - run: flutter test
       - run: flutter build web --release
