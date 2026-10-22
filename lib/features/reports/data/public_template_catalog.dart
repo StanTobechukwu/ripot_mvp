@@ -36,42 +36,8 @@ class PublicTemplateCatalog {
           .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200 || response.bodyBytes.length > 250000) return null;
       final expectedHash = entry['sha256'];
-      if (expectedHash is! String || !RegExp(r'^[a-f0-9]{64}
-      if (payload is! Map || payload['app'] != 'Ripot' ||
-          payload['ripotFileType'] != 'template' || payload['ripotExportVersion'] != 1 ||
-          payload['template'] is! Map) return null;
-      final raw = Map<String, dynamic>.from(payload['template'] as Map);
-      if (raw['name'] is! String || (raw['name'] as String).trim().isEmpty ||
-          raw['roots'] is! List) return null;
-      var count = 0;
-      final ids = <String>{};
-      bool validate(List nodes, int depth) {
-        if (depth > 8 || count + nodes.length > 200) return false;
-        for (final node in nodes) {
-          if (node is! Map || node['type'] != 'section' && node['type'] != 'content') return false;
-          final id = node['id'];
-          if (id is! String || id.isEmpty || id.length > 120 || !ids.add(id)) return false;
-          if (node['title'] is String && (node['title'] as String).length > 250) return false;
-          count++;
-          final children = node['children'];
-          if (children != null && (children is! List || !validate(children, depth + 1))) return false;
-        }
-        return true;
-      }
-      if (!validate(raw['roots'] as List, 0) || count == 0) return null;
-      // Prevent a public template from bringing saved patient or signature data.
-      raw['templateId'] = 'public_$slug' + '_$version';
-      raw['recordsConfigured'] = false;
-      raw['signature'] = <String, dynamic>{};
-      return TemplateCodec.templateFromJson(raw);
-    } catch (_) {
-      return null;
-    } finally {
-      client.close();
-    }
-  }
-}
-).hasMatch(expectedHash) ||
+      if (expectedHash is! String ||
+          !RegExp(r'^[a-f0-9]{64}$').hasMatch(expectedHash) ||
           crypto.sha256.convert(response.bodyBytes).toString() != expectedHash ||
           expectedHash.substring(0, 16) != version) return null;
       final payload = jsonDecode(utf8.decode(response.bodyBytes));
