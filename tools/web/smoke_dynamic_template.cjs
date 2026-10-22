@@ -86,9 +86,11 @@ const server = http.createServer((req, res) => {
     const accessibility = page.locator('flt-semantics-placeholder');
     await accessibility.waitFor({ state: 'attached', timeout: 30000 });
     await accessibility.evaluate(element => element.click());
-    await page.getByText('Remote-only observation', { exact: true }).waitFor({ timeout: 60000 });
+    const form = page.getByRole('group', {
+      name: 'Form\nRemote-only observation\nRemote-only measurement', exact: true,
+    });
+    await form.waitFor({ state: 'attached', timeout: 60000 });
     assert(fetched.includes(payloadPath), 'App never fetched the unknown template payload');
-    await page.getByText('Remote-only measurement', { exact: true }).waitFor();
     const numeric = page.getByRole('textbox', { name: /Enter number/ });
     await numeric.fill('12.5');
     await page.getByRole('button', { name: 'Save progress', exact: true }).click();
