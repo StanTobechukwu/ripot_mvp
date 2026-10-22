@@ -20,7 +20,7 @@ if not source or not re.fullmatch(r'[0-9a-f]{40}', source):
     raise SystemExit('Missing verified CI source commit')
 release = {'version': version, 'build': build, 'sourceCommit': source}
 (web / 'release.json').write_text(json.dumps(release, indent=2) + '\n')
-stage = root / 'build/web-distribution' / f'Ripot-Web-{version}-{build}'
+stage = root / 'build/web-distribution' / f'Ripot-Web-{version}-{build}-{source[:8]}'
 stage.mkdir(parents=True, exist_ok=True)
 shutil.copytree(web, stage / 'web', dirs_exist_ok=True)
 config = json.loads((root / 'firebase.json').read_text())['hosting']
@@ -45,7 +45,14 @@ echo "Deployment completed. Open https://ripot-web.web.app and verify version {v
 (stage / 'README.txt').write_text(f'''Ripot web {version} ({build})
 Source: {source}
 
-This folder contains compiled app files; Flutter is not required to deploy it.
+This folder contains the combined web update; Flutter is not required to deploy it.
+Included: updated branding/support, safer Registry report linking, unlimited
+saved PDFs for Premium/active trials, dynamic public templates, the Free-user
+letterhead invitation, and Web/Windows checkout-availability messaging.
+Direct online payment checkout is not enabled. Android and Windows installers
+are separate releases.
+
+Use this complete folder rather than copying files into an older download.
 On the Mac already used for Firebase deployment, open Terminal in this folder:
   bash Deploy-Web.command
 If Firebase asks you to sign in, run firebase login and try again.
