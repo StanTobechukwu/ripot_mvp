@@ -23,5 +23,6 @@ for page in ROOT.rglob('*.html'):
 for slug in ('upper-gi-endoscopy-report-template','colonoscopy-report-template','abdominal-ultrasound-report-template','echocardiogram-report-template'):
  page=ROOT/'templates'/slug/'index.html'
  if not page.exists() or f'?template={slug}' not in page.read_text():errors.append(f'{slug}: missing deep link')
+ if page.exists() and '\\n' in page.read_text():errors.append(f'{slug}: literal newline escapes in copyable example')
 if errors:raise SystemExit('\n'.join(errors))
 print('Static links, support address, PDF copy and template targets verified.')

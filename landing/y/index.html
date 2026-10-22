@@ -16,7 +16,7 @@
   <meta property="og:image:alt" content="Ripot app icon">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Ripot — Professional reports. Made simple.">
-  <meta name="twitter:description" content="Create, sign and share professional clinical reports on Android, Windows and the web.">
+  <meta name="twitter:description" content="Create, sign and share professional clinical reports on Android and the web.">
   <meta name="twitter:image" content="https://ripot.app/images/ripot-icon.png">
   <link rel="icon" type="image/png" href="images/ripot-icon.png">
   <link rel="apple-touch-icon" href="images/ripot-icon.png">
@@ -26,7 +26,7 @@
     "@type": "SoftwareApplication",
     "name": "Ripot",
     "applicationCategory": "ProductivityApplication",
-    "operatingSystem": "Android, Windows, Web",
+    "operatingSystem": "Android, Web",
     "url": "https://ripot.app/",
     "downloadUrl": "https://play.google.com/store/apps/details?id=com.nduaguba.report",
     "publisher": {"@type": "Organization", "name": "Ripot Technologies Ltd"},
@@ -198,8 +198,8 @@
     .screen-card .image-link{border:0;border-radius:9px}
     .screen-card figcaption{padding:0 8px 10px}
     .screen-grid{gap:16px}
-    .screen-card img{aspect-ratio:1.35;object-fit:cover;object-position:center}
-    .screen-card:nth-child(2) img{object-position:28% center}
+    .screen-card img{aspect-ratio:3 / 5;object-fit:contain;object-position:center;background:#f2f7f6}
+    .screen-card .image-link{box-shadow:0 3px 14px #163c280a}
     .screen-card.report-card img{object-fit:contain;background:#e5eeea}
     .screenshot-dialog{padding:0;border:0;border-radius:16px;width:min(1100px,94vw);max-width:94vw;height:min(850px,90dvh);max-height:90dvh;color:var(--ink);background:#f8fafc}
     .screenshot-dialog::backdrop{background:#0b211de6}
@@ -207,9 +207,9 @@
     .viewer-bar h2{font-size:1rem;line-height:1.4;margin:0;max-width:50ch}
     .viewer-actions{display:flex;gap:8px;flex-shrink:0}
     .viewer-actions button{font:inherit;font-size:.875rem;min-height:44px;min-width:44px;padding:8px 12px;border:1px solid #b7cdc2;border-radius:8px;background:white;color:#065f46;cursor:pointer}
-    .viewer-body{overflow:auto;overscroll-behavior:contain;flex:1;padding:12px;background:#e5eeea}
-    .viewer-body img{display:block;width:100%;height:auto;max-width:none;margin:auto}
-    .viewer-body.zoomed img{width:1600px;max-width:none}
+    .viewer-body{overflow:auto;overscroll-behavior:contain;flex:1;min-height:0;display:flex;padding:12px;background:#e5eeea}
+    .viewer-body img{display:block;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;margin:auto}
+    .viewer-body.zoomed img{width:1600px;max-width:none;max-height:none;flex-shrink:0}
     .viewer-content{height:100%;display:flex;flex-direction:column}
     .viewer-help{margin:0;padding:8px 16px;font-size:.8rem;color:var(--muted);background:white}
     body.viewer-open{overflow:hidden}
@@ -219,7 +219,7 @@
       .hero-preview{max-width:370px;transform:none;justify-self:center}
       .screen-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 0 16px;gap:14px;scrollbar-color:#528475 #dfebe5}
       .screen-card{flex:0 0 88%;scroll-snap-align:start;max-width:510px}
-      .screen-card img{aspect-ratio:1.35}
+      .screen-card img{aspect-ratio:3 / 5}
     }
     @media(max-width:640px){
       .hero-section{padding-top:24px}
@@ -266,13 +266,12 @@
     <section class="hero-section" aria-labelledby="hero-title">
       <div class="container hero">
         <div class="hero-copy">
-          <div class="badge">Available on Android, Windows &amp; web</div>
+          <div class="badge">Available on Android &amp; web</div>
           <h1 id="hero-title">Professional reports.<br><span>Made simple.</span></h1>
           <p class="lead">A complete reporting workflow for doctors and healthcare professionals. Start with a template, add findings, images and signatures, then share a polished PDF. Less formatting. More focus on your work.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a>
-            <a class="btn btn-outline" data-ripot-windows-download href="https://github.com/StanTobechukwu/ripot_mvp/releases/download/windows-v1.0.13-48/Ripot-Setup-1.0.13-48-windows-x64.exe">Download for Windows</a>
-            <a class="btn btn-outline" href="https://ripot-web.web.app">Try Ripot Web</a>
+            <a class="btn btn-outline" href="https://ripot-web.web.app">Open Ripot Web</a>
           </div>
           <p class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg><span>Clinical data stays on your device or browser. <a class="text-link" href="#privacy">How privacy works</a></span></p>
         </div>
@@ -315,22 +314,23 @@
       <div class="container">
         <p class="eyebrow">See the workflow</p>
         <h2 id="screens-title">From template to finished report.</h2>
-        <p class="intro">Build your structure once. Focus on the findings each time.</p>
+        <p class="intro">See how Ripot organises endoscopy findings and echocardiography measurements, then explore a finished, signed report.</p>
         <div class="screen-grid" aria-label="Reporting workflow screenshots" tabindex="0">
           <figure class="screen-card">
-            <a class="image-link" href="images/editormode.png" target="_blank" rel="noopener" aria-label="Open the template editor image at full size"><img src="images/editormode.png" width="2880" height="1800" loading="lazy" alt="Ripot template editor with reusable report sections and fields"></a>
-            <figcaption><span class="step-label">01 / STRUCTURE</span><h3>Choose or create a template</h3><p>Set up the sections and fields that suit your reporting style.</p></figcaption>
+            <a class="image-link" href="images/ripot-endoscopy-demo.jpg" target="_blank" rel="noopener" aria-label="Enlarge the endoscopy form with fictional demonstration findings"><img src="images/ripot-endoscopy-demo.jpg" width="930" height="1691" loading="lazy" alt="Illustrative Ripot endoscopy form filled with fictional demonstration findings"></a>
+            <figcaption><span class="step-label">01 / DOCUMENT</span><h3>Enter endoscopy findings</h3><p>Work through organised anatomical fields, with room for your own clinical findings.</p></figcaption>
           </figure>
           <figure class="screen-card">
-            <a class="image-link" href="images/new-formmode.png" target="_blank" rel="noopener" aria-label="Open the report form image at full size"><img src="images/new-formmode.png" width="3104" height="1826" loading="lazy" alt="Ripot report form with structured clinical findings"></a>
-            <figcaption><span class="step-label">02 / DOCUMENT</span><h3>Add findings and images</h3><p>Complete the guided fields and keep your report content together.</p></figcaption>
+            <a class="image-link" href="images/ripot-echo-demo.jpg" target="_blank" rel="noopener" aria-label="Enlarge the echocardiography form with fictional demonstration values"><img src="images/ripot-echo-demo.jpg" width="1024" height="1536" loading="lazy" alt="Illustrative Ripot echo form showing a 9 mm posterior wall, 62% ejection fraction and Normal selected"></a>
+            <figcaption><span class="step-label">02 / STRUCTURED INPUT</span><h3>Numbers and selectable findings</h3><p>Enter measurements and select clinical findings in specialty-specific forms.</p></figcaption>
           </figure>
           <figure class="screen-card report-card">
             <a class="image-link" href="images/ripot-colonoscopy-aligned-48.png" target="_blank" rel="noopener" aria-label="Open the finished report image at full size"><img src="images/ripot-colonoscopy-aligned-48.png" width="1191" height="1684" loading="lazy" alt="Sample Ripot PDF report with aligned findings, three colonoscopy photographs and a signature beside the signer"></a>
-            <figcaption><span class="step-label">03 / FINISH</span><h3>Preview, sign and share</h3><p>Review the finished layout and export a professional PDF.</p></figcaption>
+            <figcaption><span class="step-label">03 / FINISH</span><h3>Preview, sign and share</h3><p>Review the finished layout and export a professional PDF with clinical images.</p></figcaption>
           </figure>
         </div>
-        <p class="caption-note">Reporting examples and a sample PDF; layout varies by device and version. Swipe through on mobile. Tap any image to enlarge, then zoom in for detail.</p>
+        <p class="caption-note">Ripot interface illustrations with fictional demonstration values, plus a fictional sample report. These examples show different specialties; layout varies by device and version. Swipe through on mobile. Tap any image to enlarge, then zoom in for detail.</p>
+        <div class="cta-row"><a class="btn btn-primary" href="/templates/">Find a specialty template</a><a class="btn btn-outline" href="https://ripot-web.web.app" target="_blank" rel="noopener noreferrer">Try Ripot on the web</a></div>
         <details class="disclosure" id="sample-report-credits">
           <summary>Sample report and photo credits</summary>
           <p>The sample uses fictional patient, clinician and clinic details and a demonstration autograph. The three real colonoscopy photographs are illustrative and do not belong to the fictional patient. Photographs by melvil, via Wikimedia Commons: <a class="text-link" href="https://commons.wikimedia.org/wiki/File:Appendix-colonoscopy.jpg" target="_blank" rel="noopener">appendiceal orifice</a>, <a class="text-link" href="https://commons.wikimedia.org/wiki/File:Colonoscopy_splenic_flexure.jpg" target="_blank" rel="noopener">splenic flexure</a> and <a class="text-link" href="https://commons.wikimedia.org/wiki/File:Rectum-2016-12.jpg" target="_blank" rel="noopener">rectum</a>. Used under <a class="text-link" href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>, with scaling, rounded clipping and captions; those image adaptations retain the same licence. No endorsement is implied.</p>
@@ -374,12 +374,12 @@
     <section id="download" class="download" aria-labelledby="download-title">
       <div class="container">
         <div class="download-panel">
-          <div><h2 id="download-title">Your next report, made simpler.</h2><p class="intro">Install Ripot on Android or Windows, or use it in your browser. Start with reporting; explore the additional tools when you need them.</p></div>
+          <div><h2 id="download-title">Your next report, made simpler.</h2><p class="intro">Install Ripot on Android or use it in your browser. Start with reporting; explore the additional tools when you need them.</p></div>
           <div>
-            <div class="cta-row"><a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a><a class="btn btn-outline" data-ripot-windows-download href="https://github.com/StanTobechukwu/ripot_mvp/releases/download/windows-v1.0.13-48/Ripot-Setup-1.0.13-48-windows-x64.exe">Download for Windows</a><a class="btn btn-outline" href="https://ripot-web.web.app">Try Ripot Web</a></div>
-            <p class="plan-note" data-ripot-windows-note>Windows 10/11 · Intel/AMD 64-bit PCs · Version 1.0.13 · 18.2 MB. <a href="downloads/windows/Ripot-Setup-1.0.13-48-windows-x64.exe.sha256" style="color:inherit">SHA-256 checksum</a></p>
-            <p class="plan-note" data-ripot-windows-payment>Eligible accounts can activate a free Premium trial in Ripot. Paid subscriptions are purchased on Android through Google Play. Sign in with the same Ripot account on Windows. Direct checkout on Windows is not yet available.</p>
-            <p class="plan-note" data-ripot-windows-signature>This Windows installer is unsigned. Windows may show an unknown-publisher warning.</p>
+            <div class="cta-row"><a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a><a class="btn btn-outline" href="https://ripot-web.web.app">Open Ripot Web</a></div>
+            <p class="plan-note">Windows desktop app: coming to Microsoft Store. Until then, <a href="https://ripot-web.web.app" style="color:inherit">use Ripot Web on your Windows PC</a>.</p>
+            
+            
             <p class="plan-note" data-ripot-mac-web>On a Mac, <a href="https://ripot-web.web.app" style="color:inherit">use Ripot Web in your browser</a>.</p>
             <p class="plan-note">Start free with built-in templates, up to 4 custom templates and 10 saved final PDFs per device. Drafts do not count towards the PDF limit. In the next app update, an active trial or Premium removes the saved-PDF count limit. Available device or browser storage still applies. Keep a separate backup. See Premium in the app for advanced features. Google Play shows pricing and availability for your country.</p>
           </div>
@@ -391,7 +391,7 @@
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand"><a class="brand" href="#main" aria-label="Ripot home"><img src="images/ripot-icon.png" alt="" width="42" height="42"><span class="brand-name">Ripot</span></a><p class="footer-summary">Simple, complete clinical reporting. Additional tools when you need them.</p><p class="footer-summary">A documentation tool, not a substitute for clinical judgement.</p></div>
-        <div><p class="footer-label">Explore</p><nav class="footer-links" aria-label="Explore Ripot"><a href="/templates/">Template library</a><a href="#features">Reporting features</a><a href="#registry-and-logbook">Records, Registry &amp; Logbook</a><a href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a><a href="https://ripot-web.web.app">Try Ripot Web</a></nav></div>
+        <div><p class="footer-label">Explore</p><nav class="footer-links" aria-label="Explore Ripot"><a href="/templates/">Template library</a><a href="#features">Reporting features</a><a href="#registry-and-logbook">Records, Registry &amp; Logbook</a><a href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a><a href="https://ripot-web.web.app">Open Ripot Web</a></nav></div>
         <div><p class="footer-label">Support &amp; privacy</p><nav class="footer-links" aria-label="Support and legal information"><a href="mailto:support@ripot.app">support@ripot.app</a><a href="privacy.html">Privacy policy</a><a href="terms.html">Terms of use</a><a href="disclaimer.html">Medical disclaimer</a><a href="delete-account.html">Delete account and data</a><a href="contact.html">Contact &amp; support</a><a href="https://www.linkedin.com/company/ripot-technology/" target="_blank" rel="noopener noreferrer">Follow Ripot on LinkedIn</a></nav></div>
       </div>
       <p class="copyright">© 2026 Ripot Technologies Ltd</p>
