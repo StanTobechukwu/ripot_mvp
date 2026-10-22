@@ -81,7 +81,7 @@ const server = http.createServer((req, res) => {
     page = await context.newPage();
     page.on('console', msg => { if (msg.type() === 'error') console.log('Browser:', msg.text()); });
     await page.goto(`${origin}/?template=${slug}&version=${version}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('flt-glass-pane', { timeout: 60000 });
+    await page.waitForSelector('flt-glass-pane', { state: 'attached', timeout: 60000 });
     // Flutter exposes its accessible DOM only after accessibility is enabled.
     const accessibility = page.locator('flt-semantics-placeholder');
     await accessibility.waitFor({ state: 'attached', timeout: 30000 });
