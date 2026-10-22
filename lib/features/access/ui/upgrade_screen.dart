@@ -255,9 +255,10 @@ class _AccountPremiumCardState extends State<_AccountPremiumCard> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Your Ripot Premium access is linked to your Ripot account. '
-            'Sign in with the same account on supported devices to use verified Premium access. '
-            'Your reports and registry data stay on each device; signing in does not transfer them.',
+            'Web and Windows subscription checkout is being prepared. '
+            'If you already have Premium, sign in with the same Ripot account to use your verified access. '
+            'You can continue using Ripot Free in the meantime. '
+            'Reports and registry data remain on each device; signing in does not transfer them.',
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
