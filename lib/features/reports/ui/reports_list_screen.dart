@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import '../domain/public_template_links.dart';
 import '../data/public_template_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
@@ -165,8 +164,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       }
       await _refreshReports();
       if (mounted && kIsWeb) {
-        final template = PublicTemplateLinks.resolve(Uri.base) ??
-            await PublicTemplateCatalog.resolve(Uri.base);
+        final template = await PublicTemplateCatalog.resolveForEditor(Uri.base);
         if (!mounted) return;
         if (template != null) {
           context.read<ReportEditorProvider>().newReportFromTemplate(template);

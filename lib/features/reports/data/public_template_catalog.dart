@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart' as crypto;
 import '../domain/models/template_doc.dart';
 import '../domain/serialization/template_codec.dart';
+import '../domain/public_template_links.dart';
 
 /// Loads only approved, versioned, patient-free templates from Ripot's catalogue.
 /// No arbitrary remote URLs are accepted from the browser query string.
@@ -10,6 +11,17 @@ class PublicTemplateCatalog {
   static const _origin = 'https://ripot.app';
   static final _slug = RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)*$');
   static final _version = RegExp(r'^[a-f0-9]{16}$');
+
+  /// Versioned links must resolve the exact published payload, never a bundled
+  /// template with a potentially different structure. Keep old unversioned
+  /// starter links usable offline.
+  static Future<TemplateDoc?> resolveForEditor(Uri uri) async {
+    if (!uri.queryParameters.containsKey('version')) {
+      final bundled = PublicTemplateLinks.resolve(uri);
+      if (bundled != null) return bundled;
+    }
+    return resolve(uri);
+  }
 
   static Future<TemplateDoc?> resolve(Uri uri) async {
     final slug = uri.queryParameters['template'];
@@ -57,6 +69,7 @@ class PublicTemplateCatalog {
           if (id is! String || id.isEmpty || id.length > 120 || !ids.add(id)) return false;
           if (node['title'] is String && (node['title'] as String).length > 250) return false;
           count++;
+          if (count > 200) return false;
           // A public catalogue must not configure patient registry or logbook writes.
           node['addToRecords'] = false;
           node['addToLog'] = false;
