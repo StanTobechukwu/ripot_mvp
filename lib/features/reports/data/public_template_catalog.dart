@@ -57,11 +57,16 @@ class PublicTemplateCatalog {
           if (id is! String || id.isEmpty || id.length > 120 || !ids.add(id)) return false;
           if (node['title'] is String && (node['title'] as String).length > 250) return false;
           count++;
+          // A public catalogue must not configure patient registry or logbook writes.
+          node['addToRecords'] = false;
+          node['addToLog'] = false;
           final children = node['children'];
           if (children != null && (children is! List || !validate(children, depth + 1))) return false;
         }
         return true;
       }
+      // The decoder expects top-level sections, never content nodes.
+      if ((raw['roots'] as List).any((node) => node is! Map || node['type'] != 'section')) return null;
       if (!validate(raw['roots'] as List, 0) || count == 0) return null;
       // Prevent a public template from bringing saved patient or signature data.
       raw['templateId'] = 'public_$slug' + '_$version';
