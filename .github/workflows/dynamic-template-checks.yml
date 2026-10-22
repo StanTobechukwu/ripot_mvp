@@ -1,0 +1,59 @@
+name: Dynamic template checks
+on:
+  push:
+    branches: [codex/template-adoption-pages-20261022]
+  pull_request:
+    paths:
+      - 'lib/features/reports/**'
+      - 'tools/landing/**'
+      - 'landing/firebase.json'
+      - '.github/workflows/dynamic-template-checks.yml'
+  workflow_dispatch:
+jobs:
+  template-generator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate public templates
+        run: python3 tools/landing/build_templates.py
+      - name: Verify approved catalog integrity
+        run: |
+          python3 - <<'PY'
+          import json, hashlib, pathlib, re
+          root=pathlib.Path('landing/y/templates')
+          catalog=json.loads((root/'catalog/manifest.json').read_text())
+          assert catalog['schemaVersion']==1
+          assert len(catalog['templates'])>=4
+          slugs=set()
+          for entry in catalog['templates']:
+              slug=entry['slug']
+              assert slug not in slugs
+              slugs.add(slug)
+              assert entry['status']=='approved'
+              assert re.fullmatch('[a-f0-9]{16}',entry['version'])
+              assert entry['url'].startswith('/templates/catalog/'+slug+'/')
+              p=pathlib.Path('landing/y')/entry['url'].lstrip('/')
+              raw=p.read_bytes()
+              assert hashlib.sha256(raw).hexdigest()==entry['sha256']
+              assert hashlib.sha256(raw).hexdigest()[:16]==entry['version']
+              data=json.loads(raw)
+              assert data['ripotFileType']=='template'
+              assert data['ripotExportVersion']==1
+              assert data['template']['roots']
+              page=(root/slug/'index.html').read_text()
+              assert 'version='+entry['version'] in page
+          print('Verified',len(slugs),'versioned public templates')
+          PY
+  flutter-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib/features/reports/data/public_template_catalog.dart lib/features/reports/ui/reports_list_screen.dart
+      - run: flutter analyze --no-pub
+      - run: flutter test
+      - run: flutter build web --release
