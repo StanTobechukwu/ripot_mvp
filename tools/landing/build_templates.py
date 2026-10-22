@@ -1,5 +1,5 @@
 """Build indexable pages from the exact starter templates exported by Ripot."""
-import html, json
+import html, json, hashlib, shutil
 from pathlib import Path
 from xml.etree import ElementTree as ET
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,10 +40,19 @@ def main():
  (out/'templates.css').write_text(CSS)
  (out/'templates.js').write_text(SCRIPT)
  (out/'index.html').write_text(shell('Clinical report templates','Browse reusable endoscopy, ultrasound and echocardiography report structures. Preview, download or open a template in Ripot.','/templates/', '<span class="eyebrow">The Ripot template library</span><h1>A clear starting point for your next report.</h1><p class="lead">Choose a specialty, explore the fields and make the report your own.</p><p>Open a template in the browser, or download its structure for import into Ripot. Start with blank findings and record what you actually observed.</p><div class="cards">'+''.join(map(card,CATALOG))+'</div><section class="card"><h2>Have a useful reporting structure?</h2><p>Contact <a href="mailto:support@ripot.app">support@ripot.app</a> to discuss contributing a patient-free template. Include its specialty and how you would like to be credited. Contributions are reviewed before publication.</p></section>'))
+ manifest=[]
  for item in CATALOG:
   slug,title,specialty,desc=item
   seo_title,seo_desc=SEO[slug]
-  payload=json.loads((out/'downloads'/f'{slug}.ripottemplate.json').read_text())
+  source=out/'downloads'/f'{slug}.ripottemplate.json'
+  raw=source.read_bytes()
+  version=hashlib.sha256(raw).hexdigest()[:16]
+  version_dir=out/'catalog'/slug
+  version_dir.mkdir(parents=True,exist_ok=True)
+  version_file=version_dir/f'{version}.ripottemplate.json'
+  version_file.write_bytes(raw)
+  manifest.append({'slug':slug,'version':version,'name':title,'specialty':specialty,'contributor':'Ripot','status':'approved','url':f'/templates/catalog/{slug}/{version}.ripottemplate.json','sha256':hashlib.sha256(raw).hexdigest()})
+  payload=json.loads(raw)
   template=payload['template'];fields=list(walk(template['roots']))
   outline='Patient name: [enter]\nPatient identifier: [enter]\nReport date: [enter]\n'+'\n'.join('  '*depth+label+(' ('+unit+')' if unit else '')+': [enter]' for label,depth,unit in fields)+'\nImpression: [enter]\nSigned by: [enter]'
   top=[label for label,depth,unit in fields if depth==0]
@@ -51,6 +60,7 @@ def main():
   body=f'''<span class="eyebrow">{e(specialty)} · Contributor: Ripot</span><h1>{e(title)}</h1><p class="lead">{e(desc)}</p><div class="actions"><a class="button" data-adoption-event="editor_open" data-template="{slug}" href="https://ripot-web.web.app/?template={slug}&amp;utm_source=ripot_templates&amp;utm_medium=organic_landing&amp;utm_campaign={slug}">Use this template in Ripot Web →</a><a class="button secondary" data-adoption-event="template_download" data-template="{slug}" href="/templates/downloads/{slug}.ripottemplate.json" download>Download Ripot template</a><button class="secondary" data-copy="url" data-adoption-event="link_copy" data-template="{slug}">Copy template link</button></div><p class="note">Open in your browser, or import the downloaded file from Templates → Import. Built-in reporting is available free; Premium features and plan limits are shown in the app.</p><div class="split"><section class="paper" aria-label="Blank report structure preview"><span class="eyebrow">Structure preview · No patient data</span><h2>{e(template['name'])}</h2><p>Patient: ____________________<br>Identifier: __________________<br>Date: ______________________</p><h3>Report sections</h3><ol>{''.join('<li>'+e(t)+'</li>' for t in top)}</ol><p>Clinician: __________________<br>Signature: _________________</p></section><aside><h2>Spend your time on findings.</h2><p>Use this structure in Ripot, adapt the fields to your workflow, add images and review the PDF before sharing.</p><h3>Reusable structure</h3><p>Opening the template starts a new report. It does not change your saved reports or overwrite your own templates.</p><h3>Your clinical data stays local</h3><p>Report content stays on your device or browser. Keep a separate backup and choose appropriate destinations when exporting.</p><a href="/#download">Get Ripot for Android or Windows →</a></aside></div><section><h2>Included fields</h2><ul class="fields">{''.join('<li>'+e(label)+(' · '+e(unit) if unit else '')+'</li>' for label,depth,unit in fields)}</ul></section><section><h2>Copy the blank report outline</h2><p>A reusable starting point, without prefilled normal findings. Complete and check each section for the examination performed.</p><button data-copy="outline">Copy report outline</button><pre id="outline">{e(outline)}</pre></section><section><h2>Illustrative report layout (fictional)</h2><p class="note">Not a patient report, verified normal findings, or a PDF exported by Ripot. This is a text-only layout example; always document actual observations.</p><div class="paper"><span class="eyebrow">SAMPLE ONLY · NOT FOR CLINICAL USE</span><h3>{e(example_title)}</h3><pre>{e(example_text)}</pre><p>Clinician: [example] · Signature: [not signed]</p></div><button data-copy="example" data-adoption-event="example_copy" data-template="{slug}">Copy fictional example</button><pre id="example" hidden>{e(example_text)}</pre></section><section><h2>Explore other templates</h2><div class="cards">{''.join(card(i) for i in CATALOG if i!=item)}</div></section>'''
   dest=out/slug;dest.mkdir(exist_ok=True)
   (dest/'index.html').write_text(shell(seo_title,seo_desc,'/templates/'+slug+'/',body))
+ (out/'catalog'/'manifest.json').write_text(json.dumps({'schemaVersion':1,'templates':manifest},indent=2)+'\\n')
  sitemap=PUBLIC/'sitemap.xml';ns='http://www.sitemaps.org/schemas/sitemap/0.9';ET.register_namespace('',ns);tree=ET.parse(sitemap);root=tree.getroot()
  existing={u.find('{'+ns+'}loc').text for u in root}
  for path in ['/templates/']+['/templates/'+i[0]+'/' for i in CATALOG]:
