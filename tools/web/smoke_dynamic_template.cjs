@@ -112,8 +112,20 @@ const server = http.createServer((req, res) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(out, 'remote-template-mobile.png'), fullPage: true });
     console.log('PASS: compiled Ripot Web fetched a non-built-in template, rendered its fields, accepted a numeric value, and saved a local report with the remote template identity.');
+    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    const letterheadPrompt = page.getByRole('button', {
+      name: 'Add your hospital / clinic logo & letterhead · Premium', exact: true,
+    });
+    await letterheadPrompt.waitFor({ state: 'visible' });
+    await page.screenshot({ path: path.join(out, 'letterhead-prompt-mobile.png'), fullPage: true });
+    await page.setViewportSize({ width: 1365, height: 1200 });
+    await letterheadPrompt.waitFor({ state: 'visible' });
+    await page.screenshot({ path: path.join(out, 'letterhead-prompt-desktop.png'), fullPage: true });
+    await letterheadPrompt.click();
+    await page.getByText('Use your own letterhead', { exact: true }).waitFor({ state: 'visible' });
+    console.log('PASS: Free preview shows the letterhead invitation on mobile and desktop and opens the existing Premium sheet.');
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({
-      passed: true, slug, version, fetched, sourceCommit: process.env.GITHUB_SHA,
+      passed: true, letterheadPromptPassed: true, slug, version, fetched, sourceCommit: process.env.GITHUB_SHA,
     }, null, 2));
   } catch (error) {
     if (page) {

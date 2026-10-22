@@ -768,6 +768,46 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final access = context.watch<AccessProvider>().safeState;
+
+    // This invitation belongs to the screen only, never to the PDF content.
+    final letterheadPrompt = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: CustomPaint(
+            foregroundPainter: _LetterheadPromptBorder(
+              Theme.of(context).colorScheme.outlineVariant,
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: _openLetterheadSheet,
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text(
+                  'Add your hospital / clinic logo & letterhead · Premium',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -898,6 +938,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     '${vm.doc.letterheadId}-'
                     '${vm.doc.prePrintedTopSpacing}-'
                     '${vm.doc.reservePrePrintedFooter}-'
+                    '${access.canUseLetterhead}-'
                     '${vm.doc.updatedAtIso}-'
                     '$_letterheadPreviewRevision',
                   ),
@@ -948,6 +989,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         ),
                       ),
                     ),
+                    if (!access.canUseLetterhead) letterheadPrompt,
                     Expanded(child: preview),
                   ],
                 );
@@ -956,6 +998,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               return Column(
                 children: [
                   header,
+                  if (!access.canUseLetterhead) letterheadPrompt,
 
                   if (isNativeDesktop)
                     FutureBuilder<Uint8List>(
@@ -1082,4 +1125,37 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       ),
     );
   }
+}
+
+class _LetterheadPromptBorder extends CustomPainter {
+  const _LetterheadPromptBorder(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          (Offset.zero & size).deflate(0.5),
+          const Radius.circular(8),
+        ),
+      );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final metric in path.computeMetrics()) {
+      for (var start = 0.0; start < metric.length; start += 9) {
+        canvas.drawPath(metric.extractPath(start, start + 5), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LetterheadPromptBorder oldDelegate) =>
+      oldDelegate.color != color;
+
+  @override
+  bool? hitTest(Offset position) => false;
 }
