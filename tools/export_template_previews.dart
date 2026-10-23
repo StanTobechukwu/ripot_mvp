@@ -40,6 +40,7 @@ void main() {
             conditionalParentSectionId: example ? n.conditionalParentSectionId : '',
             conditionalEquals: example ? n.conditionalEquals : '',
             addToRecords: false, addToLog: false,
+            unit: example && n.inputType == FieldInputType.numeric && double.tryParse(values[n.id] ?? '') == null ? '' : n.unit,
             children: children.isEmpty
                 ? [ContentNode(id: '${n.id}_preview', text: example ? values[n.id]! : '____________________________')]
                 : children.map(prepare).toList(),
@@ -71,7 +72,7 @@ void main() {
           plan: PdfPlan(title: template.name,inlineEnabled:false,
             pageOne: const PageOnePlan(inlineImages: []),
             finalContent: const FinalContentPlan(spillInlineImages: []),attachmentPages: const []),
-          letterhead: letterhead,
+          letterhead: letterhead, blankReportDate: !example,
         );
         expect(latin1.decode(bytes.take(5).toList()),'%PDF-');
         await File('${directory.path}/$slug-$variant.pdf').writeAsBytes(bytes);

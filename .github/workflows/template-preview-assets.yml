@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'tools/export_template_previews.dart'
+      - 'lib/features/reports/services/pdf_renderer_service.dart'
       - 'tools/landing/example_values.json'
       - 'tools/landing/render_previews.py'
       - '.github/workflows/template-preview-assets.yml'

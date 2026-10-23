@@ -87,6 +87,7 @@ class PdfRendererService {
     PdfLayoutMetrics? layoutMetrics,
     LetterheadTemplate? letterhead,
     bool showRipotBranding = true,
+    bool blankReportDate = false,
   }) async {
     final double fontScale = doc.fontScale;
     final double contentFontSize = 11.5 * fontScale;
@@ -160,6 +161,7 @@ class PdfRendererService {
           doc,
           titleText: titleText,
           fontSize: reportTitleFontSize,
+          blankReportDate: blankReportDate,
           fontScale: fontScale,
         ),
       );
@@ -534,8 +536,11 @@ class PdfRendererService {
     required String titleText,
     required double fontSize,
     required double fontScale,
+    bool blankReportDate = false,
   }) {
-    final dateText = 'Date: ${_formatSignedDate(doc.reportDateIso)}';
+    final dateText = blankReportDate
+        ? 'Date: __________________'
+        : 'Date: ${_formatSignedDate(doc.reportDateIso)}';
     final hasTitle = titleText.trim().isNotEmpty;
 
     if (!hasTitle) {
