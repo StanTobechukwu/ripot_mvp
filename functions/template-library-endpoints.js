@@ -29,20 +29,10 @@ exports.notifyTemplateContribution = onDocumentCreated({
 }, async event => {
   const ref = event.data?.ref;
   if (!ref) return;
-  const row = (await ref.get()).data();
-  if (row?.status === 'sent') return;
   const nodemailer = require('nodemailer');
   const transport = nodemailer.createTransport({ host: smtpHost.value(), port: 465, secure: true, auth: { user: smtpUser.value(), pass: smtpPassword.value() }, connectionTimeout: 15000, socketTimeout: 30000 });
   try {
-    // No submitted content or patient information is placed in email.
-    await transport.sendMail({
-      from: smtpUser.value(), to: 'support@ripot.app',
-      messageId: `<${event.params.mailId}@ripot.app>`, subject: 'Ripot: template contribution awaiting review',
-      text: `A template contribution is awaiting review.\nSubmission: ${row.submissionId}\nRevision: ${row.revision}\n\nSign in to your reviewer account:\nhttps://ripot-web.web.app/?templateLibrary=review\n`,
-    });
-    await ref.update({ status: 'sent', sentAt: Date.now(), lastError: null });
-  } catch (_) {
-    await ref.update({ status: 'retrying', lastAttemptAt: Date.now(), lastError: 'SMTP delivery failed; inspect provider and configuration.' });
-    throw new Error('Template review email delivery failed.');
+    const { deliverTemplateNotification } = require('./template-notification');
+    await deliverTemplateNotification(ref, event.params.mailId, message => transport.sendMail(message), smtpUser.value());
   } finally { transport.close(); }
 });

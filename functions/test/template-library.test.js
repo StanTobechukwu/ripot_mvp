@@ -76,3 +76,14 @@ test('revoked reviewers lose access and withdrawn publications are unavailable i
   await db.collection(C.reviewers).doc('reviewer').update({enabled:false});
   await assert.rejects(service.list(req('reviewer',{review:true})),{code:'permission-denied'});
 });
+
+test('metadata-only attribution edits produce a distinct immutable published version',async()=>{
+  const {id}=await service.submit(submission()); await approve(id);
+  const first=(await service.publicList()).templates[0];
+  await service.submit(submission({id,revision:1,requestId:'credit-correction',contributor:'Corrected public credit'}));
+  await approve(id,2);
+  const latest=await service.publicDetail(first.slug);
+  assert.notEqual(latest.version,first.version);
+  assert.equal(latest.contributor,'Corrected public credit');
+  assert.equal((await service.publicDetail(first.slug,first.version)).contributor,'Public author');
+});

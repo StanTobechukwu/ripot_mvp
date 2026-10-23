@@ -23,7 +23,7 @@ function user(request) {
 }
 // Allowlist the structure. Report values, notes, images, signatures, registry flags,
 // custom subject information and unknown fields never enter the public payload.
-function sanitizeTemplate(raw, name) {
+function sanitizeTemplate(raw, name, metadata = {}) {
   if (!raw || !Array.isArray(raw.roots) || !raw.roots.length || Buffer.byteLength(JSON.stringify(raw)) > 250000) fail('invalid-argument', 'Choose a non-empty template below 250 KB.');
   let count = 0;
   const ids = new Set();
@@ -50,8 +50,8 @@ function sanitizeTemplate(raw, name) {
     };
   }
   if (raw.roots.some(n => n.type !== 'section')) fail('invalid-argument', 'Top-level fields must be sections.');
-  const template = { name, templateId: 'community', updatedAtIso: '2026-01-01T00:00:00.000Z', groupName: '', recordsConfigured: false, roots: raw.roots.map(n => node(n, 0)), signature: {} };
-  const payload = JSON.stringify({ app: 'Ripot', ripotFileType: 'template', ripotExportVersion: 1, template });
+  const template = { name, contributor: metadata.contributor ?? '', templateId: 'community', updatedAtIso: '2026-01-01T00:00:00.000Z', groupName: '', recordsConfigured: false, roots: raw.roots.map(n => node(n, 0)), signature: {} };
+  const payload = JSON.stringify({ app: 'Ripot', ripotFileType: 'template', ripotExportVersion: 1, template, catalog: metadata });
   const sha256 = createHash('sha256').update(payload).digest('hex');
   return { template, payload, sha256, version: sha256.slice(0, 16) };
 }
@@ -67,7 +67,7 @@ function createTemplateLibrary(db, clock = () => Date.now()) {
     if (data.patientFree !== true || data.permissionToPublish !== true) fail('invalid-argument', 'Confirm that the template is patient-free and you have permission to publish it.');
     const name = string(data.name, 120, true), specialty = string(data.specialty, 80, true);
     const description = string(data.description, 1500, true), contributor = string(data.contributor, 120, true);
-    const clean = sanitizeTemplate(data.template, name);
+    const clean = sanitizeTemplate(data.template, name, { specialty, description, contributor });
     // Client-generated request id makes submission retries safe after lost responses.
     const requestId = identifier(data.requestId);
     const ref = data.id ? db.collection(C.submissions).doc(identifier(data.id)) : db.collection(C.submissions).doc(`s-${createHash('sha256').update(uid + ':' + requestId).digest('hex').slice(0, 32)}`);

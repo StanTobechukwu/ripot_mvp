@@ -147,6 +147,10 @@ const server = http.createServer((req, res) => {
     assert(await page.getByRole('button',{name:'Already added',exact:true}).isDisabled());
     await page.screenshot({path:path.join(out,'community-template-preview.png'),fullPage:true});
     await page.getByRole('button',{name:'Close',exact:true}).click();
+    // Fulfilled Playwright routes bypass offline networking, so fail catalogue
+    // requests explicitly as well as disabling the connection.
+    await context.route('https://ripot.app/templates/catalog/**', route => route.abort('internetdisconnected'));
+    await context.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**', route => route.abort('internetdisconnected'));
     await context.setOffline(true);
     await page.getByRole('button',{name:'Refresh library',exact:true}).click();
     await page.getByText(/Saved templates still work offline/).waitFor({timeout:30000});
