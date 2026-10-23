@@ -5,6 +5,10 @@ on:
   pull_request:
     paths:
       - 'lib/features/reports/**'
+      - 'lib/core/firebase/**'
+      - 'functions/**'
+      - 'firestore.rules'
+      - 'test/**'
       - 'test/features/public_template*_test.dart'
       - 'tools/web/smoke_dynamic_template.cjs'
       - 'tools/landing/**'
@@ -12,6 +16,20 @@ on:
       - '.github/workflows/dynamic-template-checks.yml'
   workflow_dispatch:
 jobs:
+  template-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci --prefix functions
+      - run: npx --yes firebase-tools@14.22.0 emulators:exec --only firestore --project demo-ripot-founders --config firebase.test.json "npm test --prefix functions"
   template-generator:
     runs-on: ubuntu-latest
     steps:

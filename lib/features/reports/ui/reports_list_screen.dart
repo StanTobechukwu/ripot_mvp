@@ -1,3 +1,4 @@
+import 'online_templates_screen.dart';
 import 'package:flutter/foundation.dart';
 import '../data/public_template_catalog.dart';
 import 'package:flutter/material.dart';
@@ -164,6 +165,12 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       }
       await _refreshReports();
       if (mounted && kIsWeb) {
+        final libraryView = Uri.base.queryParameters['templateLibrary'];
+        if (['browse', 'contribute', 'review'].contains(libraryView)) {
+          await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => OnlineTemplatesScreen(initialView: libraryView!)));
+          if (mounted) await _refreshReports();
+          return;
+        }
         final template = await PublicTemplateCatalog.resolveForEditor(Uri.base);
         if (!mounted) return;
         if (template != null) {

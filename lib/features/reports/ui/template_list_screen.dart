@@ -16,6 +16,7 @@ import '../providers/reports_list_provider.dart';
 import 'report_editor_screen.dart';
 import 'template_editor_screen.dart';
 import 'template_actions.dart';
+import 'online_templates_screen.dart';
 
 class TemplatesListScreen extends StatefulWidget {
   const TemplatesListScreen({super.key});
@@ -297,6 +298,13 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
         child: Column(
           children: [
             if (_busy || vm.loading) const LinearProgressIndicator(),
+            Padding(padding: const EdgeInsets.all(12), child: FilledButton.icon(
+              icon: const Icon(Icons.travel_explore), label: const Text('Browse online templates'),
+              onPressed: _busy ? null : () => _run(() async {
+                await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const OnlineTemplatesScreen()));
+                if (mounted) await _load();
+              }),
+            )),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Wrap(
@@ -314,7 +322,7 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
                   if (!access.isPremiumLike)
                     TextButton(
                       onPressed: () => showPremiumFeatureSheet(context, PremiumFeature.moreTemplates),
-                      child: const Text('Explore more templates'),
+                      child: const Text('Increase template limit'),
                     ),
                 ],
               ),

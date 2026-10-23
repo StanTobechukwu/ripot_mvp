@@ -248,3 +248,6 @@ exports.refreshPlayEntitlement = onCall(async (request) => {
   return { checked:true, entitled:e.entitled, subscriptionState:e.state, basePlanId:e.basePlanId,
     offerId:e.offerId, expiresAtIso:e.expiry?.toISOString() || null };
 });
+
+// Reviewed community templates and server-controlled notifications.
+Object.assign(exports, require('./template-library-endpoints'));

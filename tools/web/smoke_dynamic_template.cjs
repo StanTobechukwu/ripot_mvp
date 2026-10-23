@@ -27,7 +27,7 @@ const sha = crypto.createHash('sha256').update(payload).digest('hex');
 const version = sha.slice(0, 16);
 const payloadPath = `/templates/catalog/${slug}/${version}.ripottemplate.json`;
 const manifest = { schemaVersion: 1, templates: [
-  { slug, version, sha256: sha, status: 'approved', url: payloadPath },
+  { slug, version, sha256: sha, status: 'approved', url: payloadPath, name: 'Fictional remote-only QA template', specialty: 'Test specialty', contributor: 'QA Author' },
 ] };
 const mime = { '.html': 'text/html', '.js': 'application/javascript',
   '.json': 'application/json', '.wasm': 'application/wasm', '.png': 'image/png',
@@ -124,8 +124,42 @@ const server = http.createServer((req, res) => {
     await letterheadPrompt.click();
     await page.getByText('Use your own letterhead', { exact: true }).waitFor({ state: 'visible' });
     console.log('PASS: Free preview shows the letterhead invitation on mobile and desktop and opens the existing Premium sheet.');
+    // Browse/add a reviewed community template and confirm the personal copy
+    // persists while the network is offline. All service responses are fixtures.
+    const communitySlug = 'community-s-browser-test';
+    const community = { slug: communitySlug, version, sha256: sha, status: 'approved',
+      name: 'Fictional remote-only QA template', specialty: 'Community QA',
+      contributor: 'QA Contributor', description: 'Fictional browser test structure' };
+    await context.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**', async route => {
+      const query = new URL(route.request().url()).searchParams;
+      await route.fulfill({ status: 200, headers: { 'access-control-allow-origin': origin,
+        'content-type': 'application/json' }, body: JSON.stringify(query.has('template')
+          ? {...community, payload: payload.toString()} : {schemaVersion: 1, templates: [community]}) });
+    });
+    await page.goto(`${origin}/?templateLibrary=browse`, {waitUntil: 'domcontentloaded'});
+    await page.locator('flt-semantics-placeholder').waitFor({state:'attached',timeout:30000});
+    await page.locator('flt-semantics-placeholder').evaluate(element => element.click());
+    await page.getByText('Community QA · By QA Contributor', {exact:false}).waitFor({timeout:60000});
+    await page.getByText('Community QA · By QA Contributor', {exact:false}).click();
+    await page.getByRole('button',{name:'Add to my templates',exact:true}).click();
+    await page.waitForFunction(slug => Object.keys(localStorage).some(k => k.startsWith('flutter.templates.doc.') && localStorage.getItem(k).includes(slug)),communitySlug);
+    await page.getByText('Community QA · By QA Contributor', {exact:false}).click();
+    assert(await page.getByRole('button',{name:'Already added',exact:true}).isDisabled());
+    await page.screenshot({path:path.join(out,'community-template-preview.png'),fullPage:true});
+    await page.getByRole('button',{name:'Close',exact:true}).click();
+    await context.setOffline(true);
+    await page.getByRole('button',{name:'Refresh library',exact:true}).click();
+    await page.getByText(/Saved templates still work offline/).waitFor({timeout:30000});
+    const personal = await page.evaluate(slug => Object.keys(localStorage)
+      .filter(k=>k.startsWith('flutter.templates.doc.') && localStorage.getItem(k).includes(slug))
+      .map(k=>JSON.parse(JSON.parse(localStorage.getItem(k)))),communitySlug);
+    assert.equal(personal.length,1);
+    assert.equal(personal[0].sourceSlug,communitySlug);
+    assert.equal(personal[0].sourceVersion,version);
+    assert.equal(personal[0].contributor,'QA Contributor');
+    console.log('PASS: online library preview, attributed personal copy, duplicate prevention and offline persistence.');
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({
-      passed: true, letterheadPromptPassed: true, slug, version, fetched, sourceCommit: process.env.GITHUB_SHA,
+      passed: true, letterheadPromptPassed: true, communityLibraryPassed: true, slug, version, fetched, sourceCommit: process.env.GITHUB_SHA,
     }, null, 2));
   } catch (error) {
     if (page) {

@@ -9,6 +9,9 @@ import 'callable_http_client.dart';
 /// Trial/subscription decisions still belong exclusively to the server.
 class AccountFunctions {
   static const _allowed = {
+    'submitTemplateContribution',
+    'listTemplateContributions',
+    'reviewTemplateContribution',
     'activatePremiumTrial',
     'syncFounderEntitlement',
     'refreshPlayEntitlement',
@@ -16,13 +19,14 @@ class AccountFunctions {
 
   static Future<dynamic> call(
     String name, {
+    Map<String, dynamic> data = const {},
     Duration timeout = const Duration(seconds: 30),
   }) async {
     if (!_allowed.contains(name)) throw ArgumentError.value(name, 'name');
     if (!AccountRuntime.usesWindowsRest) {
       final result = await FirebaseFunctions.instance
           .httpsCallable(name, options: HttpsCallableOptions(timeout: timeout))
-          .call(<String, dynamic>{});
+          .call(data);
       return result.data;
     }
 
@@ -40,6 +44,7 @@ class AccountFunctions {
       name: name,
       idToken: token,
       timeout: timeout,
+      data: data,
     );
     if (session?.currentUser?.uid != user.uid) {
       throw const AccountFunctionException(code: 'unauthenticated');
