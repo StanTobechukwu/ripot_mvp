@@ -33,7 +33,7 @@ const server=http.createServer((req,res)=>{
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       const link=await page.getByRole('link',{name:'Use in Ripot Web →'}).getAttribute('href');
       assert(link.includes(`version=${row.version}`));
-      const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('link',{name:'Download Ripot template'}).click()]);
+      const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('link',{name:'Download Ripot import file'}).click()]);
       assert.equal(fs.readFileSync(await download.path(),'utf8'),payload);
       await page.screenshot({path:path.join(out,`community-landing-${width}.png`),fullPage:true});
     }

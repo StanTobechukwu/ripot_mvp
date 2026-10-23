@@ -86,6 +86,7 @@ jobs:
           NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/web/smoke_dynamic_template.cjs
           python3 tools/landing/build_templates.py
           NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/landing/smoke_community.cjs
+          NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/landing/smoke_template_previews.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

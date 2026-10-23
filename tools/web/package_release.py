@@ -50,6 +50,9 @@ Included: updated branding/support, safer Registry report linking, unlimited
 saved PDFs for Premium/active trials, dynamic public templates, the Free-user
 letterhead invitation, Web/Windows checkout-availability messaging, and the
 community template library with submissions and reviewer screens.
+The four starter templates now include real PDF previews, blank and fictional
+example PDF downloads, page zoom and readable plain/formatted copied outlines.
+To apply these landing-page improvements, run bash Deploy-Landing.command.
 The contribution backend, reviewer account and SMTP notification setup must
 be deployed separately using the included TEMPLATE_LIBRARY.md instructions.
 Direct online payment checkout is not enabled. Android and Windows installers

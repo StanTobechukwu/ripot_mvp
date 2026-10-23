@@ -48,7 +48,7 @@
       el('p', 'Approved version ' + row.version, preview).className = 'note';
       const actions = el('div','',preview); actions.className = 'actions';
       const open = el('a','Use in Ripot Web →',actions); open.className = 'button'; open.href = 'https://ripot-web.web.app/?template=' + encodeURIComponent(slug) + '&version=' + row.version;
-      const download = el('a','Download Ripot template',actions); download.className = 'button secondary'; download.download = slug + '.ripottemplate.json';
+      const download = el('a','Download Ripot import file',actions); download.className = 'button secondary'; download.download = slug + '.ripottemplate.json';
       download.href = URL.createObjectURL(new Blob([row.payload], {type:'application/json'}));
       window.addEventListener('pagehide', () => URL.revokeObjectURL(download.href), {once:true});
       el('p','In Ripot, use Templates → Browse online templates to save a personal copy, or import this downloaded file. New versions never overwrite your edited copies.', preview);
