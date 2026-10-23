@@ -9,6 +9,9 @@ class TemplateCodec {
     'updatedAtIso': t.updatedAt.toIso8601String(),
     'name': t.name,
     'groupName': t.groupName,
+    'sourceSlug': t.sourceSlug,
+    'sourceVersion': t.sourceVersion,
+    'contributor': t.contributor,
     'recordsConfigured': t.recordsConfigured,
     'roots': t.roots.map(_sectionToJson).toList(),
     'subjectInfo': t.subjectInfo.toJson(),
@@ -23,6 +26,9 @@ class TemplateCodec {
           DateTime.now(),
       name: (j['name'] as String?) ?? 'Untitled Template',
       groupName: (j['groupName'] as String?) ?? '',
+      sourceSlug: (j['sourceSlug'] as String?) ?? '',
+      sourceVersion: (j['sourceVersion'] as String?) ?? '',
+      contributor: (j['contributor'] as String?) ?? '',
       recordsConfigured: j['recordsConfigured'] == true,
       roots: ((j['roots'] as List?) ?? const [])
           .map((e) => _sectionFromJson(e as Map<String, dynamic>))

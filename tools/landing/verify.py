@@ -2,6 +2,7 @@
 from pathlib import Path
 from html.parser import HTMLParser
 from urllib.parse import urlsplit,unquote
+import hashlib,json
 ROOT=Path(__file__).resolve().parents[2]/'landing/y'
 class Links(HTMLParser):
  def __init__(self):super().__init__();self.links=[]
@@ -25,4 +26,20 @@ for slug in ('upper-gi-endoscopy-report-template','colonoscopy-report-template',
  if not page.exists() or f'?template={slug}' not in page.read_text():errors.append(f'{slug}: missing deep link')
  if page.exists() and '\\n' in page.read_text():errors.append(f'{slug}: literal newline escapes in copyable example')
 if errors:raise SystemExit('\n'.join(errors))
+previews=ROOT/'templates/previews'
+manifest=json.loads((previews/'manifest.json').read_text())
+assert len(manifest)==8, 'Expected blank and fictional PDFs for four starters'
+for key,entry in manifest.items():
+ raw=(previews/entry['pdf']).read_bytes()
+ assert raw.startswith(b'%PDF-'), f'{key}: not a PDF'
+ assert hashlib.sha256(raw).hexdigest()==entry['sha256'], f'{key}: changed PDF bytes'
+ assert entry['pages'] and all((previews/name).is_file() for name in entry['pages']), f'{key}: missing preview pages'
+ slug,variant=key.rsplit('-',1)
+ page=(ROOT/'templates'/slug/'index.html').read_text()
+ assert entry['pdf'] in page and all(name in page for name in entry['pages'])
+ assert 'Download Ripot import file' in page and 'Download blank PDF' in page
+ outline=(ROOT/'templates/downloads'/f'{slug}-outline.txt').read_text()
+ assert '[enter]' not in outline and 'FICTIONAL PATIENT' not in outline
+ assert 'Patient: ________________' in outline
 print('Static links, support address, PDF copy and template targets verified.')
+print('Eight PDF hashes, preview pages, clear download labels and blank outlines verified.')

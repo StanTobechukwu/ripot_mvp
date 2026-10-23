@@ -95,3 +95,14 @@ test("existing account-owned template create, read, list, edit and delete still 
   await assertFails(deleteDoc(doc(bob, "ripot_template_structures", "existing")));
   await assertSucceeds(deleteDoc(doc(db, "ripot_template_structures", "new")));
 });
+
+test('template contribution, publication, roles and email queues are server-only even for a reviewer', async () => {
+  for (const context of [env.unauthenticatedContext(), env.authenticatedContext('alice'), env.authenticatedContext('reviewer', {templateReviewer:true})]) {
+    const db = context.firestore();
+    for (const path of ['ripot_template_submissions/new', 'ripot_template_reviewers/reviewer',
+      'ripot_public_templates/new', 'ripot_public_templates/new/versions/one', 'ripot_template_mail/new', 'ripot_template_limits/alice']) {
+      await assertFails(getDoc(doc(db,path)));
+      await assertFails(setDoc(doc(db,path),{status:'approved',enabled:true,ownerUid:'alice'}));
+    }
+  }
+});
