@@ -57,7 +57,7 @@ void main() {
             const SubjectFieldDef(key: 'subjectName',title:'Patient',required:true,order:0,isSystem:true,addToRecords:false),
             const SubjectFieldDef(key: 'subjectId',title:'Identifier',required:false,order:1,isSystem:true,addToRecords:false),
           ]),
-          subjectInfo: SubjectInfoValues({'subjectName':example?'DEMO PATIENT - FICTIONAL':'________________________','subjectId':example?'DEMO-001':'________________________'}),
+          subjectInfo: SubjectInfoValues({'subjectName':example?'FICTIONAL PATIENT':'________________','subjectId':example?'DEMO-001':'________________'}),
           signature: SignatureBlock(roleTitle: 'Clinician', name: example ? 'DEMONSTRATION ONLY - NOT SIGNED' : '________________________'),
         );
         final letterhead = LetterheadTemplate(

@@ -5,6 +5,7 @@ ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'landing/y/templates/previews'
 manifest={}
 for pdf in sorted(OUT.glob('*.pdf')):
+    for old_page in OUT.glob(pdf.stem+'-*.jpg'):old_page.unlink()
     subprocess.run(['pdftoppm','-jpeg','-jpegopt','quality=88','-scale-to','1500',str(pdf),str(pdf.with_suffix(''))],check=True)
     pages=sorted(OUT.glob(pdf.stem+'-*.jpg'),key=lambda p:int(p.stem.rsplit('-',1)[1]))
     if not pages:raise SystemExit(f'No pages rendered for {pdf}')
