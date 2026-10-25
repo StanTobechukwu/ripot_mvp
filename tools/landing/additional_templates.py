@@ -1,0 +1,130 @@
+"""Authored documentation structures and separate fictional preview fixtures.
+
+No findings, diagnoses, thresholds or calculated scores are inserted in imports.
+These are editable documentation aids, not clinically validated protocols.
+Run export_additional_templates.py after changing this source.
+"""
+TEMPLATES = []
+
+def field(key, title, example, unit='', options=None):
+    return dict(key=key, title=title, example=str(example), unit=unit, options=options or [],
+                numeric=bool(unit) or key in {'fetuses','attempted','valid','daycount','nightcount','apgar1','apgar5','rightratio','leftratio'})
+
+def group(title, *fields):
+    return (title, list(fields))
+
+def add(slug, name, specialty, description, groups, references):
+    TEMPLATES.append(dict(slug=slug, name=name, specialty=specialty,
+                         description=description, groups=groups, references=references))
+
+SURGERY = [('Royal College of Surgeons: operative documentation', 'https://www.rcseng.ac.uk/standards-and-research/good-surgical-practice/domain-3/')]
+US = [('AIUM: ultrasound practice parameters', 'https://www.aium.org/resources/practice-parameters')]
+F = field
+
+def operation_context(procedure):
+    diagnosis = {
+        'Excision': 'Symptomatic superficial left forearm lesion.',
+        'Lower-segment': 'Persistent breech presentation at term.',
+        'Laparoscopic': 'Acute appendicitis.',
+        'Debridement': 'Left lower-leg wound with devitalised skin and subcutaneous tissue.',
+    }[procedure.split()[0]]
+    return group('Procedure and team',
+        F('procedure', 'Procedure performed', procedure),
+        F('time', 'Procedure date and time', '01 January 2026, 09:00 (fictional)'),
+        F('urgency', 'Urgency', 'Urgent' if procedure.startswith(('Laparoscopic','Debridement')) else 'Elective', options=['Elective','Emergency','Urgent']),
+        F('indication', 'Indication and preoperative diagnosis', diagnosis),
+        F('postdiagnosis', 'Postoperative diagnosis', diagnosis),
+        F('surgeon', 'Surgeon and assistants', 'Dr Demo A; Dr Demo B (fictional)'),
+        F('anaesthesia', 'Anaesthesia and anaesthetist', 'Technique recorded in the separate anaesthetic chart; Dr Demo C (fictional).'),
+        F('consent', 'Consent and safety checks', 'Consent, identity, procedure and site checks documented in the fictional theatre checklist.'))
+
+def operation_finish():
+    return group('Completion and handover',
+        F('specimen', 'Specimens and labels', 'Specimen details recorded with site and destination.'),
+        F('bloodloss', 'Estimated blood loss', '20', 'mL'),
+        F('counts', 'Instrument / swab / needle counts', 'Confirmed complete at closure.'),
+        F('complications', 'Complications and response', 'None observed during this fictional procedure.'),
+        F('disposition', 'Condition and destination', 'Transferred to recovery with a documented handover.'),
+        F('postop', 'Postoperative instructions and responsible team', 'Individual orders, monitoring, wound review and follow-up to be prescribed by the responsible team.'))
+
+add('flexible-sigmoidoscopy-report-template', 'Flexible Sigmoidoscopy', 'Gastroenterology',
+    'Document the examined lower bowel, preparation, extent, lesions, sampling and follow-up in an editable flexible sigmoidoscopy report.', [
+    group('Procedure', F('indication','Indication','Intermittent rectal bleeding (fictional).'), F('consent','Consent and safety checks','Consent and identity checks documented.'), F('preparation','Preparation and visibility','Enema preparation; visibility adequate in the examined segment.'), F('sedation','Sedation / analgesia','No intravenous sedation in this fictional examination.'), F('extent','Extent and landmarks','Examined to 50 cm from the anal verge; proximal bowel not assessed.'), F('limitations','Limitations / reason for stopping','Examination limited to intended sigmoidoscopy extent.')),
+    group('Findings', F('perianal','Perianal inspection and digital examination','No palpable mass in this fictional examination.'), F('rectum','Rectum','Small internal haemorrhoids seen on retroflexion.'), F('sigmoid','Sigmoid colon','Mucosa unremarkable within the examined segment.'), F('proximal','Additional bowel examined','No additional segment confidently identified.'), F('lesions','Lesions: site, distance, size and morphology','No polyp identified within the examined segment.')),
+    group('Sampling and interventions', F('biopsy','Biopsy taken','No',options=['Yes','No']), F('samples','Sampling sites, number and specimen labels','Not applicable.'), F('intervention','Intervention and retrieval details','None.'), F('events','Immediate adverse events','None observed.')),
+    group('Conclusion', F('impression','Impression','Small internal haemorrhoids; proximal colon not evaluated.'), F('plan','Plan and communication','Discuss findings and further evaluation with the referring clinician. No interval is prescribed by this example.')),
+], [('ASGE: endoscopy quality resources','https://www.asge.org/home/practice-support')])
+
+add('obstetric-ultrasound-report-template','Obstetric Ultrasound / Morphology','Radiology',
+    'Record dating, fetal biometry, assessed anatomy, placenta, fluid and examination limitations. Duplicate fetal sections when appropriate; no automatic dating or growth interpretation.', [
+    group('Examination context', F('indication','Indication and examination type','Routine mid-trimester anatomy assessment (fictional).'), F('technique','Technique and image quality','Transabdominal examination; some views limited by fetal position.'), F('dating','Established gestational age, EDD and dating basis','20 weeks 2 days; EDD 19 May 2026, based on an earlier dating scan (fictional).'), F('fetuses','Number of fetuses','1',''), F('plurality','Chorionicity / amnionicity if multiple','Not applicable: singleton.'), F('fetusid','Fetal identifier and presentation','Fetus A; longitudinal lie.')),
+    group('Biometry', F('bpd','Biparietal diameter (BPD)','47','mm'), F('hc','Head circumference (HC)','175','mm'), F('ac','Abdominal circumference (AC)','150','mm'), F('fl','Femur length (FL)','32','mm'), F('efw','Estimated fetal weight','330','g'), F('reference','Formula, chart, centile and comparison','Demonstration measurements only; centile not assigned. Record the validated formula/chart used.'), F('fhr','Fetal heart rate','148','beats/min')),
+    group('Anatomy assessed', F('brain','Cranium, brain and face','Cranium and standard brain views visualised; profile view incomplete.'), F('spine','Spine','Visualised in the obtained planes.'), F('heart','Thorax and cardiac views','Four-chamber view obtained; outflow views incomplete.'), F('abdomen','Abdominal wall, stomach and cord insertion','Visualised in the obtained views.'), F('urinary','Kidneys and urinary bladder','Both kidneys and bladder visualised.'), F('limbs','Limbs','Four limbs visualised; detailed assessment documented in image record.')),
+    group('Placenta and maternal observations', F('placenta','Placental location and relationship to cervix','Anterior placenta; relationship to internal os documented on images.'), F('fluid','Amniotic fluid assessment and method','Deepest vertical pocket 4.2 cm.'), F('cervix','Cervix: assessment method and findings','Formal transvaginal cervical length not performed.'), F('maternal','Maternal uterus / adnexa and other findings','No additional finding documented in this example.')),
+    group('Conclusion', F('incomplete','Incomplete views and limitations','Profile and cardiac outflow views not adequately assessed.'), F('impression','Impression','Single live fetus; anatomy assessment incomplete as above. Measurements alone do not exclude abnormalities.'), F('plan','Follow-up and communication','Arrange completion of unassessed views according to the responsible service protocol.')),
+], [('ISUOG: mid-trimester ultrasound guidance','https://www.isuog.org/clinical-resources/isuog-guidelines/practice-guidelines-english.html')])
+
+add('pelvic-transvaginal-ultrasound-report-template','Pelvic / Transvaginal Ultrasound','Radiology',
+    'A pelvic ultrasound structure for technique, uterine and endometrial assessment, ovaries, adnexa and fluid, with measurements and limitations.', [
+    group('Context', F('indication','Indication','Pelvic discomfort (fictional).'), F('history','Relevant menstrual / menopausal history','Premenopausal; cycle day 8 in this fictional example.'), F('technique','Technique, consent and chaperone','Transabdominal and transvaginal views; consent and chaperone recorded.'), F('quality','Image quality / limitations','Both ovaries visualised.')),
+    group('Uterus and cervix', F('position','Position and contour','Anteverted; smooth contour.'), F('length','Uterine length','78','mm'), F('ap','Uterine AP diameter','36','mm'), F('width','Uterine transverse diameter','45','mm'), F('myometrium','Myometrium / focal lesions','No focal lesion identified in this fictional example.'), F('endometrium','Endometrial thickness','6','mm'), F('appearance','Endometrial appearance / cavity','Smooth appearance; no cavity fluid seen.'), F('cervix','Cervix','No focal finding documented.')),
+    group('Ovaries and adnexa', F('right','Right ovary: three dimensions and appearance','30 x 18 x 20 mm; follicles present.'), F('left','Left ovary: three dimensions and appearance','28 x 17 x 19 mm; follicles present.'), F('lesion','Adnexal lesions: side, size and morphology','No adnexal mass identified.'), F('doppler','Doppler findings where indicated','Not performed.'), F('fluid','Cul-de-sac / free fluid','Trace simple fluid.')),
+    group('Conclusion', F('comparison','Comparison','No prior study available.'), F('impression','Impression','No focal pelvic lesion identified in the acquired images.'), F('plan','Recommendations / communication','Correlate with symptoms and referring assessment.')),
+], [('AIUM: female pelvis practice parameter','https://www.aium.org/resources/practice-parameters/female-pelvis')])
+
+add('thyroid-neck-ultrasound-report-template','Thyroid and Neck Ultrasound','Radiology',
+    'Record gland measurements, individual nodule features and cervical nodes. TI-RADS category is entered by the clinician; this template does not calculate risk or recommend biopsy.', [
+    group('Examination', F('indication','Indication','Palpable thyroid prominence (fictional).'), F('comparison','Prior imaging / intervention','No prior examination supplied.'), F('technique','Technique and limitations','High-frequency ultrasound with colour Doppler; no technical limitation recorded.')),
+    group('Thyroid gland', F('right','Right lobe dimensions','45 x 16 x 17 mm.'), F('left','Left lobe dimensions','43 x 15 x 16 mm.'), F('isthmus','Isthmus AP thickness','3','mm'), F('background','Parenchymal echotexture and vascularity','Background echotexture homogeneous.')),
+    group('Nodule record (duplicate for additional nodules)', F('location','Nodule identifier and location','Nodule 1; right mid pole.'), F('dimensions','Three dimensions / largest diameter','12 x 9 x 8 mm; largest diameter 12 mm.'), F('composition','Composition','Spongiform.'), F('echogenicity','Echogenicity','Predominantly isoechoic solid components.'), F('shape','Shape','Wider than tall.'), F('margin','Margins','Smooth.'), F('foci','Echogenic foci','No suspicious echogenic foci described.'), F('category','Clinician-assigned TI-RADS system / category','Not assigned in this layout demonstration.'), F('change','Interval change','No comparison available.')),
+    group('Neck and conclusion', F('nodes','Cervical lymph nodes: site and morphology','No morphologically suspicious node identified in the examined neck.'), F('other','Other neck findings','No additional focal finding documented.'), F('impression','Impression','Right thyroid nodule as described; classification requires clinician review.'), F('plan','Clinician recommendations / communication','Record an individual recommendation using the applicable guidance; none is generated automatically.')),
+], [('American College of Radiology: TI-RADS resources','https://www.acr.org/Clinical-Resources/Clinical-Tools-and-Reference/Reporting-and-Data-Systems/TI-RADS')])
+
+renal_groups = [group('Context', F('indication','Indication','Assessment of renal morphology and arterial flow (fictional).'), F('technique','Technique / vessels sampled','B-mode, colour and spectral Doppler; bilateral main renal arteries sampled.'), F('limitations','Technical limitations','No accessory artery confidently demonstrated; this does not exclude one.')),
+ group('Renal morphology',F('rightlength','Right renal length','10.7','cm'),F('leftlength','Left renal length','10.9','cm'),F('parenchyma','Cortical appearance / thickness','Preserved corticomedullary differentiation in the acquired images.'),F('collecting','Collecting systems, calculi and focal lesions','No collecting-system dilatation seen.'),F('bladder','Bladder / residual if assessed','Not assessed in this vascular-focused examination.')),
+ group('Aorta and Doppler technique',F('aortapsv','Aortic peak systolic velocity (PSV)','82','cm/s'),F('angle','Doppler angle / technical notes','Angle correction documented on stored traces.'),F('venous','Renal venous flow','Flow demonstrated bilaterally.'))]
+for side in ['Right','Left']:
+ p=side.lower()
+ renal_groups.append(group(side+' renal arterial Doppler',F(p+'prox', 'Proximal PSV','96' if p=='right' else '101','cm/s'),F(p+'mid','Mid PSV','88','cm/s'),F(p+'dist','Distal PSV','84','cm/s'),F(p+'edv','EDV at highest-velocity sample','28','cm/s'),F(p+'ratio','Renal-aortic ratio (entered, not calculated)','1.17' if p=='right' else '1.23'),F(p+'ri','Intrarenal RI: upper / mid / lower','0.61 / 0.60 / 0.62.'),F(p+'wave','Waveforms / acceleration findings','Waveform appearances documented on stored traces.')))
+renal_groups.append(group('Conclusion',F('impression','Impression','Bilateral renal measurements and sampled velocities documented. No automatic stenosis classification.'),F('plan','Recommendations / communication','Interpret with laboratory criteria, technical adequacy and the clinical assessment.')))
+add('renal-artery-doppler-report-template','Renal Ultrasound / Renal Artery Doppler','Radiology','Document renal morphology and optional arterial Doppler measurements, sampling sites, waveforms and limitations. Ratios and indices are clinician-entered.',renal_groups,US)
+
+add('holter-monitor-report-template','Holter / Ambulatory ECG','Cardiology','An ambulatory ECG reporting structure for recording quality, rate, rhythm, ectopy, pauses and symptom correlation. Device findings require clinician verification.',[
+ group('Recording',F('indication','Indication','Intermittent palpitations (fictional).'),F('device','Device / leads','Three-channel ambulatory ECG recorder.'),F('start','Start and finish','01 January 2026 09:00 to 02 January 2026 09:00 (fictional).'),F('duration','Analysable duration','23.5','hours'),F('quality','Signal quality / artefact','Thirty minutes excluded for artefact.'),F('medication','Relevant medication during recording','No rate-modifying medication recorded in this fictional example.')),
+ group('Rate and rhythm',F('rhythm','Predominant rhythm','Sinus rhythm.'),F('min','Minimum heart rate','49','beats/min'),F('mean','Mean heart rate','74','beats/min'),F('max','Maximum heart rate','128','beats/min'),F('timing','Timing / context of rate extremes','Minimum during recorded sleep; maximum during diary-recorded activity.')),
+ group('Events',F('sve','Supraventricular ectopy: count, burden, runs','35 isolated supraventricular ectopics; no sustained run identified.'),F('ve','Ventricular ectopy: count, burden, complexity','12 isolated ventricular ectopics; no couplet or run identified.'),F('af','Atrial fibrillation / flutter: episodes and burden','No episode identified in the analysable recording.'),F('pauses','Pauses / conduction disturbances','No significant pause or advanced block identified on manual review.'),F('symptoms','Symptoms, event times and rhythm correlation','One diary entry at 14:20 correlated with sinus rhythm at 86 beats/min.'),F('other','Other findings and verification','Representative strips reviewed; automated events require verification.')),
+ group('Conclusion',F('impression','Impression','Predominantly sinus rhythm with occasional isolated ectopy in this fictional recording.'),F('plan','Recommendations / urgent communication','Referring clinician to interpret in context; no treatment recommendation is generated.')),
+],[('ISHNE-HRS: ambulatory ECG consensus','https://pmc.ncbi.nlm.nih.gov/articles/PMC6931745/')])
+
+add('ambulatory-blood-pressure-report-template','Ambulatory Blood Pressure Monitoring','Cardiology','Record ABPM quality, diary-defined waking and sleeping periods, mean pressures and clinician interpretation. No automatic diagnosis or treatment thresholds.',[
+ group('Recording context',F('indication','Indication','Assessment of office blood pressure elevation (fictional).'),F('device','Device, cuff and arm','Validated upper-arm monitor; appropriate cuff on left arm.'),F('period','Recording period','01 January 2026 09:00 to 02 January 2026 09:00 (fictional).'),F('medication','Medication and timing','Medication diary reviewed; details recorded separately.'),F('diary','Diary-defined awake / asleep periods','Awake 07:00-23:00; asleep 23:00-07:00.'),F('attempted','Attempted readings','60'),F('valid','Valid readings','54'),F('quality','Validity, exclusions and limitations','54 of 60 readings accepted; clinician to assess adequacy against local protocol.')),
+ group('Mean blood pressure',F('allsys','24-hour mean systolic','126','mmHg'),F('alldia','24-hour mean diastolic','76','mmHg'),F('daysys','Awake mean systolic','130','mmHg'),F('daydia','Awake mean diastolic','79','mmHg'),F('nightsys','Asleep mean systolic','118','mmHg'),F('nightdia','Asleep mean diastolic','69','mmHg'),F('daycount','Valid awake readings','36'),F('nightcount','Valid asleep readings','18')),
+ group('Pattern and conclusion',F('dip','Nocturnal change: method and clinician-entered result','Systolic reduction 9.2%; manually entered from diary-defined means.'),F('symptoms','Symptoms and associated measurements','No symptoms entered in the fictional diary.'),F('impression','Clinician interpretation and reference used','Means documented; no diagnostic classification assigned by this demonstration.'),F('plan','Plan / communication','Interpret with indication, treatment status and the applicable clinical guidance.')),
+],[('European Society of Hypertension: practice resources','https://www.eshonline.org/guidelines/')])
+
+add('general-surgical-operation-note-template','General Surgical Operation Note','Surgery','Document the team, indication, operative findings, procedure, specimens, closure and postoperative handover in a reusable operation note.',[
+ operation_context('Excision of superficial forearm lesion (fictional).'),
+ group('Operative record',F('site','Site, side, position and preparation','Left forearm; supine; site confirmed and prepared.'),F('prophylaxis','Antimicrobial / VTE prophylaxis and rationale','Individual assessment and orders recorded in the perioperative chart.'),F('incision','Incision / access','Elliptical incision over the marked superficial lesion.'),F('findings','Operative findings','Well-circumscribed 1 cm subcutaneous lesion.'),F('steps','Procedure details and additional procedures','Lesion dissected from surrounding tissue and removed intact.'),F('implants','Implants / prostheses and identifiers','None.'),F('haemostasis','Haemostasis','Achieved before closure.'),F('closure','Closure, drains and dressing','Interrupted skin sutures; no drain; sterile dressing.')),
+ operation_finish(),
+],SURGERY)
+
+add('caesarean-section-operation-note-template','Caesarean Section Operation Note','Surgery','Capture maternal indication, operative team, delivery details, neonatal handover and operative completion. Duplicate newborn fields for multiple births.',[
+ operation_context('Lower-segment caesarean section (fictional).'),
+ group('Maternal and delivery context',F('gestation','Gestational age and indication detail','39 weeks; persistent breech presentation in this fictional case.'),F('prophylaxis','Antibiotic / thromboprophylaxis record','Individual assessment, drug, dose and timing recorded in the perioperative chart.'),F('access','Abdominal and uterine incisions','Transverse abdominal incision; lower-segment transverse uterine incision.'),F('findings','Operative findings / adhesions','No significant adhesions described; uterus and adnexa inspected.'),F('delivery','Delivery method and difficulties','Breech extraction; no extraction difficulty documented.'),F('birthtime','Birth date and time','01 January 2026, 09:18 (fictional).')),
+ group('Newborn record',F('newborn','Newborn identifier and sex','Baby A (fictional); sex documented in neonatal record.'),F('weight','Birth weight','3200','g'),F('apgar1','Apgar at 1 minute','8'),F('apgar5','Apgar at 5 minutes','9'),F('cord','Cord gases: samples and results if obtained','Not obtained in this fictional example.'),F('neonatal','Resuscitation / neonatal team handover','Routine neonatal assessment; handed to neonatal team.')),
+ group('Operative completion',F('placenta','Placenta, membranes and specimens','Placenta and membranes inspected and appeared complete; specimen disposition recorded.'),F('uterus','Uterine repair, tone and haemostasis','Uterine incision repaired; tone and haemostasis assessed.'),F('medicines','Uterotonics / other intraoperative medicines','Exact drugs, doses and administration times recorded in the anaesthetic chart.'),F('closure','Abdominal closure / drains / dressing','Layers closed; no drain; sterile dressing.'),F('loss','Estimated blood loss','450','mL'),F('counts','Instrument, swab and needle counts','Confirmed complete.'),F('events','Complications / response','None observed in this fictional procedure.'),F('handover','Maternal condition, destination and postoperative plan','Stable transfer to recovery; individual monitoring and postoperative orders handed over.')),
+],SURGERY)
+
+add('appendectomy-operation-note-template','Appendectomy Operation Note','Surgery','Record appendiceal findings, approach, base management, specimen handling, closure and postoperative instructions for an appendectomy.',[
+ operation_context('Laparoscopic appendectomy (fictional).'),
+ group('Access and findings',F('prophylaxis','Antimicrobial / VTE prophylaxis record','Risk assessment and prescribed prophylaxis recorded in the perioperative chart.'),F('approach','Approach, position and access','Supine; laparoscopic access and port sites documented.'),F('appendix','Appendix: position and appearance','Inflamed retrocaecal appendix; no visible perforation.'),F('base','Appendiceal base and caecum','Base and adjacent caecum appeared viable.'),F('contamination','Contamination, collection and other findings','Small amount of local fluid; no abscess described.')),
+ group('Procedure',F('meso','Mesoappendix management','Divided with secure haemostasis.'),F('stump','Base division / stump closure method','Base secured and divided; closure inspected.'),F('retrieval','Specimen retrieval and histology','Appendix retrieved in a bag and labelled for histology.'),F('fluid','Suction / irrigation if performed','Local fluid suctioned; irrigation not performed.'),F('conversion','Additional procedures / conversion and reason','None.'),F('closure','Closure, drains and dressing','Port sites closed; no drain; sterile dressings.')),
+ operation_finish(),
+],SURGERY)
+
+add('wound-debridement-minor-operation-note-template','Wound Debridement / Minor Operation Note','Surgery','Document wound location, dimensions, tissue removed, procedure details, specimens, dressing and follow-up in an adaptable minor-operation note.',[
+ operation_context('Debridement of superficial lower-leg wound (fictional).'),
+ group('Wound assessment',F('site','Site and side','Left anterior lower leg.'),F('before','Pre-procedure dimensions / depth','3 x 2 x 0.3 cm; skin and subcutaneous tissue involved.'),F('tissue','Tissue appearance / contamination','Devitalised wound-edge tissue; no exposed tendon or bone.'),F('neurovascular','Neurovascular and adjacent structure assessment','Distal perfusion and sensation documented before the procedure.')),
+ group('Procedure',F('method','Debridement method and extent','Devitalised tissue removed with sharp debridement to the documented viable margin.'),F('after','Post-procedure dimensions / deepest tissue removed','3.5 x 2.5 x 0.4 cm; subcutaneous tissue was the deepest layer removed.'),F('wash','Irrigation and haemostasis','Irrigated; haemostasis obtained.'),F('closure','Closure / packing / dressing','Left open with a non-adherent dressing; no packing.'),F('prophylaxis','Antibiotic and tetanus assessment / actions','Individual assessment and any prescribed medicines documented separately.')),
+ operation_finish(),
+],SURGERY)

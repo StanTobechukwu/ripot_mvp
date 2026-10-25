@@ -1,0 +1,134 @@
+[
+  {
+    "slug": "flexible-sigmoidoscopy-report-template",
+    "name": "Flexible Sigmoidoscopy",
+    "specialty": "Gastroenterology",
+    "description": "Document the examined lower bowel, preparation, extent, lesions, sampling and follow-up in an editable flexible sigmoidoscopy report.",
+    "references": [
+      [
+        "ASGE: endoscopy quality resources",
+        "https://www.asge.org/home/practice-support"
+      ]
+    ]
+  },
+  {
+    "slug": "obstetric-ultrasound-report-template",
+    "name": "Obstetric Ultrasound / Morphology",
+    "specialty": "Radiology",
+    "description": "Record dating, fetal biometry, assessed anatomy, placenta, fluid and examination limitations. Duplicate fetal sections when appropriate; no automatic dating or growth interpretation.",
+    "references": [
+      [
+        "ISUOG: mid-trimester ultrasound guidance",
+        "https://www.isuog.org/clinical-resources/isuog-guidelines/practice-guidelines-english.html"
+      ]
+    ]
+  },
+  {
+    "slug": "pelvic-transvaginal-ultrasound-report-template",
+    "name": "Pelvic / Transvaginal Ultrasound",
+    "specialty": "Radiology",
+    "description": "A pelvic ultrasound structure for technique, uterine and endometrial assessment, ovaries, adnexa and fluid, with measurements and limitations.",
+    "references": [
+      [
+        "AIUM: female pelvis practice parameter",
+        "https://www.aium.org/resources/practice-parameters/female-pelvis"
+      ]
+    ]
+  },
+  {
+    "slug": "thyroid-neck-ultrasound-report-template",
+    "name": "Thyroid and Neck Ultrasound",
+    "specialty": "Radiology",
+    "description": "Record gland measurements, individual nodule features and cervical nodes. TI-RADS category is entered by the clinician; this template does not calculate risk or recommend biopsy.",
+    "references": [
+      [
+        "American College of Radiology: TI-RADS resources",
+        "https://www.acr.org/Clinical-Resources/Clinical-Tools-and-Reference/Reporting-and-Data-Systems/TI-RADS"
+      ]
+    ]
+  },
+  {
+    "slug": "renal-artery-doppler-report-template",
+    "name": "Renal Ultrasound / Renal Artery Doppler",
+    "specialty": "Radiology",
+    "description": "Document renal morphology and optional arterial Doppler measurements, sampling sites, waveforms and limitations. Ratios and indices are clinician-entered.",
+    "references": [
+      [
+        "AIUM: ultrasound practice parameters",
+        "https://www.aium.org/resources/practice-parameters"
+      ]
+    ]
+  },
+  {
+    "slug": "holter-monitor-report-template",
+    "name": "Holter / Ambulatory ECG",
+    "specialty": "Cardiology",
+    "description": "An ambulatory ECG reporting structure for recording quality, rate, rhythm, ectopy, pauses and symptom correlation. Device findings require clinician verification.",
+    "references": [
+      [
+        "ISHNE-HRS: ambulatory ECG consensus",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC6931745/"
+      ]
+    ]
+  },
+  {
+    "slug": "ambulatory-blood-pressure-report-template",
+    "name": "Ambulatory Blood Pressure Monitoring",
+    "specialty": "Cardiology",
+    "description": "Record ABPM quality, diary-defined waking and sleeping periods, mean pressures and clinician interpretation. No automatic diagnosis or treatment thresholds.",
+    "references": [
+      [
+        "European Society of Hypertension: practice resources",
+        "https://www.eshonline.org/guidelines/"
+      ]
+    ]
+  },
+  {
+    "slug": "general-surgical-operation-note-template",
+    "name": "General Surgical Operation Note",
+    "specialty": "Surgery",
+    "description": "Document the team, indication, operative findings, procedure, specimens, closure and postoperative handover in a reusable operation note.",
+    "references": [
+      [
+        "Royal College of Surgeons: operative documentation",
+        "https://www.rcseng.ac.uk/standards-and-research/good-surgical-practice/domain-3/"
+      ]
+    ]
+  },
+  {
+    "slug": "caesarean-section-operation-note-template",
+    "name": "Caesarean Section Operation Note",
+    "specialty": "Surgery",
+    "description": "Capture maternal indication, operative team, delivery details, neonatal handover and operative completion. Duplicate newborn fields for multiple births.",
+    "references": [
+      [
+        "Royal College of Surgeons: operative documentation",
+        "https://www.rcseng.ac.uk/standards-and-research/good-surgical-practice/domain-3/"
+      ]
+    ]
+  },
+  {
+    "slug": "appendectomy-operation-note-template",
+    "name": "Appendectomy Operation Note",
+    "specialty": "Surgery",
+    "description": "Record appendiceal findings, approach, base management, specimen handling, closure and postoperative instructions for an appendectomy.",
+    "references": [
+      [
+        "Royal College of Surgeons: operative documentation",
+        "https://www.rcseng.ac.uk/standards-and-research/good-surgical-practice/domain-3/"
+      ]
+    ]
+  },
+  {
+    "slug": "wound-debridement-minor-operation-note-template",
+    "name": "Wound Debridement / Minor Operation Note",
+    "specialty": "Surgery",
+    "description": "Document wound location, dimensions, tissue removed, procedure details, specimens, dressing and follow-up in an adaptable minor-operation note.",
+    "references": [
+      [
+        "Royal College of Surgeons: operative documentation",
+        "https://www.rcseng.ac.uk/standards-and-research/good-surgical-practice/domain-3/"
+      ]
+    ]
+  }
+]

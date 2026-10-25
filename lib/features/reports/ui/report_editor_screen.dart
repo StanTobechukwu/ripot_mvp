@@ -41,7 +41,8 @@ class SafeFocusNode extends FocusNode {
 }
 
 class ReportEditorScreen extends StatefulWidget {
-  const ReportEditorScreen({super.key});
+  const ReportEditorScreen({super.key, this.templateNotice});
+  final String? templateNotice;
 
   @override
   State<ReportEditorScreen> createState() => _ReportEditorScreenState();
@@ -116,6 +117,10 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.templateNotice != null) WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(widget.templateNotice!), duration: const Duration(seconds: 12)));
+    });
     WidgetsBinding.instance.addObserver(this);
 
     _roleTitleC = SafeTextController();
@@ -294,7 +299,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
       builder: (dialogContext) => AlertDialog(
         title: const Text('Save current report?'),
         content: const Text(
-          'You have unsaved changes. Do you want to save your progress before leaving?',
+          kIsWeb ? 'Save progress in this browser? Clearing site data can erase it. Download a PDF from Preview, and use backup to keep editable records.' : 'You have unsaved changes. Do you want to save your progress before leaving?',
         ),
         actions: [
           TextButton(
@@ -1098,7 +1103,13 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                 await vm.save();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Progress saved to My Reports')),
+                  SnackBar(
+                    duration: const Duration(seconds: 10),
+                    content: Text(kIsWeb ? 'Saved in this browser. Clearing site data can erase it. Download a PDF copy; use backup for editable records.' : 'Progress saved to My Reports'),
+                    action: kIsWeb ? SnackBarAction(label: 'Preview / export', onPressed: () {
+                      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ReportPreviewScreen()));
+                    }) : null,
+                  ),
                 );
               },
             ),

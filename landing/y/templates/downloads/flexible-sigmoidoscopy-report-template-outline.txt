@@ -1,0 +1,34 @@
+FLEXIBLE SIGMOIDOSCOPY
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+PROCEDURE
+Indication: ________________
+Consent and safety checks: ________________
+Preparation and visibility: ________________
+Sedation / analgesia: ________________
+Extent and landmarks: ________________
+Limitations / reason for stopping: ________________
+
+FINDINGS
+Perianal inspection and digital examination: ________________
+Rectum: ________________
+Sigmoid colon: ________________
+Additional bowel examined: ________________
+Lesions: site, distance, size and morphology: ________________
+
+SAMPLING AND INTERVENTIONS
+Biopsy taken: ________________
+Sampling sites, number and specimen labels: ________________
+Intervention and retrieval details: ________________
+Immediate adverse events: ________________
+
+CONCLUSION
+Impression: ________________
+Plan and communication: ________________
+
+Clinician: ________________
+Signature: ________________

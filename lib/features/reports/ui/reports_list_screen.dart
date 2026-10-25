@@ -1,3 +1,4 @@
+import 'online_templates_screen.dart';
 import 'package:flutter/foundation.dart';
 import '../data/public_template_catalog.dart';
 import 'package:flutter/material.dart';
@@ -164,13 +165,43 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       }
       await _refreshReports();
       if (mounted && kIsWeb) {
-        final template = await PublicTemplateCatalog.resolveForEditor(Uri.base);
+        final libraryView = Uri.base.queryParameters['templateLibrary'];
+        if (['browse', 'contribute', 'review'].contains(libraryView)) {
+          await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => OnlineTemplatesScreen(initialView: libraryView!)));
+          if (mounted) await _refreshReports();
+          return;
+        }
+        String? latestVersion;
+        var template = await PublicTemplateCatalog.resolveForEditor(Uri.base,
+          onLatestVersion: (value) => latestVersion = value);
         if (!mounted) return;
+        String? templateNotice;
+        final requestedVersion = Uri.base.queryParameters['version'];
+        if (template == null && requestedVersion != null && RegExp(r'^[a-f0-9]{16}$').hasMatch(requestedVersion)) {
+          final latest = await PublicTemplateCatalog.resolve(Uri(queryParameters: {
+            'template': Uri.base.queryParameters['template'] ?? '',
+          }));
+          if (!mounted) return;
+          if (latest != null) {
+            final useLatest = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(
+              title: const Text('This template version could not be loaded'),
+              content: const Text('The linked version could not be loaded, but a current approved version is available. Open it as a new report?'),
+              actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+                FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Open latest version'))],
+            ));
+            if (!mounted) return;
+            if (useLatest != true) return;
+            template = latest;
+            templateNotice = 'Opened the latest approved template version. Your saved reports and templates are unchanged.';
+          }
+        } else if (template != null && requestedVersion != null && latestVersion != null && requestedVersion != latestVersion) {
+          templateNotice = 'Opened the older version specified by this link. A newer version is available in Online templates.';
+        }
         if (template != null) {
           context.read<ReportEditorProvider>().newReportFromTemplate(template);
           await Navigator.push(
             context,
-            MaterialPageRoute<void>(builder: (_) => const ReportEditorScreen()),
+            MaterialPageRoute<void>(builder: (_) => ReportEditorScreen(templateNotice: templateNotice)),
           );
           if (mounted) await _refreshReports();
         } else if (Uri.base.queryParameters.containsKey('template')) {

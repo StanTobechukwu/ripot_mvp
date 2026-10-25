@@ -23,6 +23,7 @@ class CallableHttpClient {
     required String projectId,
     required String name,
     required String idToken,
+    Map<String, dynamic> data = const {},
     Duration timeout = const Duration(seconds: 30),
   }) async {
     if (!RegExp(r'^[a-z][a-z0-9-]{4,28}[a-z0-9]$').hasMatch(projectId) ||
@@ -46,7 +47,7 @@ class CallableHttpClient {
               'Content-Type': 'application/json; charset=utf-8',
               'Authorization': 'Bearer $idToken',
             })
-            ..body = jsonEncode({'data': <String, dynamic>{}});
+            ..body = jsonEncode({'data': data});
       final response = await (() async {
         final stream = await client.send(authenticatedRequest);
         return http.Response.fromStream(stream);

@@ -1,0 +1,43 @@
+ABDOMINOPELVIC ULTRASOUND
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+Clinical indication: ________________
+
+Liver: ________________
+
+Gallbladder: ________________
+
+Biliary tree: ________________
+
+Pancreas: ________________
+
+Spleen: ________________
+
+Right kidney: ________________
+
+Left kidney: ________________
+
+Urinary bladder: ________________
+
+Uterus: ________________
+
+Endometrium: ________________
+
+Right ovary / adnexa: ________________
+
+Left ovary / adnexa: ________________
+
+Prostate: ________________
+
+Other findings / Peritoneum: ________________
+
+Impression: ________________
+
+Recommendation: ________________
+
+Clinician: ________________
+Signature: ________________

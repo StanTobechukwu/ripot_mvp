@@ -87,6 +87,8 @@ class PdfRendererService {
     PdfLayoutMetrics? layoutMetrics,
     LetterheadTemplate? letterhead,
     bool showRipotBranding = true,
+    bool blankReportDate = false,
+    bool keepRootSectionsTogether = false,
   }) async {
     final double fontScale = doc.fontScale;
     final double contentFontSize = 11.5 * fontScale;
@@ -160,6 +162,7 @@ class PdfRendererService {
           doc,
           titleText: titleText,
           fontSize: reportTitleFontSize,
+          blankReportDate: blankReportDate,
           fontScale: fontScale,
         ),
       );
@@ -212,9 +215,27 @@ class PdfRendererService {
     if (pageOneInlineCandidates.isEmpty && spillInlineImgs.isEmpty) {
       final bodyWidgets = <pw.Widget>[
         ...topWidgets,
-        ..._templatesToWidgets(templates),
-        pw.SizedBox(height: 6),
-        _signatureBlock(doc, signatureImg, fontScale: fontScale),
+        // Optional printable-form layout: keep short root sections together,
+        // and keep the final section with the signature. Normal reports retain
+        // the existing flowing layout; this path is only for reports without images.
+        if (keepRootSectionsTogether && doc.roots.isNotEmpty)
+          for (final root in doc.roots)
+            pw.Inseparable(canSpan: false, child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                ..._templatesToWidgets(_buildTemplates(doc, contentFontSize: contentFontSize, metrics: metrics, roots: [root])),
+                if (identical(root, doc.roots.last)) ...[
+                  pw.SizedBox(height: 6),
+                  _signatureBlock(doc, signatureImg, fontScale: fontScale),
+                ],
+              ],
+            ))
+        else ...[
+          ..._templatesToWidgets(templates),
+          pw.SizedBox(height: 6),
+          _signatureBlock(doc, signatureImg, fontScale: fontScale),
+        ],
       ];
 
       pdf.addPage(
@@ -534,8 +555,11 @@ class PdfRendererService {
     required String titleText,
     required double fontSize,
     required double fontScale,
+    bool blankReportDate = false,
   }) {
-    final dateText = 'Date: ${_formatSignedDate(doc.reportDateIso)}';
+    final dateText = blankReportDate
+        ? 'Date: __________________'
+        : 'Date: ${_formatSignedDate(doc.reportDateIso)}';
     final hasTitle = titleText.trim().isNotEmpty;
 
     if (!hasTitle) {
@@ -1762,6 +1786,7 @@ class PdfRendererService {
     ReportDoc doc, {
     required double contentFontSize,
     required PdfLayoutMetrics metrics,
+    List<SectionNode>? roots,
   }) {
     final out = <_PdfTemplate>[];
 
@@ -2149,7 +2174,7 @@ class PdfRendererService {
       }
     }
 
-    for (final s in doc.roots) {
+    for (final s in roots ?? doc.roots) {
       walk(s, 0);
     }
 

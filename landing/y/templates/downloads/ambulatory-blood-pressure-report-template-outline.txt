@@ -1,0 +1,35 @@
+AMBULATORY BLOOD PRESSURE MONITORING
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+RECORDING CONTEXT
+Indication: ________________
+Device, cuff and arm: ________________
+Recording period: ________________
+Medication and timing: ________________
+Diary-defined awake / asleep periods: ________________
+Attempted readings: ________________
+Valid readings: ________________
+Validity, exclusions and limitations: ________________
+
+MEAN BLOOD PRESSURE
+24-hour mean systolic (mmHg): ________________
+24-hour mean diastolic (mmHg): ________________
+Awake mean systolic (mmHg): ________________
+Awake mean diastolic (mmHg): ________________
+Asleep mean systolic (mmHg): ________________
+Asleep mean diastolic (mmHg): ________________
+Valid awake readings: ________________
+Valid asleep readings: ________________
+
+PATTERN AND CONCLUSION
+Nocturnal change: method and clinician-entered result: ________________
+Symptoms and associated measurements: ________________
+Clinician interpretation and reference used: ________________
+Plan / communication: ________________
+
+Clinician: ________________
+Signature: ________________

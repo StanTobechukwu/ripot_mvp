@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "slug": "colonoscopy-report-template",
+      "version": "3f11bbf4563cef14",
+      "name": "Colonoscopy report template",
+      "specialty": "Gastroenterology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/colonoscopy-report-template/3f11bbf4563cef14.ripottemplate.json",
+      "sha256": "3f11bbf4563cef148aa21bcbe85c5a4c5a58dd2a3381255e53def8c5f53cca2e",
+      "versions": [
+        {
+          "version": "3f11bbf4563cef14",
+          "sha256": "3f11bbf4563cef148aa21bcbe85c5a4c5a58dd2a3381255e53def8c5f53cca2e",
+          "url": "/templates/catalog/colonoscopy-report-template/3f11bbf4563cef14.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "upper-gi-endoscopy-report-template",
+      "version": "b1282b15fe6950b5",
+      "name": "Upper GI endoscopy report template",
+      "specialty": "Gastroenterology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/upper-gi-endoscopy-report-template/b1282b15fe6950b5.ripottemplate.json",
+      "sha256": "b1282b15fe6950b53e42a30f37783c06ff47206fe82fd8e5813557e791ab5d49",
+      "versions": [
+        {
+          "version": "b1282b15fe6950b5",
+          "sha256": "b1282b15fe6950b53e42a30f37783c06ff47206fe82fd8e5813557e791ab5d49",
+          "url": "/templates/catalog/upper-gi-endoscopy-report-template/b1282b15fe6950b5.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "abdominal-ultrasound-report-template",
+      "version": "a3ac8bcbf9744e83",
+      "name": "Abdominal ultrasound report template",
+      "specialty": "Radiology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/abdominal-ultrasound-report-template/a3ac8bcbf9744e83.ripottemplate.json",
+      "sha256": "a3ac8bcbf9744e83ac684bc0fb8f02b5885f04453c9f6a269635e44b250464e5",
+      "versions": [
+        {
+          "version": "a3ac8bcbf9744e83",
+          "sha256": "a3ac8bcbf9744e83ac684bc0fb8f02b5885f04453c9f6a269635e44b250464e5",
+          "url": "/templates/catalog/abdominal-ultrasound-report-template/a3ac8bcbf9744e83.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "echocardiogram-report-template",
+      "version": "466590d1d23cf128",
+      "name": "Echocardiogram report template",
+      "specialty": "Cardiology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/echocardiogram-report-template/466590d1d23cf128.ripottemplate.json",
+      "sha256": "466590d1d23cf128eb94d4eaa42318976fc598f685dcf8578d4b32acdf8761b7",
+      "versions": [
+        {
+          "version": "466590d1d23cf128",
+          "sha256": "466590d1d23cf128eb94d4eaa42318976fc598f685dcf8578d4b32acdf8761b7",
+          "url": "/templates/catalog/echocardiogram-report-template/466590d1d23cf128.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "flexible-sigmoidoscopy-report-template",
+      "version": "d145b235fc9197be",
+      "name": "Flexible Sigmoidoscopy template",
+      "specialty": "Gastroenterology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/flexible-sigmoidoscopy-report-template/d145b235fc9197be.ripottemplate.json",
+      "sha256": "d145b235fc9197be13a662ac9e0c6d01283acc878b9668e46c56f575c63a5167",
+      "versions": [
+        {
+          "version": "d145b235fc9197be",
+          "sha256": "d145b235fc9197be13a662ac9e0c6d01283acc878b9668e46c56f575c63a5167",
+          "url": "/templates/catalog/flexible-sigmoidoscopy-report-template/d145b235fc9197be.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "obstetric-ultrasound-report-template",
+      "version": "3c1e85c144d3ca0f",
+      "name": "Obstetric Ultrasound / Morphology template",
+      "specialty": "Radiology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/obstetric-ultrasound-report-template/3c1e85c144d3ca0f.ripottemplate.json",
+      "sha256": "3c1e85c144d3ca0f4fb60abcfea364d4c3da1b31dff4416d23d7fc2de4ff91f0",
+      "versions": [
+        {
+          "version": "3c1e85c144d3ca0f",
+          "sha256": "3c1e85c144d3ca0f4fb60abcfea364d4c3da1b31dff4416d23d7fc2de4ff91f0",
+          "url": "/templates/catalog/obstetric-ultrasound-report-template/3c1e85c144d3ca0f.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "pelvic-transvaginal-ultrasound-report-template",
+      "version": "483e7f8ef1b769e0",
+      "name": "Pelvic / Transvaginal Ultrasound template",
+      "specialty": "Radiology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/pelvic-transvaginal-ultrasound-report-template/483e7f8ef1b769e0.ripottemplate.json",
+      "sha256": "483e7f8ef1b769e0d62abcf356e10a591f11feb132f79798f26afb6d135389f4",
+      "versions": [
+        {
+          "version": "483e7f8ef1b769e0",
+          "sha256": "483e7f8ef1b769e0d62abcf356e10a591f11feb132f79798f26afb6d135389f4",
+          "url": "/templates/catalog/pelvic-transvaginal-ultrasound-report-template/483e7f8ef1b769e0.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "thyroid-neck-ultrasound-report-template",
+      "version": "4a21ca8744c79f38",
+      "name": "Thyroid and Neck Ultrasound template",
+      "specialty": "Radiology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/thyroid-neck-ultrasound-report-template/4a21ca8744c79f38.ripottemplate.json",
+      "sha256": "4a21ca8744c79f383df7fe31bc163407b8fa825229b58e0b8daf259918ab25cd",
+      "versions": [
+        {
+          "version": "4a21ca8744c79f38",
+          "sha256": "4a21ca8744c79f383df7fe31bc163407b8fa825229b58e0b8daf259918ab25cd",
+          "url": "/templates/catalog/thyroid-neck-ultrasound-report-template/4a21ca8744c79f38.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "renal-artery-doppler-report-template",
+      "version": "e4a5b38dd02aac04",
+      "name": "Renal Ultrasound / Renal Artery Doppler template",
+      "specialty": "Radiology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/renal-artery-doppler-report-template/e4a5b38dd02aac04.ripottemplate.json",
+      "sha256": "e4a5b38dd02aac041d9854257cf5fa83f1b803d333a12dd625215213c44ce85c",
+      "versions": [
+        {
+          "version": "e4a5b38dd02aac04",
+          "sha256": "e4a5b38dd02aac041d9854257cf5fa83f1b803d333a12dd625215213c44ce85c",
+          "url": "/templates/catalog/renal-artery-doppler-report-template/e4a5b38dd02aac04.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "holter-monitor-report-template",
+      "version": "025c2316e40de9af",
+      "name": "Holter / Ambulatory ECG template",
+      "specialty": "Cardiology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/holter-monitor-report-template/025c2316e40de9af.ripottemplate.json",
+      "sha256": "025c2316e40de9af3fae538f8248c21dfa5a552a89a977dc5213bbd2a7ccf0b4",
+      "versions": [
+        {
+          "version": "025c2316e40de9af",
+          "sha256": "025c2316e40de9af3fae538f8248c21dfa5a552a89a977dc5213bbd2a7ccf0b4",
+          "url": "/templates/catalog/holter-monitor-report-template/025c2316e40de9af.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "ambulatory-blood-pressure-report-template",
+      "version": "49f83eb13b7ee141",
+      "name": "Ambulatory Blood Pressure Monitoring template",
+      "specialty": "Cardiology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/ambulatory-blood-pressure-report-template/49f83eb13b7ee141.ripottemplate.json",
+      "sha256": "49f83eb13b7ee141e7b753d52f7804ef85dcfd124a3b53d05122d1b78a8a7835",
+      "versions": [
+        {
+          "version": "49f83eb13b7ee141",
+          "sha256": "49f83eb13b7ee141e7b753d52f7804ef85dcfd124a3b53d05122d1b78a8a7835",
+          "url": "/templates/catalog/ambulatory-blood-pressure-report-template/49f83eb13b7ee141.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "general-surgical-operation-note-template",
+      "version": "fed968e4cb41bc1e",
+      "name": "General Surgical Operation Note template",
+      "specialty": "Surgery",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/general-surgical-operation-note-template/fed968e4cb41bc1e.ripottemplate.json",
+      "sha256": "fed968e4cb41bc1eb9fe2c4ca86ce2817b99adeab6d8a0e98856c96ecef0d23a",
+      "versions": [
+        {
+          "version": "fed968e4cb41bc1e",
+          "sha256": "fed968e4cb41bc1eb9fe2c4ca86ce2817b99adeab6d8a0e98856c96ecef0d23a",
+          "url": "/templates/catalog/general-surgical-operation-note-template/fed968e4cb41bc1e.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "caesarean-section-operation-note-template",
+      "version": "2f146df07fca299c",
+      "name": "Caesarean Section Operation Note template",
+      "specialty": "Surgery",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/caesarean-section-operation-note-template/2f146df07fca299c.ripottemplate.json",
+      "sha256": "2f146df07fca299ca077e03432fbb56da5e1f73b2cf37eac7c996a21dac46ed1",
+      "versions": [
+        {
+          "version": "2f146df07fca299c",
+          "sha256": "2f146df07fca299ca077e03432fbb56da5e1f73b2cf37eac7c996a21dac46ed1",
+          "url": "/templates/catalog/caesarean-section-operation-note-template/2f146df07fca299c.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "appendectomy-operation-note-template",
+      "version": "c9d4cec2a88b4f44",
+      "name": "Appendectomy Operation Note template",
+      "specialty": "Surgery",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/appendectomy-operation-note-template/c9d4cec2a88b4f44.ripottemplate.json",
+      "sha256": "c9d4cec2a88b4f44cda5e149093ce999e2a118e3aa088da6ec522967c8ca515b",
+      "versions": [
+        {
+          "version": "c9d4cec2a88b4f44",
+          "sha256": "c9d4cec2a88b4f44cda5e149093ce999e2a118e3aa088da6ec522967c8ca515b",
+          "url": "/templates/catalog/appendectomy-operation-note-template/c9d4cec2a88b4f44.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "wound-debridement-minor-operation-note-template",
+      "version": "a69c3a69a1d5ff4b",
+      "name": "Wound Debridement / Minor Operation Note template",
+      "specialty": "Surgery",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/wound-debridement-minor-operation-note-template/a69c3a69a1d5ff4b.ripottemplate.json",
+      "sha256": "a69c3a69a1d5ff4b23c0b0feac5e4b1305cbfd578e8b35dd4d203744a931f67d",
+      "versions": [
+        {
+          "version": "a69c3a69a1d5ff4b",
+          "sha256": "a69c3a69a1d5ff4b23c0b0feac5e4b1305cbfd578e8b35dd4d203744a931f67d",
+          "url": "/templates/catalog/wound-debridement-minor-operation-note-template/a69c3a69a1d5ff4b.ripottemplate.json"
+        }
+      ]
+    }
+  ]
+}

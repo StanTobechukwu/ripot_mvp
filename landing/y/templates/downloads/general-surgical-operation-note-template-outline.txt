@@ -1,0 +1,37 @@
+GENERAL SURGICAL OPERATION NOTE
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+PROCEDURE AND TEAM
+Procedure performed: ________________
+Procedure date and time: ________________
+Urgency: ________________
+Indication and preoperative diagnosis: ________________
+Postoperative diagnosis: ________________
+Surgeon and assistants: ________________
+Anaesthesia and anaesthetist: ________________
+Consent and safety checks: ________________
+
+OPERATIVE RECORD
+Site, side, position and preparation: ________________
+Antimicrobial / VTE prophylaxis and rationale: ________________
+Incision / access: ________________
+Operative findings: ________________
+Procedure details and additional procedures: ________________
+Implants / prostheses and identifiers: ________________
+Haemostasis: ________________
+Closure, drains and dressing: ________________
+
+COMPLETION AND HANDOVER
+Specimens and labels: ________________
+Estimated blood loss (mL): ________________
+Instrument / swab / needle counts: ________________
+Complications and response: ________________
+Condition and destination: ________________
+Postoperative instructions and responsible team: ________________
+
+Clinician: ________________
+Signature: ________________

@@ -1,0 +1,49 @@
+LOWER GI ENDOSCOPY
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+Indication: ________________
+
+Premedication / Sedation: ________________
+
+Bowel preparation: ________________
+
+Extent of examination: ________________
+
+FINDINGS
+Perianal region: ________________
+Rectum: ________________
+Sigmoid colon: ________________
+Descending colon: ________________
+Transverse colon: ________________
+Ascending colon: ________________
+Caecum: ________________
+Terminal ileum: ________________
+
+Polyp identified: ________________
+
+Polyp site: ________________
+
+Number of polyps: ________________
+
+Largest polyp size: ________________
+
+Polyp morphology: ________________
+
+Polypectomy performed: ________________
+
+Biopsy taken: ________________
+
+Biopsy site: ________________
+
+Other intervention: ________________
+
+Assessment / Impression: ________________
+
+Recommendation: ________________
+
+Clinician: ________________
+Signature: ________________

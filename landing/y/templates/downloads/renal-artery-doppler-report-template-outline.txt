@@ -1,0 +1,48 @@
+RENAL ULTRASOUND / RENAL ARTERY DOPPLER
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+CONTEXT
+Indication: ________________
+Technique / vessels sampled: ________________
+Technical limitations: ________________
+
+RENAL MORPHOLOGY
+Right renal length (cm): ________________
+Left renal length (cm): ________________
+Cortical appearance / thickness: ________________
+Collecting systems, calculi and focal lesions: ________________
+Bladder / residual if assessed: ________________
+
+AORTA AND DOPPLER TECHNIQUE
+Aortic peak systolic velocity (PSV) (cm/s): ________________
+Doppler angle / technical notes: ________________
+Renal venous flow: ________________
+
+RIGHT RENAL ARTERIAL DOPPLER
+Proximal PSV (cm/s): ________________
+Mid PSV (cm/s): ________________
+Distal PSV (cm/s): ________________
+EDV at highest-velocity sample (cm/s): ________________
+Renal-aortic ratio (entered, not calculated): ________________
+Intrarenal RI: upper / mid / lower: ________________
+Waveforms / acceleration findings: ________________
+
+LEFT RENAL ARTERIAL DOPPLER
+Proximal PSV (cm/s): ________________
+Mid PSV (cm/s): ________________
+Distal PSV (cm/s): ________________
+EDV at highest-velocity sample (cm/s): ________________
+Renal-aortic ratio (entered, not calculated): ________________
+Intrarenal RI: upper / mid / lower: ________________
+Waveforms / acceleration findings: ________________
+
+CONCLUSION
+Impression: ________________
+Recommendations / communication: ________________
+
+Clinician: ________________
+Signature: ________________

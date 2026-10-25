@@ -9,6 +9,9 @@ class TemplateDoc {
   final DateTime updatedAt;
   final String name;
   final String groupName;
+  final String sourceSlug;
+  final String sourceVersion;
+  final String contributor;
   final bool recordsConfigured;
   final List<SectionNode> roots;
   final SubjectInfoBlockDef subjectInfo;
@@ -19,6 +22,9 @@ class TemplateDoc {
     required this.updatedAt,
     required this.name,
     this.groupName = '',
+    this.sourceSlug = '',
+    this.sourceVersion = '',
+    this.contributor = '',
     this.recordsConfigured = false,
     required this.roots,
     SubjectInfoBlockDef? subjectInfo,
@@ -29,6 +35,9 @@ class TemplateDoc {
     DateTime? updatedAt,
     String? name,
     String? groupName,
+    String? sourceSlug,
+    String? sourceVersion,
+    String? contributor,
     bool? recordsConfigured,
     List<SectionNode>? roots,
     SubjectInfoBlockDef? subjectInfo,
@@ -39,6 +48,9 @@ class TemplateDoc {
       updatedAt: updatedAt ?? this.updatedAt,
       name: name ?? this.name,
       groupName: groupName ?? this.groupName,
+      sourceSlug: sourceSlug ?? this.sourceSlug,
+      sourceVersion: sourceVersion ?? this.sourceVersion,
+      contributor: contributor ?? this.contributor,
       recordsConfigured: recordsConfigured ?? this.recordsConfigured,
       roots: roots ?? this.roots,
       subjectInfo: subjectInfo ?? this.subjectInfo,

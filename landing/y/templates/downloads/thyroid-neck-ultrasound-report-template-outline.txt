@@ -1,0 +1,37 @@
+THYROID AND NECK ULTRASOUND
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+EXAMINATION
+Indication: ________________
+Prior imaging / intervention: ________________
+Technique and limitations: ________________
+
+THYROID GLAND
+Right lobe dimensions: ________________
+Left lobe dimensions: ________________
+Isthmus AP thickness (mm): ________________
+Parenchymal echotexture and vascularity: ________________
+
+NODULE RECORD (DUPLICATE FOR ADDITIONAL NODULES)
+Nodule identifier and location: ________________
+Three dimensions / largest diameter: ________________
+Composition: ________________
+Echogenicity: ________________
+Shape: ________________
+Margins: ________________
+Echogenic foci: ________________
+Clinician-assigned TI-RADS system / category: ________________
+Interval change: ________________
+
+NECK AND CONCLUSION
+Cervical lymph nodes: site and morphology: ________________
+Other neck findings: ________________
+Impression: ________________
+Clinician recommendations / communication: ________________
+
+Clinician: ________________
+Signature: ________________

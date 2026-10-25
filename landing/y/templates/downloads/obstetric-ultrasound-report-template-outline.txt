@@ -1,0 +1,45 @@
+OBSTETRIC ULTRASOUND / MORPHOLOGY
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+EXAMINATION CONTEXT
+Indication and examination type: ________________
+Technique and image quality: ________________
+Established gestational age, EDD and dating basis: ________________
+Number of fetuses: ________________
+Chorionicity / amnionicity if multiple: ________________
+Fetal identifier and presentation: ________________
+
+BIOMETRY
+Biparietal diameter (BPD) (mm): ________________
+Head circumference (HC) (mm): ________________
+Abdominal circumference (AC) (mm): ________________
+Femur length (FL) (mm): ________________
+Estimated fetal weight (g): ________________
+Formula, chart, centile and comparison: ________________
+Fetal heart rate (beats/min): ________________
+
+ANATOMY ASSESSED
+Cranium, brain and face: ________________
+Spine: ________________
+Thorax and cardiac views: ________________
+Abdominal wall, stomach and cord insertion: ________________
+Kidneys and urinary bladder: ________________
+Limbs: ________________
+
+PLACENTA AND MATERNAL OBSERVATIONS
+Placental location and relationship to cervix: ________________
+Amniotic fluid assessment and method: ________________
+Cervix: assessment method and findings: ________________
+Maternal uterus / adnexa and other findings: ________________
+
+CONCLUSION
+Incomplete views and limitations: ________________
+Impression: ________________
+Follow-up and communication: ________________
+
+Clinician: ________________
+Signature: ________________

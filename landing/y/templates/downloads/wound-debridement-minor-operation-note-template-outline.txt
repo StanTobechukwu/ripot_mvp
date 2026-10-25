@@ -1,0 +1,40 @@
+WOUND DEBRIDEMENT / MINOR OPERATION NOTE
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+PROCEDURE AND TEAM
+Procedure performed: ________________
+Procedure date and time: ________________
+Urgency: ________________
+Indication and preoperative diagnosis: ________________
+Postoperative diagnosis: ________________
+Surgeon and assistants: ________________
+Anaesthesia and anaesthetist: ________________
+Consent and safety checks: ________________
+
+WOUND ASSESSMENT
+Site and side: ________________
+Pre-procedure dimensions / depth: ________________
+Tissue appearance / contamination: ________________
+Neurovascular and adjacent structure assessment: ________________
+
+PROCEDURE
+Debridement method and extent: ________________
+Post-procedure dimensions / deepest tissue removed: ________________
+Irrigation and haemostasis: ________________
+Closure / packing / dressing: ________________
+Antibiotic and tetanus assessment / actions: ________________
+
+COMPLETION AND HANDOVER
+Specimens and labels: ________________
+Estimated blood loss (mL): ________________
+Instrument / swab / needle counts: ________________
+Complications and response: ________________
+Condition and destination: ________________
+Postoperative instructions and responsible team: ________________
+
+Clinician: ________________
+Signature: ________________

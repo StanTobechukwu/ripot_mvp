@@ -27,7 +27,7 @@ const sha = crypto.createHash('sha256').update(payload).digest('hex');
 const version = sha.slice(0, 16);
 const payloadPath = `/templates/catalog/${slug}/${version}.ripottemplate.json`;
 const manifest = { schemaVersion: 1, templates: [
-  { slug, version, sha256: sha, status: 'approved', url: payloadPath },
+  { slug, version, sha256: sha, status: 'approved', url: payloadPath, name: 'Fictional remote-only QA template', specialty: 'Test specialty', contributor: 'QA Author' },
 ] };
 const mime = { '.html': 'text/html', '.js': 'application/javascript',
   '.json': 'application/json', '.wasm': 'application/wasm', '.png': 'image/png',
@@ -112,6 +112,57 @@ const server = http.createServer((req, res) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(out, 'remote-template-mobile.png'), fullPage: true });
     console.log('PASS: compiled Ripot Web fetched a non-built-in template, rendered its fields, accepted a numeric value, and saved a local report with the remote template identity.');
+    // Exercise each real added payload through the compiled editor, not only a
+    // synthetic fixture. A separate page leaves the existing workflow intact.
+    const extra = JSON.parse(fs.readFileSync('tools/landing/additional_catalog.json'));
+    const actualCatalog = JSON.parse(fs.readFileSync('landing/y/templates/catalog/manifest.json'));
+    const realPage = await context.newPage();
+    await realPage.addInitScript(() => { window.qaFunnel=[]; window.addEventListener('ripot-funnel-ready',e=>window.qaFunnel.push(e.detail)); });
+    await realPage.route('https://ripot.app/templates/catalog/**', async route => {
+      const pathname = new URL(route.request().url()).pathname;
+      const file = path.resolve('landing/y', '.' + pathname);
+      if (!file.startsWith(path.resolve('landing/y/templates/catalog') + path.sep)) throw Error('Unexpected catalogue path');
+      await route.fulfill({status:200, contentType:'application/json', headers:{'access-control-allow-origin':origin}, body:fs.readFileSync(file)});
+    });
+    for (const extraTemplate of extra) {
+      const entry = actualCatalog.templates.find(e => e.slug === extraTemplate.slug);
+      assert(entry, 'Missing actual catalogue entry');
+      await realPage.goto(`${origin}/?template=${entry.slug}&version=${entry.version}`);
+      const semantics = realPage.locator('flt-semantics-placeholder');
+      await semantics.waitFor({state:'attached',timeout:60000});
+      await semantics.evaluate(e => e.click());
+      const save = realPage.getByRole('button',{name:'Save progress',exact:true});
+      await save.waitFor({state:'visible',timeout:60000});
+      await save.click();
+      fs.writeFileSync(path.join(out,'latest-template-dom.html'),await realPage.content());
+      await realPage.waitForFunction(source => Object.keys(localStorage).some(k =>
+        k.startsWith('flutter.reports.doc.') && localStorage.getItem(k).includes(source)),
+        `public_${entry.slug}_${entry.version}`);
+      await realPage.waitForFunction(() => window.qaFunnel.some(e => e.event==='report_created'));
+      assert.equal((await realPage.evaluate(() => window.qaFunnel)).filter(e=>e.event==='report_created').length,1);
+      await realPage.getByRole('button',{name:'Preview / export',exact:true}).waitFor({state:'visible'});
+      const docs = await realPage.evaluate(() => Object.keys(localStorage)
+        .filter(k => k.startsWith('flutter.reports.doc.'))
+        .map(k => JSON.parse(JSON.parse(localStorage.getItem(k)))));
+      const imported = docs.find(d => d.sourceTemplateId === `public_${entry.slug}_${entry.version}`);
+      assert(imported);
+      assert(!JSON.stringify(imported.roots).includes('fictional'), 'Sample findings leaked into a new report');
+      const raw = JSON.parse(fs.readFileSync('landing/y'+entry.url)).template;
+      assert.equal(imported.roots.length,raw.roots.length);
+    }
+    const firstEntry=actualCatalog.templates.find(e=>e.slug===extra[0].slug);
+    await realPage.goto(`${origin}/?template=${firstEntry.slug}&version=0000000000000000`);
+    const staleSemantics=realPage.locator('flt-semantics-placeholder');
+    await staleSemantics.waitFor({state:'attached',timeout:60000});
+    await staleSemantics.evaluate(e=>e.click());
+    const useLatest=realPage.getByRole('button',{name:'Open latest version',exact:true});
+    await useLatest.waitFor({state:'visible',timeout:60000});
+    await useLatest.click();
+    await realPage.getByRole('button',{name:'Save progress',exact:true}).waitFor({state:'visible',timeout:60000});
+    await realPage.screenshot({path:path.join(out,'stale-link-latest-version.png'),fullPage:true});
+    await realPage.close();
+    console.log('PASS: all 11 actual new templates open and save in compiled Ripot Web without sample findings.');
+
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
     const letterheadPrompt = page.getByRole('button', {
       name: 'Add your hospital / clinic logo & letterhead · Premium', exact: true,
@@ -124,8 +175,46 @@ const server = http.createServer((req, res) => {
     await letterheadPrompt.click();
     await page.getByText('Use your own letterhead', { exact: true }).waitFor({ state: 'visible' });
     console.log('PASS: Free preview shows the letterhead invitation on mobile and desktop and opens the existing Premium sheet.');
+    // Browse/add a reviewed community template and confirm the personal copy
+    // persists while the network is offline. All service responses are fixtures.
+    const communitySlug = 'community-s-browser-test';
+    const community = { slug: communitySlug, version, sha256: sha, status: 'approved',
+      name: 'Fictional remote-only QA template', specialty: 'Community QA',
+      contributor: 'QA Contributor', description: 'Fictional browser test structure' };
+    await context.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**', async route => {
+      const query = new URL(route.request().url()).searchParams;
+      await route.fulfill({ status: 200, headers: { 'access-control-allow-origin': origin,
+        'content-type': 'application/json' }, body: JSON.stringify(query.has('template')
+          ? {...community, payload: payload.toString()} : {schemaVersion: 1, templates: [community]}) });
+    });
+    await page.goto(`${origin}/?templateLibrary=browse`, {waitUntil: 'domcontentloaded'});
+    await page.locator('flt-semantics-placeholder').waitFor({state:'attached',timeout:30000});
+    await page.locator('flt-semantics-placeholder').evaluate(element => element.click());
+    await page.getByText('Community QA · By QA Contributor', {exact:false}).waitFor({timeout:60000});
+    await page.getByText('Community QA · By QA Contributor', {exact:false}).click();
+    await page.getByRole('button',{name:'Add to my templates',exact:true}).click();
+    await page.waitForFunction(slug => Object.keys(localStorage).some(k => k.startsWith('flutter.templates.doc.') && localStorage.getItem(k).includes(slug)),communitySlug);
+    await page.getByText('Community QA · By QA Contributor', {exact:false}).click();
+    assert(await page.getByRole('button',{name:'Already added',exact:true}).isDisabled());
+    await page.screenshot({path:path.join(out,'community-template-preview.png'),fullPage:true});
+    await page.getByRole('button',{name:'Close',exact:true}).click();
+    // Fulfilled Playwright routes bypass offline networking, so fail catalogue
+    // requests explicitly as well as disabling the connection.
+    await context.route('https://ripot.app/templates/catalog/**', route => route.abort('internetdisconnected'));
+    await context.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**', route => route.abort('internetdisconnected'));
+    await context.setOffline(true);
+    await page.getByRole('button',{name:'Refresh library',exact:true}).click();
+    await page.getByText(/Saved templates still work offline/).waitFor({timeout:30000});
+    const personal = await page.evaluate(slug => Object.keys(localStorage)
+      .filter(k=>k.startsWith('flutter.templates.doc.') && localStorage.getItem(k).includes(slug))
+      .map(k=>JSON.parse(JSON.parse(localStorage.getItem(k)))),communitySlug);
+    assert.equal(personal.length,1);
+    assert.equal(personal[0].sourceSlug,communitySlug);
+    assert.equal(personal[0].sourceVersion,version);
+    assert.equal(personal[0].contributor,'QA Contributor');
+    console.log('PASS: online library preview, attributed personal copy, duplicate prevention and offline persistence.');
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({
-      passed: true, letterheadPromptPassed: true, slug, version, fetched, sourceCommit: process.env.GITHUB_SHA,
+      passed: true, letterheadPromptPassed: true, communityLibraryPassed: true, slug, version, fetched, sourceCommit: process.env.GITHUB_SHA,
     }, null, 2));
   } catch (error) {
     if (page) {
