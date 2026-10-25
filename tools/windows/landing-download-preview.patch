@@ -1,0 +1,78 @@
+--- a/y/index.html
++++ b/y/index.html
+@@ -16,7 +16,7 @@
+   <meta property="og:image:alt" content="Ripot app icon">
+   <meta name="twitter:card" content="summary">
+   <meta name="twitter:title" content="Ripot — Professional reports. Made simple.">
+-  <meta name="twitter:description" content="Create, sign and share professional clinical reports on Android and the web.">
++  <meta name="twitter:description" content="Create, sign and share professional clinical reports on Android, Windows and the web.">
+   <meta name="twitter:image" content="https://ripot.app/images/ripot-icon.png">
+   <link rel="icon" type="image/png" href="images/ripot-icon.png">
+   <link rel="apple-touch-icon" href="images/ripot-icon.png">
+@@ -26,7 +26,7 @@
+     "@type": "SoftwareApplication",
+     "name": "Ripot",
+     "applicationCategory": "ProductivityApplication",
+-    "operatingSystem": "Android, Web",
++    "operatingSystem": "Android, Windows, Web",
+     "url": "https://ripot.app/",
+     "downloadUrl": "https://play.google.com/store/apps/details?id=com.nduaguba.report",
+     "publisher": {"@type": "Organization", "name": "Ripot Technologies Ltd"},
+@@ -258,15 +258,16 @@
+       </details>
+     </div>
+   </header>
+-  <main id="main" tabindex="-1">
++  <main id="main" tabindex="-1"><!--ripot-windows-preview-start--><aside style="padding:14px;background:#fff4d6;color:#473609;text-align:center"><strong>Internal preview.</strong> Windows sign-in, Premium and clinical workflows still need final validation. Use fictional data only. This is not a public Windows release.</aside><!--ripot-windows-preview-end-->
+     <section class="hero-section" aria-labelledby="hero-title">
+       <div class="container hero">
+         <div class="hero-copy">
+-          <div class="badge">Available on Android &amp; web</div>
++          <div class="badge">Android &amp; web · Windows test build</div>
+           <h1 id="hero-title">Professional reports.<br><span>Made simple.</span></h1>
+           <p class="lead">A complete reporting workflow for doctors and healthcare professionals. Start with a template, add findings, images and signatures, then share a polished PDF. Less formatting. More focus on your work.</p>
+           <div class="cta-row">
+             <a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a>
++            <a class="btn btn-outline" data-ripot-windows-download href="downloads/windows/Ripot-Setup-1.0.11-46-windows-x64.exe" download>Download Windows test build</a>
+             <a class="btn btn-outline" href="https://ripot-web.web.app">Try Ripot Web</a>
+           </div>
+           <p class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg><span>Clinical data stays on your device or browser. <a class="text-link" href="#privacy">How privacy works</a></span></p>
+@@ -364,9 +365,10 @@
+     <section id="download" class="download" aria-labelledby="download-title">
+       <div class="container">
+         <div class="download-panel">
+-          <div><h2 id="download-title">Your next report, made simpler.</h2><p class="intro">Get Ripot for Android or use it in your browser. Start with reporting; explore the additional tools when you need them.</p></div>
++          <div><h2 id="download-title">Your next report, made simpler.</h2><p class="intro">Install Ripot on Android or Windows, or use it in your browser. Start with reporting; explore the additional tools when you need them.</p></div>
+           <div>
+-            <div class="cta-row"><a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a><a class="btn btn-outline" href="https://ripot-web.web.app">Try Ripot Web</a></div>
++            <div class="cta-row"><a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.nduaguba.report" target="_blank" rel="noopener">Get Android app</a><a class="btn btn-outline" data-ripot-windows-download href="downloads/windows/Ripot-Setup-1.0.11-46-windows-x64.exe" download>Download Windows test build</a><a class="btn btn-outline" href="https://ripot-web.web.app">Try Ripot Web</a></div>
++            <p class="plan-note" data-ripot-windows-note>Windows 10/11 · Intel/AMD 64-bit PCs · Version 1.0.11 · 18.2 MB. <a href="downloads/windows/Ripot-Setup-1.0.11-46-windows-x64.exe.sha256" style="color:inherit">SHA-256 checksum</a></p>
+             <p class="plan-note">Start free with built-in templates and up to 4 custom templates. See Premium in the app for more capacity and advanced features. Google Play shows pricing and availability for your country.</p>
+           </div>
+         </div>
+--- a/firebase.json
++++ b/firebase.json
+@@ -32,6 +32,23 @@
+             "value": "public, max-age=86400"
+           }
+         ]
++      },
++      {
++        "source": "/downloads/windows/**",
++        "headers": [
++          {
++            "key": "Cache-Control",
++            "value": "public, max-age=300"
++          },
++          {
++            "key": "X-Content-Type-Options",
++            "value": "nosniff"
++          },
++          {
++            "key": "Content-Disposition",
++            "value": "attachment"
++          }
++        ]
+       }
+     ]
+   }

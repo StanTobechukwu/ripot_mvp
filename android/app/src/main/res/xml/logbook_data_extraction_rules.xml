@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="ripot_logbook/" />
+        <exclude domain="sharedpref" path="ripot_logbook_folder.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="ripot_logbook/" />
+        <exclude domain="sharedpref" path="ripot_logbook_folder.xml" />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,1304 @@
+{
+  "app": "Ripot",
+  "ripotFileType": "template",
+  "ripotExportVersion": 1,
+  "template": {
+    "templateId": "ripot_starter_2d_echocardiography",
+    "updatedAtIso": "2026-09-05T00:00:00.000",
+    "name": "2D Echocardiography",
+    "groupName": "",
+    "recordsConfigured": false,
+    "roots": [
+      {
+        "type": "section",
+        "id": "echo_lv",
+        "title": "Left Ventricle",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_lv_chamber_size",
+            "title": "Chamber Size",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_lv_edv",
+            "title": "End Diastolic Volume",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mL",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_lvidd",
+            "title": "LVIDd",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_ivsd",
+            "title": "Septal Wall (IVSd)",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_pwdd",
+            "title": "Posterior Wall (PWDd)",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_lv_global_motion",
+            "title": "Global Systolic Wall Motion",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Hyperdynamic",
+              "Reduced"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_ef",
+            "title": "Ejection Fraction (EF)",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "%",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_rwma",
+            "title": "Regional Wall Motion Abnormality",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "None",
+              "Present"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_diastolic_function",
+            "title": "Diastolic Function",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Grade I",
+              "Grade II",
+              "Grade III"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_e_a",
+            "title": "E/A",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_e_eprime",
+            "title": "E/E′",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_septal_eprime",
+            "title": "Septal E′",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "m/s",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_lateral_eprime",
+            "title": "Lateral E′",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "m/s",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_mitral",
+        "title": "Mitral Valve",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_mv_morphology",
+            "title": "Leaflet Morphology",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Thickened",
+              "Calcified",
+              "Prolapse",
+              "Other"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_mr",
+            "title": "Mitral Regurgitation",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "None",
+              "Mild",
+              "Moderate",
+              "Severe"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_ms",
+            "title": "Mitral Stenosis",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "None",
+              "Mild",
+              "Moderate",
+              "Severe"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_mr_vmax",
+            "title": "MR Vmax",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "m/s",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_mv_subvalvular",
+            "title": "Subvalvular Apparatus",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Abnormal"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_la",
+        "title": "Left Atrium",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_la_size",
+            "title": "Cavity Size",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Mildly dilated",
+              "Moderately dilated",
+              "Severely dilated"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_la_diameter",
+            "title": "LA Diameter",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_la_area",
+            "title": "LA Area",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm²",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_ias",
+            "title": "Interatrial Septum",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Intact",
+              "Defect present"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_la_clot_mass",
+            "title": "Clot / Mass",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "None",
+              "Present"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_aorta_av",
+        "title": "Aorta / Aortic Valve",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_aortic_root",
+            "title": "Aortic Root Diameter",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_av_morphology",
+            "title": "Valve Morphology",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Thickened",
+              "Calcified",
+              "Bicuspid",
+              "Other"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_av_vmax",
+            "title": "AV Vmax",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "m/s",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_av_peak_gradient",
+            "title": "Peak Gradient",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mmHg",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_rv",
+        "title": "Right Ventricle",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_rv_dimension",
+            "title": "Cavity Dimension",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_rv_basal",
+            "title": "RV Basal Diameter",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_rv_function",
+            "title": "Systolic Function",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Mildly reduced",
+              "Moderately reduced",
+              "Severely reduced"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_tapse",
+            "title": "TAPSE",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_tricuspid",
+        "title": "Tricuspid Valve",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_tv_appearance",
+            "title": "Valve Appearance",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Abnormal"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_tv_morphology",
+            "title": "Leaflet Morphology",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Abnormal"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_tr",
+            "title": "Tricuspid Regurgitation",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "None",
+              "Mild",
+              "Moderate",
+              "Severe"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_tr_vmax",
+            "title": "TR Vmax",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "m/s",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_ra",
+        "title": "Right Atrium",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_ra_size",
+            "title": "Cavity Size",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Mildly dilated",
+              "Moderately dilated",
+              "Severely dilated"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_ra_area",
+            "title": "Area",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm²",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_ra_clot_mass",
+            "title": "Clot / Mass",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "None",
+              "Present"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_ivc",
+        "title": "Inferior Vena Cava (IVC)",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_ivc_dimension",
+            "title": "IVC Dimension",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_ivc_collapse",
+            "title": "Inspiratory Collapse",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              ">50%",
+              "≤50%"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_estimated_pap",
+            "title": "Estimated PAP",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": false,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mmHg",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_pericardium",
+        "title": "Pericardium",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "echo_pericardial_appearance",
+            "title": "Appearance",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Abnormal"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "echo_pericardial_effusion",
+            "title": "Pericardial Effusion",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "None",
+              "Small",
+              "Moderate",
+              "Large"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": true,
+            "addToLog": false,
+            "allowOptionalNote": true,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "echo_conclusion",
+        "title": "Conclusion",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      }
+    ],
+    "subjectInfo": {
+      "enabled": true,
+      "columns": 2,
+      "schemaVersion": 1,
+      "heading": "",
+      "fields": [
+        {
+          "key": "subjectName",
+          "title": "Subject Name",
+          "required": true,
+          "order": 0,
+          "isSystem": true,
+          "addToRecords": true
+        },
+        {
+          "key": "subjectId",
+          "title": "Subject ID",
+          "required": false,
+          "order": 1,
+          "isSystem": true,
+          "addToRecords": true
+        }
+      ]
+    },
+    "signature": {
+      "roleTitle": "Echocardiographer",
+      "name": "",
+      "credentials": "",
+      "assistantLabel": "Assistant",
+      "assistantName": "",
+      "signatureFilePath": null
+    }
+  }
+}

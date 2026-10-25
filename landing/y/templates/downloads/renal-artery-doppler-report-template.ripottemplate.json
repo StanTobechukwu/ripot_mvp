@@ -1,0 +1,747 @@
+{
+  "app": "Ripot",
+  "ripotFileType": "template",
+  "ripotExportVersion": 1,
+  "template": {
+    "templateId": "ripot_public_renal_artery_doppler_report",
+    "updatedAtIso": "2026-10-25T00:00:00.000",
+    "name": "Renal Ultrasound / Renal Artery Doppler",
+    "groupName": "",
+    "recordsConfigured": false,
+    "roots": [
+      {
+        "type": "section",
+        "id": "group_0",
+        "title": "Context",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "indication",
+            "title": "Indication",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "technique",
+            "title": "Technique / vessels sampled",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "limitations",
+            "title": "Technical limitations",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_1",
+        "title": "Renal morphology",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "rightlength",
+            "title": "Right renal length",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "leftlength",
+            "title": "Left renal length",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "parenchyma",
+            "title": "Cortical appearance / thickness",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "collecting",
+            "title": "Collecting systems, calculi and focal lesions",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "bladder",
+            "title": "Bladder / residual if assessed",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_2",
+        "title": "Aorta and Doppler technique",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "aortapsv",
+            "title": "Aortic peak systolic velocity (PSV)",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "angle",
+            "title": "Doppler angle / technical notes",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "venous",
+            "title": "Renal venous flow",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_3",
+        "title": "Right renal arterial Doppler",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "rightprox",
+            "title": "Proximal PSV",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "rightmid",
+            "title": "Mid PSV",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "rightdist",
+            "title": "Distal PSV",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "rightedv",
+            "title": "EDV at highest-velocity sample",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "rightratio",
+            "title": "Renal-aortic ratio (entered, not calculated)",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "rightri",
+            "title": "Intrarenal RI: upper / mid / lower",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "rightwave",
+            "title": "Waveforms / acceleration findings",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_4",
+        "title": "Left renal arterial Doppler",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "leftprox",
+            "title": "Proximal PSV",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "leftmid",
+            "title": "Mid PSV",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "leftdist",
+            "title": "Distal PSV",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "leftedv",
+            "title": "EDV at highest-velocity sample",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "cm/s",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "leftratio",
+            "title": "Renal-aortic ratio (entered, not calculated)",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "leftri",
+            "title": "Intrarenal RI: upper / mid / lower",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "leftwave",
+            "title": "Waveforms / acceleration findings",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_5",
+        "title": "Conclusion",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "impression",
+            "title": "Impression",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "plan",
+            "title": "Recommendations / communication",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      }
+    ],
+    "signature": {}
+  }
+}

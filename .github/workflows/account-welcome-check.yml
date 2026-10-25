@@ -1,0 +1,25 @@
+name: Check account welcome flow
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/account-welcome]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Analyze welcome flow
+        run: flutter analyze --no-pub lib/features/auth/ui/startup_account_gate.dart lib/features/auth/ui/auth_screens.dart test/features/account_welcome_test.dart
+      - name: Verify onboarding and existing entitlement isolation
+        run: flutter test --no-pub test/features/account_welcome_test.dart test/features/access test/features/windows_account_runtime_test.dart test/features/windows_billing_test.dart --reporter expanded

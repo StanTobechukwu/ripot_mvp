@@ -1,0 +1,208 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+
+import '../../../core/firebase/account_runtime.dart';
+import '../../../core/firebase/account_session.dart';
+import '../../access/providers/access_provider.dart';
+import '../../reports/data/templates_repository.dart';
+
+class AuthProvider extends ChangeNotifier {
+  AuthProvider({
+    required AccessProvider accessProvider,
+    required TemplatesRepository templatesRepository,
+    FirebaseAuth? auth,
+    AccountSession? session,
+  }) : _accessProvider = accessProvider,
+       _templatesRepository = templatesRepository,
+       _auth =
+           session ??
+           (auth == null
+               ? AccountRuntime.session
+               : FirebaseAccountSession(auth)) {
+    if (_auth != null) {
+      _sub = _auth.authStateChanges().listen(_onAuthChanged);
+      _currentUser = _auth.currentUser;
+    }
+  }
+
+  final AccessProvider _accessProvider;
+  final TemplatesRepository _templatesRepository;
+  final AccountSession? _auth;
+
+  StreamSubscription<AccountUser?>? _sub;
+  AccountUser? _currentUser;
+  bool _disposed = false;
+  int _authGeneration = 0;
+  bool _busy = false;
+  String? _error;
+  bool _migrationAttemptedForCurrentUser = false;
+
+  AccountUser? get currentUser => _currentUser;
+  bool get isSignedIn => _currentUser != null;
+  bool get busy => _busy;
+  String? get error => _error;
+  String? get email => _currentUser?.email;
+  bool get authAvailable => _auth != null;
+
+  bool _ensureAuthAvailable() {
+    if (_auth != null) return true;
+    _error =
+        'Account features are unavailable until Firebase is configured for this build.';
+    notifyListeners();
+    return false;
+  }
+
+  Future<void> _onAuthChanged(AccountUser? user) async {
+    if (_disposed) return;
+    final generation = ++_authGeneration;
+    // Clear the previous account synchronously so it cannot appear as the
+    // incoming account while Firestore and the UID-scoped cache are loading.
+    _accessProvider.resetForAccountChange();
+    _currentUser = user;
+    _error = null;
+    _migrationAttemptedForCurrentUser = false;
+    notifyListeners();
+    if (user != null) {
+      await _accessProvider.load();
+      if (_disposed ||
+          generation != _authGeneration ||
+          _currentUser?.uid != user.uid) {
+        return;
+      }
+      await _migrateGuestCloudDataIfNeeded(generation);
+    }
+  }
+
+  Future<void> _migrateGuestCloudDataIfNeeded(int generation) async {
+    if (_migrationAttemptedForCurrentUser || _currentUser == null) return;
+    _migrationAttemptedForCurrentUser = true;
+    try {
+      await _accessProvider.migrateCloudIdentityToSignedInUser();
+      if (_disposed || generation != _authGeneration) return;
+      await _templatesRepository.migrateCloudTemplatesToSignedInUser();
+      if (_disposed || generation != _authGeneration) return;
+      await _accessProvider.refresh();
+    } catch (_) {
+      // Stability first: migration failures should not crash auth flow.
+    }
+    notifyListeners();
+  }
+
+  Future<bool> signIn({required String email, required String password}) async {
+    if (!_ensureAuthAvailable()) return false;
+    _busy = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _auth!.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _error = _messageFor(e);
+      return false;
+    } catch (_) {
+      _error = 'Unable to sign in right now.';
+      return false;
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> signUp({required String email, required String password}) async {
+    if (!_ensureAuthAvailable()) return false;
+    _busy = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _auth!.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _error = _messageFor(e);
+      return false;
+    } catch (_) {
+      _error = 'Unable to create account right now.';
+      return false;
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> sendPasswordReset({required String email}) async {
+    if (!_ensureAuthAvailable()) return false;
+    _busy = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _auth!.sendPasswordResetEmail(email: email.trim());
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _error = _messageFor(e);
+      return false;
+    } catch (_) {
+      _error = 'Unable to send password reset email right now.';
+      return false;
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> signOut() async {
+    if (!_ensureAuthAvailable()) return;
+    _busy = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _auth!.signOut();
+      await _accessProvider.refresh();
+    } on FirebaseAuthException catch (e) {
+      _error = _messageFor(e);
+    } catch (_) {
+      _error = 'Unable to clear the saved sign-in. Please try again.';
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  String _messageFor(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Enter a valid email address.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Email or password is incorrect.';
+      case 'email-already-in-use':
+        return 'That email is already linked to an account.';
+      case 'weak-password':
+        return 'Choose a stronger password.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      default:
+        return e.message ?? 'Authentication failed.';
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _authGeneration++;
+    _sub?.cancel();
+    super.dispose();
+  }
+}

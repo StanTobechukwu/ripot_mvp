@@ -1,0 +1,824 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/utils/ids.dart';
+import '../../reports/data/letterhead_repository.dart';
+import '../../reports/domain/models/letterhead_template.dart';
+import '../services/media_ref.dart';
+
+class LetterheadEditorScreen extends StatefulWidget {
+  final String? letterheadId; // null => create
+
+  const LetterheadEditorScreen({super.key, this.letterheadId});
+
+  @override
+  State<LetterheadEditorScreen> createState() =>
+      _LetterheadEditorScreenState();
+}
+
+class _LetterheadEditorScreenState extends State<LetterheadEditorScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  bool _loading = true;
+  bool _saving = false;
+
+  late LetterheadTemplate _model;
+
+  late final TextEditingController _nameC;
+  late final TextEditingController _h1C;
+  late final TextEditingController _h2C;
+  late final TextEditingController _h3C;
+  late final TextEditingController _fLeftC;
+  late final TextEditingController _fRightC;
+
+  final _picker = ImagePicker();
+
+  bool get _useDesktopFilePicker =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
+
+  @override
+  void initState() {
+    super.initState();
+
+    _nameC = TextEditingController();
+    _h1C = TextEditingController();
+    _h2C = TextEditingController();
+    _h3C = TextEditingController();
+    _fLeftC = TextEditingController();
+    _fRightC = TextEditingController();
+
+    _boot();
+  }
+
+  @override
+  void dispose() {
+    _nameC.dispose();
+    _h1C.dispose();
+    _h2C.dispose();
+    _h3C.dispose();
+    _fLeftC.dispose();
+    _fRightC.dispose();
+    super.dispose();
+  }
+
+  Future<void> _boot() async {
+    final repo = context.read<LetterheadsRepository>();
+
+    if (widget.letterheadId == null) {
+      _model = LetterheadTemplate(
+        letterheadId: newId('lhd'),
+        name: '',
+      );
+
+      _applyModelToControllers();
+
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+
+      return;
+    }
+
+    try {
+      final loaded = await repo.loadLetterhead(widget.letterheadId!);
+      _model = loaded;
+      _applyModelToControllers();
+    } catch (_) {
+      _model = LetterheadTemplate(
+        letterheadId: widget.letterheadId!,
+        name: '',
+      );
+
+      _applyModelToControllers();
+    }
+
+    if (mounted) {
+      setState(() => _loading = false);
+    }
+  }
+
+  void _applyModelToControllers() {
+    _nameC.text = _model.name;
+    _h1C.text = _model.headerLine1;
+    _h2C.text = _model.headerLine2;
+    _h3C.text = _model.headerLine3;
+    _fLeftC.text = _model.footerLeft;
+    _fRightC.text = _model.footerRight;
+  }
+
+  Future<void> _pickLogo() async {
+    String? imported;
+
+    if (_useDesktopFilePicker) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      final path =
+          (result != null && result.files.isNotEmpty)
+              ? result.files.first.path
+              : null;
+
+      if (path == null || path.trim().isEmpty) {
+        return;
+      }
+
+      final bytes = await File(path).readAsBytes();
+      final lower = path.toLowerCase();
+
+      final ext =
+          lower.endsWith('.png')
+              ? 'png'
+              : lower.endsWith('.webp')
+              ? 'webp'
+              : lower.endsWith('.gif')
+              ? 'gif'
+              : 'jpg';
+
+      final mime =
+          ext == 'png'
+              ? 'image/png'
+              : ext == 'webp'
+              ? 'image/webp'
+              : ext == 'gif'
+              ? 'image/gif'
+              : 'image/jpeg';
+
+      imported = await persistBytesAsRef(
+        bytes,
+        fileStem: 'logo_${_model.letterheadId}',
+        extension: ext,
+        mimeType: mime,
+      );
+    } else {
+      final x = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (x == null) {
+        return;
+      }
+
+      imported = await xFileToPortableRef(
+        x,
+        fileStem: 'logo_${_model.letterheadId}',
+      );
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _model = _model.copyWith(
+        logoFilePath: imported,
+      );
+    });
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+
+    final ok = _formKey.currentState?.validate() ?? false;
+    if (!ok) return;
+
+    setState(() => _saving = true);
+
+    final repo = context.read<LetterheadsRepository>();
+
+    final updated = _model.copyWith(
+      name: _nameC.text.trim(),
+      headerLine1: _h1C.text.trim(),
+      headerLine2: _h2C.text.trim(),
+      headerLine3: _h3C.text.trim(),
+      footerLeft: _fLeftC.text.trim(),
+      footerRight: _fRightC.text.trim(),
+    );
+
+    try {
+      await repo.saveLetterhead(updated);
+
+      if (!mounted) return;
+
+      setState(() {
+        _model = updated;
+        _saving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Letterhead saved'),
+        ),
+      );
+
+      Navigator.pop(
+        context,
+        updated.letterheadId,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _saving = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save letterhead: $e'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _delete() async {
+    final repo = context.read<LetterheadsRepository>();
+
+    final sure = await showDialog<bool>(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Delete letterhead?'),
+            content: const Text('This cannot be undone.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+
+    if (sure != true) return;
+
+    await repo.deleteLetterhead(_model.letterheadId);
+
+    if (!mounted) return;
+
+    Navigator.pop(
+      context,
+      '__deleted__',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final hasLogo =
+        _model.logoFilePath != null &&
+        _model.logoFilePath!.trim().isNotEmpty;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.letterheadId == null
+              ? 'New Letterhead'
+              : 'Edit Letterhead',
+        ),
+        actions: [
+          if (widget.letterheadId != null)
+            IconButton(
+              tooltip: 'Delete',
+              icon: const Icon(
+                Icons.delete_outline,
+              ),
+              onPressed: _delete,
+            ),
+          IconButton(
+            tooltip: 'Save',
+            icon:
+                _saving
+                    ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                    : const Icon(
+                      Icons.save_outlined,
+                    ),
+            onPressed: _saving ? null : _save,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _card(
+            title: 'Logo',
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    color:
+                        Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                    child:
+                        hasLogo
+                            ? RefImage(
+                              _model.logoFilePath!,
+                              fit: BoxFit.cover,
+                            )
+                            : const Icon(
+                              Icons.image_outlined,
+                            ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.stretch,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _pickLogo,
+                        icon: const Icon(
+                          Icons.upload_file_outlined,
+                        ),
+                        label: const Text(
+                          'Choose logo',
+                        ),
+                      ),
+                      if (hasLogo) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed:
+                              () => setState(
+                                () =>
+                                    _model =
+                                        _model.copyWith(
+                                          clearLogo: true,
+                                        ),
+                              ),
+                          icon: const Icon(
+                            Icons.clear,
+                          ),
+                          label: const Text(
+                            'Clear logo',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          _card(
+            title: 'Header layout',
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Logo position',
+                  style:
+                      Theme.of(
+                        context,
+                      ).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Choose whether the logo appears above or beside the letterhead text.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                SegmentedButton<
+                  LetterheadLogoPlacement
+                >(
+                  segments: const [
+                    ButtonSegment(
+                      value:
+                          LetterheadLogoPlacement.top,
+                      label: Text('Above'),
+                    ),
+                    ButtonSegment(
+                      value:
+                          LetterheadLogoPlacement.side,
+                      label: Text('Beside'),
+                    ),
+                  ],
+                  selected: {
+                    _model.logoPlacement,
+                  },
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _model = _model.copyWith(
+                        logoPlacement:
+                            selection.first,
+                      );
+                    });
+                  },
+                ),
+
+                const SizedBox(height: 20),
+
+                Text(
+                  'Header alignment',
+                  style:
+                      Theme.of(
+                        context,
+                      ).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Aligns the complete letterhead header, including its text and logo arrangement.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                SegmentedButton<
+                  LetterheadLogoAlignment
+                >(
+                  segments: const [
+                    ButtonSegment(
+                      value:
+                          LetterheadLogoAlignment.left,
+                      label: Text('Left'),
+                    ),
+                    ButtonSegment(
+                      value:
+                          LetterheadLogoAlignment.center,
+                      label: Text('Center'),
+                    ),
+                    ButtonSegment(
+                      value:
+                          LetterheadLogoAlignment.right,
+                      label: Text('Right'),
+                    ),
+                  ],
+                  selected: {
+                    _model.logoAlign,
+                  },
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _model = _model.copyWith(
+                        logoAlign:
+                            selection.first,
+                      );
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          Form(
+            key: _formKey,
+            child: _card(
+              title: 'Text',
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _nameC,
+                    decoration:
+                        const InputDecoration(
+                          labelText:
+                              'Letterhead name (e.g., My Clinic)',
+                          border:
+                              OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                    validator:
+                        (v) =>
+                            (v == null ||
+                                    v.trim().isEmpty)
+                                ? 'Required'
+                                : null,
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  TextFormField(
+                    controller: _h1C,
+                    decoration:
+                        const InputDecoration(
+                          labelText:
+                              'Header line 1 (Hospital/Company)',
+                          border:
+                              OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  TextFormField(
+                    controller: _h2C,
+                    decoration:
+                        const InputDecoration(
+                          labelText:
+                              'Header line 2 (Address)',
+                          border:
+                              OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  TextFormField(
+                    controller: _h3C,
+                    decoration:
+                        const InputDecoration(
+                          labelText:
+                              'Header line 3 (Phone/Email)',
+                          border:
+                              OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _fLeftC,
+                          decoration:
+                              const InputDecoration(
+                                labelText:
+                                    'Footer left',
+                                border:
+                                    OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _fRightC,
+                          decoration:
+                              const InputDecoration(
+                                labelText:
+                                    'Footer right',
+                                border:
+                                    OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          _card(
+            title: 'Preview (simple)',
+            child: _miniPreview(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniPreview(
+    BuildContext context,
+  ) {
+    final align =
+        switch (_model.logoAlign) {
+          LetterheadLogoAlignment.left =>
+            CrossAxisAlignment.start,
+          LetterheadLogoAlignment.center =>
+            CrossAxisAlignment.center,
+          LetterheadLogoAlignment.right =>
+            CrossAxisAlignment.end,
+        };
+
+    final textAlign =
+        switch (_model.logoAlign) {
+          LetterheadLogoAlignment.left =>
+            TextAlign.left,
+          LetterheadLogoAlignment.center =>
+            TextAlign.center,
+          LetterheadLogoAlignment.right =>
+            TextAlign.right,
+        };
+
+    final hasLogo =
+        _model.logoFilePath != null &&
+        _model.logoFilePath!.trim().isNotEmpty;
+
+    final logoBox = Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        borderRadius:
+            BorderRadius.circular(10),
+        color:
+            Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
+      ),
+      child:
+          hasLogo
+              ? ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(10),
+                child: RefImage(
+                  _model.logoFilePath!,
+                  fit: BoxFit.cover,
+                ),
+              )
+              : const Icon(
+                Icons.image_outlined,
+                size: 20,
+              ),
+    );
+
+    final textBlock = Column(
+      crossAxisAlignment: align,
+      children: [
+        if (_h1C.text.trim().isNotEmpty)
+          Text(
+            _h1C.text.trim(),
+            textAlign: textAlign,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+
+        if (_h2C.text.trim().isNotEmpty)
+          Text(
+            _h2C.text.trim(),
+            textAlign: textAlign,
+          ),
+
+        if (_h3C.text.trim().isNotEmpty)
+          Text(
+            _h3C.text.trim(),
+            textAlign: textAlign,
+          ),
+      ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              Theme.of(
+                context,
+              ).dividerColor,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: align,
+        children: [
+          if (_model.logoPlacement ==
+              LetterheadLogoPlacement.side)
+            Row(
+              crossAxisAlignment:
+                  CrossAxisAlignment.center,
+              children:
+                  _model.logoAlign ==
+                          LetterheadLogoAlignment
+                              .right
+                      ? [
+                        Expanded(
+                          child: textBlock,
+                        ),
+                        const SizedBox(width: 12),
+                        logoBox,
+                      ]
+                      : [
+                        logoBox,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: textBlock,
+                        ),
+                      ],
+            )
+          else ...[
+            Row(
+              mainAxisAlignment:
+                  _model.logoAlign ==
+                          LetterheadLogoAlignment
+                              .left
+                      ? MainAxisAlignment.start
+                      : _model.logoAlign ==
+                          LetterheadLogoAlignment
+                              .center
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.end,
+              children: [
+                logoBox,
+              ],
+            ),
+            const SizedBox(height: 8),
+            textBlock,
+          ],
+
+          const SizedBox(height: 10),
+
+          Divider(
+            color:
+                Theme.of(
+                  context,
+                ).dividerColor,
+          ),
+
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _fLeftC.text.trim(),
+                  overflow:
+                      TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  _fRightC.text.trim(),
+                  textAlign:
+                      TextAlign.right,
+                  overflow:
+                      TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _card({
+    required String title,
+    required Widget child,
+  }) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding:
+            const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style:
+                  const TextStyle(
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
