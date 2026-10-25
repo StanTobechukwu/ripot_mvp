@@ -112,6 +112,42 @@ const server = http.createServer((req, res) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(out, 'remote-template-mobile.png'), fullPage: true });
     console.log('PASS: compiled Ripot Web fetched a non-built-in template, rendered its fields, accepted a numeric value, and saved a local report with the remote template identity.');
+    // Exercise each real added payload through the compiled editor, not only a
+    // synthetic fixture. A separate page leaves the existing workflow intact.
+    const extra = JSON.parse(fs.readFileSync('tools/landing/additional_catalog.json'));
+    const actualCatalog = JSON.parse(fs.readFileSync('landing/y/templates/catalog/manifest.json'));
+    const realPage = await context.newPage();
+    await realPage.route('https://ripot.app/templates/catalog/**', async route => {
+      const pathname = new URL(route.request().url()).pathname;
+      const file = path.resolve('landing/y', '.' + pathname);
+      if (!file.startsWith(path.resolve('landing/y/templates/catalog') + path.sep)) throw Error('Unexpected catalogue path');
+      await route.fulfill({status:200, contentType:'application/json', body:fs.readFileSync(file)});
+    });
+    for (const extraTemplate of extra) {
+      const entry = actualCatalog.templates.find(e => e.slug === extraTemplate.slug);
+      assert(entry, 'Missing actual catalogue entry');
+      await realPage.goto(`${origin}/?template=${entry.slug}&version=${entry.version}`);
+      const semantics = realPage.locator('flt-semantics-placeholder');
+      await semantics.waitFor({state:'attached',timeout:60000});
+      await semantics.evaluate(e => e.click());
+      const save = realPage.getByRole('button',{name:'Save progress',exact:true});
+      await save.waitFor({state:'visible',timeout:60000});
+      await save.click();
+      await realPage.waitForFunction(source => Object.keys(localStorage).some(k =>
+        k.startsWith('flutter.reports.doc.') && localStorage.getItem(k).includes(source)),
+        `public_${entry.slug}_${entry.version}`);
+      const docs = await realPage.evaluate(() => Object.keys(localStorage)
+        .filter(k => k.startsWith('flutter.reports.doc.'))
+        .map(k => JSON.parse(JSON.parse(localStorage.getItem(k)))));
+      const imported = docs.find(d => d.sourceTemplateId === `public_${entry.slug}_${entry.version}`);
+      assert(imported);
+      assert(!JSON.stringify(imported.roots).includes('fictional'), 'Sample findings leaked into a new report');
+      const raw = JSON.parse(fs.readFileSync('landing/y'+entry.url)).template;
+      assert.equal(imported.roots.length,raw.roots.length);
+    }
+    await realPage.close();
+    console.log('PASS: all 11 actual new templates open and save in compiled Ripot Web without sample findings.');
+
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
     const letterheadPrompt = page.getByRole('button', {
       name: 'Add your hospital / clinic logo & letterhead · Premium', exact: true,

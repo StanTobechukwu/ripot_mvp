@@ -88,6 +88,7 @@ class PdfRendererService {
     LetterheadTemplate? letterhead,
     bool showRipotBranding = true,
     bool blankReportDate = false,
+    bool keepRootSectionsTogether = false,
   }) async {
     final double fontScale = doc.fontScale;
     final double contentFontSize = 11.5 * fontScale;
@@ -214,9 +215,27 @@ class PdfRendererService {
     if (pageOneInlineCandidates.isEmpty && spillInlineImgs.isEmpty) {
       final bodyWidgets = <pw.Widget>[
         ...topWidgets,
-        ..._templatesToWidgets(templates),
-        pw.SizedBox(height: 6),
-        _signatureBlock(doc, signatureImg, fontScale: fontScale),
+        // Optional printable-form layout: keep short root sections together,
+        // and keep the final section with the signature. Normal reports retain
+        // the existing flowing layout; this path is only for reports without images.
+        if (keepRootSectionsTogether && doc.roots.isNotEmpty)
+          for (final root in doc.roots)
+            pw.Container(child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                ..._sectionWidgets(root, doc: doc, contentFontSize: contentFontSize),
+                if (identical(root, doc.roots.last)) ...[
+                  pw.SizedBox(height: 6),
+                  _signatureBlock(doc, signatureImg, fontScale: fontScale),
+                ],
+              ],
+            ))
+        else ...[
+          ..._templatesToWidgets(templates),
+          pw.SizedBox(height: 6),
+          _signatureBlock(doc, signatureImg, fontScale: fontScale),
+        ],
       ];
 
       pdf.addPage(

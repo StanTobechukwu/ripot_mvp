@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ripot/features/reports/domain/models/nodes.dart';
+import 'package:ripot/features/reports/domain/public_template_links.dart';
 import 'package:ripot/features/reports/domain/models/report_doc.dart';
 import 'package:ripot/features/reports/domain/models/letterhead_template.dart';
 import 'package:ripot/features/reports/domain/models/subject_info_def.dart';
@@ -73,6 +74,7 @@ void main() {
             pageOne: const PageOnePlan(inlineImages: []),
             finalContent: const FinalContentPlan(spillInlineImages: []),attachmentPages: const []),
           letterhead: letterhead, blankReportDate: !example,
+          keepRootSectionsTogether: !PublicTemplateLinks.ids.containsKey(slug),
         );
         expect(latin1.decode(bytes.take(5).toList()),'%PDF-');
         await File('${directory.path}/$slug-$variant.pdf').writeAsBytes(bytes);
