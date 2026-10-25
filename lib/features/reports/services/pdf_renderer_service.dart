@@ -224,7 +224,7 @@ class PdfRendererService {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               mainAxisSize: pw.MainAxisSize.min,
               children: [
-                ..._sectionWidgets(root, doc: doc, contentFontSize: contentFontSize),
+                ..._templatesToWidgets(_buildTemplates(doc, contentFontSize: contentFontSize, metrics: metrics, roots: [root])),
                 if (identical(root, doc.roots.last)) ...[
                   pw.SizedBox(height: 6),
                   _signatureBlock(doc, signatureImg, fontScale: fontScale),
@@ -1786,6 +1786,7 @@ class PdfRendererService {
     ReportDoc doc, {
     required double contentFontSize,
     required PdfLayoutMetrics metrics,
+    List<SectionNode>? roots,
   }) {
     final out = <_PdfTemplate>[];
 
@@ -2173,7 +2174,7 @@ class PdfRendererService {
       }
     }
 
-    for (final s in doc.roots) {
+    for (final s in roots ?? doc.roots) {
       walk(s, 0);
     }
 
