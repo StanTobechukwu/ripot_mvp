@@ -1,0 +1,37 @@
+PELVIC / TRANSVAGINAL ULTRASOUND
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+CONTEXT
+Indication: ________________
+Relevant menstrual / menopausal history: ________________
+Technique, consent and chaperone: ________________
+Image quality / limitations: ________________
+
+UTERUS AND CERVIX
+Position and contour: ________________
+Uterine length (mm): ________________
+Uterine AP diameter (mm): ________________
+Uterine transverse diameter (mm): ________________
+Myometrium / focal lesions: ________________
+Endometrial thickness (mm): ________________
+Endometrial appearance / cavity: ________________
+Cervix: ________________
+
+OVARIES AND ADNEXA
+Right ovary: three dimensions and appearance: ________________
+Left ovary: three dimensions and appearance: ________________
+Adnexal lesions: side, size and morphology: ________________
+Doppler findings where indicated: ________________
+Cul-de-sac / free fluid: ________________
+
+CONCLUSION
+Comparison: ________________
+Impression: ________________
+Recommendations / communication: ________________
+
+Clinician: ________________
+Signature: ________________

@@ -1,0 +1,45 @@
+CAESAREAN SECTION OPERATION NOTE
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+PROCEDURE AND TEAM
+Procedure performed: ________________
+Procedure date and time: ________________
+Urgency: ________________
+Indication and preoperative diagnosis: ________________
+Postoperative diagnosis: ________________
+Surgeon and assistants: ________________
+Anaesthesia and anaesthetist: ________________
+Consent and safety checks: ________________
+
+MATERNAL AND DELIVERY CONTEXT
+Gestational age and indication detail: ________________
+Antibiotic / thromboprophylaxis record: ________________
+Abdominal and uterine incisions: ________________
+Operative findings / adhesions: ________________
+Delivery method and difficulties: ________________
+Birth date and time: ________________
+
+NEWBORN RECORD
+Newborn identifier and sex: ________________
+Birth weight (g): ________________
+Apgar at 1 minute: ________________
+Apgar at 5 minutes: ________________
+Cord gases: samples and results if obtained: ________________
+Resuscitation / neonatal team handover: ________________
+
+OPERATIVE COMPLETION
+Placenta, membranes and specimens: ________________
+Uterine repair, tone and haemostasis: ________________
+Uterotonics / other intraoperative medicines: ________________
+Abdominal closure / drains / dressing: ________________
+Estimated blood loss (mL): ________________
+Instrument, swab and needle counts: ________________
+Complications / response: ________________
+Maternal condition, destination and postoperative plan: ________________
+
+Clinician: ________________
+Signature: ________________

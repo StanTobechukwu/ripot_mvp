@@ -22,7 +22,7 @@ const server=http.createServer((req,res)=>{
   const browser=await chromium.launch({channel:process.env.RIPOT_BROWSER_CHANNEL || 'chrome',headless:true,args:['--no-sandbox']});
   try{
     const page=await browser.newPage(), errors=[];page.on('pageerror',e=>errors.push(e.message));
-    await page.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**',route=>route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(new URL(route.request().url()).searchParams.has('template')?{...row,payload}:{schemaVersion:1,templates:[row]})}));
+    await page.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**',route=>route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(new URL(route.request().url()).searchParams.has('template')?{...row,payload}:{schemaVersion:1,templates:[row,{...row,slug:"community-s-two",name:"Second test"},{...row,slug:"community-s-three",name:"Third test"}]})}));
     for(const width of [390,1280]){
       await page.setViewportSize({width,height:900});
       await page.goto(origin+'/templates/');
@@ -39,7 +39,11 @@ const server=http.createServer((req,res)=>{
     }
     await page.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**',route=>route.fulfill({status:503,body:'{}',headers:{'access-control-allow-origin':'*'}}));
     await page.goto(origin+'/templates/');
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('#community-section').isVisible(),false);
+    await page.goto(origin+'/templates/community.html?template=community-s-test');
     await page.getByText(/Community templates are temporarily unavailable/).waitFor();
+    await page.goto(origin+'/templates/');
     assert.equal(await page.getByRole('link',{name:'Colonoscopy report template',exact:true}).count(),1);
     assert.deepEqual(errors,[]);
     console.log('PASS: community gallery, mobile/desktop preview, safe text rendering, versioned open link, verified download and unavailable-service fallback.');

@@ -65,7 +65,4 @@
     dialog.addEventListener('click', e => {if(e.target === dialog) dialog.close();});
     update();
   }
-  document.querySelectorAll('[data-adoption-event]').forEach(el => el.addEventListener('click', () => {
-    if (Array.isArray(window.dataLayer)) window.dataLayer.push({event:'ripot_template_action',action:el.dataset.adoptionEvent,template:el.dataset.template});
-  }));
 })();

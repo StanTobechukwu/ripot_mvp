@@ -117,11 +117,12 @@ const server = http.createServer((req, res) => {
     const extra = JSON.parse(fs.readFileSync('tools/landing/additional_catalog.json'));
     const actualCatalog = JSON.parse(fs.readFileSync('landing/y/templates/catalog/manifest.json'));
     const realPage = await context.newPage();
+    await realPage.addInitScript(() => { window.qaFunnel=[]; window.addEventListener('ripot-funnel-ready',e=>window.qaFunnel.push(e.detail)); });
     await realPage.route('https://ripot.app/templates/catalog/**', async route => {
       const pathname = new URL(route.request().url()).pathname;
       const file = path.resolve('landing/y', '.' + pathname);
       if (!file.startsWith(path.resolve('landing/y/templates/catalog') + path.sep)) throw Error('Unexpected catalogue path');
-      await route.fulfill({status:200, contentType:'application/json', body:fs.readFileSync(file)});
+      await route.fulfill({status:200, contentType:'application/json', headers:{'access-control-allow-origin':origin}, body:fs.readFileSync(file)});
     });
     for (const extraTemplate of extra) {
       const entry = actualCatalog.templates.find(e => e.slug === extraTemplate.slug);
@@ -136,6 +137,9 @@ const server = http.createServer((req, res) => {
       await realPage.waitForFunction(source => Object.keys(localStorage).some(k =>
         k.startsWith('flutter.reports.doc.') && localStorage.getItem(k).includes(source)),
         `public_${entry.slug}_${entry.version}`);
+      await realPage.waitForFunction(() => window.qaFunnel.some(e => e.event==='report_created'));
+      assert.equal((await realPage.evaluate(() => window.qaFunnel)).filter(e=>e.event==='report_created').length,1);
+      await realPage.getByText(/Saved in this browser/).waitFor();
       const docs = await realPage.evaluate(() => Object.keys(localStorage)
         .filter(k => k.startsWith('flutter.reports.doc.'))
         .map(k => JSON.parse(JSON.parse(localStorage.getItem(k)))));

@@ -8,7 +8,7 @@ const app = initializeApp(), db = getFirestore(app), service = createTemplateLib
 const structure = { roots: [{type:'section',id:'root',title:'Findings',addToRecords:true,addToLog:true, options:['Option'], children:[{type:'content',id:'value',text:'PRIVATE PATIENT VALUE'}]}], signature:{name:'PRIVATE SIGNATURE'}, subjectInfo:{heading:'PRIVATE SUBJECT'}, patientName:'PRIVATE PATIENT' };
 const req = (uid = 'author', data = {}) => ({auth:{uid,token:{firebase:{sign_in_provider:'password'}}},data});
 const submission = (overrides={}) => req('author', {requestId:'one', name:'Test template',specialty:'Endoscopy',description:'A reporting structure',contributor:'Public author',patientFree:true,permissionToPublish:true,template:structure,...overrides});
-const approve = (id, revision=1, overrides={}) => service.review(req('reviewer',{id,revision,decision:'approved',...overrides}));
+const approve = (id, revision=1, overrides={}) => service.review(req('reviewer',{id,revision,decision:'approved',patientFreeReviewed:true,...overrides}));
 beforeEach(async () => {
   const r = await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/${process.env.GCLOUD_PROJECT}/databases/(default)/documents`,{method:'DELETE'}); assert.equal(r.ok,true);
   await db.collection(C.reviewers).doc('reviewer').set({enabled:true});
@@ -87,3 +87,5 @@ test('metadata-only attribution edits produce a distinct immutable published ver
   assert.equal(latest.contributor,'Corrected public credit');
   assert.equal((await service.publicDetail(first.slug,first.version)).contributor,'Public author');
 });
+
+test('approval requires an explicit patient-free reviewer attestation',async()=>{const {id}=await service.submit(submission());await assert.rejects(approve(id,1,{patientFreeReviewed:false}),{code:'invalid-argument'});assert.deepEqual((await service.publicList()).templates,[]);});

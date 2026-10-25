@@ -1,0 +1,42 @@
+APPENDECTOMY OPERATION NOTE
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+PROCEDURE AND TEAM
+Procedure performed: ________________
+Procedure date and time: ________________
+Urgency: ________________
+Indication and preoperative diagnosis: ________________
+Postoperative diagnosis: ________________
+Surgeon and assistants: ________________
+Anaesthesia and anaesthetist: ________________
+Consent and safety checks: ________________
+
+ACCESS AND FINDINGS
+Antimicrobial / VTE prophylaxis record: ________________
+Approach, position and access: ________________
+Appendix: position and appearance: ________________
+Appendiceal base and caecum: ________________
+Contamination, collection and other findings: ________________
+
+PROCEDURE
+Mesoappendix management: ________________
+Base division / stump closure method: ________________
+Specimen retrieval and histology: ________________
+Suction / irrigation if performed: ________________
+Additional procedures / conversion and reason: ________________
+Closure, drains and dressing: ________________
+
+COMPLETION AND HANDOVER
+Specimens and labels: ________________
+Estimated blood loss (mL): ________________
+Instrument / swab / needle counts: ________________
+Complications and response: ________________
+Condition and destination: ________________
+Postoperative instructions and responsible team: ________________
+
+Clinician: ________________
+Signature: ________________

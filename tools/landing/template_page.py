@@ -63,7 +63,7 @@ def page_body(slug,title,specialty,desc,template,version,other_cards):
     return f'''<a href="/templates/">← All templates</a>
 <p class="eyebrow">{e(specialty)} · Contributor: Ripot</p>
 <h1>{e(title)}</h1><p class="lead">{e(desc)}</p>
-<div class="actions"><a class="button" data-adoption-event="editor_open" data-template="{slug}" href="https://ripot-web.web.app/?template={slug}&amp;version={version}&amp;utm_source=ripot_templates">Use in Ripot Web →</a><a id="download-pdf" class="button secondary" data-adoption-event="pdf_download" data-template="{slug}" href="/templates/previews/{blank['pdf']}" download>Download blank PDF</a></div>
+<div class="actions"><a class="button" data-adoption-event="editor_open" data-template="{slug}" href="https://ripot-web.web.app/?template={slug}&amp;version={version}&amp;utm_source=ripot_templates&amp;utm_medium=referral&amp;utm_campaign=template_library">Use in Ripot Web →</a><a id="download-pdf" class="button secondary" data-adoption-event="pdf_download" data-template="{slug}" href="/templates/previews/{blank['pdf']}" download>Download blank PDF</a></div>
 <p class="note">Open an editable report in your browser, or download a printable PDF. The working template starts without clinical findings.</p>
 <div class="preview-layout">
 <section class="preview-card" data-report-viewer data-title="{e(template['name'],quote=True)}" aria-label="Report preview">

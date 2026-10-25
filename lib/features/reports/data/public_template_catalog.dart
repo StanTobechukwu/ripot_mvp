@@ -16,15 +16,15 @@ class PublicTemplateCatalog {
   /// Versioned links must resolve the exact published payload, never a bundled
   /// template with a potentially different structure. Keep old unversioned
   /// starter links usable offline.
-  static Future<TemplateDoc?> resolveForEditor(Uri uri) async {
+  static Future<TemplateDoc?> resolveForEditor(Uri uri, {void Function(String)? onLatestVersion}) async {
     if (!uri.queryParameters.containsKey('version')) {
       final bundled = PublicTemplateLinks.resolve(uri);
       if (bundled != null) return bundled;
     }
-    return resolve(uri);
+    return resolve(uri, onLatestVersion: onLatestVersion);
   }
 
-  static Future<TemplateDoc?> resolve(Uri uri) async {
+  static Future<TemplateDoc?> resolve(Uri uri, {void Function(String)? onLatestVersion}) async {
     final slug = uri.queryParameters['template'];
     if (slug == null || !_slug.hasMatch(slug) || slug.length > 100) return null;
     final requestedVersion = uri.queryParameters['version'];
@@ -41,6 +41,7 @@ class PublicTemplateCatalog {
         final detail = jsonDecode(utf8.decode(response.bodyBytes));
         if (detail is! Map || detail['slug'] != slug || detail['status'] != 'approved' || detail['payload'] is! String) return null;
         entry = detail;
+        if (detail['latestVersion'] is String) onLatestVersion?.call(detail['latestVersion'] as String);
         bytes = utf8.encode(detail['payload'] as String);
       } else {
         final index = await client.get(Uri.parse('$_origin/templates/catalog/manifest.json'))
@@ -49,10 +50,17 @@ class PublicTemplateCatalog {
         final catalog = jsonDecode(utf8.decode(index.bodyBytes));
         if (catalog is! Map || catalog['schemaVersion'] != 1 || catalog['templates'] is! List) return null;
         final entries = (catalog['templates'] as List).whereType<Map>().where((entry) =>
-            entry['slug'] == slug && entry['status'] == 'approved' &&
-            (requestedVersion == null || entry['version'] == requestedVersion)).toList();
+            entry['slug'] == slug && entry['status'] == 'approved').toList();
         if (entries.length != 1) return null;
         entry = entries.single;
+        if (entry['version'] is String) onLatestVersion?.call(entry['version'] as String);
+        if (requestedVersion != null && entry['version'] != requestedVersion) {
+          final history = entry['versions'];
+          if (history is! List) return null;
+          final matches = history.whereType<Map>().where((v) => v['version'] == requestedVersion).toList();
+          if (matches.length != 1) return null;
+          entry = {...entry, ...matches.single, 'status': 'approved'};
+        }
         final path = '/templates/catalog/$slug/${entry['version']}.ripottemplate.json';
         if (entry['url'] != path) return null;
         final response = await client.get(Uri.parse('$_origin$path'))

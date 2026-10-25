@@ -1,0 +1,36 @@
+HOLTER / AMBULATORY ECG
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+RECORDING
+Indication: ________________
+Device / leads: ________________
+Start and finish: ________________
+Analysable duration (hours): ________________
+Signal quality / artefact: ________________
+Relevant medication during recording: ________________
+
+RATE AND RHYTHM
+Predominant rhythm: ________________
+Minimum heart rate (beats/min): ________________
+Mean heart rate (beats/min): ________________
+Maximum heart rate (beats/min): ________________
+Timing / context of rate extremes: ________________
+
+EVENTS
+Supraventricular ectopy: count, burden, runs: ________________
+Ventricular ectopy: count, burden, complexity: ________________
+Atrial fibrillation / flutter: episodes and burden: ________________
+Pauses / conduction disturbances: ________________
+Symptoms, event times and rhythm correlation: ________________
+Other findings and verification: ________________
+
+CONCLUSION
+Impression: ________________
+Recommendations / urgent communication: ________________
+
+Clinician: ________________
+Signature: ________________

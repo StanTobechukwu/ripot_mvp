@@ -137,6 +137,23 @@ void main() {
     });
   }
 
+  test('archived version resolves exact bytes', () async {
+    final old = CatalogFixture(payload());
+    final newer = CatalogFixture({...payload(), 'revision': 2});
+    old.entry = {...newer.entry, 'versions': [old.entry, newer.entry]};
+    old.entries = [old.entry];
+    final template = await old.resolve();
+    expect(template!.templateId, 'public_${slug}_${old.version}');
+    expect(template.name, 'Published test structure');
+  });
+
+  test('archive cannot bypass current approval', () async {
+    final f = CatalogFixture(payload());
+    f.entry = {...f.entry, 'status': 'withdrawn', 'versions': [f.entry]};
+    f.entries = [f.entry];
+    expect(await f.resolve(), isNull);
+  });
+
   test('missing requested version does not fall back to bundled template', () async {
     final f = CatalogFixture(payload());
     expect(await f.resolve(query: 'template=$slug&version=0000000000000000'), isNull);

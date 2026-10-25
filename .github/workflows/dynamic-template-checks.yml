@@ -79,6 +79,16 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
       - run: flutter test
+      - run: flutter test tools/export_pdf_footer_checks.dart
+      - run: pip install pymupdf==1.26.7
+      - run: python3 tools/web/verify_pdf_footers.py
+      - run: node tools/web/test_template_funnel.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ripot-pdf-footer-checks
+          path: build/pdf-footer-checks
+          if-no-files-found: ignore
       - run: flutter build web --release
       - name: Test catalogue-only template in compiled web app
         run: |

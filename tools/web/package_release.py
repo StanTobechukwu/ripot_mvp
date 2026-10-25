@@ -55,6 +55,8 @@ example PDF downloads, page zoom and readable plain/formatted copied outlines.
 To apply these landing-page improvements, run bash Deploy-Landing.command.
 The contribution backend, reviewer account and SMTP notification setup must
 be deployed separately using the included TEMPLATE_LIBRARY.md instructions.
+See TEMPLATE_GROWTH_CHECKS.md for Search Console, print acceptance and analytics.
+Funnel hooks are present but no analytics collector is configured.
 Direct online payment checkout is not enabled. Android and Windows installers
 are separate releases.
 
@@ -76,6 +78,7 @@ Check /release.json on the live web app to confirm the exact release.
 Reload existing tabs after deployment. Do not clear browser storage containing local data.
 ''')
 shutil.copyfile(root / 'functions/TEMPLATE_LIBRARY.md', stage / 'TEMPLATE_LIBRARY.md')
+shutil.copyfile(root / 'tools/web/TEMPLATE_GROWTH_CHECKS.md', stage / 'TEMPLATE_GROWTH_CHECKS.md')
 # Package only tracked deployment sources, never credentials, dotenv files or node_modules.
 (stage / 'functions/scripts').mkdir(parents=True, exist_ok=True)
 for source_file in sorted((root / 'functions').glob('*.js')):

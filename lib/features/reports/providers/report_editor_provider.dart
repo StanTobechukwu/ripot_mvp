@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/ids.dart';
 import '../../../core/utils/time.dart';
+import '../../../core/web/template_funnel.dart';
 
 import '../data/reports_repository.dart';
 import '../data/templates_repository.dart';
@@ -23,6 +24,7 @@ class ReportEditorProvider extends ChangeNotifier {
   static const String _savedSignaturePrefsKey = 'reports.savedSignatureBlock';
 
   late ReportDoc _doc;
+  final Set<String> _pendingTemplateReportIds = {};
 
   /// Selected node can be a SectionNode OR ContentNode id.
   String? _selectedNodeId;
@@ -158,6 +160,7 @@ class ReportEditorProvider extends ChangeNotifier {
       subjectInfo: SubjectInfoValues.emptyFromDef(template.subjectInfo),
     );
 
+    _pendingTemplateReportIds.add(_doc.reportId);
     _selectedNodeId = null;
     _hasUnsavedChanges = true;
     _commit(); // ✅ prune + notify
@@ -169,6 +172,7 @@ class ReportEditorProvider extends ChangeNotifier {
   Future<void> save() async {
     _doc = _doc.copyWith(updatedAtIso: nowIso());
     await repo.saveReport(_doc);
+    if (_pendingTemplateReportIds.remove(_doc.reportId)) templateFunnelEvent('report_created', _doc.sourceTemplateId);
     _hasUnsavedChanges = false;
     notifyListeners();
   }
@@ -177,6 +181,7 @@ class ReportEditorProvider extends ChangeNotifier {
     if (!_hasUnsavedChanges) return;
     _doc = _doc.copyWith(updatedAtIso: nowIso());
     await repo.saveReport(_doc);
+    if (_pendingTemplateReportIds.remove(_doc.reportId)) templateFunnelEvent('report_created', _doc.sourceTemplateId);
     _hasUnsavedChanges = false;
     notifyListeners();
   }

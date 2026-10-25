@@ -115,12 +115,13 @@ function createTemplateLibrary(db, clock = () => Date.now()) {
       if (!row) fail('not-found', 'Submission not found.');
       if (row.status !== 'pending' || row.revision !== data.revision) fail('failed-precondition', 'This submission has changed. Refresh before reviewing.');
       if (row.ownerUid === uid) fail('permission-denied', 'Another reviewer must approve your own contribution.');
+      if (data.decision === 'approved' && data.patientFreeReviewed !== true) fail('invalid-argument', 'Confirm the patient-free publication review before approval.');
       const now = clock(), slug = `community-${ref.id}`;
       const publicRef = db.collection(C.published).doc(slug);
       const versionRef = publicRef.collection('versions').doc(row.version);
       const previousVersion = data.decision === 'approved' ? await tx.get(versionRef) : null;
       tx.update(ref, { status: data.decision, reviewerNote: note, reviewedBy: uid, reviewedAt: now, updatedAt: now });
-      tx.create(ref.collection('reviews').doc(String(row.revision)), { decision: data.decision, note, reviewerUid: uid, reviewedAt: now });
+      tx.create(ref.collection('reviews').doc(String(row.revision)), { decision: data.decision, patientFreeReviewed: data.decision === 'approved', note, reviewerUid: uid, reviewedAt: now });
       if (data.decision === 'approved') {
         const metadata = { slug, version: row.version, sha256: row.sha256, name: row.name, specialty: row.specialty, description: row.description, contributor: row.contributor, status: 'approved', publishedAt: now };
         tx.set(publicRef, metadata);
@@ -142,7 +143,7 @@ function createTemplateLibrary(db, clock = () => Date.now()) {
     if (!row || row.status !== 'approved') fail('not-found', 'Template not found.');
     const published = (await ref.collection('versions').doc(version || row.version).get()).data();
     if (!published) fail('not-found', 'Version not found.');
-    return published;
+    return { ...published, latestVersion: row.version };
   }
   return { submit, list, review, publicList, publicDetail };
 }

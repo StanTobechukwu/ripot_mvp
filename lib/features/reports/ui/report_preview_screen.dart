@@ -1,3 +1,4 @@
+import '../../../core/web/template_funnel.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -179,7 +180,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('PDF saved: $fileName')));
+      ).showSnackBar(SnackBar(duration: const Duration(seconds: 12), content: Text(kIsWeb ? 'Saved in this browser. Clearing site data can erase it. Use Download PDF to keep a copy outside Ripot.' : 'PDF saved: $fileName'), action: kIsWeb ? SnackBarAction(label: 'Download PDF', onPressed: () async { await downloadBytes(bytes: bytes, fileName: fileName); templateFunnelEvent('pdf_export_started', vm.doc.sourceTemplateId); }) : null));
       await _offerAddToRecords();
     } on FinalizedReportLimitException {
       // Rechecked at the write: handles another save or expiry while rendering.
@@ -853,6 +854,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 );
 
                 await downloadBytes(bytes: bytes, fileName: pdfFileName);
+                if (mounted) templateFunnelEvent('pdf_export_started', context.read<ReportEditorProvider>().doc.sourceTemplateId);
 
                 if (!mounted) {
                   return;

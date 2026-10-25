@@ -152,13 +152,22 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
     ));
     if (action == null || !mounted) return;
     if (review) {
+      if (action == 'approved') {
+        final checked = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(
+          title: const Text('Confirm your review'),
+          content: const Text('I reviewed all titles, options, units, descriptions and contributor credit. This structure contains no patient information, has permission for publication and is suitable for the stated documentation purpose.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Back')),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Confirmed — publish'))],
+        ));
+        if (checked != true || !mounted) return;
+      }
       String note = '';
       if (action != 'approved') {
         final answer = await askName(context, 'Feedback for contributor');
         if (answer == null || !mounted) return;
         note = answer;
       }
-      await AccountFunctions.call('reviewTemplateContribution', data: {'id': row['id'], 'revision': row['revision'], 'decision': action, 'note': note});
+      await AccountFunctions.call('reviewTemplateContribution', data: {'id': row['id'], 'revision': row['revision'], 'decision': action, 'note': note, 'patientFreeReviewed': action == 'approved'});
       if (mounted) { showMessage(context, action == 'approved' ? 'Approved and published to the library.' : 'Review saved. The contributor can see your feedback in My submissions.'); await _loadSubmissions(); }
     } else if (action == 'use') {
       context.read<ReportEditorProvider>().newReportFromTemplate(doc);
