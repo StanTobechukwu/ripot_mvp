@@ -7,7 +7,8 @@ Run export_additional_templates.py after changing this source.
 TEMPLATES = []
 
 def field(key, title, example, unit='', options=None):
-    return dict(key=key, title=title, example=str(example), unit=unit, options=options or [])
+    return dict(key=key, title=title, example=str(example), unit=unit, options=options or [],
+                numeric=bool(unit) or key in {'fetuses','attempted','valid','daycount','nightcount','apgar1','apgar5','rightratio','leftratio'})
 
 def group(title, *fields):
     return (title, list(fields))
@@ -21,12 +22,18 @@ US = [('AIUM: ultrasound practice parameters', 'https://www.aium.org/resources/p
 F = field
 
 def operation_context(procedure):
+    diagnosis = {
+        'Excision': 'Symptomatic superficial left forearm lesion.',
+        'Lower-segment': 'Persistent breech presentation at term.',
+        'Laparoscopic': 'Acute appendicitis.',
+        'Debridement': 'Left lower-leg wound with devitalised skin and subcutaneous tissue.',
+    }[procedure.split()[0]]
     return group('Procedure and team',
         F('procedure', 'Procedure performed', procedure),
         F('time', 'Procedure date and time', '01 January 2026, 09:00 (fictional)'),
-        F('urgency', 'Urgency', 'Elective', options=['Elective','Emergency','Urgent']),
-        F('indication', 'Indication and preoperative diagnosis', 'See procedure findings in this fictional demonstration.'),
-        F('postdiagnosis', 'Postoperative diagnosis', 'As documented in the findings.'),
+        F('urgency', 'Urgency', 'Urgent' if procedure.startswith(('Laparoscopic','Debridement')) else 'Elective', options=['Elective','Emergency','Urgent']),
+        F('indication', 'Indication and preoperative diagnosis', diagnosis),
+        F('postdiagnosis', 'Postoperative diagnosis', diagnosis),
         F('surgeon', 'Surgeon and assistants', 'Dr Demo A; Dr Demo B (fictional)'),
         F('anaesthesia', 'Anaesthesia and anaesthetist', 'Technique recorded in the separate anaesthetic chart; Dr Demo C (fictional).'),
         F('consent', 'Consent and safety checks', 'Consent, identity, procedure and site checks documented in the fictional theatre checklist.'))
@@ -46,7 +53,7 @@ add('flexible-sigmoidoscopy-report-template', 'Flexible Sigmoidoscopy', 'Gastroe
     group('Findings', F('perianal','Perianal inspection and digital examination','No palpable mass in this fictional examination.'), F('rectum','Rectum','Small internal haemorrhoids seen on retroflexion.'), F('sigmoid','Sigmoid colon','Mucosa unremarkable within the examined segment.'), F('proximal','Additional bowel examined','No additional segment confidently identified.'), F('lesions','Lesions: site, distance, size and morphology','No polyp identified within the examined segment.')),
     group('Sampling and interventions', F('biopsy','Biopsy taken','No',options=['Yes','No']), F('samples','Sampling sites, number and specimen labels','Not applicable.'), F('intervention','Intervention and retrieval details','None.'), F('events','Immediate adverse events','None observed.')),
     group('Conclusion', F('impression','Impression','Small internal haemorrhoids; proximal colon not evaluated.'), F('plan','Plan and communication','Discuss findings and further evaluation with the referring clinician. No interval is prescribed by this example.')),
-], [('ASGE: endoscopy quality resources','https://www.asge.org/home/practice-support/quality')])
+], [('ASGE: endoscopy quality resources','https://www.asge.org/home/practice-support')])
 
 add('obstetric-ultrasound-report-template','Obstetric Ultrasound / Morphology','Radiology',
     'Record dating, fetal biometry, assessed anatomy, placenta, fluid and examination limitations. Duplicate fetal sections when appropriate; no automatic dating or growth interpretation.', [

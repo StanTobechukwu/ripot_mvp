@@ -9,17 +9,17 @@ samples = json.loads(samples_path.read_text())
 metadata = []
 for spec in TEMPLATES:
     slug = spec['slug']; roots = []; values = {}; ids = set()
-    def node(key, title, children=None, unit='', options=None):
+    def node(key, title, children=None, unit='', options=None, numeric=False):
         if key in ids: raise ValueError(f'Duplicate field: {slug}/{key}')
         ids.add(key)
         return dict(type='section',id=key,title=title,collapsed=False,
-                    style=dict(level='h4',bold=True,align='left'),inputType='singleSelect' if options else 'numeric' if unit else 'freeText',
+                    style=dict(level='h4',bold=True,align='left'),inputType='singleSelect' if options else 'numeric' if numeric else 'freeText',
                     options=options or [],unit=unit,showInPdf=True,addToRecords=False,addToLog=False,
                     allowOptionalNote=False,conditionalParentSectionId='',conditionalEquals='',indent=0,children=children or [])
     for index, (title, fields) in enumerate(spec['groups']):
         children=[]
         for f in fields:
-            children.append(node(f['key'],f['title'],unit=f['unit'],options=f['options']))
+            children.append(node(f['key'],f['title'],unit=f['unit'],options=f['options'],numeric=f['numeric']))
             values[f['key']]=f['example']
         roots.append(node(f'group_{index}',title,children))
     payload=dict(app='Ripot',ripotFileType='template',ripotExportVersion=1,template=dict(

@@ -114,8 +114,8 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
     if (selected == null || !mounted) return;
     final doc = await repo.loadTemplate(selected);
     if (!mounted) return;
-    await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TemplateContributionScreen(template: doc, revision: revision)));
-    if (mounted) { setState(() => _view = 'mine'); await _loadSubmissions(); }
+    final submitted = await Navigator.push<bool>(context, MaterialPageRoute<bool>(builder: (_) => TemplateContributionScreen(template: doc, revision: revision)));
+    if (mounted && submitted == true) { setState(() => _view = 'mine'); await _loadSubmissions(); }
   }
 
   Future<void> _preview(Map<String, dynamic> row, {bool review = false}) async {
@@ -263,7 +263,7 @@ class _TemplateContributionScreenState extends State<TemplateContributionScreen>
         if (widget.revision != null) 'id': widget.revision!['id'],
         if (widget.revision != null) 'revision': widget.revision!['revision'],
       });
-      if (mounted) { showMessage(context, 'Submitted for review. Track the decision in My submissions.'); Navigator.pop(context); }
+      if (mounted) { showMessage(context, 'Submitted for review. Track the decision in My submissions.'); Navigator.pop(context, true); }
     } catch (error) { if (mounted) setState(() => _error = templateContributionError(error, submitting: true)); }
     finally { if (mounted) setState(() => _busy = false); }
   }

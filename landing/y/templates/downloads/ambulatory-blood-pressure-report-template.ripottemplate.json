@@ -150,7 +150,7 @@
               "bold": true,
               "align": "left"
             },
-            "inputType": "freeText",
+            "inputType": "numeric",
             "options": [],
             "unit": "",
             "showInPdf": true,
@@ -172,7 +172,7 @@
               "bold": true,
               "align": "left"
             },
-            "inputType": "freeText",
+            "inputType": "numeric",
             "options": [],
             "unit": "",
             "showInPdf": true,
@@ -371,7 +371,7 @@
               "bold": true,
               "align": "left"
             },
-            "inputType": "freeText",
+            "inputType": "numeric",
             "options": [],
             "unit": "",
             "showInPdf": true,
@@ -393,7 +393,7 @@
               "bold": true,
               "align": "left"
             },
-            "inputType": "freeText",
+            "inputType": "numeric",
             "options": [],
             "unit": "",
             "showInPdf": true,
