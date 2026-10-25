@@ -40,7 +40,7 @@ const server=http.createServer((req,res)=>{
     for (const count of [0,1,2]) {
       await page.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**',route=>route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify({schemaVersion:1,templates:Array.from({length:count},(_,i)=>({...row,slug:'community-small-'+i}))})}));
       await page.goto(origin+'/templates/');
-      await page.waitForFunction(()=>document.getElementById('community-status').textContent.length>0);
+      await page.waitForFunction(()=>document.getElementById('community-section').hidden);
       assert.equal(await page.locator('#community-section').isVisible(),false);
     }
     await page.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**',route=>route.fulfill({status:503,body:'{}',headers:{'access-control-allow-origin':'*'}}));
@@ -48,7 +48,7 @@ const server=http.createServer((req,res)=>{
     await page.waitForTimeout(200);
     assert.equal(await page.locator('#community-section').isVisible(),false);
     await page.goto(origin+'/templates/community.html?template=community-s-test');
-    await page.getByText(/Community templates are temporarily unavailable/).waitFor();
+    await page.getByText(/Community template unavailable/).waitFor();
     await page.goto(origin+'/templates/');
     assert.equal(await page.getByRole('link',{name:'Colonoscopy report template',exact:true}).count(),1);
     assert.deepEqual(errors,[]);
