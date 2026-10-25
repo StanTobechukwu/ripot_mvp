@@ -294,18 +294,24 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
     if (!kIsWeb || !mounted) return;
     final prefs = await SharedPreferences.getInstance();
     const shownKey = 'web_report_storage_reminder_shown_v1';
-    if (prefs.getBool(shownKey) == true || !mounted) return;
-    // Mark as seen before showing to prevent repeated prompts on rapid saves.
-    await prefs.setBool(shownKey, true);
+    const countKey = 'web_report_explicit_saves_since_backup_reminder_v1';
+    final firstReminder = prefs.getBool(shownKey) != true;
+    final saveCount = (prefs.getInt(countKey) ?? 0) + 1;
+    await prefs.setInt(countKey, saveCount);
+    if (!firstReminder && saveCount % 5 != 0) return;
+    if (firstReminder) await prefs.setBool(shownKey, true);
     if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Keep a backup of your reports'),
+        title: Text(firstReminder
+            ? 'Keep a backup of your reports'
+            : 'Consider backing up your Ripot data'),
         content: const Text(
-          'This report is saved in this browser. Clearing site data or using another device may make it unavailable. '
-          'Export a PDF to preserve the final report, and use Ripot’s encrypted Back up to device option '
-          'to preserve editable records. A PDF is not a full backup.',
+          'Reports saved in this browser can be lost if site data is cleared. '
+          'Export a PDF to preserve a finished report. For editable records, '
+          'use Ripot’s encrypted Back up to device feature from the app’s '
+          'backup settings. A PDF is not a complete data backup.',
         ),
         actions: [
           FilledButton(
