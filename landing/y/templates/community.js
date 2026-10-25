@@ -5,6 +5,8 @@
   const preview = document.getElementById('community-preview');
   const section = document.getElementById('community-section');
   if (!grid && !preview) return;
+  // Do not display an empty/loading-only community section before approval data arrives.
+  if (section && grid) section.hidden = true;
   const status = document.getElementById('community-status');
   function el(tag, text, parent) { const node = document.createElement(tag); if (text) node.textContent = text; if (parent) parent.append(node); return node; }
   function valid(row) { return row && row.status === 'approved' && /^community-[a-z0-9-]{1,80}$/.test(row.slug) && /^[a-f0-9]{16}$/.test(row.version); }
@@ -33,7 +35,7 @@
         cursor = data.cursor; if (++pages >= 20 && cursor) throw Error('Catalogue limit');
       } while (cursor);
       if (section) section.hidden = count < 3;
-      status.textContent = count ? 'Reviewed contributions, available here and in the Ripot app.' : 'No community templates have been published yet. You can contribute a structure for review.';
+      if (status) status.textContent = count >= 3 ? 'Reviewed contributions, available here and in the Ripot app.' : '';
     } else {
       const params = new URLSearchParams(location.search), slug = params.get('template'), version = params.get('version');
       if (!/^community-[a-z0-9-]{1,80}$/.test(slug || '') || (version && !/^[a-f0-9]{16}$/.test(version))) throw Error('Invalid link');
@@ -67,11 +69,11 @@
           if (node.children?.length) walk(node.children,item,depth+1);
         }
       }
-      walk(payload.template.roots,preview); status.textContent = '';
+      walk(payload.template.roots,preview); if (status) status.textContent = '';
     }
   } catch (_) {
     if (preview) preview.replaceChildren();
     if (section) section.hidden = true;
-    status.textContent = 'Community templates are temporarily unavailable. Please try again later; starter templates and your saved app templates remain available.';
+    if (status) status.textContent = preview ? 'Community template unavailable. Please try again later.' : '';
   }
 })();
