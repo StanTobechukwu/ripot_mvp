@@ -220,7 +220,7 @@ class PdfRendererService {
         // the existing flowing layout; this path is only for reports without images.
         if (keepRootSectionsTogether && doc.roots.isNotEmpty)
           for (final root in doc.roots)
-            pw.Container(child: pw.Column(
+            pw.Inseparable(canSpan: false, child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               mainAxisSize: pw.MainAxisSize.min,
               children: [
