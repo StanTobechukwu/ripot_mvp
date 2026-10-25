@@ -6,6 +6,7 @@ import '../../../core/ui/item_actions.dart';
 import '../../../core/utils/ids.dart';
 import '../../auth/ui/auth_screens.dart';
 import '../data/public_template_catalog.dart';
+import '../data/template_contribution_service.dart';
 import '../data/templates_repository.dart';
 import '../domain/models/template_doc.dart';
 import '../domain/models/nodes.dart';
@@ -42,8 +43,8 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
     if (_busy) return;
     setState(() { _busy = true; _warning = ''; });
     try { await action(); }
-    catch (_) {
-      if (mounted) setState(() => _warning = 'Could not complete this action. Check your connection and account, then refresh. Your saved templates are unchanged.');
+    catch (error) {
+      if (mounted) setState(() => _warning = templateContributionError(error));
     } finally { if (mounted) setState(() => _busy = false); }
   }
 
@@ -63,7 +64,12 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
       _catalog = page.entries;
       _warning = page.unavailable.isEmpty ? '' : '${page.unavailable.join(' and ')} currently unavailable. Saved templates still work offline.';
     });
-    if (AccountRuntime.session?.currentUser != null) await _loadSubmissions();
+    if (AccountRuntime.session?.currentUser != null) {
+      try { await _loadSubmissions(); }
+      catch (error) {
+        if (mounted) setState(() => _warning = templateContributionError(error));
+      }
+    }
   }
 
   Future<bool> _signIn() async {
@@ -96,6 +102,8 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
 
   Future<void> _contribute({Map<String, dynamic>? revision}) async {
     if (!await _signIn() || !mounted) return;
+    await checkTemplateContributionService();
+    if (!mounted) return;
     final repo = context.read<TemplatesRepository>();
     final templates = await repo.listTemplates();
     if (!mounted) return;
@@ -256,7 +264,7 @@ class _TemplateContributionScreenState extends State<TemplateContributionScreen>
         if (widget.revision != null) 'revision': widget.revision!['revision'],
       });
       if (mounted) { showMessage(context, 'Submitted for review. Track the decision in My submissions.'); Navigator.pop(context); }
-    } catch (_) { if (mounted) setState(() => _error = 'Submission failed. Check your connection and sign-in. You can retry safely. If this is a revision, refresh My submissions first.'); }
+    } catch (error) { if (mounted) setState(() => _error = templateContributionError(error, submitting: true)); }
     finally { if (mounted) setState(() => _busy = false); }
   }
   @override
@@ -273,7 +281,7 @@ class _TemplateContributionScreenState extends State<TemplateContributionScreen>
       const Text('Report values, signatures and custom subject fields are removed. Check titles, options, units and the text above: they must contain no patient information.'),
       CheckboxListTile(value: _patientFree, onChanged: _busy ? null : (v) => setState(() => _patientFree = v ?? false), title: const Text('I checked this structure and it contains no patient information.')),
       CheckboxListTile(value: _permission, onChanged: _busy ? null : (v) => setState(() => _permission = v ?? false), title: const Text('I have permission to share this template and allow Ripot to publish it with my contributor credit.')),
-      if (_error.isNotEmpty) Text(_error),
+      if (_error.isNotEmpty) Semantics(liveRegion: true, child: Text(_error)),
       FilledButton(onPressed: _busy || !_patientFree || !_permission ? null : _submit, child: Text(_busy ? 'Submitting…' : 'Submit for review')),
     ])))),
   );

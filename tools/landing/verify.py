@@ -21,14 +21,15 @@ for page in ROOT.rglob('*.html'):
   if not target.exists():errors.append(f'{page.relative_to(ROOT)}: missing {parts.path}')
  if 'ripottechnologies@gmail.com' in text:errors.append(f'{page}: old support address')
  if 'up to 100 final PDFs' in text:errors.append(f'{page}: old PDF limit')
-for slug in ('upper-gi-endoscopy-report-template','colonoscopy-report-template','abdominal-ultrasound-report-template','echocardiogram-report-template'):
+catalog=json.loads((ROOT/'templates/catalog/manifest.json').read_text())['templates']
+for slug in [entry['slug'] for entry in catalog]:
  page=ROOT/'templates'/slug/'index.html'
  if not page.exists() or f'?template={slug}' not in page.read_text():errors.append(f'{slug}: missing deep link')
  if page.exists() and '\\n' in page.read_text():errors.append(f'{slug}: literal newline escapes in copyable example')
 if errors:raise SystemExit('\n'.join(errors))
 previews=ROOT/'templates/previews'
 manifest=json.loads((previews/'manifest.json').read_text())
-assert len(manifest)==8, 'Expected blank and fictional PDFs for four starters'
+assert set(manifest)=={entry['slug']+'-'+variant for entry in catalog for variant in ('blank','example')}, 'Every template needs blank and fictional PDFs'
 for key,entry in manifest.items():
  raw=(previews/entry['pdf']).read_bytes()
  assert raw.startswith(b'%PDF-'), f'{key}: not a PDF'
@@ -42,4 +43,4 @@ for key,entry in manifest.items():
  assert '[enter]' not in outline and 'FICTIONAL PATIENT' not in outline
  assert 'Patient: ________________' in outline
 print('Static links, support address, PDF copy and template targets verified.')
-print('Eight PDF hashes, preview pages, clear download labels and blank outlines verified.')
+print(f'{len(manifest)} PDF hashes, preview pages, clear download labels and blank outlines verified.')

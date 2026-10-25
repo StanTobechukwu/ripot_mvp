@@ -17,6 +17,11 @@ SEO = {
  'abdominal-ultrasound-report-template': ('Abdominal Ultrasound Report Template – Organs & Measurements', 'Use a structured abdominal ultrasound report template for liver, gallbladder, kidneys and other organs. Preview fields and open it in Ripot Web.'),
  'echocardiogram-report-template': ('Echocardiogram Report Template – 2D Echo Measurements & PDF', 'Preview a 2D echocardiogram report template with chamber measurements, LVEF, Doppler and valve findings. Open the structured editor in Ripot Web.'),
 }
+EXTRA = json.loads((ROOT/'tools/landing/additional_catalog.json').read_text())
+for entry in EXTRA:
+ CATALOG.append((entry['slug'], entry['name']+' template', entry['specialty'], entry['description']))
+ SEO[entry['slug']] = (entry['name']+' Template | Editable Report & PDF', entry['description'])
+REFERENCES = {entry['slug']:entry['references'] for entry in EXTRA}
 e = html.escape
 CSS = (ROOT/'tools/landing/templates.css').read_text()
 SCRIPT = (ROOT/'tools/landing/templates.js').read_text()
@@ -36,7 +41,7 @@ def main():
  (out/'templates.js').write_text(SCRIPT)
  shutil.copyfile(ROOT/'tools/landing/community.js', out/'community.js')
  (out/'community.html').write_text(shell('Community reporting template','Preview an approved community reporting structure and use it in Ripot.','/templates/community.html','<p id="community-status" role="status">Loading template…</p><section id="community-preview"></section><a href="/templates/">Back to all templates</a>'))
- (out/'index.html').write_text(shell('Clinical report templates','Browse reusable endoscopy, ultrasound and echocardiography report structures. Preview, download or open a template in Ripot.','/templates/', '<span class="eyebrow">The Ripot template library</span><h1>A clear starting point for your next report.</h1><p class="lead">Choose a specialty, explore the fields and make the report your own.</p><p>Preview the four starter reports, download a printable PDF, or open an editable template in Ripot. Blank forms and clearly labelled fictional examples are available separately.</p><div class="cards">'+''.join(map(card,CATALOG))+'</div><section><h2>From the Ripot community</h2><p id="community-status" role="status">Loading approved contributions…</p><div id="community-templates" class="cards"></div></section><section class="card"><h2>Have a useful reporting structure?</h2><p>Submit a patient-free template with your specialty and contributor credit. Track feedback in My submissions. Only reviewed and approved structures appear publicly.</p><div class="actions"><a class="button" href="https://ripot-web.web.app/?templateLibrary=contribute">Contribute a template</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=browse">Browse in Ripot</a></div></section>'))
+ (out/'index.html').write_text(shell('Clinical report templates','Browse endoscopy, ultrasound, cardiology and surgical report structures. Preview, download or open a template in Ripot.','/templates/', '<span class="eyebrow">The Ripot template library</span><h1>A clear starting point for your next report.</h1><p class="lead">Choose a specialty, explore the fields and make the report your own.</p><p>Preview the reporting templates, download a printable PDF, or open an editable template in Ripot. Blank forms and clearly labelled fictional examples are available separately.</p><div class="cards">'+''.join(map(card,CATALOG))+'</div><section><h2>From the Ripot community</h2><p id="community-status" role="status">Loading approved contributions…</p><div id="community-templates" class="cards"></div></section><section class="card"><h2>Have a useful reporting structure?</h2><p>Submit a patient-free template with your specialty and contributor credit. Track feedback in My submissions. Only reviewed and approved structures appear publicly.</p><div class="actions"><a class="button" href="https://ripot-web.web.app/?templateLibrary=contribute">Contribute a template</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=browse">Browse in Ripot</a></div></section>'))
  manifest=[]
  for item in CATALOG:
   slug,title,specialty,desc=item
@@ -51,7 +56,9 @@ def main():
   manifest.append({'slug':slug,'version':version,'name':title,'specialty':specialty,'contributor':'Ripot','status':'approved','url':f'/templates/catalog/{slug}/{version}.ripottemplate.json','sha256':hashlib.sha256(raw).hexdigest()})
   payload=json.loads(raw)
   template=payload['template']
-  body=page_body(slug,title,specialty,desc,template,version,''.join(card(i) for i in CATALOG if i!=item))
+  body=page_body(slug,title,specialty,desc,template,version,''.join(card(i) for i in sorted((i for i in CATALOG if i!=item), key=lambda i:i[2]!=specialty)[:4]))
+  if slug in REFERENCES:
+   body += '<section class="note"><h2>Documentation references</h2><p>Adapt these fields to your examination and local protocol. These editable structures have not undergone independent clinical validation; no organisation listed here endorses Ripot.</p><ul>'+''.join(f'<li><a href="{e(url,quote=True)}" target="_blank" rel="noopener noreferrer">{e(label)}</a></li>' for label,url in REFERENCES[slug])+'</ul></section>'
   dest=out/slug;dest.mkdir(exist_ok=True)
   (dest/'index.html').write_text(shell(seo_title,seo_desc,'/templates/'+slug+'/',body))
  (out/'catalog'/'manifest.json').write_text(json.dumps({'schemaVersion':1,'templates':manifest},indent=2)+'\n')
@@ -60,7 +67,7 @@ def main():
  for path in ['/templates/']+['/templates/'+i[0]+'/' for i in CATALOG]:
   if 'https://ripot.app'+path not in existing:
    entry=ET.SubElement(root,'{'+ns+'}url');ET.SubElement(entry,'{'+ns+'}loc').text='https://ripot.app'+path
-   ET.SubElement(entry,'{'+ns+'}lastmod').text='2026-10-21'
+   ET.SubElement(entry,'{'+ns+'}lastmod').text='2026-10-25'
  tree.write(sitemap,encoding='utf-8',xml_declaration=True)
- print('Built hub and four template pages from app exports, with app-rendered PDF previews, readable clipboard outlines and labelled downloads.')
+ print(f'Built hub and {len(CATALOG)} template pages with app-rendered PDF previews and labelled downloads.')
 if __name__=='__main__':main()

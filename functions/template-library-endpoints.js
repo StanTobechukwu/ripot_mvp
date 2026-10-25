@@ -11,6 +11,7 @@ exports.listTemplateContributions = onCall(options, service.list);
 exports.reviewTemplateContribution = onCall(options, service.review);
 exports.publicTemplateLibrary = onRequest({ ...options, cors: true }, async (req, res) => {
   if (req.method !== 'GET') return res.status(405).set('Allow','GET').end();
+  if (req.query.health === '1') return res.set('Cache-Control', 'no-store').json({ schemaVersion: 1, contributions: 'ready' });
   try {
     const data = req.query.template ? await service.publicDetail(req.query.template, req.query.version) : await service.publicList(req.query.cursor);
     res.set('Cache-Control', 'public, max-age=60').json(data);

@@ -10,6 +10,7 @@ for pdf in sorted(OUT.glob('*.pdf')):
     pages=sorted(OUT.glob(pdf.stem+'-*.jpg'),key=lambda p:int(p.stem.rsplit('-',1)[1]))
     if not pages:raise SystemExit(f'No pages rendered for {pdf}')
     manifest[pdf.stem]={'pdf':pdf.name,'sha256':hashlib.sha256(pdf.read_bytes()).hexdigest(),'pages':[p.name for p in pages]}
-if len(manifest)!=8:raise SystemExit('Expected four blank and four example PDFs')
+expected={slug+'-'+variant for slug in json.loads((ROOT/'tools/landing/example_values.json').read_text()) for variant in ('blank','example')}
+if set(manifest)!=expected:raise SystemExit('PDF set does not match the template fixtures')
 (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-print('Rendered',sum(len(m['pages']) for m in manifest.values()),'pages from eight actual Ripot PDFs')
+print('Rendered',sum(len(m['pages']) for m in manifest.values()),'pages from',len(manifest),'actual Ripot PDFs')

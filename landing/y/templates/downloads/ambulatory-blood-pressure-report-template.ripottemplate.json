@@ -1,0 +1,524 @@
+{
+  "app": "Ripot",
+  "ripotFileType": "template",
+  "ripotExportVersion": 1,
+  "template": {
+    "templateId": "ripot_public_ambulatory_blood_pressure_report",
+    "updatedAtIso": "2026-10-25T00:00:00.000",
+    "name": "Ambulatory Blood Pressure Monitoring",
+    "groupName": "",
+    "recordsConfigured": false,
+    "roots": [
+      {
+        "type": "section",
+        "id": "group_0",
+        "title": "Recording context",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "indication",
+            "title": "Indication",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "device",
+            "title": "Device, cuff and arm",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "period",
+            "title": "Recording period",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "medication",
+            "title": "Medication and timing",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "diary",
+            "title": "Diary-defined awake / asleep periods",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "attempted",
+            "title": "Attempted readings",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "valid",
+            "title": "Valid readings",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "quality",
+            "title": "Validity, exclusions and limitations",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_1",
+        "title": "Mean blood pressure",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "allsys",
+            "title": "24-hour mean systolic",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mmHg",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "alldia",
+            "title": "24-hour mean diastolic",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mmHg",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "daysys",
+            "title": "Awake mean systolic",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mmHg",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "daydia",
+            "title": "Awake mean diastolic",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mmHg",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "nightsys",
+            "title": "Asleep mean systolic",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mmHg",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "nightdia",
+            "title": "Asleep mean diastolic",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "mmHg",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "daycount",
+            "title": "Valid awake readings",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "nightcount",
+            "title": "Valid asleep readings",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_2",
+        "title": "Pattern and conclusion",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "dip",
+            "title": "Nocturnal change: method and clinician-entered result",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "symptoms",
+            "title": "Symptoms and associated measurements",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "impression",
+            "title": "Clinician interpretation and reference used",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "plan",
+            "title": "Plan / communication",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      }
+    ],
+    "signature": {}
+  }
+}

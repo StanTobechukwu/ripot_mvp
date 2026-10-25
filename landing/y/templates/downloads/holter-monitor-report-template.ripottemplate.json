@@ -1,0 +1,525 @@
+{
+  "app": "Ripot",
+  "ripotFileType": "template",
+  "ripotExportVersion": 1,
+  "template": {
+    "templateId": "ripot_public_holter_monitor_report",
+    "updatedAtIso": "2026-10-25T00:00:00.000",
+    "name": "Holter / Ambulatory ECG",
+    "groupName": "",
+    "recordsConfigured": false,
+    "roots": [
+      {
+        "type": "section",
+        "id": "group_0",
+        "title": "Recording",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "indication",
+            "title": "Indication",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "device",
+            "title": "Device / leads",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "start",
+            "title": "Start and finish",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "duration",
+            "title": "Analysable duration",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "hours",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "quality",
+            "title": "Signal quality / artefact",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "medication",
+            "title": "Relevant medication during recording",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_1",
+        "title": "Rate and rhythm",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "rhythm",
+            "title": "Predominant rhythm",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "min",
+            "title": "Minimum heart rate",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "beats/min",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "mean",
+            "title": "Mean heart rate",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "beats/min",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "max",
+            "title": "Maximum heart rate",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "numeric",
+            "options": [],
+            "unit": "beats/min",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "timing",
+            "title": "Timing / context of rate extremes",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_2",
+        "title": "Events",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "sve",
+            "title": "Supraventricular ectopy: count, burden, runs",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "ve",
+            "title": "Ventricular ectopy: count, burden, complexity",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "af",
+            "title": "Atrial fibrillation / flutter: episodes and burden",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "pauses",
+            "title": "Pauses / conduction disturbances",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "symptoms",
+            "title": "Symptoms, event times and rhythm correlation",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "other",
+            "title": "Other findings and verification",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "group_3",
+        "title": "Conclusion",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "impression",
+            "title": "Impression",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "plan",
+            "title": "Recommendations / urgent communication",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          }
+        ]
+      }
+    ],
+    "signature": {}
+  }
+}

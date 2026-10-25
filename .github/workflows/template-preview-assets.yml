@@ -5,6 +5,8 @@ on:
       - 'tools/export_template_previews.dart'
       - 'lib/features/reports/services/pdf_renderer_service.dart'
       - 'tools/landing/example_values.json'
+      - 'tools/landing/additional_templates.py'
+      - 'landing/y/templates/downloads/**'
       - 'tools/landing/render_previews.py'
       - '.github/workflows/template-preview-assets.yml'
   workflow_dispatch:
@@ -20,6 +22,7 @@ jobs:
           flutter-version: '3.47.7'
           cache: true
       - run: flutter pub get
+      - run: python3 tools/landing/export_additional_templates.py
       - run: flutter test tools/export_template_previews.dart
       - run: sudo apt-get update -qq && sudo apt-get install -y poppler-utils
       - run: python3 tools/landing/render_previews.py

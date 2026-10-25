@@ -45,7 +45,7 @@ const server=http.createServer((req,res)=>{
             if(index+1<expected.pages.length)await page.locator('[data-next]').click();
           }
           assert.equal(await page.locator('[data-next]').isDisabled(),true);
-          if(expected.pages.length>1){await page.locator('[data-previous]').click();assert((await img.getAttribute('src')).endsWith(expected.pages[0]));}
+          if(expected.pages.length>1){await page.locator('[data-previous]').click();assert((await img.getAttribute('src')).endsWith(expected.pages[expected.pages.length-2]));}
           const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#download-pdf').click()]);
           const bytes=fs.readFileSync(await download.path());
           assert.equal(bytes.subarray(0,5).toString(),'%PDF-');
@@ -76,10 +76,10 @@ const server=http.createServer((req,res)=>{
         await page.getByText('Import this template into Ripot',{exact:true}).click();
         await page.locator('[data-variant="blank"]').click();
         await page.evaluate(()=>scrollTo(0,0));
-        if(slug.startsWith('upper-gi')||slug.startsWith('echocardiogram'))await page.screenshot({path:path.join(out,`${slug}-${width}.png`),fullPage:true});
+        if(width===390||slug.startsWith('upper-gi')||slug.startsWith('echocardiogram'))await page.screenshot({path:path.join(out,`${slug}-${width}.png`),fullPage:true});
       }
     }
     assert.deepEqual(errors,[]);
-    console.log('PASS: four real report previews at 320/390/1280px; blank/example PDFs match hashes; multipage navigation, zoom, rich/plain clipboard and unchanged import downloads.');
+    console.log('PASS: all real report previews at 320/390/1280px; blank/example PDFs match hashes; multipage navigation, zoom, rich/plain clipboard and unchanged import downloads.');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
