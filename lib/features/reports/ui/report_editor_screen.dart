@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../access/providers/access_provider.dart';
 import '../../access/ui/premium_prompt.dart';
 
@@ -287,6 +288,33 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
     } catch (_) {
       // Silent safety save only. Explicit Save still shows user-visible feedback.
     }
+  }
+
+  Future<void> _showWebStorageReminderAfterSave() async {
+    if (!kIsWeb || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    const shownKey = 'web_report_storage_reminder_shown_v1';
+    if (prefs.getBool(shownKey) == true || !mounted) return;
+    // Mark as seen before showing to prevent repeated prompts on rapid saves.
+    await prefs.setBool(shownKey, true);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Keep a backup of your reports'),
+        content: const Text(
+          'This report is saved in this browser. Clearing site data or using another device may make it unavailable. '
+          'Export a PDF to preserve the final report, and use Ripot’s encrypted Back up to device option '
+          'to preserve editable records. A PDF is not a full backup.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool> _confirmLeaveEditor() async {
@@ -1101,6 +1129,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
               onPressed: () async {
                 _unfocusNow();
                 await vm.save();
+                if (!mounted) return;
+                await _showWebStorageReminderAfterSave();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
