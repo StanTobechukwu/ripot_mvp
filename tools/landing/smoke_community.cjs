@@ -37,6 +37,12 @@ const server=http.createServer((req,res)=>{
       assert.equal(fs.readFileSync(await download.path(),'utf8'),payload);
       await page.screenshot({path:path.join(out,`community-landing-${width}.png`),fullPage:true});
     }
+    for (const count of [0,1,2]) {
+      await page.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**',route=>route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify({schemaVersion:1,templates:Array.from({length:count},(_,i)=>({...row,slug:'community-small-'+i}))})}));
+      await page.goto(origin+'/templates/');
+      await page.waitForFunction(()=>document.getElementById('community-status').textContent.length>0);
+      assert.equal(await page.locator('#community-section').isVisible(),false);
+    }
     await page.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**',route=>route.fulfill({status:503,body:'{}',headers:{'access-control-allow-origin':'*'}}));
     await page.goto(origin+'/templates/');
     await page.waitForTimeout(200);

@@ -134,12 +134,13 @@ const server = http.createServer((req, res) => {
       const save = realPage.getByRole('button',{name:'Save progress',exact:true});
       await save.waitFor({state:'visible',timeout:60000});
       await save.click();
+      fs.writeFileSync(path.join(out,'latest-template-dom.html'),await realPage.content());
       await realPage.waitForFunction(source => Object.keys(localStorage).some(k =>
         k.startsWith('flutter.reports.doc.') && localStorage.getItem(k).includes(source)),
         `public_${entry.slug}_${entry.version}`);
       await realPage.waitForFunction(() => window.qaFunnel.some(e => e.event==='report_created'));
       assert.equal((await realPage.evaluate(() => window.qaFunnel)).filter(e=>e.event==='report_created').length,1);
-      await realPage.getByText(/Saved in this browser/).waitFor();
+      await realPage.getByRole('button',{name:'Preview / export',exact:true}).waitFor({state:'visible'});
       const docs = await realPage.evaluate(() => Object.keys(localStorage)
         .filter(k => k.startsWith('flutter.reports.doc.'))
         .map(k => JSON.parse(JSON.parse(localStorage.getItem(k)))));
@@ -149,6 +150,16 @@ const server = http.createServer((req, res) => {
       const raw = JSON.parse(fs.readFileSync('landing/y'+entry.url)).template;
       assert.equal(imported.roots.length,raw.roots.length);
     }
+    const firstEntry=actualCatalog.templates.find(e=>e.slug===extra[0].slug);
+    await realPage.goto(`${origin}/?template=${firstEntry.slug}&version=0000000000000000`);
+    const staleSemantics=realPage.locator('flt-semantics-placeholder');
+    await staleSemantics.waitFor({state:'attached',timeout:60000});
+    await staleSemantics.evaluate(e=>e.click());
+    const useLatest=realPage.getByRole('button',{name:'Open latest version',exact:true});
+    await useLatest.waitFor({state:'visible',timeout:60000});
+    await useLatest.click();
+    await realPage.getByRole('button',{name:'Save progress',exact:true}).waitFor({state:'visible',timeout:60000});
+    await realPage.screenshot({path:path.join(out,'stale-link-latest-version.png'),fullPage:true});
     await realPage.close();
     console.log('PASS: all 11 actual new templates open and save in compiled Ripot Web without sample findings.');
 
