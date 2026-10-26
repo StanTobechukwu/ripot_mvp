@@ -3,7 +3,7 @@ name: Build Android Play bundle
 on:
   workflow_dispatch:
   push:
-    branches: [codex/google-play-update, codex/release-1.0.13-48]
+    branches: [codex/release-hardening-20261025]
 
 concurrency:
   group: android-bundle-${{ github.ref }}
