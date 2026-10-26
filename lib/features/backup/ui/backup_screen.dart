@@ -18,13 +18,14 @@ const backupScopeNames = {
 };
 
 class BackupScreen extends StatefulWidget {
-  const BackupScreen({super.key});
+  const BackupScreen({super.key, this.service});
+  final BackupService? service;
   @override
   State<BackupScreen> createState() => _BackupScreenState();
 }
 
 class _BackupScreenState extends State<BackupScreen> {
-  final service = BackupService();
+  late final service = widget.service ?? BackupService();
   BackupScope scope = BackupScope.all;
   bool busy = true, enabled = false;
   int keep = 5, weekday = 0;
@@ -32,6 +33,56 @@ class _BackupScreenState extends State<BackupScreen> {
   String? folder, last, error, next;
   String changes = '';
   String? message;
+  BackupSchedule? _savedSchedule;
+  bool _confirmingLeave = false;
+
+  bool get _hasUnsavedSettings {
+    final saved = _savedSchedule;
+    return saved != null &&
+        (enabled != saved.enabled ||
+            weekday != saved.weekday ||
+            time.hour != saved.hour ||
+            time.minute != saved.minute);
+  }
+
+  Future<void> _confirmLeave() async {
+    if (busy || _confirmingLeave) return;
+    _confirmingLeave = true;
+    try {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Save backup settings?'),
+          content: const Text(
+            'Your automatic backup changes have not been saved. '
+            'Discarding them keeps your previous schedule. '
+            'Your chosen folder, saved copies setting and backup files are kept.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Keep editing'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'discard'),
+              child: const Text('Discard changes'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'save'),
+              child: const Text('Save settings'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (choice == 'save' && !await _configure()) return;
+      if (mounted && (choice == 'save' || choice == 'discard')) {
+        Navigator.of(context).pop();
+      }
+    } finally {
+      _confirmingLeave = false;
+    }
+  }
   @override
   void initState() {
     super.initState();
@@ -44,7 +95,8 @@ class _BackupScreenState extends State<BackupScreen> {
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool discardDraft = false}) async {
+    final preserveDraft = _hasUnsavedSettings && !discardDraft;
     try {
       final s = await service.schedule(),
           p = await SharedPreferences.getInstance();
@@ -76,10 +128,13 @@ class _BackupScreenState extends State<BackupScreen> {
       }
       if (!mounted) return;
       setState(() {
-        enabled = s.enabled;
+        _savedSchedule = s;
+        if (!preserveDraft) {
+          enabled = s.enabled;
+          weekday = s.weekday;
+          time = TimeOfDay(hour: s.hour, minute: s.minute);
+        }
         keep = s.keep;
-        weekday = s.weekday;
-        time = TimeOfDay(hour: s.hour, minute: s.minute);
         folder = selected;
         last = p.getString('backup.last.all');
         error = p.getString('backup.error');
@@ -98,13 +153,18 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  Future<bool> _run(
+    Future<void> Function() action, {
+    bool reloadSettings = false,
+  }) async {
+    var succeeded = false;
     setState(() {
       busy = true;
       message = null;
     });
     try {
       await action();
+      succeeded = true;
     } catch (e) {
       if (mounted) {
         setState(
@@ -116,8 +176,11 @@ class _BackupScreenState extends State<BackupScreen> {
         );
       }
     } finally {
-      if (mounted) await _load();
+      if (mounted) {
+        await _load(discardDraft: reloadSettings && succeeded);
+      }
     }
+    return succeeded;
   }
 
   Future<String?> _passphrase({required bool create}) async {
@@ -235,10 +298,10 @@ class _BackupScreenState extends State<BackupScreen> {
     });
   }
 
-  Future<void> _configure() async {
+  Future<bool> _configure() async {
     final pass = enabled ? await _passphrase(create: true) : '';
-    if (pass == null || !mounted) return;
-    await _run(() async {
+    if (pass == null || !mounted) return false;
+    return _run(() async {
       await service.configure(
         BackupSchedule(
           enabled: enabled,
@@ -256,7 +319,7 @@ class _BackupScreenState extends State<BackupScreen> {
               : 'Automatic backup is off.',
         );
       }
-    });
+    }, reloadSettings: true);
   }
 
   Future<void> _restore() async {
@@ -345,7 +408,10 @@ class _BackupScreenState extends State<BackupScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !busy,
+      canPop: !busy && !_hasUnsavedSettings,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && !busy && _hasUnsavedSettings) _confirmLeave();
+      },
       child: Scaffold(
         appBar: AppBar(title: const Text('Backup & restore')),
         body: AbsorbPointer(
@@ -519,6 +585,11 @@ class _BackupScreenState extends State<BackupScreen> {
                     ),
                 ],
                 const SizedBox(height: 12),
+                if (_hasUnsavedSettings)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text('Unsaved automatic backup settings'),
+                  ),
                 OutlinedButton(
                   onPressed: _configure,
                   child: const Text('Save automatic settings'),
