@@ -1,6 +1,8 @@
 name: Build verified web release
 
 on:
+  pull_request:
+    branches: [codex/release-hardening-20261025]
   workflow_dispatch:
   push:
     branches: [codex/release-hardening-20261025]

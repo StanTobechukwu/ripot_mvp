@@ -305,13 +305,14 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(firstReminder
-            ? 'Keep a backup of your reports'
-            : 'Consider backing up your Ripot data'),
+            ? 'Keep a copy of your reports'
+            : 'Remember to export your reports'),
         content: const Text(
           'Reports saved in this browser can be lost if site data is cleared. '
-          'Export a PDF to preserve a finished report. For editable records, '
-          'use Ripot’s encrypted Back up to device feature from the app’s '
-          'backup settings. A PDF is not a complete data backup.',
+          'Export a PDF from Preview to keep a finished report, and confirm '
+          'the file is in Downloads. A PDF does not preserve an editable report. '
+          'Registry and Logbook have separate encrypted backup tools; these '
+          'do not back up My Reports or the whole app.',
         ),
         actions: [
           FilledButton(
@@ -333,7 +334,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
       builder: (dialogContext) => AlertDialog(
         title: const Text('Save current report?'),
         content: const Text(
-          kIsWeb ? 'Save progress in this browser? Clearing site data can erase it. Download a PDF from Preview, and use backup to keep editable records.' : 'You have unsaved changes. Do you want to save your progress before leaving?',
+          kIsWeb ? 'Save progress in this browser? Clearing site data can erase it. Download a PDF from Preview to keep a finished copy. Editable reports remain in this browser.' : 'You have unsaved changes. Do you want to save your progress before leaving?',
         ),
         actions: [
           TextButton(
@@ -1141,7 +1142,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     duration: const Duration(seconds: 10),
-                    content: Text(kIsWeb ? 'Saved in this browser. Clearing site data can erase it. Download a PDF copy; use backup for editable records.' : 'Progress saved to My Reports'),
+                    content: Text(kIsWeb ? 'Saved in this browser. Clearing site data can erase it. Download a PDF copy from Preview.' : 'Progress saved to My Reports'),
                     action: kIsWeb ? SnackBarAction(label: 'Preview / export', onPressed: () {
                       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ReportPreviewScreen()));
                     }) : null,
