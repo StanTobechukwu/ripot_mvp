@@ -42,6 +42,21 @@ const server = http.createServer((req, res) => {
   fs.createReadStream(file).pipe(res);
 });
 
+// The first/every-fifth-save reminder must be acknowledged before the
+// export snackbar is reachable. Exercise that behavior instead of skipping it.
+let explicitSaves = 0;
+async function finishSave(page) {
+  explicitSaves++;
+  const reminder = page.getByRole('button', { name: 'Got it', exact: true });
+  if (explicitSaves === 1 || explicitSaves % 5 === 0) {
+    await reminder.waitFor({ state: 'visible' });
+    await page.getByText('do not back up My Reports or the whole app.', { exact: false }).waitFor();
+    await reminder.click();
+  }
+  await page.getByRole('button', { name: 'Preview / export', exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await reminder.isVisible(), false);
+}
+
 (async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -108,6 +123,7 @@ const server = http.createServer((req, res) => {
     assert.equal(saved[0].sourceTemplateId, `public_${slug}_${version}`);
     assert.equal(saved[0].roots[1].inputType, 'numeric');
     assert.equal(saved[0].roots[1].unit, 'mm');
+    await finishSave(page);
     await page.screenshot({ path: path.join(out, 'remote-template-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(out, 'remote-template-mobile.png'), fullPage: true });
@@ -140,7 +156,7 @@ const server = http.createServer((req, res) => {
         `public_${entry.slug}_${entry.version}`);
       await realPage.waitForFunction(() => window.qaFunnel.some(e => e.event==='report_created'));
       assert.equal((await realPage.evaluate(() => window.qaFunnel)).filter(e=>e.event==='report_created').length,1);
-      await realPage.getByRole('button',{name:'Preview / export',exact:true}).waitFor({state:'visible'});
+      await finishSave(realPage);
       const docs = await realPage.evaluate(() => Object.keys(localStorage)
         .filter(k => k.startsWith('flutter.reports.doc.'))
         .map(k => JSON.parse(JSON.parse(localStorage.getItem(k)))));
@@ -161,7 +177,7 @@ const server = http.createServer((req, res) => {
     await realPage.getByRole('button',{name:'Save progress',exact:true}).waitFor({state:'visible',timeout:60000});
     await realPage.screenshot({path:path.join(out,'stale-link-latest-version.png'),fullPage:true});
     await realPage.close();
-    console.log('PASS: all 11 actual new templates open and save in compiled Ripot Web without sample findings.');
+    console.log('PASS: all 11 actual new templates open and save without sample findings; storage reminders appear on saves 1, 5 and 10 and allow continuing to export.');
 
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
     const letterheadPrompt = page.getByRole('button', {
