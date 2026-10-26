@@ -305,13 +305,14 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(firstReminder
-            ? 'Keep a backup of your reports'
-            : 'Consider backing up your Ripot data'),
+            ? 'Keep a copy of your reports'
+            : 'Remember to export your reports'),
         content: const Text(
           'Reports saved in this browser can be lost if site data is cleared. '
-          'Export a PDF to preserve a finished report. For editable records, '
-          'use Ripot’s encrypted Back up to device feature from the app’s '
-          'backup settings. A PDF is not a complete data backup.',
+          'Export a PDF from Preview to keep a finished report, and confirm '
+          'the file is in Downloads. A PDF does not preserve an editable report. '
+          'Registry and Logbook have separate encrypted backup tools; these '
+          'do not back up My Reports or the whole app.',
         ),
         actions: [
           FilledButton(
