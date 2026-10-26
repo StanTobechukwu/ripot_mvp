@@ -89,3 +89,16 @@ test('metadata-only attribution edits produce a distinct immutable published ver
 });
 
 test('approval requires an explicit patient-free reviewer attestation',async()=>{const {id}=await service.submit(submission());await assert.rejects(approve(id,1,{patientFreeReviewed:false}),{code:'invalid-argument'});assert.deepEqual((await service.publicList()).templates,[]);});
+
+test('rejection leaves pending queue, preserves author feedback and publishes nothing', async () => {
+  const {id} = await service.submit(submission());
+  await service.review(req('reviewer', {id, revision: 1, decision: 'rejected', note: 'Please clarify the labels.'}));
+  const queue = await service.list(req('reviewer', {review: true}));
+  assert.equal(queue.pendingCount, 0);
+  assert.deepEqual(queue.entries, []);
+  const mine = (await service.list(req('author'))).entries[0];
+  assert.equal(mine.status, 'rejected');
+  assert.equal(mine.reviewerNote, 'Please clarify the labels.');
+  assert.deepEqual((await service.publicList()).templates, []);
+  await assert.rejects(service.review(req('reviewer', {id, revision: 1, decision: 'rejected', note: 'Again'})), {code: 'failed-precondition'});
+});

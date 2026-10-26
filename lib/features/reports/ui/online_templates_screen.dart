@@ -14,6 +14,7 @@ import '../domain/serialization/template_codec.dart';
 import '../providers/report_editor_provider.dart';
 import 'report_editor_screen.dart';
 import 'template_actions.dart';
+import 'template_review_dialog.dart';
 
 class OnlineTemplatesScreen extends StatefulWidget {
   const OnlineTemplatesScreen({super.key, this.initialView = 'browse'});
@@ -123,6 +124,45 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
         : await PublicTemplateCatalog.resolve(Uri(queryParameters: {'template': row['slug'] as String, 'version': row['version'] as String}));
     if (!mounted) return;
     if (doc == null) { showMessage(context, 'This version could not be loaded. Please refresh the library.'); return; }
+    if (review) {
+      final decision = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => TemplateReviewDialog(
+          title: doc.name,
+          submissionId: row['id'] as String,
+          revision: (row['revision'] as num).toInt(),
+          preview: [
+            Text('${row['specialty']} · By ${row['contributor']}'),
+            Text('Revision ${row['revision']}'),
+            const SizedBox(height: 12),
+            Text(row['description'] as String? ?? ''),
+            ...templateStructure(doc),
+          ],
+          submit: (data) async {
+            await AccountFunctions.call('reviewTemplateContribution', data: data);
+          },
+        ),
+      );
+      if (decision == null || !mounted) return;
+      // Reflect a confirmed decision immediately, even if refreshing fails.
+      setState(() {
+        _submissions.removeWhere((entry) => entry['id'] == row['id']);
+        if (_pending > 0) _pending--;
+      });
+      showMessage(context, decision == 'approved'
+          ? 'Approved and published to the library.'
+          : decision == 'rejected'
+              ? 'Template rejected. Feedback is available in My submissions.'
+              : 'Changes requested. Feedback is available in My submissions.');
+      try {
+        await _loadSubmissions();
+      } catch (_) {
+        if (mounted) setState(() => _warning =
+            'The review was saved, but the queue could not refresh. Refresh the library to check remaining submissions.');
+      }
+      return;
+    }
     final key = '${row['slug']}:${row['version']}';
     final action = await showDialog<String>(context: context, builder: (dialog) => AlertDialog(
       title: Text(doc.name),
@@ -135,41 +175,16 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
           Text(row['description'] as String? ?? ''),
           const SizedBox(height: 12),
           ...templateStructure(doc),
-          if (review) const Padding(padding: EdgeInsets.only(top: 12), child: Text('Review every title, option and attribution for patient information, permission and clinical suitability before approval.')),
         ],
       ))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Close')),
-        if (review) ...[
-          TextButton(onPressed: () => Navigator.pop(dialog, 'changes_requested'), child: const Text('Request changes')),
-          TextButton(onPressed: () => Navigator.pop(dialog, 'rejected'), child: const Text('Reject')),
-          FilledButton(onPressed: () => Navigator.pop(dialog, 'approved'), child: const Text('Approve and publish')),
-        ] else ...[
           TextButton(onPressed: () => Navigator.pop(dialog, 'use'), child: const Text('Use now')),
           FilledButton(onPressed: _saved.contains(key) ? null : () => Navigator.pop(dialog, 'add'), child: Text(_saved.contains(key) ? 'Already added' : _savedSlugs.contains(row['slug']) ? 'Add new version as a copy' : 'Add to my templates')),
-        ],
       ],
     ));
     if (action == null || !mounted) return;
-    if (review) {
-      if (action == 'approved') {
-        final checked = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(
-          title: const Text('Confirm your review'),
-          content: const Text('I reviewed all titles, options, units, descriptions and contributor credit. This structure contains no patient information, has permission for publication and is suitable for the stated documentation purpose.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Back')),
-            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Confirmed — publish'))],
-        ));
-        if (checked != true || !mounted) return;
-      }
-      String note = '';
-      if (action != 'approved') {
-        final answer = await askName(context, 'Feedback for contributor');
-        if (answer == null || !mounted) return;
-        note = answer;
-      }
-      await AccountFunctions.call('reviewTemplateContribution', data: {'id': row['id'], 'revision': row['revision'], 'decision': action, 'note': note, 'patientFreeReviewed': action == 'approved'});
-      if (mounted) { showMessage(context, action == 'approved' ? 'Approved and published to the library.' : 'Review saved. The contributor can see your feedback in My submissions.'); await _loadSubmissions(); }
-    } else if (action == 'use') {
+    if (action == 'use') {
       context.read<ReportEditorProvider>().newReportFromTemplate(doc);
       await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ReportEditorScreen()));
     } else if (await canAddTemplate(context) && mounted) {
