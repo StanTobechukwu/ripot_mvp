@@ -11,6 +11,9 @@ class Links(HTMLParser):
   for key in ('href','src'):
    if key in a:self.links.append(a[key])
 errors=[]
+source=Path(__file__).resolve().parent/'community.js'
+if source.read_bytes() != (ROOT/'templates/community.js').read_bytes():
+ errors.append('Community script differs from its generator source; rebuild templates before packaging.')
 for page in ROOT.rglob('*.html'):
  text=page.read_text();parser=Links();parser.feed(text)
  for url in parser.links:
