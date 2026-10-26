@@ -1,0 +1,48 @@
+name: Backup safety checks
+on:
+  push:
+    branches: [codex/global-backup-20261026]
+  pull_request:
+    branches: [codex/review-dialog-fix-20261026]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backup-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backup:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: node --test tools/web/backup_bridge_test.cjs
+      - run: flutter pub get
+      - name: Dependency lock for review
+        run: cat pubspec.lock
+      - name: Analyze backup code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib/features/backup test/features/backup lib/main.dart lib/features/reports/ui/reports_list_screen.dart
+      - name: Exercise recovery and all app regressions
+        run: flutter test
+      - name: Compile browser app
+        run: flutter build web --release --no-pub
+      - name: Package web release
+        run: python3 tools/web/package_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ripot-backup-web-${{ github.run_number }}
+          path: build/web-distribution/*
+          if-no-files-found: error
+      - name: Compile Android folder plugin and background worker
+        run: |
+          python3 tools/android/prepare_ci_firebase.py
+          flutter build apk --debug --no-pub

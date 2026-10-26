@@ -3,9 +3,19 @@
     <cloud-backup>
         <exclude domain="file" path="ripot_logbook/" />
         <exclude domain="sharedpref" path="ripot_logbook_folder.xml" />
+        <exclude domain="file" path="ripot-restore-journal.json" />
+        <exclude domain="file" path="ripot-restore-journal.json.pending" />
+        <exclude domain="sharedpref" path="ripot_backup_folder.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureStorageCipherPreferences.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="ripot_logbook/" />
         <exclude domain="sharedpref" path="ripot_logbook_folder.xml" />
+        <exclude domain="file" path="ripot-restore-journal.json" />
+        <exclude domain="file" path="ripot-restore-journal.json.pending" />
+        <exclude domain="sharedpref" path="ripot_backup_folder.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureStorageCipherPreferences.xml" />
     </device-transfer>
 </data-extraction-rules>

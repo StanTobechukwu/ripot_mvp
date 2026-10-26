@@ -50,7 +50,7 @@ async function finishSave(page) {
   const reminder = page.getByRole('button', { name: 'Got it', exact: true });
   if (explicitSaves === 1 || explicitSaves % 5 === 0) {
     await reminder.waitFor({ state: 'visible' });
-    await page.getByText('do not back up My Reports or the whole app.', { exact: false }).waitFor();
+    await page.getByText('Choose Everything for a full Ripot backup.', { exact: false }).waitFor();
     await reminder.click();
   }
   await page.getByRole('button', { name: 'Preview / export', exact: true }).waitFor({ state: 'visible' });
