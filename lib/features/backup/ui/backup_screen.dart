@@ -156,8 +156,10 @@ class _BackupScreenState extends State<BackupScreen> {
   Future<bool> _run(
     Future<void> Function() action, {
     bool reloadSettings = false,
+    String? failureTitle,
   }) async {
     var succeeded = false;
+    String? failureMessage;
     setState(() {
       busy = true;
       message = null;
@@ -174,11 +176,27 @@ class _BackupScreenState extends State<BackupScreen> {
               ? e.message.toString()
               : 'This operation did not complete. Check the passphrase, backup file, folder permission and storage space. Existing backups were kept.',
         );
+        failureMessage = message;
       }
     } finally {
       if (mounted) {
         await _load(discardDraft: reloadSettings && succeeded);
       }
+    }
+    if (mounted && failureTitle != null && failureMessage != null) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(failureTitle),
+          content: Text(failureMessage!),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Keep editing'),
+            ),
+          ],
+        ),
+      );
     }
     return succeeded;
   }
@@ -260,6 +278,7 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Future<void> _backup() async {
+    if (!await _ensureFolder() || !mounted) return;
     final pass = await _passphrase(create: true);
     if (pass == null || !mounted) return;
     await _run(() async {
@@ -298,28 +317,65 @@ class _BackupScreenState extends State<BackupScreen> {
     });
   }
 
+  Future<bool> _ensureFolder() async {
+    if (!service.destination.supported || folder != null) return true;
+    var choosing = false;
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => StatefulBuilder(
+            builder: (ctx, update) => AlertDialog(
+              title: const Text('Choose a backup folder'),
+              content: const Text(
+                'Select where Ripot should save your full and section backups. '
+                'No backup will be saved until you choose a folder.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: choosing ? null : () => Navigator.pop(ctx, false),
+                  child: const Text('Not now'),
+                ),
+                FilledButton(
+                  onPressed: choosing ? null : () async {
+                    update(() => choosing = true);
+                    // Open the browser picker directly from this button's gesture.
+                    final saved = await _run(() => service.chooseFolder());
+                    if (ctx.mounted) Navigator.pop(ctx, saved && folder != null);
+                  },
+                  child: Text(choosing ? 'Choosing folder…' : 'Choose folder'),
+                ),
+              ],
+            ),
+          ),
+        ) ??
+        false;
+  }
+
   Future<bool> _configure() async {
+    if (enabled && (!await _ensureFolder() || !mounted)) return false;
     final pass = enabled ? await _passphrase(create: true) : '';
     if (pass == null || !mounted) return false;
+    final input = BackupSchedule(
+      enabled: enabled,
+      hour: time.hour,
+      minute: time.minute,
+      weekday: weekday,
+      keep: keep,
+    );
     return _run(() async {
-      await service.configure(
-        BackupSchedule(
-          enabled: enabled,
-          hour: time.hour,
-          minute: time.minute,
-          weekday: weekday,
-          keep: keep,
-        ),
-        pass,
-      );
+      await service.configure(input, pass);
       if (mounted) {
-        setState(
-          () => message = enabled
+        setState(() {
+          // A later status/inventory refresh must not mark a completed save dirty.
+          _savedSchedule = input;
+          message = enabled
               ? 'Automatic backup schedule saved. You can still back up now at any time.'
-              : 'Automatic backup is off.',
+              : 'Automatic backup is off.';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message!)),
         );
       }
-    }, reloadSettings: true);
+    }, reloadSettings: true, failureTitle: 'Backup settings were not saved');
   }
 
   Future<void> _restore() async {
@@ -452,7 +508,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Backup folder'),
                   subtitle: Text(
-                    folder ?? 'Choose once; full and section backups go here.',
+                    folder ?? 'Required: choose where full and section backups will be saved.',
                   ),
                   trailing: const Icon(Icons.folder_open),
                   onTap: () => _run(() async {
