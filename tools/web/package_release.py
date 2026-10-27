@@ -49,7 +49,10 @@ This folder contains the combined web update; Flutter is not required to deploy 
 Included: updated branding/support, safer Registry report linking, unlimited
 saved PDFs for Premium/active trials, dynamic public templates, the Free-user
 letterhead invitation, Web/Windows checkout-availability messaging, and the
-community template library with submissions and reviewer screens.
+community template library with contributor decision emails, per-submission
+withdrawal menus, clear reviewer ownership labels, and encrypted full/section
+backups with optional schedules. Web automatic backups require a supported
+browser and an open Ripot tab. The landing page explains these features.
 The fifteen reporting templates include real PDF previews, blank and fictional
 example PDF downloads, page zoom and readable plain/formatted copied outlines.
 To apply these landing-page improvements, run bash Deploy-Landing.command.
@@ -65,13 +68,13 @@ On the Mac already used for Firebase deployment, open Terminal in this folder:
   bash Deploy-Web.command
 If Firebase asks you to sign in, run firebase login and try again.
 The destination is ripot-web in project ripot-4edf7.
-For all three parts of this update, finish the one-time reviewer and SMTP setup
-in TEMPLATE_LIBRARY.md, then run these scripts from THIS same folder:
-  bash Deploy-Template-Services.command
-  bash Setup-Template-Reviewer.command
-  bash Setup-Template-Notifications.command
-  bash Deploy-Web.command
-  bash Deploy-Landing.command
+For an existing installation with reviewer access and SMTP already configured,
+update the backend, web app and landing page together from THIS same folder:
+  bash Update-Ripot.command
+This updates the email worker before the decision service, then publishes the
+web app and landing page. It does not reset the mailbox password or reviewer roles.
+For first-time setup, follow TEMPLATE_LIBRARY.md before testing any review decisions.
+New emails apply to new decisions; older decisions are not emailed retroactively.
 The deployment scripts require Node 20 or newer and Firebase owner access.
 The web-only script does not deploy the separate landing page or backend.
 Check /release.json on the live web app to confirm the exact release.
@@ -91,7 +94,7 @@ shutil.copyfile(root / 'firestore.rules', stage / 'firestore.rules')
 shutil.copytree(root / 'landing/y', stage / 'landing/y', dirs_exist_ok=True)
 for name in ('firebase.json', '.firebaserc'):
     shutil.copyfile(root / 'landing' / name, stage / 'landing' / name)
-for name in ('Deploy-Template-Services.command', 'Setup-Template-Reviewer.command', 'Setup-Template-Notifications.command'):
+for name in ('Deploy-Template-Services.command', 'Setup-Template-Reviewer.command', 'Setup-Template-Notifications.command', 'Update-Ripot.command'):
     shutil.copyfile(root / 'tools/deploy' / name, stage / name)
     (stage / name).chmod(0o755)
 (stage / 'Deploy-Landing.command').write_text('''#!/bin/bash

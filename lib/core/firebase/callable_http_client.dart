@@ -4,8 +4,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AccountFunctionException implements Exception {
-  const AccountFunctionException({required this.code});
+  const AccountFunctionException({required this.code, this.message});
   final String code;
+  final String? message;
 
   @override
   String toString() => 'Account function failed ($code).';
@@ -86,7 +87,11 @@ class CallableHttpClient {
         final code = validStatuses.contains(status)
             ? (status as String).toLowerCase().replaceAll('_', '-')
             : 'internal';
-        throw AccountFunctionException(code: code);
+        throw AccountFunctionException(
+          code: code,
+          message: error is Map && error['message'] is String
+              ? error['message'] as String : null,
+        );
       }
       if (response.statusCode != 200 || !body.containsKey('result')) {
         throw AccountFunctionException(code: 'internal');

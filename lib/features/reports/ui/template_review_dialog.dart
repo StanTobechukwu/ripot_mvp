@@ -10,9 +10,11 @@ class TemplateReviewDialog extends StatefulWidget {
     required this.revision,
     required this.preview,
     required this.submit,
+    this.accountEmail,
   });
 
   final String title;
+  final String? accountEmail;
   final String submissionId;
   final int revision;
   final List<Widget> preview;
@@ -73,6 +75,12 @@ class _TemplateReviewDialogState extends State<TemplateReviewDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.accountEmail?.isNotEmpty == true)
+              Padding(padding: const EdgeInsets.only(bottom: 8),
+                child: Text('Reviewing as: ${widget.accountEmail}')),
+            if (_decision != null)
+              Padding(padding: const EdgeInsets.only(bottom: 12),
+                child: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold))),
             if (_decision == null) ...[
               ...widget.preview,
               const SizedBox(height: 12),
@@ -81,8 +89,8 @@ class _TemplateReviewDialogState extends State<TemplateReviewDialog> {
               const Text('I reviewed all titles, options, units, descriptions and contributor credit. This structure contains no patient information, has permission for publication and is suitable for the stated documentation purpose.')
             else ...[
               Text(_decision == 'rejected'
-                  ? 'Explain why this template is being rejected. The contributor will see this feedback in My submissions.'
-                  : 'Describe what needs to change. The contributor can revise the template and resubmit it.'),
+                  ? 'Explain why this template is being rejected. The contributor will receive this reason by email and can also read it in My submissions.'
+                  : 'Describe what needs to change. The contributor will receive your feedback by email and can revise the template in My submissions.'),
               const SizedBox(height: 12),
               Form(key: _form, child: TextFormField(
                 controller: _feedback,

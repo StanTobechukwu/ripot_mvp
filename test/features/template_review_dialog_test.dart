@@ -16,6 +16,7 @@ void main() {
           barrierDismissible: false,
           builder: (_) => TemplateReviewDialog(
             title: 'Test template', submissionId: 'submission-1', revision: 3,
+            accountEmail: 'reviewer@example.invalid',
             preview: [for (var i = 0; i < (longPreview ? 200 : 1); i++) Text('Section $i')],
             submit: submit,
           ),
@@ -51,6 +52,8 @@ void main() {
         completed: (value) => result = value);
       await tester.tap(find.text(decision == 'rejected' ? 'Reject' : 'Request changes'));
       await tester.pumpAndSettle();
+      expect(find.text('Reviewing as: reviewer@example.invalid'), findsOneWidget);
+      expect(find.text('Test template'), findsOneWidget);
       final confirm = find.text(decision == 'rejected' ? 'Confirm rejection' : 'Send feedback');
       await tester.tap(confirm);
       await tester.pumpAndSettle();
@@ -88,7 +91,7 @@ void main() {
       expect(closed, isFalse);
       expect(find.text('Needs correction'), findsOneWidget);
       expect(find.byWidgetPredicate((widget) => widget is Semantics && widget.properties.liveRegion == true), findsWidgets);
-      if (code == 'permission-denied') expect(find.textContaining('another reviewer'), findsOneWidget);
+      if (code == 'permission-denied') expect(find.textContaining('This action was refused'), findsOneWidget);
       await tester.tap(find.text('Close'));
       await tester.pumpAndSettle();
       expect(closed, isTrue);

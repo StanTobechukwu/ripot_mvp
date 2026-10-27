@@ -39,4 +39,19 @@ void main() {
     expect(templateContributionError(const AccountFunctionException(code:'invalid-argument'),submitting:true),contains('entries are kept'));
     expect(templateContributionError(const AccountFunctionException(code:'invalid-argument')),isNot(contains('Check your connection')));
   });
+  test('known permission errors distinguish ownership from reviewer access on SDK and Windows', () {
+    for (final entry in {
+      'Another reviewer must approve your own contribution.': 'This template was submitted by the account you are using',
+      'Another reviewer must review your own contribution.': 'This template was submitted by the account you are using',
+      'Reviewer access is required.': 'This account does not have reviewer access',
+      'Only the contributor can withdraw this submission.': 'Only the account that submitted',
+    }.entries) {
+      final sdk = FirebaseFunctionsException(code: 'permission-denied', message: entry.key);
+      final native = AccountFunctionException(code: 'permission-denied', message: entry.key);
+      expect(templateContributionError(sdk), contains(entry.value));
+      expect(templateContributionError(sdk), templateContributionError(native));
+    }
+    expect(templateContributionError(const AccountFunctionException(code: 'account-changed')), contains('signed-in account changed'));
+  });
+
 }

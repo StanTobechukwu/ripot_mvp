@@ -46,6 +46,20 @@ void main() {
     expect(revisions, 1);
   });
 
+  testWidgets('review queue labels own submissions and keeps them out of the review action', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: TemplateSubmissionCard(
+      row: {...row('pending'), 'isOwn': true},
+      onReview: () => fail('Self-review must not open'),
+    ))));
+    expect(find.textContaining('Your submission. Another reviewer'), findsOneWidget);
+    expect(find.text('Preview and review'), findsNothing);
+    expect(find.byTooltip('Submission options'), findsNothing);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: TemplateSubmissionCard(
+      row: {...row('pending'), 'isOwn': false}, onReview: () {},
+    ))));
+    expect(find.text('Preview and review'), findsOneWidget);
+  });
+
   Future<void> open(WidgetTester tester, Future<void> Function() submit,
       void Function(bool?) completed) async {
     await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) =>

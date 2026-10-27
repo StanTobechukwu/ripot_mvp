@@ -112,6 +112,10 @@ The saved reason remains available in My submissions regardless of email deliver
 
 Existing decisions made before this update are not emailed retroactively.
 Downloading the new web code alone does not update Firebase functions.
+The complete compiled release includes `Update-Ripot.command`: after reviewer and
+SMTP setup, run `bash Update-Ripot.command` to update backend, web app and landing
+page in order without changing mailbox secrets or reviewer roles.
+
 For an existing installation, deploy the notification worker **first**, then the
 core services. This prevents an older worker treating a decision as a reviewer
 alert during the rollout. With the SMTP secret already configured, run from the

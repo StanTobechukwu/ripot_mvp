@@ -590,7 +590,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   service.backgroundAndroid
                       ? 'Android can run backups in the background. Battery restrictions may delay the chosen time; missed backups run when possible. Force-stopping Ripot pauses them until you reopen it.'
                       : kIsWeb
-                      ? 'Runs only while this browser tab is open and unlocked for backups. You may need to choose the folder again after reopening the browser.'
+                      ? 'Web backups run only while Ripot Web is open in this browser tab. After reopening it, enter your backup password to restart them and choose the folder again if asked.'
                       : 'Runs while Ripot is open. A missed backup runs when you next open the app.',
                 ),
                 if (enabled) ...[

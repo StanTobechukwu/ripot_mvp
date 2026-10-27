@@ -164,3 +164,19 @@ test('decided submissions cannot be withdrawn; withdrawing a pending update pres
   await approve(rejected.id, 1, {decision: 'rejected', note: 'Needs revision'});
   await assert.rejects(service.withdraw(req('author', {id: rejected.id, revision: 1})), {code: 'failed-precondition'});
 });
+
+
+test('submission ownership is explicit without exposing account IDs', async () => {
+  const {id} = await service.submit(submission());
+  const mine = (await service.list(req('author'))).entries[0];
+  assert.equal(mine.isOwn, true);
+  assert.equal(mine.ownerUid, undefined);
+  const otherReview = (await service.list(req('reviewer', {review: true}))).entries[0];
+  assert.equal(otherReview.id, id);
+  assert.equal(otherReview.isOwn, false);
+  assert.equal(otherReview.ownerUid, undefined);
+  await db.collection(C.reviewers).doc('author').set({enabled: true});
+  const ownReview = (await service.list(req('author', {review: true}))).entries[0];
+  assert.equal(ownReview.isOwn, true);
+  await assert.rejects(service.review(req('author', {id, revision: 1, decision: 'rejected', note: 'Test'})), {code: 'permission-denied'});
+});

@@ -98,7 +98,7 @@ function createTemplateLibrary(db, clock = () => Date.now()) {
     const [snap, pending] = await Promise.all([query.get(), reviewer ? db.collection(C.submissions).where('status','==','pending').count().get() : null]);
     const entries = snap.docs.map(doc => {
       const { payload, ownerUid, requestId, ...record } = doc.data();
-      return { id: doc.id, ...record };
+      return { id: doc.id, ...record, isOwn: ownerUid === uid };
     });
     return { entries, reviewer, pendingCount: pending?.data().count ?? 0, cursor: snap.size === 30 ? snap.docs.at(-1).id : null };
   }

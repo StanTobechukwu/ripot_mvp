@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/firebase/account_functions.dart';
 import '../../../core/firebase/account_runtime.dart';
+import '../../../core/firebase/callable_http_client.dart';
 import '../../../core/ui/item_actions.dart';
 import '../../../core/utils/ids.dart';
 import '../../auth/ui/auth_screens.dart';
@@ -153,11 +154,13 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
     if (!mounted) return;
     if (doc == null) { showMessage(context, 'This version could not be loaded. Please refresh the library.'); return; }
     if (review) {
+      final reviewer = AccountRuntime.session?.currentUser;
       final decision = await showDialog<String>(
         context: context,
         barrierDismissible: false,
         builder: (_) => TemplateReviewDialog(
           title: doc.name,
+          accountEmail: reviewer?.email,
           submissionId: row['id'] as String,
           revision: (row['revision'] as num).toInt(),
           preview: [
@@ -168,6 +171,9 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
             ...templateStructure(doc),
           ],
           submit: (data) async {
+            if (AccountRuntime.session?.currentUser?.uid != reviewer?.uid) {
+              throw const AccountFunctionException(code: 'account-changed');
+            }
             await AccountFunctions.call('reviewTemplateContribution', data: data);
           },
         ),
@@ -179,10 +185,10 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
         if (_pending > 0) _pending--;
       });
       showMessage(context, decision == 'approved'
-          ? 'Approved and published to the library.'
+          ? 'Approved and published. Decision email queued for the contributor.'
           : decision == 'rejected'
-              ? 'Template rejected. Feedback is available in My submissions.'
-              : 'Changes requested. Feedback is available in My submissions.');
+              ? 'Template rejected. Decision email queued; feedback is available in My submissions.'
+              : 'Changes requested. Decision email queued; feedback is available in My submissions.');
       try {
         await _loadSubmissions();
       } catch (_) {
@@ -294,6 +300,7 @@ class TemplateContributionScreen extends StatefulWidget {
 class _TemplateContributionScreenState extends State<TemplateContributionScreen> {
   final _form = GlobalKey<FormState>();
   final _requestId = newId('submission');
+  final _submissionAccount = AccountRuntime.session?.currentUser;
   final Map<String, String> _fields = {};
   bool _patientFree = false, _permission = false, _busy = false;
   String _error = '';
@@ -306,6 +313,9 @@ class _TemplateContributionScreenState extends State<TemplateContributionScreen>
     if (!_form.currentState!.validate() || !_patientFree || !_permission) return;
     setState(() { _busy = true; _error = ''; });
     try {
+      if (AccountRuntime.session?.currentUser?.uid != _submissionAccount?.uid) {
+        throw const AccountFunctionException(code: 'account-changed');
+      }
       // Strip report content locally as well as on the server; never upload signatures.
       final clean = TemplateCodec.templateToJson(widget.template.copyWith(roots: widget.template.roots.map((r) => r.toTemplateNode(includeContent: false)).toList()));
       clean.remove('signature'); clean.remove('subjectInfo');
@@ -314,7 +324,7 @@ class _TemplateContributionScreenState extends State<TemplateContributionScreen>
         if (widget.revision != null) 'id': widget.revision!['id'],
         if (widget.revision != null) 'revision': widget.revision!['revision'],
       });
-      if (mounted) { showMessage(context, 'Submitted for review. Track the decision in My submissions.'); Navigator.pop(context, true); }
+      if (mounted) { showMessage(context, 'Submitted for review. We will email the decision to your account email. You can also track it in My submissions.'); Navigator.pop(context, true); }
     } catch (error) { if (mounted) setState(() => _error = templateContributionError(error, submitting: true)); }
     finally { if (mounted) setState(() => _busy = false); }
   }
@@ -322,6 +332,7 @@ class _TemplateContributionScreenState extends State<TemplateContributionScreen>
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Contribute a template')),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: Form(key: _form, child: ListView(padding: const EdgeInsets.all(20), children: [
+      if (_submissionAccount?.email != null) Text('Submitting as: ${_submissionAccount!.email}'),
       const Text('Share a useful reporting structure. Your submission stays private until a reviewer approves it. Public credit appears exactly as entered below.'),
       const SizedBox(height: 12),
       for (final entry in {'name':'Template name','specialty':'Specialty','description':'Description and intended use','contributor':'Public contributor name'}.entries)

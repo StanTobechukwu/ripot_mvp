@@ -25,7 +25,12 @@ const server=http.createServer((req,res)=>{
     await page.route('https://us-central1-ripot-4edf7.cloudfunctions.net/publicTemplateLibrary**',route=>route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(new URL(route.request().url()).searchParams.has('template')?{...row,payload}:{schemaVersion:1,templates:[row,{...row,slug:"community-s-two",name:"Second test"},{...row,slug:"community-s-three",name:"Third test"}]})}));
     for(const width of [390,1280]){
       await page.setViewportSize({width,height:900});
+      await page.goto(origin+'/');
+      await page.locator('#backup summary').click();
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      await page.locator('#backup').screenshot({path:path.join(out,`backup-landing-${width}.png`)});
       await page.goto(origin+'/templates/');
+      await page.locator('section.card').filter({has:page.getByRole('heading',{name:'Have a useful reporting structure?'})}).screenshot({path:path.join(out,`contribute-landing-${width}.png`)});
       await page.getByRole('link',{name:'QA community structure',exact:true}).click();
       await page.getByRole('heading',{name:'QA community structure',exact:true}).waitFor();
       await page.getByText(row.contributor,{exact:false}).waitFor();

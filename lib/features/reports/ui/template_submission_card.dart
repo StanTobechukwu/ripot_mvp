@@ -20,6 +20,7 @@ class TemplateSubmissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = row['status'] as String;
     final note = row['reviewerNote'] as String? ?? '';
+    final ownReview = onReview != null && row['isOwn'] == true;
     return Card(child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -46,7 +47,11 @@ class TemplateSubmissionCard extends StatelessWidget {
         ],
         if (status == 'withdrawn')
           const Text('Removed from review. Your saved template is unchanged.'),
-        if (onReview != null)
+        if (ownReview)
+          const Padding(padding: EdgeInsets.only(top: 8), child: Text(
+            'Your submission. Another reviewer must review it. You can withdraw it from My submissions.',
+          )),
+        if (onReview != null && !ownReview)
           TextButton(onPressed: busy ? null : onReview,
               child: const Text('Preview and review')),
         if (status != 'pending' && onRevise != null)
