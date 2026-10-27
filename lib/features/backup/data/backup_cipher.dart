@@ -22,7 +22,7 @@ class BackupCipher {
       compute(_encrypt, (jsonEncode(data), pass));
   static Future<Uint8List> _encrypt((String, String) args) async {
     if (args.$2.length < 12 || args.$2.length > 1024) {
-      throw const FormatException('Use a passphrase of 12 to 1024 characters.');
+      throw const FormatException('Use a backup password of 12 to 1024 characters.');
     }
     final clear = utf8.encode(args.$1);
     if (clear.length > maxClearBytes) {
@@ -61,7 +61,7 @@ class BackupCipher {
         bytes.length > maxBytes ||
         pass.isEmpty ||
         pass.length > 1024) {
-      throw const FormatException('Invalid backup size or passphrase.');
+      throw const FormatException('Invalid backup size or backup password.');
     }
     return jsonDecode(await compute(_decrypt, (bytes, pass)))
         as Map<String, dynamic>;

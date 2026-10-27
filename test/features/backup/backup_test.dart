@@ -256,6 +256,30 @@ void main() {
       expect(p.getString('backup.retryAfter'), isNull);
     },
   );
+  test('schedule edits reuse the stored password and refuse a missing password', () async {
+    final destination = TestDestination();
+    final service = ForegroundBackupService(destination: destination);
+    const secure = FlutterSecureStorage();
+    const key = 'ripot.automaticBackup.passphrase.v1';
+    const password = 'a long test passphrase';
+    await expectLater(
+      service.configure(const BackupSchedule(enabled: true), null),
+      throwsStateError,
+    );
+    await service.configure(const BackupSchedule(enabled: true), password);
+    await service.configure(const BackupSchedule(enabled: true, hour: 9, weekday: 1), null);
+    expect(await secure.read(key: key), password);
+    final saved = await service.schedule();
+    expect(saved.hour, 9);
+    expect(saved.weekday, 1);
+    await secure.delete(key: key);
+    await expectLater(
+      service.configure(const BackupSchedule(enabled: true, hour: 10), null),
+      throwsStateError,
+    );
+    expect((await service.schedule()).toJson(), saved.toJson());
+    expect(destination.locked, isFalse);
+  });
   test(
     'full snapshot restores editable data, native PDFs, attachments and links',
     () async {

@@ -42,6 +42,7 @@ class BackupService {
   bool get backgroundAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   bool get sessionUnlocked => !kIsWeb || _webPassphrase != null;
+  bool get needsSessionPassword => kIsWeb && !sessionUnlocked;
   Future<SharedPreferences> _prefs() async {
     final p = await SharedPreferences.getInstance();
     await p.reload();
@@ -100,7 +101,8 @@ class BackupService {
     }
   }
 
-  Future<void> configure(BackupSchedule input, String passphrase) async {
+  // Null reuses the password already held for an enabled automatic schedule.
+  Future<void> configure(BackupSchedule input, String? passphrase) async {
     if (!await destination.acquire()) {
       throw StateError('Another backup or restore is running.');
     }
@@ -115,13 +117,26 @@ class BackupService {
       if (!destination.supported || await destination.location() == null) {
         throw StateError('Choose a backup folder first.');
       }
+      final reusePassword = passphrase == null;
+      if (reusePassword) {
+        if (!(await schedule()).enabled) {
+          throw StateError('Choose a backup password to set up automatic backups.');
+        }
+        passphrase = kIsWeb
+            ? _webPassphrase
+            : await _secure.read(key: _secretKey);
+        if (passphrase == null) {
+          throw StateError('Your backup password is unavailable. Enter it again on the web, or turn automatic backups off and set them up again on this device.');
+        }
+      }
+      if (passphrase == null) throw StateError('Enter your backup password.');
       if (passphrase.length < 12 || passphrase.length > 1024) {
         throw const FormatException(
-          'Use a passphrase of 12 to 1024 characters.',
+          'Use a backup password of 12 to 1024 characters.',
         );
       }
       // Store locally only after the user explicitly enables automatic backup.
-      if (kIsWeb) {
+      if (!reusePassword && kIsWeb) {
         final check = await BackupCipher.encrypt({
           'purpose': 'ripot-backup-session',
         }, passphrase);
@@ -130,7 +145,7 @@ class BackupService {
           base64Encode(check),
         );
         _webPassphrase = passphrase;
-      } else {
+      } else if (!reusePassword) {
         await _secure.write(key: _secretKey, value: passphrase);
       }
       if (backgroundAndroid) {
@@ -150,11 +165,11 @@ class BackupService {
 
   Future<void> unlockSession(String passphrase) async {
     if (passphrase.length < 12 || passphrase.length > 1024) {
-      throw const FormatException('Enter your automatic-backup passphrase.');
+      throw const FormatException('Enter your backup password.');
     }
     final check = (await _prefs()).getString('backup.sessionCheck');
     if (check == null) {
-      throw StateError('Save automatic settings again to enable this session.');
+      throw StateError('Turn automatic backups off and set them up again to choose a backup password.');
     }
     await BackupCipher.decrypt(base64Decode(check), passphrase);
     _webPassphrase = passphrase;
@@ -288,7 +303,7 @@ class BackupService {
           ? _webPassphrase
           : await _secure.read(key: _secretKey);
       if (pass == null) {
-        throw StateError('Open Backup & restore to unlock automatic backups.');
+        throw StateError('Open Backup & restore and enter your backup password.');
       }
       final snapshot = await snapshots.capture(BackupScope.all);
       // Compare all captured logical values, including saved native PDFs.
@@ -311,7 +326,7 @@ class BackupService {
         final p = await _prefs();
         await p.setString(
           'backup.error',
-          'Automatic backup did not complete. Open Backup & restore, check the folder permission and available space, and unlock backups if asked. Previous copies were kept.',
+          'Automatic backup did not complete. Open Backup & restore, check the folder permission and available space, and enter your backup password if asked. Previous copies were kept.',
         );
         await p.setString(
           'backup.retryAfter',

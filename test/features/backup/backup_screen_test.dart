@@ -19,7 +19,15 @@ class ScreenService extends BackupService {
   BackupSchedule saved = const BackupSchedule();
   bool failSave = false;
   bool cancelFolder = false;
+  bool paused = false;
+  final passwords = <String?>[];
   int saves = 0;
+  @override
+  bool get needsSessionPassword => paused;
+  @override
+  Future<void> unlockSession(String passphrase) async { paused = false; }
+  @override
+  Future<void> runIfDue() async {}
   @override
   Future<BackupSchedule> schedule() async => saved;
   @override
@@ -27,8 +35,9 @@ class ScreenService extends BackupService {
     if (!cancelFolder) (destination as ScreenDestination).selected = 'Test backups';
   }
   @override
-  Future<void> configure(BackupSchedule input, String passphrase) async {
+  Future<void> configure(BackupSchedule input, String? passphrase) async {
     if (failSave) throw StateError('Choose a backup folder first.');
+    passwords.add(passphrase);
     saved = input;
     saves++;
   }
@@ -104,7 +113,7 @@ void main() {
     await openScreen(tester, service);
     await enable(tester);
     await back(tester);
-    await tester.tap(find.text('Save settings'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save settings'));
     await tester.pumpAndSettle();
     await enterPassphrase(tester);
     expect(service.saved.enabled, isTrue);
@@ -117,7 +126,7 @@ void main() {
     await openScreen(tester, service);
     await enable(tester);
     await back(tester);
-    await tester.tap(find.text('Save settings'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save settings'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
@@ -132,7 +141,7 @@ void main() {
     await openScreen(tester, service);
     await enable(tester);
     await back(tester);
-    await tester.tap(find.text('Save settings'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save settings'));
     await tester.pumpAndSettle();
     await enterPassphrase(tester);
     expect(find.text('Backup settings were not saved'), findsOneWidget);
@@ -142,7 +151,7 @@ void main() {
     expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, isTrue);
     service.failSave = false;
     await back(tester);
-    await tester.tap(find.text('Save settings'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save settings'));
     await tester.pumpAndSettle();
     await enterPassphrase(tester);
     expect(service.saves, 1);
@@ -167,17 +176,17 @@ void main() {
     await openScreen(tester, service);
     await enable(tester);
     await back(tester);
-    await tester.tap(find.text('Save settings'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save settings'));
     await tester.pumpAndSettle();
     expect(find.text('Choose a backup folder'), findsOneWidget);
-    expect(find.text('Protect your backup'), findsNothing);
+    expect(find.text('Choose a backup password'), findsNothing);
     await tester.tap(find.text('Choose folder'));
     await tester.pumpAndSettle();
     expect(service.saves, 0);
     expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, isTrue);
     service.cancelFolder = false;
     await back(tester);
-    await tester.tap(find.text('Save settings'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save settings'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Choose folder'));
     await tester.pumpAndSettle();
@@ -194,7 +203,7 @@ void main() {
     await tester.tap(find.text('Back up now'));
     await tester.pumpAndSettle();
     expect(find.text('Choose a backup folder'), findsOneWidget);
-    expect(find.text('Protect your backup'), findsNothing);
+    expect(find.text('Choose a backup password'), findsNothing);
     await tester.tap(find.text('Not now'));
     await tester.pumpAndSettle();
     await back(tester);
@@ -205,14 +214,58 @@ void main() {
     final service = ScreenService();
     await openScreen(tester, service);
     await enable(tester);
-    await tester.ensureVisible(find.text('Save automatic settings'));
-    await tester.tap(find.text('Save automatic settings'));
+    await tester.ensureVisible(find.text('Save settings'));
+    await tester.tap(find.text('Save settings'));
     await tester.pumpAndSettle();
     await enterPassphrase(tester);
-    expect(find.text('Unsaved automatic backup settings'), findsNothing);
+    expect(find.text('You have changes to save.'), findsNothing);
+    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Settings saved')).onPressed, isNull);
     await back(tester);
     expect(find.text('Save backup settings?'), findsNothing);
     expect(find.text('Open backups'), findsOneWidget);
     expect(service.saves, 1);
+  });
+
+  testWidgets('schedule changes reuse the password without another prompt', (tester) async {
+    final service = ScreenService()..saved = const BackupSchedule(enabled: true);
+    await openScreen(tester, service);
+    await tester.ensureVisible(find.text('Daily'));
+    await tester.tap(find.text('Daily'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Weekly · Monday').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save settings'));
+    await tester.tap(find.text('Save settings'));
+    await tester.pumpAndSettle();
+    expect(service.saved.weekday, 1);
+    expect(service.passwords, [null]);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Settings saved'), findsOneWidget);
+  });
+
+  testWidgets('password restart is shown only for an already saved automatic setup', (tester) async {
+    final service = ScreenService()..paused = true;
+    await openScreen(tester, service);
+    await enable(tester);
+    expect(find.text('Automatic backups are paused.'), findsNothing);
+    expect(find.text('Enter backup password'), findsNothing);
+  });
+
+  testWidgets('paused backup asks for the existing password without changing the schedule', (tester) async {
+    final service = ScreenService()
+      ..saved = const BackupSchedule(enabled: true)
+      ..paused = true;
+    await openScreen(tester, service);
+    await tester.ensureVisible(find.text('Enter backup password'));
+    await tester.tap(find.text('Enter backup password'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'fictional passphrase');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Automatic backups are paused.'), findsNothing);
+    expect(service.saves, 0);
+    expect(service.saved.enabled, isTrue);
   });
 }

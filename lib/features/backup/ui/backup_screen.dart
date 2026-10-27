@@ -174,7 +174,7 @@ class _BackupScreenState extends State<BackupScreen> {
               ? e.message
               : e is StateError
               ? e.message.toString()
-              : 'This operation did not complete. Check the passphrase, backup file, folder permission and storage space. Existing backups were kept.',
+              : 'This operation did not complete. Check the backup password, backup file, folder permission and storage space. Existing backups were kept.',
         );
         failureMessage = message;
       }
@@ -201,22 +201,24 @@ class _BackupScreenState extends State<BackupScreen> {
     return succeeded;
   }
 
-  Future<String?> _passphrase({required bool create}) async {
+  Future<String?> _passphrase({required bool create, bool automatic = false}) async {
     final first = TextEditingController(), second = TextEditingController();
     String? validation;
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, update) => AlertDialog(
-          title: Text(create ? 'Protect your backup' : 'Unlock backup'),
+          title: Text(create ? 'Choose a backup password' : 'Enter backup password'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   create
-                      ? 'Use at least 12 characters. Keep this passphrase somewhere safe: Ripot cannot recover it. Older backups still need the passphrase used when they were made.'
-                      : 'Enter the passphrase used when this backup was created.',
+                      ? 'Choose a password of at least 12 characters to protect your backup files. This is separate from your Ripot login password. Keep it safe: Ripot cannot recover it. Older backups still need the password used when they were made.'
+                      : automatic
+                      ? 'Enter the backup password you chose when setting up automatic backups. This is separate from your Ripot login password.'
+                      : 'Enter the backup password used when this file was created. This is separate from your Ripot login password.',
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -224,7 +226,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   obscureText: true,
                   autocorrect: false,
                   enableSuggestions: false,
-                  decoration: const InputDecoration(labelText: 'Passphrase'),
+                  decoration: const InputDecoration(labelText: 'Backup password'),
                 ),
                 if (create)
                   TextField(
@@ -233,7 +235,7 @@ class _BackupScreenState extends State<BackupScreen> {
                     autocorrect: false,
                     enableSuggestions: false,
                     decoration: const InputDecoration(
-                      labelText: 'Confirm passphrase',
+                      labelText: 'Confirm backup password',
                     ),
                   ),
                 if (validation != null)
@@ -257,7 +259,9 @@ class _BackupScreenState extends State<BackupScreen> {
                         (first.text.length < 12 ||
                             first.text != second.text))) {
                   update(
-                    () => validation = 'Check the passphrase and confirmation.',
+                    () => validation = create
+                        ? 'Use at least 12 characters and enter the same password in both fields.'
+                        : 'Enter your backup password.',
                   );
                   return;
                 }
@@ -351,9 +355,15 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Future<bool> _configure() async {
+    if (!_hasUnsavedSettings) return true;
     if (enabled && (!await _ensureFolder() || !mounted)) return false;
-    final pass = enabled ? await _passphrase(create: true) : '';
-    if (pass == null || !mounted) return false;
+    String? pass;
+    final existing = _savedSchedule?.enabled == true;
+    final resume = enabled && existing && service.needsSessionPassword;
+    if (enabled && (!existing || resume)) {
+      pass = await _passphrase(create: !existing, automatic: true);
+      if (pass == null || !mounted) return false;
+    }
     final input = BackupSchedule(
       enabled: enabled,
       hour: time.hour,
@@ -362,7 +372,8 @@ class _BackupScreenState extends State<BackupScreen> {
       keep: keep,
     );
     return _run(() async {
-      await service.configure(input, pass);
+      if (resume) await service.unlockSession(pass!);
+      await service.configure(input, existing ? null : pass);
       if (mounted) {
         setState(() {
           // A later status/inventory refresh must not mark a completed save dirty.
@@ -519,13 +530,13 @@ class _BackupScreenState extends State<BackupScreen> {
                   key: ValueKey('keep-$keep'),
                   initialValue: keep,
                   decoration: const InputDecoration(
-                    labelText: 'Copies to keep per backup type',
+                    labelText: 'How many recent backups should Ripot keep?',
                   ),
                   items: [
                     for (final n in [3, 5, 7, 10])
                       DropdownMenuItem(
                         value: n,
-                        child: Text('$n dated copies'),
+                        child: Text('$n backups'),
                       ),
                   ],
                   onChanged: (v) => _run(() async {
@@ -533,8 +544,8 @@ class _BackupScreenState extends State<BackupScreen> {
                   }),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Older copies are removed only after a new copy is saved and verified. Other files in the folder are left alone.',
+                Text(
+                  'Keep the latest $keep backups for each category. Full backups and Reports-only backups are counted separately. Older backups are removed only after a new backup is successfully saved and checked. Other files are kept.',
                 ),
               ] else
                 const Text(
@@ -618,37 +629,41 @@ class _BackupScreenState extends State<BackupScreen> {
                   const SizedBox(height: 8),
                   Text(
                     kIsWeb
-                        ? 'The passphrase stays in memory for this tab only.'
-                        : 'Enabling this saves the passphrase in this device’s secure storage so backups can run without prompting.',
+                        ? 'Web backups run only while Ripot Web is open in this browser tab. You may need to enter your backup password again after reopening it.'
+                        : 'Your backup password is saved securely on this device so automatic backups can run without asking each time.',
                   ),
-                  if (kIsWeb && !service.sessionUnlocked)
+                  if (_savedSchedule?.enabled == true && service.needsSessionPassword) ...[
+                    const SizedBox(height: 8),
+                    const Text('Automatic backups are paused.'),
+                    const Text('Enter your backup password to restart them. Web backups run only while Ripot Web is open in this browser tab.'),
                     TextButton(
                       onPressed: () async {
-                        final pass = await _passphrase(create: false);
+                        final pass = await _passphrase(create: false, automatic: true);
                         if (pass != null && mounted) {
                           await _run(() async {
                             await service.unlockSession(pass);
                             if (!mounted) return;
                             setState(
                               () => message =
-                                  'Backups unlocked for this browser session.',
+                                  'Your backup password was accepted. Automatic backups can now run while Ripot Web is open in this tab.',
                             );
                             await service.runIfDue();
-                          });
+                          }, failureTitle: 'Automatic backups could not restart');
                         }
                       },
-                      child: const Text('Unlock for this session'),
+                      child: const Text('Enter backup password'),
                     ),
+                  ],
                 ],
                 const SizedBox(height: 12),
                 if (_hasUnsavedSettings)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 8),
-                    child: Text('Unsaved automatic backup settings'),
+                    child: Text('You have changes to save.'),
                   ),
                 OutlinedButton(
-                  onPressed: _configure,
-                  child: const Text('Save automatic settings'),
+                  onPressed: _hasUnsavedSettings ? _configure : null,
+                  child: Text(_hasUnsavedSettings ? 'Save settings' : 'Settings saved'),
                 ),
               ],
               const Divider(height: 32),
