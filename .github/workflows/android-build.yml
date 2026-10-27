@@ -5,7 +5,7 @@ on:
     branches: [codex/release-hardening-20261025]
   workflow_dispatch:
   push:
-    branches: [codex/release-hardening-20261025]
+    branches: [codex/release-hardening-20261025, codex/global-backup-20261026]
 
 concurrency:
   group: android-bundle-${{ github.ref }}
