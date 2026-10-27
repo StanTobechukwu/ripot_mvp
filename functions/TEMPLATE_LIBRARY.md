@@ -110,19 +110,29 @@ changes requested require a reason. A missing/deleted/disabled account or one
 without email is marked `skipped`; transient Auth and SMTP failures retry.
 The saved reason remains available in My submissions regardless of email delivery.
 
-Existing decisions made before this update are not emailed retroactively. Deploy
-both the core services and the updated notification worker before testing a new
-decision; downloading the new web code alone does not update Firebase functions.
-If the SMTP secret is already configured, update just the worker from the repo root:
-`firebase deploy --project ripot-4edf7 --only functions:notifyTemplateContribution`
-No need to reset the mailbox password. Otherwise use Setup-Template-Notifications.command.
+Existing decisions made before this update are not emailed retroactively.
+Downloading the new web code alone does not update Firebase functions.
+For an existing installation, deploy the notification worker **first**, then the
+core services. This prevents an older worker treating a decision as a reviewer
+alert during the rollout. With the SMTP secret already configured, run from the
+updated source repository root:
+
+```bash
+npm ci --prefix functions
+firebase deploy --project ripot-4edf7 --only functions:notifyTemplateContribution
+bash tools/deploy/Deploy-Template-Services.command
+```
+
+No need to reset the mailbox password. If it has not been configured, run
+`bash tools/deploy/Setup-Template-Notifications.command` before the core deployment.
+Then rebuild the app (and deploy the web app for email links to open the new
+My submissions view). Test with a new review decision after both deployments.
 
 Only the owner can withdraw a pending revision, using its card's three-dot menu
 and confirmation dialog. Withdrawal is transactional with review: only one can
 win. Retrying the same withdrawal is safe, and stale requests cannot withdraw a
 newer revision. Withdrawn records remain in My submissions and may be resubmitted;
 local templates and previously published versions are unaffected.
-
 
 A durable ripot_template_mail/<submission>-<revision> record is created in the
 same transaction as submission. Its status is queued, retrying, or sent. The
