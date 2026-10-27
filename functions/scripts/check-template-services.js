@@ -6,7 +6,7 @@ async function checkTemplateServices(fetcher = fetch) {
   const checks = [
     ['publicTemplateLibrary?health=1', 'GET', body => body.schemaVersion === 1 && body.contributions === 'ready'],
     ['publicTemplateLibrary', 'GET', body => body.schemaVersion === 1 && Array.isArray(body.templates)],
-    ...['submitTemplateContribution','listTemplateContributions','reviewTemplateContribution'].map(name =>
+    ...['submitTemplateContribution','listTemplateContributions','reviewTemplateContribution','withdrawTemplateContribution'].map(name =>
       [name, 'POST', body => body.error?.status === 'UNAUTHENTICATED']),
   ];
   const results = [];

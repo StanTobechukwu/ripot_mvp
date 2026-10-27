@@ -76,7 +76,7 @@ function createTemplateLibrary(db, clock = () => Date.now()) {
       const existing = (await tx.get(ref)).data();
       if (existing && existing.ownerUid !== uid) fail('permission-denied', 'This submission belongs to another contributor.');
       if (existing?.requestId === requestId) return { id: ref.id, revision: existing.revision, status: existing.status };
-      if (existing && (data.revision !== existing.revision || !['changes_requested','rejected','approved'].includes(existing.status))) fail('failed-precondition', 'Reload this submission before resubmitting.');
+      if (existing && (data.revision !== existing.revision || !['changes_requested','rejected','approved','withdrawn'].includes(existing.status))) fail('failed-precondition', 'Reload this submission before resubmitting.');
       const now = clock(), rate = (await tx.get(limitRef)).data();
       const recent = (rate?.times ?? []).filter(t => t > now - 86400000);
       if (recent.length >= 10) fail('resource-exhausted', 'You can submit up to ten templates or revisions per day.');
@@ -114,7 +114,7 @@ function createTemplateLibrary(db, clock = () => Date.now()) {
       const row = (await tx.get(ref)).data();
       if (!row) fail('not-found', 'Submission not found.');
       if (row.status !== 'pending' || row.revision !== data.revision) fail('failed-precondition', 'This submission has changed. Refresh before reviewing.');
-      if (row.ownerUid === uid) fail('permission-denied', 'Another reviewer must approve your own contribution.');
+      if (row.ownerUid === uid) fail('permission-denied', 'Another reviewer must review your own contribution.');
       if (data.decision === 'approved' && data.patientFreeReviewed !== true) fail('invalid-argument', 'Confirm the patient-free publication review before approval.');
       const now = clock(), slug = `community-${ref.id}`;
       const publicRef = db.collection(C.published).doc(slug);
@@ -122,12 +122,39 @@ function createTemplateLibrary(db, clock = () => Date.now()) {
       const previousVersion = data.decision === 'approved' ? await tx.get(versionRef) : null;
       tx.update(ref, { status: data.decision, reviewerNote: note, reviewedBy: uid, reviewedAt: now, updatedAt: now });
       tx.create(ref.collection('reviews').doc(String(row.revision)), { decision: data.decision, patientFreeReviewed: data.decision === 'approved', note, reviewerUid: uid, reviewedAt: now });
+      // Queue the exact decision and feedback atomically; later revisions must
+      // not change an email waiting for delivery. Recipient is resolved by Auth.
+      tx.create(db.collection(C.mail).doc(`${ref.id}-${row.revision}-decision`), {
+        kind: 'decision', ownerUid: row.ownerUid, submissionId: ref.id,
+        revision: row.revision, name: row.name, decision: data.decision,
+        note, createdAt: now, status: 'queued',
+      });
       if (data.decision === 'approved') {
         const metadata = { slug, version: row.version, sha256: row.sha256, name: row.name, specialty: row.specialty, description: row.description, contributor: row.contributor, status: 'approved', publishedAt: now };
         tx.set(publicRef, metadata);
         if (!previousVersion.exists) tx.create(versionRef, { ...metadata, payload: row.payload });
       }
       return { status: data.decision, slug };
+    });
+  }
+  async function withdraw(request) {
+    const uid = user(request), data = request.data ?? {};
+    const ref = db.collection(C.submissions).doc(identifier(data.id));
+    return db.runTransaction(async tx => {
+      const row = (await tx.get(ref)).data();
+      if (!row) fail('not-found', 'Submission not found.');
+      if (row.ownerUid !== uid) fail('permission-denied', 'Only the contributor can withdraw this submission.');
+      if (row.revision !== data.revision) fail('failed-precondition', 'This submission has changed. Refresh before withdrawing.');
+      // Safe to retry after a lost response, but never withdraw a newer revision.
+      if (row.status === 'withdrawn') return { status: 'withdrawn' };
+      if (row.status !== 'pending') fail('failed-precondition', 'Only pending submissions can be withdrawn.');
+      const now = clock();
+      tx.update(ref, { status: 'withdrawn', withdrawnAt: now, updatedAt: now });
+      tx.create(ref.collection('withdrawals').doc(String(row.revision)), {
+        revision: row.revision, withdrawnAt: now, ownerUid: uid,
+      });
+      // A pending update may have an older published version. Leave it intact.
+      return { status: 'withdrawn' };
     });
   }
   async function publicList(cursor) {
@@ -145,6 +172,6 @@ function createTemplateLibrary(db, clock = () => Date.now()) {
     if (!published) fail('not-found', 'Version not found.');
     return { ...published, latestVersion: row.version };
   }
-  return { submit, list, review, publicList, publicDetail };
+  return { submit, list, review, withdraw, publicList, publicDetail };
 }
 module.exports = { C, sanitizeTemplate, createTemplateLibrary };

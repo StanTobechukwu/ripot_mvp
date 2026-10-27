@@ -15,6 +15,7 @@ import '../providers/report_editor_provider.dart';
 import 'report_editor_screen.dart';
 import 'template_actions.dart';
 import 'template_review_dialog.dart';
+import 'template_submission_card.dart';
 
 class OnlineTemplatesScreen extends StatefulWidget {
   const OnlineTemplatesScreen({super.key, this.initialView = 'browse'});
@@ -33,7 +34,7 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
   @override
   void initState() {
     super.initState();
-    _view = widget.initialView == 'review' ? 'review' : 'browse';
+    _view = ['mine', 'review'].contains(widget.initialView) ? widget.initialView : 'browse';
     WidgetsBinding.instance.addPostFrameCallback((_) => _run(() async {
       await _load();
       if (widget.initialView == 'contribute' && mounted) await _contribute();
@@ -117,6 +118,33 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
     if (!mounted) return;
     final submitted = await Navigator.push<bool>(context, MaterialPageRoute<bool>(builder: (_) => TemplateContributionScreen(template: doc, revision: revision)));
     if (mounted && submitted == true) { setState(() => _view = 'mine'); await _loadSubmissions(); }
+  }
+
+  Future<void> _withdraw(Map<String, dynamic> row) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => TemplateWithdrawalDialog(
+        name: row['name'] as String,
+        submit: () async {
+          await AccountFunctions.call('withdrawTemplateContribution', data: {
+            'id': row['id'], 'revision': row['revision'],
+          });
+        },
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    // Reflect confirmed withdrawal even if the subsequent refresh is offline.
+    setState(() {
+      row['status'] = 'withdrawn';
+      if (_pending > 0) _pending--;
+    });
+    showMessage(context, 'Submission withdrawn. Your saved template is kept.');
+    try { await _loadSubmissions(); }
+    catch (_) {
+      if (mounted) setState(() => _warning =
+          'The submission was withdrawn, but the list could not refresh. Refresh the library to check your submissions.');
+    }
   }
 
   Future<void> _preview(Map<String, dynamic> row, {bool review = false}) async {
@@ -233,13 +261,12 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
           )),
         ] : [
           if (_submissions.isEmpty && !_busy) const Text('No submissions to show. Sign in to view your submissions or reviewer queue.'),
-          for (final row in _submissions) Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(row['name'] as String, style: Theme.of(context).textTheme.titleMedium),
-            Text('${row['contributor']} · Revision ${row['revision']} · ${(row['status'] as String).replaceAll('_', ' ')}'),
-            if ((row['reviewerNote'] as String? ?? '').isNotEmpty) Text('Feedback: ${row['reviewerNote']}'),
-            if (_view == 'review') TextButton(onPressed: _busy ? null : () => _run(() => _preview(row, review: true)), child: const Text('Preview and review')),
-            if (_view == 'mine' && row['status'] != 'pending') TextButton(onPressed: _busy ? null : () => _run(() => _contribute(revision: row)), child: Text(row['status'] == 'approved' ? 'Submit updated version' : 'Revise and resubmit')),
-          ]))),
+          for (final row in _submissions) TemplateSubmissionCard(
+            key: ValueKey(row['id']), row: row, busy: _busy,
+            onReview: _view == 'review' ? () => _run(() => _preview(row, review: true)) : null,
+            onRevise: _view == 'mine' ? () => _run(() => _contribute(revision: row)) : null,
+            onWithdraw: _view == 'mine' ? () => _run(() => _withdraw(row)) : null,
+          ),
           if (_cursor != null) TextButton(onPressed: _busy ? null : () => _run(() => _loadSubmissions(more: true)), child: const Text('Load more')),
         ])),
       ])),

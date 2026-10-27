@@ -55,7 +55,7 @@ test('pending stays private, concurrent retries create one notification, approva
   await approve(id,2);
   assert.notEqual((await service.publicDetail(`community-${id}`)).version,detail.version);
   assert.equal((await service.publicDetail(`community-${id}`,detail.version)).payload,detail.payload);
-  assert.equal((await db.collection(C.mail).get()).size,2);
+  assert.equal((await db.collection(C.mail).get()).size,4);
 });
 test('review feedback, revision concurrency and daily limits',async()=>{
   const {id}=await service.submit(submission());
@@ -101,4 +101,66 @@ test('rejection leaves pending queue, preserves author feedback and publishes no
   assert.equal(mine.reviewerNote, 'Please clarify the labels.');
   assert.deepEqual((await service.publicList()).templates, []);
   await assert.rejects(service.review(req('reviewer', {id, revision: 1, decision: 'rejected', note: 'Again'})), {code: 'failed-precondition'});
+});
+
+test('every decision queues private, immutable feedback once for the actual owner', async () => {
+  for (const decision of ['approved', 'rejected', 'changes_requested']) {
+    const {id} = await service.submit(submission({requestId: decision}));
+    await approve(id, 1, {decision, note: 'Explain the measurement units', ownerUid: 'attacker', to: 'attacker@example.invalid'});
+    const mail = (await db.collection(C.mail).doc(`${id}-1-decision`).get()).data();
+    assert.equal(mail.kind, 'decision');
+    assert.equal(mail.ownerUid, 'author');
+    assert.equal(mail.to, undefined);
+    assert.equal(mail.decision, decision);
+    assert.equal(mail.note, 'Explain the measurement units');
+    assert.equal(mail.name, 'Test template');
+    assert.equal(mail.status, 'queued');
+    await assert.rejects(approve(id, 1, {decision, note: 'Duplicate'}), {code: 'failed-precondition'});
+    await service.submit(submission({id, revision: 1, requestId: `${decision}-revision`}));
+    assert.equal((await db.collection(C.mail).doc(`${id}-1-decision`).get()).data().note, mail.note);
+  }
+  const mail = await db.collection(C.mail).get();
+  assert.equal(mail.docs.filter(doc => doc.data().kind === 'decision').length, 3);
+});
+
+test('only the owner can withdraw the pending revision; retries are safe and resubmission works', async () => {
+  const {id} = await service.submit(submission());
+  await assert.rejects(service.withdraw({data: {id, revision: 1}}), {code: 'unauthenticated'});
+  await assert.rejects(service.withdraw(req('reviewer', {id, revision: 1})), {code: 'permission-denied'});
+  await assert.rejects(service.withdraw(req('author', {id, revision: 2})), {code: 'failed-precondition'});
+  await service.withdraw(req('author', {id, revision: 1}));
+  await service.withdraw(req('author', {id, revision: 1}));
+  assert.equal((await service.list(req('reviewer', {review: true}))).pendingCount, 0);
+  assert.equal((await service.list(req('author'))).entries[0].status, 'withdrawn');
+  assert.equal((await db.collection(C.submissions).doc(id).collection('withdrawals').get()).size, 1);
+  await assert.rejects(approve(id), {code: 'failed-precondition'});
+  const next = await service.submit(submission({id, revision: 1, requestId: 'resubmit'}));
+  assert.equal(next.revision, 2);
+  assert.equal(next.status, 'pending');
+  await assert.rejects(service.withdraw(req('author', {id, revision: 1})), {code: 'failed-precondition'});
+});
+
+test('review and withdrawal cannot both win a race', async () => {
+  const {id} = await service.submit(submission());
+  const outcomes = await Promise.allSettled([
+    service.withdraw(req('author', {id, revision: 1})), approve(id),
+  ]);
+  assert.equal(outcomes.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal(outcomes.find(r => r.status === 'rejected').reason.code, 'failed-precondition');
+  const row = (await service.list(req('author'))).entries[0];
+  assert.equal((await db.collection(C.mail).doc(`${id}-1-decision`).get()).exists, row.status === 'approved');
+  assert.equal((await service.publicList()).templates.length, row.status === 'approved' ? 1 : 0);
+});
+
+test('decided submissions cannot be withdrawn; withdrawing a pending update preserves publication', async () => {
+  const {id} = await service.submit(submission());
+  await approve(id);
+  await assert.rejects(service.withdraw(req('author', {id, revision: 1})), {code: 'failed-precondition'});
+  const published = await service.publicDetail(`community-${id}`);
+  await service.submit(submission({id, revision: 1, requestId: 'update'}));
+  await service.withdraw(req('author', {id, revision: 2}));
+  assert.deepEqual(await service.publicDetail(`community-${id}`), published);
+  const rejected = await service.submit(submission({requestId: 'rejected'}));
+  await approve(rejected.id, 1, {decision: 'rejected', note: 'Needs revision'});
+  await assert.rejects(service.withdraw(req('author', {id: rejected.id, revision: 1})), {code: 'failed-precondition'});
 });
