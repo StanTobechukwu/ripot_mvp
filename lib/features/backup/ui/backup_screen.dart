@@ -571,7 +571,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 label: const Text('Back up now'),
               ),
               const Text(
-                'Keep a copy away from this device too. A backup on the same phone cannot protect you if the phone is lost.',
+                'Consider keeping a backup somewhere other than this device. If this device is lost or damaged, backups stored on it may also be lost.',
               ),
               const Divider(height: 32),
               SwitchListTile(
