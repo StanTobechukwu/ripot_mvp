@@ -72,7 +72,7 @@
     {
       "slug": "flexible-sigmoidoscopy-report-template",
       "version": "d145b235fc9197be",
-      "name": "Flexible Sigmoidoscopy template",
+      "name": "Flexible sigmoidoscopy report template",
       "specialty": "Gastroenterology",
       "contributor": "Ripot",
       "status": "approved",
@@ -89,7 +89,7 @@
     {
       "slug": "obstetric-ultrasound-report-template",
       "version": "3c1e85c144d3ca0f",
-      "name": "Obstetric Ultrasound / Morphology template",
+      "name": "Obstetric ultrasound report template",
       "specialty": "Radiology",
       "contributor": "Ripot",
       "status": "approved",
@@ -106,7 +106,7 @@
     {
       "slug": "pelvic-transvaginal-ultrasound-report-template",
       "version": "483e7f8ef1b769e0",
-      "name": "Pelvic / Transvaginal Ultrasound template",
+      "name": "Pelvic and transvaginal ultrasound report template",
       "specialty": "Radiology",
       "contributor": "Ripot",
       "status": "approved",
@@ -123,7 +123,7 @@
     {
       "slug": "thyroid-neck-ultrasound-report-template",
       "version": "4a21ca8744c79f38",
-      "name": "Thyroid and Neck Ultrasound template",
+      "name": "Thyroid and neck ultrasound report template",
       "specialty": "Radiology",
       "contributor": "Ripot",
       "status": "approved",
@@ -140,7 +140,7 @@
     {
       "slug": "renal-artery-doppler-report-template",
       "version": "e4a5b38dd02aac04",
-      "name": "Renal Ultrasound / Renal Artery Doppler template",
+      "name": "Renal ultrasound and renal artery Doppler report template",
       "specialty": "Radiology",
       "contributor": "Ripot",
       "status": "approved",
@@ -157,7 +157,7 @@
     {
       "slug": "holter-monitor-report-template",
       "version": "025c2316e40de9af",
-      "name": "Holter / Ambulatory ECG template",
+      "name": "Holter monitor report template",
       "specialty": "Cardiology",
       "contributor": "Ripot",
       "status": "approved",
@@ -174,7 +174,7 @@
     {
       "slug": "ambulatory-blood-pressure-report-template",
       "version": "49f83eb13b7ee141",
-      "name": "Ambulatory Blood Pressure Monitoring template",
+      "name": "Ambulatory blood pressure report template",
       "specialty": "Cardiology",
       "contributor": "Ripot",
       "status": "approved",
@@ -191,7 +191,7 @@
     {
       "slug": "general-surgical-operation-note-template",
       "version": "fed968e4cb41bc1e",
-      "name": "General Surgical Operation Note template",
+      "name": "General surgical operation note template",
       "specialty": "Surgery",
       "contributor": "Ripot",
       "status": "approved",
@@ -208,7 +208,7 @@
     {
       "slug": "caesarean-section-operation-note-template",
       "version": "2f146df07fca299c",
-      "name": "Caesarean Section Operation Note template",
+      "name": "Caesarean section operation note template",
       "specialty": "Surgery",
       "contributor": "Ripot",
       "status": "approved",
@@ -225,7 +225,7 @@
     {
       "slug": "appendectomy-operation-note-template",
       "version": "c9d4cec2a88b4f44",
-      "name": "Appendectomy Operation Note template",
+      "name": "Appendectomy operation note template",
       "specialty": "Surgery",
       "contributor": "Ripot",
       "status": "approved",
@@ -242,7 +242,7 @@
     {
       "slug": "wound-debridement-minor-operation-note-template",
       "version": "a69c3a69a1d5ff4b",
-      "name": "Wound Debridement / Minor Operation Note template",
+      "name": "Wound debridement operation note template",
       "specialty": "Surgery",
       "contributor": "Ripot",
       "status": "approved",

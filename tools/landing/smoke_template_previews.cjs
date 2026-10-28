@@ -29,6 +29,23 @@ const server=http.createServer((req,res)=>{
     });
     for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:900});
+      await page.goto(origin);
+      assert.equal(await page.locator('.template-highlights a').count(),2);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Homepage overflow at ${width}`);
+      for(const link of await page.locator('.template-highlights a').all()) {
+        assert((await link.boundingBox()).height < 130, `Template link wraps too narrowly at ${width}`);
+      }
+      assert.equal(await page.locator('meta[name="twitter:card"]').getAttribute('content'),'summary_large_image');
+      await page.locator('.template-highlights').scrollIntoViewIfNeeded();
+      await page.screenshot({path:path.join(out,`home-templates-${width}.png`)});
+      await page.locator('#backup').scrollIntoViewIfNeeded();
+      await page.screenshot({path:path.join(out,`home-backup-${width}.png`)});
+      await page.locator('#plans').scrollIntoViewIfNeeded();
+      await page.screenshot({path:path.join(out,`home-plans-${width}.png`)});
+      await page.goto(`${origin}/templates/`);
+      assert.equal(await page.locator('section[id^="specialty-"] .card').count(),15);
+      assert.deepEqual(await page.locator('section[id^="specialty-"] > h2').allTextContents(),['Endoscopy','Ultrasound','Cardiology','Operation notes']);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Library overflow at ${width}`);
       for(const slug of slugs){
         await page.goto(`${origin}/templates/${slug}/`);
         const img=page.locator('[data-page-image]');
