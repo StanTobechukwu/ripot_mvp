@@ -26,7 +26,8 @@ const server=http.createServer((req,res)=>{
     for(const width of [390,1280]){
       await page.setViewportSize({width,height:900});
       await page.goto(origin+'/');
-      await page.locator('#backup summary').click();
+      for (const summary of await page.locator('#backup summary').all()) await summary.click();
+      assert.equal(await page.locator('#backup details[open]').count(),4);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       await page.locator('#backup').screenshot({path:path.join(out,`backup-landing-${width}.png`)});
       await page.goto(origin+'/templates/');
