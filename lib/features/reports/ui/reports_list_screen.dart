@@ -1,3 +1,4 @@
+import '../../backup/ui/backup_screen.dart';
 import 'online_templates_screen.dart';
 import 'package:flutter/foundation.dart';
 import '../data/public_template_catalog.dart';
@@ -166,7 +167,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       await _refreshReports();
       if (mounted && kIsWeb) {
         final libraryView = Uri.base.queryParameters['templateLibrary'];
-        if (['browse', 'contribute', 'review'].contains(libraryView)) {
+        if (['browse', 'contribute', 'review', 'mine'].contains(libraryView)) {
           await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => OnlineTemplatesScreen(initialView: libraryView!)));
           if (mounted) await _refreshReports();
           return;
@@ -599,6 +600,11 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             icon: const Icon(Icons.more_horiz_rounded),
             onSelected: (value) {
               switch (value) {
+                case 'backup':
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const BackupScreen()),
+                  );
+                  break;
                 case 'templates':
                   _manageTemplates();
                   break;
@@ -608,6 +614,10 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               }
             },
             itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'backup',
+                child: Text('Backup & restore'),
+              ),
               const PopupMenuItem(
                 value: 'templates',
                 child: Text('Manage templates'),

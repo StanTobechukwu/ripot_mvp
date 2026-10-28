@@ -8,4 +8,5 @@ echo "The next Firebase prompt securely stores your support@ripot.app mailbox/ap
 firebase functions:secrets:set TEMPLATE_SMTP_PASSWORD --project ripot-4edf7
 firebase deploy --project ripot-4edf7 --only functions:notifyTemplateContribution
 echo "Notification worker deployed. Submit a patient-free test template and check support@ripot.app, including spam."
+echo "Review it using a different account, then check the contributor inbox for the decision and feedback."
 echo "Deployment alone does not prove delivery. See TEMPLATE_LIBRARY.md for queued messages created before deployment."

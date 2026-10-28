@@ -75,3 +75,15 @@ The hub groups templates by specialty. Each new page has a canonical URL,
 description, sitemap entry, actual PDF preview, blank/example downloads, a clean
 copyable outline and a versioned link into the web editor. SEO traffic is not
 guaranteed and no search-volume claims are published.
+
+## Social sharing preview
+
+`python3 tools/landing/build_share_preview.py` rebuilds the 1200 × 630 JPEG from
+the existing fictional finished report. Requires ReportLab, Fontconfig with
+DejaVu Sans, and Poppler. The homepage and generated template pages reference
+this image and use a large Twitter card. Report photograph credits remain in
+the image and on the homepage.
+
+The homepage keeps two featured links; the library groups all 15 entries into
+Endoscopy, Ultrasound, Cardiology and Operation notes. Display names can change
+without changing published URLs or downloadable template payloads.

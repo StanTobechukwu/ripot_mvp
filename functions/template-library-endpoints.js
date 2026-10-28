@@ -3,12 +3,14 @@ const { onCall, onRequest } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineString, defineSecret } = require('firebase-functions/params');
 const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { createTemplateLibrary, C } = require('./template-library');
 const service = createTemplateLibrary(getFirestore());
 const options = { region: 'us-central1', maxInstances: 10, timeoutSeconds: 30 };
 exports.submitTemplateContribution = onCall(options, service.submit);
 exports.listTemplateContributions = onCall(options, service.list);
 exports.reviewTemplateContribution = onCall(options, service.review);
+exports.withdrawTemplateContribution = onCall(options, service.withdraw);
 exports.publicTemplateLibrary = onRequest({ ...options, cors: true }, async (req, res) => {
   if (req.method !== 'GET') return res.status(405).set('Allow','GET').end();
   if (req.query.health === '1') return res.set('Cache-Control', 'no-store').json({ schemaVersion: 1, contributions: 'ready' });
@@ -34,6 +36,6 @@ exports.notifyTemplateContribution = onDocumentCreated({
   const transport = nodemailer.createTransport({ host: smtpHost.value(), port: 465, secure: true, auth: { user: smtpUser.value(), pass: smtpPassword.value() }, connectionTimeout: 15000, socketTimeout: 30000 });
   try {
     const { deliverTemplateNotification } = require('./template-notification');
-    await deliverTemplateNotification(ref, event.params.mailId, message => transport.sendMail(message), smtpUser.value());
+    await deliverTemplateNotification(ref, event.params.mailId, message => transport.sendMail(message), smtpUser.value(), uid => getAuth().getUser(uid));
   } finally { transport.close(); }
 });

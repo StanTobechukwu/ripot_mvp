@@ -12,6 +12,7 @@ class AccountFunctions {
     'submitTemplateContribution',
     'listTemplateContributions',
     'reviewTemplateContribution',
+    'withdrawTemplateContribution',
     'activatePremiumTrial',
     'syncFounderEntitlement',
     'refreshPlayEntitlement',

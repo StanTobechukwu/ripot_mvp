@@ -18,7 +18,7 @@ They select project `ripot-4edf7` explicitly and do not deploy unrelated functio
    account: `firebase login`. Use Node 20 or newer. Open Terminal in the extracted
    release folder (the folder containing these scripts, not inside `landing`).
 2. Run `bash Deploy-Template-Services.command`. This installs backend dependencies,
-   deploys submission/list/review/public-library functions and restrictive rules,
+   deploys submission/list/review/withdraw/public-library functions and restrictive rules,
    then runs a read-only endpoint check. It does not require an SMTP password.
    A 404 means a route is absent at the configured project/region; it is not proof
    that the contributor's internet is broken.
@@ -37,7 +37,8 @@ They select project `ripot-4edf7` explicitly and do not deploy unrelated functio
    and TEMPLATE_SMTP_USER in `functions/.env.ripot-4edf7` locally; never commit
    credentials. Run `bash Setup-Template-Notifications.command`. Enter the mailbox
    or app password only into Firebase's secure secret prompt. The script deploys
-   only the notification worker. Recipient is fixed at `support@ripot.app`.
+   only the notification worker. New-submission alerts go to `support@ripot.app`;
+   review decisions go to the contributor’s account email, resolved by Firebase Auth.
 5. Run `bash Deploy-Web.command`, then `bash Deploy-Landing.command` from the release
    folder. In a source checkout, build the web app before deploying hosting and
    deploy the separate landing project from `landing/`.
@@ -48,16 +49,22 @@ They select project `ripot-4edf7` explicitly and do not deploy unrelated functio
      the two declarations. Submit and confirm it appears in My submissions.
    - Confirm the reviewer sees the pending item and support@ripot.app receives
      an email. Deployment success alone does not establish inbox delivery.
-   - Request changes with feedback. Confirm the contributor can see the feedback,
+   - Reject or request changes with feedback. Confirm the contributor receives an
+     email with the decision, reason and a link to My submissions (check spam too).
+     Confirm the contributor can see the feedback,
      update the local structure and resubmit a new revision.
-   - Approve as the independent reviewer. Confirm the same approved version is
+   - From a pending card in My submissions, choose ⋮ → Withdraw submission.
+     Cancel once, then confirm. Verify it leaves the reviewer queue, keeps the
+     local template, and can be resubmitted. A previously approved version stays public.
+   - Approve as the independent reviewer. Confirm the contributor receives the
+     approval email and the same approved version is
      available on https://ripot.app/templates/ and in the app. The public catalogue
      may be cached for up to 60 seconds.
    - Preview, add a personal copy, reopen offline and confirm the original
      contribution is not changed by edits to that copy.
 
 At any time, `node functions/scripts/check-template-services.js` safely checks the
-public response and verifies all three callables reject unauthenticated requests.
+public response and verifies all four callables reject unauthenticated requests.
 It does not submit data, approve templates, send mail or prove signed-in access.
 The app now separates missing service, sign-in, validation, rate-limit, stale
 revision and connectivity errors, preserving form entries for safe retries.
@@ -93,9 +100,47 @@ community pages are not generated as individual server-rendered SEO pages.
 
 ## Notifications and recovery
 
+Review decisions create a separate `<submission>-<revision>-decision` mail record
+in the same transaction as the review. It contains `kind: decision`, the trusted
+owner UID, template name, exact decision and reviewer feedback. This snapshot
+survives later resubmissions. The worker resolves the recipient from Firebase
+Auth, never a client-supplied address, and sends a plain-text approval, rejection,
+or changes-requested email with a `?templateLibrary=mine` link. Rejection and
+changes requested require a reason. A missing/deleted/disabled account or one
+without email is marked `skipped`; transient Auth and SMTP failures retry.
+The saved reason remains available in My submissions regardless of email delivery.
+
+Existing decisions made before this update are not emailed retroactively.
+Downloading the new web code alone does not update Firebase functions.
+The complete compiled release includes `Update-Ripot.command`: after reviewer and
+SMTP setup, run `bash Update-Ripot.command` to update backend, web app and landing
+page in order without changing mailbox secrets or reviewer roles.
+
+For an existing installation, deploy the notification worker **first**, then the
+core services. This prevents an older worker treating a decision as a reviewer
+alert during the rollout. With the SMTP secret already configured, run from the
+updated source repository root:
+
+```bash
+npm ci --prefix functions
+firebase deploy --project ripot-4edf7 --only functions:notifyTemplateContribution
+bash tools/deploy/Deploy-Template-Services.command
+```
+
+No need to reset the mailbox password. If it has not been configured, run
+`bash tools/deploy/Setup-Template-Notifications.command` before the core deployment.
+Then rebuild the app (and deploy the web app for email links to open the new
+My submissions view). Test with a new review decision after both deployments.
+
+Only the owner can withdraw a pending revision, using its card's three-dot menu
+and confirmation dialog. Withdrawal is transactional with review: only one can
+win. Retrying the same withdrawal is safe, and stale requests cannot withdraw a
+newer revision. Withdrawn records remain in My submissions and may be resubmitted;
+local templates and previously published versions are unaffected.
+
 A durable ripot_template_mail/<submission>-<revision> record is created in the
 same transaction as submission. Its status is queued, retrying, or sent. The
-Firestore worker sends a minimal alert with a fixed review link, without template
+Firestore worker sends the reviewer a minimal alert with a fixed review link, without template
 content or patient data, over authenticated TLS SMTP. Email delivery retries
 when SMTP fails. SMTP has no exactly-once guarantee: a crash after provider
 acceptance can deliver the same Message-ID twice. `sent` means SMTP accepted the
@@ -103,7 +148,8 @@ message, not that it reached the inbox. The review queue works independently.
 Monitor failed function invocations and stale queued/retrying records in Firebase.
 After retries expire or for records created before the worker was deployed,
 a project administrator can create a NEW mail document containing the same
-submissionId/revision/createdAt and status queued to explicitly requeue it.
+fields from the original record (including kind/ownerUid/name/decision/note for
+decision emails) and status queued to explicitly requeue it.
 Never grant clients write access to the mail collection. Configure provider SPF,
 DKIM and mailbox delivery separately. No live email has been sent by automated tests.
 

@@ -9,7 +9,7 @@ test('deployment checker is unauthenticated and diagnoses missing routes',async(
   if(options.method==='POST')assert.equal(options.body,'{"data":{}}');
   return {status:404,json:async()=>{throw Error('HTML');}};
  });
- assert.equal(calls,5);assert(results.every(r=>!r.ok&&r.detail.includes('not found')));
+ assert.equal(calls,6);assert(results.every(r=>!r.ok&&r.detail.includes('not found')));
 });
 test('healthy endpoints must enforce authentication and return expected schemas',async()=>{
  const results=await checkTemplateServices(async(url,options)=>({status:options.method==='POST'?401:200,

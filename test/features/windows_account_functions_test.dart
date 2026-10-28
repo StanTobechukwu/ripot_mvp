@@ -103,4 +103,11 @@ void main() {
     );
     pending.complete(http.Response('{"result":null}', 200));
   });
+  test('callable errors preserve the message for safe domain-specific classification', () async {
+    await expectLater(call(MockClient((_) async => http.Response(
+      '{"error":{"status":"PERMISSION_DENIED","message":"Reviewer access is required."}}', 403,
+    ))), throwsA(isA<AccountFunctionException>()
+      .having((e) => e.message, 'message', 'Reviewer access is required.')));
+  });
+
 }

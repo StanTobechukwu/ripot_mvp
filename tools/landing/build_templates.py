@@ -1,4 +1,4 @@
-"""Build indexable pages from the exact starter templates exported by Ripot."""
+"""Build indexable pages from the published templates exported by Ripot."""
 import html, json, hashlib, shutil
 from template_page import page_body
 from template_guides import GUIDES, BASE_REFERENCES
@@ -19,15 +19,28 @@ SEO = {
  'echocardiogram-report-template': ('Echocardiogram Report Template – 2D Echo Measurements & PDF', 'Preview a 2D echocardiogram report template with chamber measurements, LVEF, Doppler and valve findings. Open the structured editor in Ripot Web.'),
 }
 EXTRA = json.loads((ROOT/'tools/landing/additional_catalog.json').read_text())
+DISPLAY_NAMES = {
+ 'flexible-sigmoidoscopy-report-template': 'Flexible sigmoidoscopy report template',
+ 'obstetric-ultrasound-report-template': 'Obstetric ultrasound report template',
+ 'pelvic-transvaginal-ultrasound-report-template': 'Pelvic and transvaginal ultrasound report template',
+ 'thyroid-neck-ultrasound-report-template': 'Thyroid and neck ultrasound report template',
+ 'renal-artery-doppler-report-template': 'Renal ultrasound and renal artery Doppler report template',
+ 'holter-monitor-report-template': 'Holter monitor report template',
+ 'ambulatory-blood-pressure-report-template': 'Ambulatory blood pressure report template',
+ 'general-surgical-operation-note-template': 'General surgical operation note template',
+ 'caesarean-section-operation-note-template': 'Caesarean section operation note template',
+ 'appendectomy-operation-note-template': 'Appendectomy operation note template',
+ 'wound-debridement-minor-operation-note-template': 'Wound debridement operation note template',
+}
 for entry in EXTRA:
- CATALOG.append((entry['slug'], entry['name']+' template', entry['specialty'], entry['description']))
- SEO[entry['slug']] = (entry['name']+' Template | Editable Report & PDF', entry['description'])
+ CATALOG.append((entry['slug'], DISPLAY_NAMES[entry['slug']], entry['specialty'], entry['description']))
+ SEO[entry['slug']] = (DISPLAY_NAMES[entry['slug']]+' | Editable & PDF', entry['description'])
 REFERENCES = {**BASE_REFERENCES, **{entry['slug']:entry['references'] for entry in EXTRA}}
 e = html.escape
 CSS = (ROOT/'tools/landing/templates.css').read_text()
 SCRIPT = (ROOT/'tools/landing/templates.js').read_text()
 def shell(title,desc,path,body):
- return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(title)} | Ripot</title><meta name="description" content="{e(desc)}"><link rel="canonical" href="https://ripot.app{path}"><link rel="icon" href="/images/ripot-icon.png"><link rel="stylesheet" href="/templates/templates.css"><meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}"><meta property="og:url" content="https://ripot.app{path}"></head><body><header><a class="brand" href="/"><img src="/images/ripot-icon.png" alt="">Ripot</a><nav aria-label="Main"><a href="/templates/">Templates</a><a href="/#download">Get Ripot</a><a href="/contact.html">Support</a></nav></header><main>{body}</main><footer><p>Ripot · Smarter Clinical Reporting</p><nav><a href="mailto:support@ripot.app">support@ripot.app</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="https://www.linkedin.com/company/ripot-technology/" target="_blank" rel="noopener noreferrer">Follow Ripot on LinkedIn</a></nav><p class="note">A documentation tool, not a substitute for clinical judgement.</p></footer><script src="/templates/template-funnel.js" defer></script><script src="/templates/templates.js" defer></script><script src="/templates/community.js" defer></script></body></html>'''
+ return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(title)} | Ripot</title><meta name="description" content="{e(desc)}"><link rel="canonical" href="https://ripot.app{path}"><link rel="icon" href="/images/ripot-icon.png"><link rel="stylesheet" href="/templates/templates.css"><meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}"><meta property="og:url" content="https://ripot.app{path}"><meta property="og:image" content="https://ripot.app/images/ripot-report-share.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="A finished Ripot report with fictional demonstration details"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://ripot.app/images/ripot-report-share.jpg"></head><body><header><a class="brand" href="/"><img src="/images/ripot-icon.png" alt="">Ripot</a><nav aria-label="Main"><a href="/templates/">Templates</a><a href="/#download">Get Ripot</a><a href="/contact.html">Support</a></nav></header><main>{body}</main><footer><p>Ripot · Smarter Clinical Reporting</p><nav><a href="mailto:support@ripot.app">support@ripot.app</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="https://www.linkedin.com/company/ripot-technology/" target="_blank" rel="noopener noreferrer">Follow Ripot on LinkedIn</a></nav><p class="note">A documentation tool, not a substitute for clinical judgement.</p></footer><script src="/templates/template-funnel.js" defer></script><script src="/templates/templates.js" defer></script><script src="/templates/community.js" defer></script></body></html>'''
 def walk(nodes,depth=0):
  for n in nodes:
   if n.get('type')=='section':
@@ -37,9 +50,14 @@ def card(item):
  slug,title,specialty,desc=item
  return f'<article class="card"><span class="eyebrow">{e(specialty)}</span><h2><a href="/templates/{slug}/">{e(title)}</a></h2><p>{e(desc)}</p><p class="note">Contributor: Ripot · Starter template</p><a href="/templates/{slug}/">Preview and use →</a></article>'
 def catalog_sections():
- categories=list(dict.fromkeys(item[2] for item in CATALOG))
- navigation='<nav class="actions" aria-label="Template specialties">'+''.join(f'<a class="button secondary" href="#specialty-{e(category.lower())}">{e(category)} ({sum(item[2]==category for item in CATALOG)})</a>' for category in categories)+'</nav>'
- sections=''.join(f'<section id="specialty-{e(category.lower())}"><h2>{e(category)}</h2><div class="cards">'+''.join(card(item) for item in CATALOG if item[2]==category)+'</div></section>' for category in categories)
+ groups = [
+  ('endoscopy', 'Endoscopy', 'Gastroenterology'),
+  ('ultrasound', 'Ultrasound', 'Radiology'),
+  ('cardiology', 'Cardiology', 'Cardiology'),
+  ('operation-notes', 'Operation notes', 'Surgery'),
+ ]
+ navigation='<nav class="actions" aria-label="Template specialties">'+''.join(f'<a class="button secondary" href="#specialty-{key}">{label} ({sum(item[2]==specialty for item in CATALOG)})</a>' for key,label,specialty in groups)+'</nav>'
+ sections=''.join(f'<section id="specialty-{key}"><h2>{label}</h2><div class="cards">'+''.join(card(item) for item in CATALOG if item[2]==specialty)+'</div></section>' for key,label,specialty in groups)
  return navigation+sections
 
 def main():
@@ -49,7 +67,7 @@ def main():
  shutil.copyfile(ROOT/'tools/landing/community.js', out/'community.js')
  shutil.copyfile(ROOT/'web/template-funnel.js', out/'template-funnel.js')
  (out/'community.html').write_text(shell('Community reporting template','Preview an approved community reporting structure and use it in Ripot.','/templates/community.html','<p id="community-status" role="status">Loading template…</p><section id="community-preview"></section><a href="/templates/">Back to all templates</a>'))
- (out/'index.html').write_text(shell('Clinical report templates','Browse endoscopy, ultrasound, cardiology and surgical report structures. Preview, download or open a template in Ripot.','/templates/', '<span class="eyebrow">The Ripot template library</span><h1>A clear starting point for your next report.</h1><p class="lead">Choose a specialty, explore the fields and make the report your own.</p><p>Preview the reporting templates, download a printable PDF, or open an editable template in Ripot. Blank forms and clearly labelled fictional examples are available separately.</p>'+catalog_sections()+'<section id="community-section" hidden><h2>From the Ripot community</h2><p id="community-status" role="status"></p><div id="community-templates" class="cards"></div></section><section class="card"><h2>Have a useful reporting structure?</h2><p>Submit a patient-free template with your specialty and contributor credit. Track feedback in My submissions. Only reviewed and approved structures appear publicly.</p><div class="actions"><a class="button" href="https://ripot-web.web.app/?templateLibrary=contribute">Contribute a template</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=browse">Browse in Ripot</a></div></section>'))
+ (out/'index.html').write_text(shell('Clinical report templates','Browse endoscopy, ultrasound, cardiology and surgical report structures. Preview, download or open a template in Ripot.','/templates/', '<span class="eyebrow">The Ripot template library</span><h1>A clear starting point for your next report.</h1><p class="lead">Choose a specialty, explore the fields and make the report your own.</p><p>Explore 15 templates across endoscopy, ultrasound, cardiology and operation notes. Download a printable PDF, or open an editable template in Ripot. Blank forms and clearly labelled fictional examples are available separately.</p>'+catalog_sections()+'<section id="community-section" hidden><h2>From the Ripot community</h2><p id="community-status" role="status"></p><div id="community-templates" class="cards"></div></section><section class="card"><h2>Have a useful reporting structure?</h2><p>Submit a patient-free reporting structure with your specialty and contributor credit. An authorised reviewer checks it before publication; contributors cannot review their own submissions. You receive an email when it is approved, rejected or needs changes, with a reason for rejection or requested changes. Feedback also stays in My submissions.</p><p>Changed your mind? Open the three-dot menu on your pending submission in My submissions and choose Withdraw submission. Your saved template is kept, and you can resubmit later.</p><div class="actions"><a class="button" href="https://ripot-web.web.app/?templateLibrary=contribute">Contribute a template</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=mine">My submissions</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=browse">Browse in Ripot</a></div></section>'))
  manifest=[]
  for item in CATALOG:
   slug,title,specialty,desc=item
@@ -83,7 +101,7 @@ def main():
  home_text=home.read_text()
  start='<!-- TEMPLATE_LINKS_START -->';end='<!-- TEMPLATE_LINKS_END -->'
  if start in home_text and end in home_text:
-  links='<div class="feature-grid">'+''.join(f'<a class="feature-card text-link" href="/templates/{slug}/">{e(title)}</a>' for slug,title,_,_ in CATALOG)+'</div>'
+  links='<nav class="template-highlights" aria-label="Featured templates">'+''.join(f'<a class="text-link" href="/templates/{slug}/">{e(title)}</a>' for slug,title,_,_ in CATALOG[:2])+'</nav>'
   before,rest=home_text.split(start,1);_,after=rest.split(end,1)
   home.write_text(before+start+'\n'+links+'\n'+end+after)
  print(f'Built hub and {len(CATALOG)} template pages with app-rendered PDF previews and labelled downloads.')

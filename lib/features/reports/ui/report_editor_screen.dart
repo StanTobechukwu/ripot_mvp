@@ -311,8 +311,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
           'Reports saved in this browser can be lost if site data is cleared. '
           'Export a PDF from Preview to keep a finished report, and confirm '
           'the file is in Downloads. A PDF does not preserve an editable report. '
-          'Registry and Logbook have separate encrypted backup tools; these '
-          'do not back up My Reports or the whole app.',
+          'For editable reports and attachments, use More → Backup & restore '
+          'from the home screen. Choose Everything for a full Ripot backup.',
         ),
         actions: [
           FilledButton(

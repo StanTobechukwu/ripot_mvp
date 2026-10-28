@@ -1,0 +1,53 @@
+name: Landing page checks and deployment package
+on:
+  push:
+    branches: [codex/global-backup-20261026]
+    paths: ['landing/**', 'tools/landing/**', '.github/workflows/landing-checks.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  landing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate and verify pages
+        run: |
+          python3 tools/landing/build_templates.py
+          python3 tools/landing/verify.py
+          git diff --exit-code -- landing/y
+      - name: Check mobile and desktop layouts and downloads
+        run: |
+          npm install --prefix "$RUNNER_TEMP/ripot-browser" --no-package-lock --no-save playwright@1.58.2
+          NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/landing/smoke_community.cjs
+          NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/landing/smoke_template_previews.cjs
+      - name: Package landing page only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil, hashlib, os
+          stage=Path('build/landing-distribution')
+          shutil.copytree('landing/y', stage/'landing/y')
+          for name in ('firebase.json', '.firebaserc'):
+              shutil.copyfile(Path('landing')/name, stage/'landing'/name)
+          (stage/'Deploy-Landing.command').write_text('#!/bin/bash\nset -euo pipefail\ncd "$(dirname "$0")"\nshasum -a 256 -c SHA256SUMS.txt\ncd landing\nfirebase deploy --only hosting --project ripot-landing\n')
+          (stage/'START-HERE.txt').write_text('Ripot landing-page update\n\nOpen Terminal in this extracted folder and run:\n  bash Deploy-Landing.command\n\nThis publishes the landing page and template library only.\nIt does not deploy the app or backend.\nSource: '+os.environ['GITHUB_SHA']+'\n')
+          files=sorted(p for p in stage.rglob('*') if p.is_file())
+          (stage/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(stage).as_posix()+'\n' for p in files))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ripot-landing-update
+          path: build/landing-distribution/
+          include-hidden-files: true
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ripot-landing-layout-checks
+          path: build/browser-smoke/
+          retention-days: 14
