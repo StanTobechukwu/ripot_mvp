@@ -83,7 +83,7 @@ def main():
  home_text=home.read_text()
  start='<!-- TEMPLATE_LINKS_START -->';end='<!-- TEMPLATE_LINKS_END -->'
  if start in home_text and end in home_text:
-  links='<div class="feature-grid">'+''.join(f'<a class="feature-card text-link" href="/templates/{slug}/">{e(title)}</a>' for slug,title,_,_ in CATALOG)+'</div>'
+  links='<nav class="template-highlights" aria-label="Featured templates">'+''.join(f'<a class="text-link" href="/templates/{slug}/">{e(title)}</a>' for slug,title,_,_ in CATALOG[:2])+'</nav>'
   before,rest=home_text.split(start,1);_,after=rest.split(end,1)
   home.write_text(before+start+'\n'+links+'\n'+end+after)
  print(f'Built hub and {len(CATALOG)} template pages with app-rendered PDF previews and labelled downloads.')
