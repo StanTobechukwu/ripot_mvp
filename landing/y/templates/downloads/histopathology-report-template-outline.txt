@@ -1,0 +1,31 @@
+HISTOPATHOLOGY REPORT
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+REQUEST AND SPECIMEN
+Laboratory / accession number: ________________
+Requesting clinician and facility: ________________
+Specimen type, anatomical site and laterality: ________________
+Container identifiers and specimen mapping: ________________
+Date collected: ________________
+Date received: ________________
+Date reported: ________________
+Clinical summary and provisional diagnosis: ________________
+
+EXAMINATION
+Macroscopy / gross description: ________________
+Block / cassette identification: ________________
+Microscopy: ________________
+Ancillary studies and results, if performed: ________________
+Adequacy and limitations: ________________
+
+CONCLUSION
+Conclusion / final diagnosis: ________________
+Comment / clinicopathological correlation: ________________
+Reporting pathologist: ________________
+
+Clinician: ________________
+Signature: ________________

@@ -54,18 +54,23 @@
     },
     {
       "slug": "echocardiogram-report-template",
-      "version": "466590d1d23cf128",
+      "version": "62b20f5bae156960",
       "name": "Echocardiogram report template",
       "specialty": "Cardiology",
       "contributor": "Ripot",
       "status": "approved",
-      "url": "/templates/catalog/echocardiogram-report-template/466590d1d23cf128.ripottemplate.json",
-      "sha256": "466590d1d23cf128eb94d4eaa42318976fc598f685dcf8578d4b32acdf8761b7",
+      "url": "/templates/catalog/echocardiogram-report-template/62b20f5bae156960.ripottemplate.json",
+      "sha256": "62b20f5bae15696028b1ee18f594a75df0d968d2f2ae123c7054f9546bacd053",
       "versions": [
         {
           "version": "466590d1d23cf128",
           "sha256": "466590d1d23cf128eb94d4eaa42318976fc598f685dcf8578d4b32acdf8761b7",
           "url": "/templates/catalog/echocardiogram-report-template/466590d1d23cf128.ripottemplate.json"
+        },
+        {
+          "version": "62b20f5bae156960",
+          "sha256": "62b20f5bae15696028b1ee18f594a75df0d968d2f2ae123c7054f9546bacd053",
+          "url": "/templates/catalog/echocardiogram-report-template/62b20f5bae156960.ripottemplate.json"
         }
       ]
     },
@@ -253,6 +258,40 @@
           "version": "a69c3a69a1d5ff4b",
           "sha256": "a69c3a69a1d5ff4b23c0b0feac5e4b1305cbfd578e8b35dd4d203744a931f67d",
           "url": "/templates/catalog/wound-debridement-minor-operation-note-template/a69c3a69a1d5ff4b.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "structured-upper-gi-endoscopy-report-template",
+      "version": "27cb5dce044966f6",
+      "name": "Upper GI endoscopy report template \u2014 guided",
+      "specialty": "Gastroenterology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/structured-upper-gi-endoscopy-report-template/27cb5dce044966f6.ripottemplate.json",
+      "sha256": "27cb5dce044966f69b8d9c9f84a05c8f7be1733eff279fda0a2095b7c0da7169",
+      "versions": [
+        {
+          "version": "27cb5dce044966f6",
+          "sha256": "27cb5dce044966f69b8d9c9f84a05c8f7be1733eff279fda0a2095b7c0da7169",
+          "url": "/templates/catalog/structured-upper-gi-endoscopy-report-template/27cb5dce044966f6.ripottemplate.json"
+        }
+      ]
+    },
+    {
+      "slug": "histopathology-report-template",
+      "version": "e4dbc7bbb94ff069",
+      "name": "Histopathology report template",
+      "specialty": "Pathology",
+      "contributor": "Ripot",
+      "status": "approved",
+      "url": "/templates/catalog/histopathology-report-template/e4dbc7bbb94ff069.ripottemplate.json",
+      "sha256": "e4dbc7bbb94ff069c0ab0d84366f6262aa18831c2d75c26e20d6bc19dd68252d",
+      "versions": [
+        {
+          "version": "e4dbc7bbb94ff069",
+          "sha256": "e4dbc7bbb94ff069c0ab0d84366f6262aa18831c2d75c26e20d6bc19dd68252d",
+          "url": "/templates/catalog/histopathology-report-template/e4dbc7bbb94ff069.ripottemplate.json"
         }
       ]
     }
