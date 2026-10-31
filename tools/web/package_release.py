@@ -55,6 +55,10 @@ Optional numeric GEJ, Z-line and diaphragmatic-pinch measurements use
 cm from incisors, as do individual oesophageal lesion levels. Units remain
 visible in blank numeric fields. Enter the number only; blank optional
 measurements are omitted from the PDF.
+Template loading now allows 15 seconds per request and retries transient failures
+once. Connection failures offer Try again without replacing the linked version.
+Version-aware catalogue requests and revalidation prevent stale lists from
+rejecting newly published templates. Approval and checksum checks remain intact.
 
 For this update, deploy in this order from this complete folder:
   bash Deploy-Web.command

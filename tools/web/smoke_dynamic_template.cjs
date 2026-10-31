@@ -133,9 +133,16 @@ async function finishSave(page) {
     const extra = JSON.parse(fs.readFileSync('tools/landing/additional_catalog.json'));
     const actualCatalog = JSON.parse(fs.readFileSync('landing/y/templates/catalog/manifest.json'));
     const realPage = await context.newPage();
+    let failActualCatalogue = false;
+    let failedManifestRequests = 0;
     await realPage.addInitScript(() => { window.qaFunnel=[]; window.addEventListener('ripot-funnel-ready',e=>window.qaFunnel.push(e.detail)); });
     await realPage.route('https://ripot.app/templates/catalog/**', async route => {
       const pathname = new URL(route.request().url()).pathname;
+      if (failActualCatalogue) {
+        if (pathname.endsWith('manifest.json')) failedManifestRequests++;
+        await route.fulfill({status:503,contentType:'application/json',headers:{'access-control-allow-origin':origin},body:'{}'});
+        return;
+      }
       const file = path.resolve('landing/y', '.' + pathname);
       if (!file.startsWith(path.resolve('landing/y/templates/catalog') + path.sep)) throw Error('Unexpected catalogue path');
       await route.fulfill({status:fs.existsSync(file)?200:404, contentType:'application/json', headers:{'access-control-allow-origin':origin}, body:fs.existsSync(file)?fs.readFileSync(file):'{}'});
@@ -183,6 +190,23 @@ async function finishSave(page) {
     await useLatest.click();
     await realPage.getByRole('button',{name:'Save progress',exact:true}).waitFor({state:'visible',timeout:60000});
     await realPage.screenshot({path:path.join(out,'stale-link-latest-version.png'),fullPage:true});
+    // A network failure must remain distinct from a missing version and allow
+    // recovery in the same app tab without changing saved reports.
+    const savedBeforeFailure = await realPage.evaluate(() => Object.keys(localStorage).filter(k=>k.startsWith('flutter.reports.doc.')).length);
+    failActualCatalogue = true;
+    await realPage.goto(`${origin}/?template=${firstEntry.slug}&version=${firstEntry.version}`);
+    await staleSemantics.waitFor({state:'attached',timeout:60000});
+    await staleSemantics.evaluate(e=>e.click());
+    await realPage.getByText('Could not download the template. Check your connection and try again.',{exact:true}).waitFor({state:'visible',timeout:60000});
+    assert.equal(failedManifestRequests,2,'Transport retries must be bounded');
+    assert.equal(await realPage.getByRole('button',{name:'Open latest version',exact:true}).count(),0);
+    assert.equal(await realPage.evaluate(() => Object.keys(localStorage).filter(k=>k.startsWith('flutter.reports.doc.')).length),savedBeforeFailure);
+    await realPage.screenshot({path:path.join(out,'template-network-retry.png'),fullPage:true});
+    failActualCatalogue = false;
+    await realPage.getByRole('button',{name:'Try again',exact:true}).click();
+    await realPage.getByRole('button',{name:'Save progress',exact:true}).waitFor({state:'visible',timeout:60000});
+    await realPage.screenshot({path:path.join(out,'template-network-recovered.png'),fullPage:true});
+    console.log('PASS: failed template download offers bounded retries; Try again opens the original version without reloading or changing saved reports.');
     await realPage.close();
     console.log('PASS: all actual catalogue templates open and save without sample findings; storage reminders appear on saves 1, 5 and 10 and allow continuing to export.');
 

@@ -1,9 +1,21 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart' as crypto;
 import '../domain/models/template_doc.dart';
 import '../domain/serialization/template_codec.dart';
 import '../domain/public_template_links.dart';
+
+enum PublicTemplateLoadFailure { connection, unavailable }
+
+class PublicTemplateLoadResult {
+  const PublicTemplateLoadResult({this.template, this.latestVersion, this.failure});
+  final TemplateDoc? template;
+  final String? latestVersion;
+  final PublicTemplateLoadFailure? failure;
+}
+
+class _TemporaryTemplateFailure implements Exception {}
 
 /// Loads only approved, versioned, patient-free templates from Ripot's catalogue.
 /// No arbitrary remote URLs are accepted from the browser query string.
@@ -13,18 +25,56 @@ class PublicTemplateCatalog {
   static final _slug = RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)*$');
   static final _version = RegExp(r'^[a-f0-9]{16}$');
 
+  static bool _connectionFailure(Object? error) => error is TimeoutException ||
+      error is http.ClientException || error is _TemporaryTemplateFailure;
+
+  // Fast requests still complete immediately. Slow connections get more time,
+  // and only transient transport/server failures are retried, once.
+  static Future<http.Response> _get(http.Client client, Uri uri) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final target = attempt == 0 ? uri : uri.replace(queryParameters: {
+        ...uri.queryParameters,
+        'ripotRetry': DateTime.now().microsecondsSinceEpoch.toString(),
+      });
+      try {
+        final response = await client.get(target).timeout(const Duration(seconds: 15));
+        if (response.statusCode == 408 || response.statusCode == 429 ||
+            response.statusCode >= 500 && response.statusCode <= 599) {
+          if (attempt == 0) continue;
+          throw _TemporaryTemplateFailure();
+        }
+        return response;
+      } catch (error) {
+        if (!_connectionFailure(error) || attempt == 1) rethrow;
+      }
+    }
+    throw _TemporaryTemplateFailure();
+  }
+
+  static Future<PublicTemplateLoadResult> load(Uri uri, {bool forEditor = false}) async {
+    String? latest;
+    PublicTemplateLoadFailure? failure;
+    final template = await (forEditor ? resolveForEditor : resolve)(uri,
+      onLatestVersion: (value) => latest = value,
+      onFailure: (value) => failure = value);
+    return PublicTemplateLoadResult(template: template, latestVersion: latest,
+      failure: template == null ? failure ?? PublicTemplateLoadFailure.unavailable : null);
+  }
+
   /// Versioned links must resolve the exact published payload, never a bundled
   /// template with a potentially different structure. Keep old unversioned
   /// starter links usable offline.
-  static Future<TemplateDoc?> resolveForEditor(Uri uri, {void Function(String)? onLatestVersion}) async {
+  static Future<TemplateDoc?> resolveForEditor(Uri uri, {void Function(String)? onLatestVersion,
+      void Function(PublicTemplateLoadFailure)? onFailure}) async {
     if (!uri.queryParameters.containsKey('version')) {
       final bundled = PublicTemplateLinks.resolve(uri);
       if (bundled != null) return bundled;
     }
-    return resolve(uri, onLatestVersion: onLatestVersion);
+    return resolve(uri, onLatestVersion: onLatestVersion, onFailure: onFailure);
   }
 
-  static Future<TemplateDoc?> resolve(Uri uri, {void Function(String)? onLatestVersion}) async {
+  static Future<TemplateDoc?> resolve(Uri uri, {void Function(String)? onLatestVersion,
+      void Function(PublicTemplateLoadFailure)? onFailure}) async {
     final slug = uri.queryParameters['template'];
     if (slug == null || !_slug.hasMatch(slug) || slug.length > 100) return null;
     final requestedVersion = uri.queryParameters['version'];
@@ -34,9 +84,9 @@ class PublicTemplateCatalog {
       Map entry;
       List<int> bytes;
       if (slug.startsWith('community-')) {
-        final response = await client.get(Uri.parse(communityEndpoint).replace(
+        final response = await _get(client, Uri.parse(communityEndpoint).replace(
           queryParameters: {'template': slug, if (requestedVersion != null) 'version': requestedVersion},
-        )).timeout(const Duration(seconds: 8));
+        ));
         if (response.statusCode != 200 || response.bodyBytes.length > 350000) return null;
         final detail = jsonDecode(utf8.decode(response.bodyBytes));
         if (detail is! Map || detail['slug'] != slug || detail['status'] != 'approved' || detail['payload'] is! String) return null;
@@ -47,19 +97,36 @@ class PublicTemplateCatalog {
         // Versioned links already specify an immutable catalogue path. Fetch it
         // while fetching the manifest, but never trust it until approval, URL,
         // exact version and SHA-256 checks below have all passed.
-        final prefetched = requestedVersion == null ? null : client.get(
+        Object? payloadError;
+        final prefetched = requestedVersion == null ? null : _get(client,
           Uri.parse('$_origin/templates/catalog/$slug/$requestedVersion.ripottemplate.json'))
-          .timeout(const Duration(seconds: 8))
-          .then<http.Response?>((r) => r, onError: (_) => null);
-        final index = await client.get(Uri.parse('$_origin/templates/catalog/manifest.json'))
-            .timeout(const Duration(seconds: 8));
-        if (index.statusCode != 200 || index.bodyBytes.length > 200000) return null;
-        final catalog = jsonDecode(utf8.decode(index.bodyBytes));
-        if (catalog is! Map || catalog['schemaVersion'] != 1 || catalog['templates'] is! List) return null;
-        final entries = (catalog['templates'] as List).whereType<Map>().where((entry) =>
-            entry['slug'] == slug && entry['status'] == 'approved').toList();
-        if (entries.length != 1) return null;
-        entry = entries.single;
+          .then<http.Response?>((r) => r, onError: (Object error) { payloadError = error; return null; });
+        Future<Map?> approvedEntry({bool refresh = false}) async {
+          final index = await _get(client, Uri.parse('$_origin/templates/catalog/manifest.json').replace(
+            queryParameters: {
+              if (requestedVersion != null) 'templateVersion': requestedVersion,
+              if (refresh) 'ripotRefresh': DateTime.now().microsecondsSinceEpoch.toString(),
+            }));
+          if (index.statusCode != 200 || index.bodyBytes.length > 200000) return null;
+          final catalog = jsonDecode(utf8.decode(index.bodyBytes));
+          if (catalog is! Map || catalog['schemaVersion'] != 1 || catalog['templates'] is! List) return null;
+          final entries = (catalog['templates'] as List).whereType<Map>().where((e) =>
+              e['slug'] == slug && e['status'] == 'approved').toList();
+          return entries.length == 1 ? entries.single : null;
+        }
+        final found = await approvedEntry();
+        if (found == null) return null;
+        entry = found;
+        bool listsRequestedVersion(Map candidate) => candidate['version'] == requestedVersion ||
+            candidate['versions'] is List && (candidate['versions'] as List).whereType<Map>()
+              .any((v) => v['version'] == requestedVersion);
+        // A cached manifest can predate the page that supplied this new link.
+        // Refresh once, but still require approval and the exact checksum.
+        if (requestedVersion != null && !listsRequestedVersion(entry)) {
+          final refreshed = await approvedEntry(refresh: true);
+          if (refreshed == null) return null;
+          entry = refreshed;
+        }
         if (entry['version'] is String) onLatestVersion?.call(entry['version'] as String);
         if (requestedVersion != null && entry['version'] != requestedVersion) {
           final history = entry['versions'];
@@ -70,8 +137,10 @@ class PublicTemplateCatalog {
         }
         final path = '/templates/catalog/$slug/${entry['version']}.ripottemplate.json';
         if (entry['url'] != path) return null;
-        final response = prefetched != null ? await prefetched : await client.get(Uri.parse('$_origin$path'))
-            .timeout(const Duration(seconds: 8));
+        final response = prefetched != null ? await prefetched : await _get(client, Uri.parse('$_origin$path'));
+        if (response == null && _connectionFailure(payloadError)) {
+          onFailure?.call(PublicTemplateLoadFailure.connection);
+        }
         if (response == null || response.statusCode != 200) return null;
         bytes = response.bodyBytes;
       }
@@ -123,7 +192,8 @@ class PublicTemplateCatalog {
       raw['recordsConfigured'] = false;
       raw['signature'] = <String, dynamic>{};
       return TemplateCodec.templateFromJson(raw);
-    } catch (_) {
+    } catch (error) {
+      if (_connectionFailure(error)) onFailure?.call(PublicTemplateLoadFailure.connection);
       return null;
     } finally {
       client.close();

@@ -150,14 +150,76 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     ).showSnackBar(SnackBar(content: Text(result.message)));
   }
 
+  Future<void> _openLinkedTemplate(Uri uri, {Future<PublicTemplateLoadResult>? pending}) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    if (!_openingTemplate) setState(() => _openingTemplate = true);
+    var result = await (pending ?? PublicTemplateCatalog.load(uri, forEditor: true));
+    if (!mounted) return;
+    var template = result.template;
+    String? templateNotice;
+    final requestedVersion = uri.queryParameters['version'];
+    // A connection failure does not establish that a version is missing.
+    // Do not replace the requested version, or start another slow lookup.
+    if (template == null && result.failure != PublicTemplateLoadFailure.connection &&
+        requestedVersion != null && RegExp(r'^[a-f0-9]{16}$').hasMatch(requestedVersion)) {
+      final latestResult = await PublicTemplateCatalog.load(Uri(queryParameters: {
+        'template': uri.queryParameters['template'] ?? '',
+      }));
+      if (!mounted) return;
+      final latest = latestResult.template;
+      if (latest != null && latest.sourceVersion == requestedVersion) {
+        template = latest;
+      } else if (latest != null) {
+        final useLatest = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(
+          title: const Text('This template version could not be loaded'),
+          content: const Text('The linked version could not be loaded, but a current approved version is available. Open it as a new report?'),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Open latest version'))],
+        ));
+        if (!mounted) return;
+        if (useLatest != true) {
+          setState(() => _openingTemplate = false);
+          await _refreshReports();
+          return;
+        }
+        template = latest;
+        templateNotice = 'Opened the latest approved template version. Your saved reports and templates are unchanged.';
+      } else if (latestResult.failure == PublicTemplateLoadFailure.connection) {
+        result = latestResult;
+      }
+    } else if (template != null && requestedVersion != null && result.latestVersion != null &&
+        requestedVersion != result.latestVersion) {
+      templateNotice = 'Opened the older version specified by this link. A newer version is available in Online templates.';
+    }
+    if (!mounted) return;
+    setState(() => _openingTemplate = false);
+    if (template != null) {
+      context.read<ReportEditorProvider>().newReportFromTemplate(template);
+      await Navigator.push(context, MaterialPageRoute<void>(
+        builder: (_) => ReportEditorScreen(templateNotice: templateNotice)));
+      if (mounted) await _refreshReports();
+    } else {
+      final connection = result.failure == PublicTemplateLoadFailure.connection;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(connection
+            ? 'Could not download the template. Check your connection and try again.'
+            : 'This template link is not available. Choose a template from Templates.'),
+        duration: const Duration(seconds: 20),
+        action: connection ? SnackBarAction(label: 'Try again',
+            onPressed: () => _openLinkedTemplate(uri)) : null,
+      ));
+      await _refreshReports();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      String? latestVersion;
-      final incomingTemplate = _openingTemplate ? PublicTemplateCatalog.resolveForEditor(Uri.base,
-        onLatestVersion: (value) => latestVersion = value) : null;
+      final incomingTemplate = _openingTemplate
+          ? PublicTemplateCatalog.load(Uri.base, forEditor: true) : null;
       _incomingFileService = IncomingFileService(
         templatesRepository: context.read<TemplatesRepository>(),
         recordsRepository: context.read<RecordsRepository>(),
@@ -178,51 +240,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
           if (mounted) await _refreshReports();
           return;
         }
-        var template = incomingTemplate == null ? null : await incomingTemplate;
-        if (!mounted) return;
-        String? templateNotice;
-        final requestedVersion = Uri.base.queryParameters['version'];
-        if (template == null && requestedVersion != null && RegExp(r'^[a-f0-9]{16}$').hasMatch(requestedVersion)) {
-          final latest = await PublicTemplateCatalog.resolve(Uri(queryParameters: {
-            'template': Uri.base.queryParameters['template'] ?? '',
-          }));
-          if (!mounted) return;
-          if (latest != null) {
-            final useLatest = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(
-              title: const Text('This template version could not be loaded'),
-              content: const Text('The linked version could not be loaded, but a current approved version is available. Open it as a new report?'),
-              actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
-                FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Open latest version'))],
-            ));
-            if (!mounted) return;
-            if (useLatest != true) {
-              setState(() => _openingTemplate = false);
-              await _refreshReports();
-              return;
-            }
-            template = latest;
-            templateNotice = 'Opened the latest approved template version. Your saved reports and templates are unchanged.';
-          }
-        } else if (template != null && requestedVersion != null && latestVersion != null && requestedVersion != latestVersion) {
-          templateNotice = 'Opened the older version specified by this link. A newer version is available in Online templates.';
-        }
-        if (mounted) setState(() => _openingTemplate = false);
-        if (template != null) {
-          context.read<ReportEditorProvider>().newReportFromTemplate(template);
-          await Navigator.push(
-            context,
-            MaterialPageRoute<void>(builder: (_) => ReportEditorScreen(templateNotice: templateNotice)),
-          );
-          if (mounted) await _refreshReports();
-        } else if (Uri.base.queryParameters.containsKey('template')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'This template link is not available. Choose a template from Templates.',
-              ),
-            ),
-          );
-          await _refreshReports();
+        if (incomingTemplate != null) {
+          await _openLinkedTemplate(Uri.base, pending: incomingTemplate);
         }
       }
     });

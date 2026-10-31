@@ -160,7 +160,7 @@ void main() {
   test('missing requested version does not fall back to bundled template', () async {
     final f = CatalogFixture(payload());
     expect(await f.resolve(query: 'template=$slug&version=0000000000000000'), isNull);
-    expect(f.requests, hasLength(2));
+    expect(f.requests, hasLength(3)); // payload plus one fresh-manifest check
     expect(f.requests.every((u) => u.origin == 'https://ripot.app'), isTrue);
   });
 

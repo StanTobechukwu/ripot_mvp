@@ -20,7 +20,7 @@ jobs:
       - run: flutter pub get
       - run: python3 tools/landing/export_additional_templates.py
       - run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib test
-      - run: flutter test --no-pub test/features/guided_ogd_workflow_test.dart test/features/public_template_parallel_load_test.dart test/features/additional_public_templates_test.dart test/features/public_template_catalog_test.dart
+      - run: flutter test --no-pub test/features/guided_ogd_workflow_test.dart test/features/public_template_parallel_load_test.dart test/features/public_template_recovery_test.dart test/features/additional_public_templates_test.dart test/features/public_template_catalog_test.dart
       - run: sudo apt-get update -qq && sudo apt-get install -y poppler-utils
       - name: Check real generated report text
         run: |
