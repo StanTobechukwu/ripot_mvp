@@ -63,6 +63,7 @@ async function finishSave(page) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true,
     args: ['--no-sandbox', '--enable-unsafe-swiftshader'] });
   let page;
+  let failurePage;
   const fetched = [];
   try {
     const context = await browser.newContext({ viewport: { width: 1365, height: 1200 },
@@ -133,6 +134,7 @@ async function finishSave(page) {
     const extra = JSON.parse(fs.readFileSync('tools/landing/additional_catalog.json'));
     const actualCatalog = JSON.parse(fs.readFileSync('landing/y/templates/catalog/manifest.json'));
     const realPage = await context.newPage();
+    failurePage = realPage;
     let failActualCatalogue = false;
     let failedManifestRequests = 0;
     await realPage.addInitScript(() => { window.qaFunnel=[]; window.addEventListener('ripot-funnel-ready',e=>window.qaFunnel.push(e.detail)); });
@@ -192,7 +194,12 @@ async function finishSave(page) {
     await realPage.screenshot({path:path.join(out,'stale-link-latest-version.png'),fullPage:true});
     // A network failure must remain distinct from a missing version and allow
     // recovery in the same app tab without changing saved reports.
-    const savedBeforeFailure = await realPage.evaluate(() => Object.keys(localStorage).filter(k=>k.startsWith('flutter.reports.doc.')).length);
+    // Finish the preceding success scenario's draft save before testing a
+    // failed lookup. Leaving an unsaved editor normally autosaves that draft.
+    await realPage.getByRole('button',{name:'Save progress',exact:true}).click();
+    await finishSave(realPage);
+    const savedBeforeFailure = await realPage.evaluate(() => Object.keys(localStorage)
+      .filter(k=>k.startsWith('flutter.reports.doc.')).sort().map(k=>[k,localStorage.getItem(k)]));
     failActualCatalogue = true;
     await realPage.goto(`${origin}/?template=${firstEntry.slug}&version=${firstEntry.version}`);
     await staleSemantics.waitFor({state:'attached',timeout:60000});
@@ -200,7 +207,8 @@ async function finishSave(page) {
     await realPage.getByText('Could not download the template. Check your connection and try again.',{exact:true}).waitFor({state:'visible',timeout:60000});
     assert.equal(failedManifestRequests,2,'Transport retries must be bounded');
     assert.equal(await realPage.getByRole('button',{name:'Open latest version',exact:true}).count(),0);
-    assert.equal(await realPage.evaluate(() => Object.keys(localStorage).filter(k=>k.startsWith('flutter.reports.doc.')).length),savedBeforeFailure);
+    assert.deepEqual(await realPage.evaluate(() => Object.keys(localStorage)
+      .filter(k=>k.startsWith('flutter.reports.doc.')).sort().map(k=>[k,localStorage.getItem(k)])),savedBeforeFailure);
     await realPage.screenshot({path:path.join(out,'template-network-retry.png'),fullPage:true});
     failActualCatalogue = false;
     await realPage.getByRole('button',{name:'Try again',exact:true}).click();
@@ -208,6 +216,7 @@ async function finishSave(page) {
     await realPage.screenshot({path:path.join(out,'template-network-recovered.png'),fullPage:true});
     console.log('PASS: failed template download offers bounded retries; Try again opens the original version without reloading or changing saved reports.');
     await realPage.close();
+    failurePage = page;
     console.log('PASS: all actual catalogue templates open and save without sample findings; storage reminders appear on saves 1, 5 and 10 and allow continuing to export.');
 
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
@@ -264,8 +273,9 @@ async function finishSave(page) {
       passed: true, letterheadPromptPassed: true, communityLibraryPassed: true, slug, version, fetched, sourceCommit: process.env.GITHUB_SHA,
     }, null, 2));
   } catch (error) {
-    if (page) {
-      const diagnostics = await page.evaluate(() => ({
+    const failedPage = failurePage || page;
+    if (failedPage) {
+      const diagnostics = await failedPage.evaluate(() => ({
         reports: Object.fromEntries(Object.keys(localStorage)
           .filter(key => key.includes('reports.doc.'))
           .map(key => [key, localStorage.getItem(key)])),
@@ -273,8 +283,8 @@ async function finishSave(page) {
           .map(input => ({ label: input.getAttribute('aria-label'), value: input.value })),
       }));
       fs.writeFileSync(path.join(out, 'failure-state.json'), JSON.stringify(diagnostics, null, 2));
-      await page.screenshot({ path: path.join(out, 'failure.png'), fullPage: true }).catch(() => {});
-      fs.writeFileSync(path.join(out, 'failure-dom.html'), await page.content());
+      await failedPage.screenshot({ path: path.join(out, 'failure.png'), fullPage: true }).catch(() => {});
+      fs.writeFileSync(path.join(out, 'failure-dom.html'), await failedPage.content());
     }
     throw error;
   } finally { await browser.close(); server.close(); }
