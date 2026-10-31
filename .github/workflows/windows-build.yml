@@ -35,6 +35,23 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Record generated plugin updates
+        shell: pwsh
+        run: |
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { throw "Dependency resolution failed." }
+          git diff HEAD -- | Set-Content generated-plugin-changes.patch -Encoding utf8
+
+      - name: Upload generated plugin updates
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-plugin-updates
+          path: generated-plugin-changes.patch
+
+      - name: Remove diagnostic patch
+        shell: pwsh
+        run: Remove-Item generated-plugin-changes.patch
+
       - name: Test, build and package Ripot
         shell: pwsh
         run: ./tools/windows/build_windows.ps1
