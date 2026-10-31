@@ -51,9 +51,13 @@ saved PDFs for Premium/active trials, dynamic public templates, the Free-user
 letterhead invitation, Web/Windows checkout-availability messaging, and the
 community template library with contributor decision emails, per-submission
 withdrawal menus, clear reviewer ownership labels, and encrypted full/section
-backups with optional schedules. Web automatic backups require a supported
+backups. Manual backup and restore are Free; automatic schedules require Premium
+or an active trial. The Records tab is now Report data. Android includes a
+rate-app request after ten successful PDF shares, subject to Google Play limits.
+More > Suggest an improvement opens the support-email route.
+Web automatic backups require a supported
 browser and an open Ripot tab. The landing page explains these features.
-The fifteen reporting templates include real PDF previews, blank and fictional
+The reporting templates include real PDF previews, blank and fictional
 example PDF downloads, page zoom and readable plain/formatted copied outlines.
 To apply these landing-page improvements, run bash Deploy-Landing.command.
 The contribution backend, reviewer account and SMTP notification setup must

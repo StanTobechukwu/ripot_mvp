@@ -6,15 +6,16 @@ Store listing or accept unverified manual-payment screenshots as entitlement.
 
 ## Country price reconciliation
 
-Status: Google Play Console session is signed out; current prices not verified.
-The supplied historical Nigeria order shows NGN 2,500/month. It is not evidence
-of every country's current price, offers or subscriber cohorts.
+Status: monthly and annual plans were inspected in Google Play Console on
+31 October 2026. The saved report “Ripot-Country-Prices-2026-10-31.html” records
+the displayed country prices, tax labels and remaining limitations. Both plans
+are active. The Console overview lists 175 regions, while 174 named country rows
+were visible per plan; the discrepancy remains unresolved. Existing legacy
+cohort amounts were not inspected. No prices or offer states were changed.
 
-Export the current `ripot_premium` monthly base-plan country prices from Play
-Console. Preserve region, currency, tax inclusion, billing period, regular price,
-active offers and legacy cohorts. Compare like-for-like checkout totals, not
-currency conversions. Keep Windows/web at the same local customer price as the
-regular Play plan initially; any increase needs a separate explicit decision.
+Use that verified price inventory for provider setup. Compare like-for-like
+checkout totals, not currency conversions. Windows/web price changes remain a
+separate decision; no provider checkout or new prices are activated here.
 
 ## Integration contract to implement after provider selection
 
