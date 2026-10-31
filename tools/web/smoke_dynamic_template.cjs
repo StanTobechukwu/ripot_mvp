@@ -177,7 +177,7 @@ async function finishSave(page) {
     await realPage.getByRole('button',{name:'Save progress',exact:true}).waitFor({state:'visible',timeout:60000});
     await realPage.screenshot({path:path.join(out,'stale-link-latest-version.png'),fullPage:true});
     await realPage.close();
-    console.log('PASS: all 11 actual new templates open and save without sample findings; storage reminders appear on saves 1, 5 and 10 and allow continuing to export.');
+    console.log('PASS: all actual catalogue templates open and save without sample findings; storage reminders appear on saves 1, 5 and 10 and allow continuing to export.');
 
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
     const letterheadPrompt = page.getByRole('button', {

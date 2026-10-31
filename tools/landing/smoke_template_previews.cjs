@@ -51,7 +51,7 @@ const server=http.createServer((req,res)=>{
       await page.locator('#plan-comparison summary').click();
       assert.equal(await page.locator('.plan-grid').isVisible(),false);
       await page.goto(`${origin}/templates/`);
-      assert.equal(await page.locator('section[id^="specialty-"] .card').count(),15);
+      assert.equal(await page.locator('section[id^="specialty-"] .card').count(),JSON.parse(fs.readFileSync('landing/y/templates/catalog/manifest.json')).templates.length);
       assert.deepEqual(await page.locator('section[id^="specialty-"] > h2').allTextContents(),['Endoscopy','Ultrasound','Cardiology','Operation notes']);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Library overflow at ${width}`);
       for(const slug of slugs){
