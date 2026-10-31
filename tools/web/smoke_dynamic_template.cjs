@@ -175,7 +175,7 @@ async function finishSave(page) {
     await useLatest.waitFor({state:'visible',timeout:60000});
     await realPage.getByRole('button',{name:'Cancel',exact:true}).click();
     await realPage.getByText('Opening your template…',{exact:true}).waitFor({state:'hidden',timeout:10000});
-    await realPage.getByRole('button',{name:'New report',exact:true}).waitFor({state:'visible',timeout:10000});
+    await realPage.getByRole('button',{name:'New Report',exact:true}).waitFor({state:'visible',timeout:10000});
     await realPage.goto(`${origin}/?template=${firstEntry.slug}&version=0000000000000000`);
     await staleSemantics.waitFor({state:'attached',timeout:60000});
     await staleSemantics.evaluate(e=>e.click());
