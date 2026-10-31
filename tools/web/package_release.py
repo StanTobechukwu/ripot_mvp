@@ -51,6 +51,10 @@ one Add finding control per region, and independent repeated finding cards.
 The PDF groups findings by anatomical location. Ordinary template links now
 fetch the approval catalogue and versioned template concurrently and show
 Opening your template while loading. Checksums and approval checks remain.
+Optional numeric GEJ, Z-line and diaphragmatic-pinch measurements use
+cm from incisors, as do individual oesophageal lesion levels. Units remain
+visible in blank numeric fields. Enter the number only; blank optional
+measurements are omitted from the PDF.
 
 For this update, deploy in this order from this complete folder:
   bash Deploy-Web.command

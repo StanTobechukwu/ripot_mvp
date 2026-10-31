@@ -1807,7 +1807,21 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
                 hintText: 'Enter number…',
-                suffixText: unit.isEmpty ? null : unit,
+                // Keep the unit visible even while this field is blank and
+                // unfocused, so the expected measurement is clear up front.
+                suffixIcon: unit.isEmpty
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          widthFactor: 1,
+                          heightFactor: 1,
+                          child: Text(unit, textAlign: TextAlign.right),
+                        ),
+                      ),
+                suffixIconConstraints:
+                    const BoxConstraints(minHeight: 48, maxWidth: 156),
                 isDense: true,
               ),
               onChanged: (v) => vm.updateContent(node.id, v),

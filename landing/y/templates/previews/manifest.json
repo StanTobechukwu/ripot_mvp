@@ -195,7 +195,7 @@
   },
   "structured-upper-gi-endoscopy-report-template-blank": {
     "pdf": "structured-upper-gi-endoscopy-report-template-blank.pdf",
-    "sha256": "e285495ae91481cd5970ef90852fd02354a79d50fb736f00d8aa328e87ff4318",
+    "sha256": "0abf1c7fafec1b98603d4707372171f3a6d94b7b8a305e523cdd5d3b0dd5dba1",
     "pages": [
       "structured-upper-gi-endoscopy-report-template-blank-1.jpg",
       "structured-upper-gi-endoscopy-report-template-blank-2.jpg"
@@ -203,7 +203,7 @@
   },
   "structured-upper-gi-endoscopy-report-template-example": {
     "pdf": "structured-upper-gi-endoscopy-report-template-example.pdf",
-    "sha256": "a3abf1bdb3ef20c45f97aecb2053671c9dc08c5f2f15b321839a67be22c28f8e",
+    "sha256": "b5c179c290b77d62b83cc9b6b954325dfc066b2bbbd9773b06b94c01aefaeaad",
     "pages": [
       "structured-upper-gi-endoscopy-report-template-example-1.jpg"
     ]
