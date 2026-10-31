@@ -48,7 +48,7 @@ void main() {
       ));
       await tester.tap(find.text('Review'));
       await tester.pumpAndSettle();
-      expect(find.text('Choose Records fields'), findsOneWidget);
+      expect(find.text('Choose Report data fields'), findsOneWidget);
       expect(find.text('New template field'), findsNothing);
       final field = find.widgetWithText(CheckboxListTile, 'Ejection fraction');
       await tester.ensureVisible(field);

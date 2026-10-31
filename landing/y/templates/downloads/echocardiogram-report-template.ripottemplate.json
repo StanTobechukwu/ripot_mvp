@@ -32,28 +32,6 @@
         "children": [
           {
             "type": "section",
-            "id": "echo_lv_chamber_size",
-            "title": "Chamber Size",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": false,
-              "align": "left"
-            },
-            "inputType": "numeric",
-            "options": [],
-            "unit": "cm",
-            "showInPdf": true,
-            "addToRecords": true,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
             "id": "echo_lv_edv",
             "title": "End Diastolic Volume",
             "collapsed": false,
@@ -77,7 +55,7 @@
           {
             "type": "section",
             "id": "echo_lvidd",
-            "title": "LVIDd",
+            "title": "LV internal diameter in diastole (LVIDd)",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -287,7 +265,7 @@
           {
             "type": "section",
             "id": "echo_septal_eprime",
-            "title": "Septal E′",
+            "title": "Septal e′",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -296,7 +274,7 @@
             },
             "inputType": "numeric",
             "options": [],
-            "unit": "m/s",
+            "unit": "cm/s",
             "showInPdf": true,
             "addToRecords": true,
             "addToLog": false,
@@ -309,7 +287,7 @@
           {
             "type": "section",
             "id": "echo_lateral_eprime",
-            "title": "Lateral E′",
+            "title": "Lateral e′",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -318,7 +296,7 @@
             },
             "inputType": "numeric",
             "options": [],
-            "unit": "m/s",
+            "unit": "cm/s",
             "showInPdf": true,
             "addToRecords": true,
             "addToLog": false,

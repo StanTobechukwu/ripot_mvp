@@ -62,8 +62,8 @@ class TestDestination extends BackupDestination {
 }
 
 class ForegroundBackupService extends BackupService {
-  ForegroundBackupService({required super.destination})
-    : super(automaticAccess: () async => true);
+  ForegroundBackupService({required super.destination, Future<bool> Function()? automaticAccess})
+    : super(automaticAccess: automaticAccess ?? (() async => true));
   @override
   bool get backgroundAndroid => false;
 }
@@ -75,7 +75,7 @@ void main() {
     () async {
       SharedPreferences.setMockInitialValues({});
       FlutterSecureStorage.setMockInitialValues({});
-      final service = BackupService(
+      final service = ForegroundBackupService(
         destination: TestDestination(),
         automaticAccess: () async => false,
       );
