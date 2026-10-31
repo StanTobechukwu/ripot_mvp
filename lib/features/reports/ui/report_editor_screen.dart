@@ -1775,8 +1775,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Optional note…',
-                  helperText:
-                      'Narrative detail for the report; not saved as structured data.',
                   isDense: true,
                 ),
                 onChanged: (v) => vm.updateSectionNote(s.id, v),
@@ -1824,8 +1822,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Optional note…',
-                  helperText:
-                      'Narrative detail for the report; not saved as structured data.',
                   isDense: true,
                 ),
                 onChanged: (v) => vm.updateSectionNote(s.id, v),

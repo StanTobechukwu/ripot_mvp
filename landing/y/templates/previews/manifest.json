@@ -195,7 +195,7 @@
   },
   "structured-upper-gi-endoscopy-report-template-blank": {
     "pdf": "structured-upper-gi-endoscopy-report-template-blank.pdf",
-    "sha256": "c7e179874cdde98bd95f04df878476378306fdf55f296d9fc38dc6bc3a4d5d3c",
+    "sha256": "e285495ae91481cd5970ef90852fd02354a79d50fb736f00d8aa328e87ff4318",
     "pages": [
       "structured-upper-gi-endoscopy-report-template-blank-1.jpg",
       "structured-upper-gi-endoscopy-report-template-blank-2.jpg"
@@ -203,10 +203,9 @@
   },
   "structured-upper-gi-endoscopy-report-template-example": {
     "pdf": "structured-upper-gi-endoscopy-report-template-example.pdf",
-    "sha256": "3b54e454b52ed6d9cb4bd8d44ee1adcf5da19a9b34f9ec6cf78a5a84c6a3fb6c",
+    "sha256": "a3abf1bdb3ef20c45f97aecb2053671c9dc08c5f2f15b321839a67be22c28f8e",
     "pages": [
-      "structured-upper-gi-endoscopy-report-template-example-1.jpg",
-      "structured-upper-gi-endoscopy-report-template-example-2.jpg"
+      "structured-upper-gi-endoscopy-report-template-example-1.jpg"
     ]
   },
   "thyroid-neck-ultrasound-report-template-blank": {

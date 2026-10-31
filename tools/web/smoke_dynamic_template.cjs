@@ -138,7 +138,7 @@ async function finishSave(page) {
       const pathname = new URL(route.request().url()).pathname;
       const file = path.resolve('landing/y', '.' + pathname);
       if (!file.startsWith(path.resolve('landing/y/templates/catalog') + path.sep)) throw Error('Unexpected catalogue path');
-      await route.fulfill({status:200, contentType:'application/json', headers:{'access-control-allow-origin':origin}, body:fs.readFileSync(file)});
+      await route.fulfill({status:fs.existsSync(file)?200:404, contentType:'application/json', headers:{'access-control-allow-origin':origin}, body:fs.existsSync(file)?fs.readFileSync(file):'{}'});
     });
     for (const extraTemplate of extra) {
       const entry = actualCatalog.templates.find(e => e.slug === extraTemplate.slug);
@@ -172,6 +172,13 @@ async function finishSave(page) {
     await staleSemantics.waitFor({state:'attached',timeout:60000});
     await staleSemantics.evaluate(e=>e.click());
     const useLatest=realPage.getByRole('button',{name:'Open latest version',exact:true});
+    await useLatest.waitFor({state:'visible',timeout:60000});
+    await realPage.getByRole('button',{name:'Cancel',exact:true}).click();
+    await realPage.getByText('Opening your template…',{exact:true}).waitFor({state:'hidden',timeout:10000});
+    await realPage.getByRole('button',{name:'New report',exact:true}).waitFor({state:'visible',timeout:10000});
+    await realPage.goto(`${origin}/?template=${firstEntry.slug}&version=0000000000000000`);
+    await staleSemantics.waitFor({state:'attached',timeout:60000});
+    await staleSemantics.evaluate(e=>e.click());
     await useLatest.waitFor({state:'visible',timeout:60000});
     await useLatest.click();
     await realPage.getByRole('button',{name:'Save progress',exact:true}).waitFor({state:'visible',timeout:60000});

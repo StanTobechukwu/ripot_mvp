@@ -195,7 +195,11 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
                 FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Open latest version'))],
             ));
             if (!mounted) return;
-            if (useLatest != true) return;
+            if (useLatest != true) {
+              setState(() => _openingTemplate = false);
+              await _refreshReports();
+              return;
+            }
             template = latest;
             templateNotice = 'Opened the latest approved template version. Your saved reports and templates are unchanged.';
           }
@@ -218,6 +222,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               ),
             ),
           );
+          await _refreshReports();
         }
       }
     });
