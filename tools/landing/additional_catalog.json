@@ -135,7 +135,7 @@
     "slug": "structured-upper-gi-endoscopy-report-template",
     "name": "Upper GI Endoscopy \u2014 Guided",
     "specialty": "Gastroenterology",
-    "description": "A guided OGD / EGD template with optional conditional details. Keep the narrative version for a simpler report.",
+    "description": "A concise guided OGD / EGD template. Record each region, reveal relevant details and keep research and Registry configuration separate.",
     "references": [
       [
         "ESGE STAR reporting standardisation (2025)",

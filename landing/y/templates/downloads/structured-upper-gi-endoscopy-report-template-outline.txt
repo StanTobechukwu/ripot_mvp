@@ -5,50 +5,42 @@ Identifier: ________________
 Date: ________________
 
 
-PROCEDURE CONTEXT
+PROCEDURE
 Indication: ________________
-Endoscopist and team: ________________
-Examination date and time: ________________
-Endoscope used: ________________
-Consent and safety checks: ________________
-Fasting status: ________________
-Antithrombotic medication and management: ________________
 Premedication, sedation and doses: ________________
+Include additional procedure details?: ________________
+Endoscope used: ________________
+Consent, fasting, relevant medication and safety assessment: ________________
 
-QUALITY AND EXTENT
+EXTENT AND VIEW
 Extent reached: ________________
-Mucosal visibility / cleanliness and score used: ________________
-Limitations / reasons for incomplete examination: ________________
-Examination duration (min): ________________
-Landmarks and abnormalities photographed: ________________
+Quality of view: ________________
+Examination limitations / reason for incomplete examination, if applicable: ________________
+Examination duration, if recorded (min): ________________
 
 OESOPHAGUS
-Findings: ________________
-Oesophagitis present?: ________________
-Los Angeles grade / description: ________________
-Suspected or known Barrett’s?: ________________
-Landmarks, Prague C/M, islands and biopsy protocol: ________________
-Hiatal hernia present?: ________________
-Junction, diaphragmatic pinch and hernia size: ________________
-Other lesions: site, size and description: ________________
+Oesophagus assessment: ________________
+Findings: location and description; describe each lesion separately: ________________
+Erosive oesophagitis: Los Angeles grade, if applicable: ________________
+Barrett’s: landmarks, Prague C/M and biopsy details, if applicable: ________________
+Hiatal hernia: landmarks and size, if applicable: ________________
 
 STOMACH
-Findings by region: ________________
-Gastric ulcer present?: ________________
-Ulcer site, size, appearance and bleeding stigmata / Forrest class where applicable: ________________
-Atrophy / metaplasia assessment performed?: ________________
-Assessment method, distribution and biopsy mapping: ________________
+Stomach assessment: ________________
+Findings: location and description; describe each lesion separately: ________________
+Each ulcer: location, size, appearance and bleeding stigmata / Forrest class where applicable: ________________
+Atrophy / metaplasia: distribution, method and biopsy mapping, if applicable: ________________
 
 DUODENUM
-Bulb and distal findings: ________________
-Duodenal ulcer present?: ________________
-Site, size, appearance and bleeding stigmata / Forrest class where applicable: ________________
+Duodenum assessment: ________________
+Findings: location and description; describe each lesion separately: ________________
+Each ulcer: location, size, appearance and bleeding stigmata / Forrest class where applicable: ________________
 
 SAMPLING AND THERAPY
 Samples taken?: ________________
 Each specimen: site, indication and container identifier; protocol used: ________________
 Therapy performed?: ________________
-Method, site, devices and immediate result: ________________
+Each treatment: finding / site, method, devices and immediate result: ________________
 
 CONCLUSION AND FOLLOW-UP
 Adverse events and tolerance: ________________

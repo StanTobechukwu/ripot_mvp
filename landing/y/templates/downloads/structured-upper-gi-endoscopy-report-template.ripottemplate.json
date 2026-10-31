@@ -4,7 +4,7 @@
   "ripotExportVersion": 1,
   "template": {
     "templateId": "ripot_public_structured_upper_gi_endoscopy_report",
-    "updatedAtIso": "2026-10-25T00:00:00.000",
+    "updatedAtIso": "2026-10-31T00:00:00.000",
     "name": "Upper GI Endoscopy — Guided",
     "groupName": "",
     "recordsConfigured": false,
@@ -12,7 +12,7 @@
       {
         "type": "section",
         "id": "group_0",
-        "title": "Procedure context",
+        "title": "Procedure",
         "collapsed": false,
         "style": {
           "level": "h4",
@@ -54,8 +54,8 @@
           },
           {
             "type": "section",
-            "id": "team",
-            "title": "Endoscopist and team",
+            "id": "medication",
+            "title": "Premedication, sedation and doses",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -76,16 +76,19 @@
           },
           {
             "type": "section",
-            "id": "date",
-            "title": "Examination date and time",
+            "id": "procedure_details",
+            "title": "Include additional procedure details?",
             "collapsed": false,
             "style": {
               "level": "h4",
               "bold": true,
               "align": "left"
             },
-            "inputType": "freeText",
-            "options": [],
+            "inputType": "singleSelect",
+            "options": [
+              "Yes",
+              "No"
+            ],
             "unit": "",
             "showInPdf": true,
             "addToRecords": false,
@@ -113,15 +116,15 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
+            "conditionalParentSectionId": "procedure_details",
+            "conditionalEquals": "Yes",
             "indent": 0,
             "children": []
           },
           {
             "type": "section",
-            "id": "consent",
-            "title": "Consent and safety checks",
+            "id": "safety",
+            "title": "Consent, fasting, relevant medication and safety assessment",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -135,74 +138,8 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "fasting",
-            "title": "Fasting status",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "freeText",
-            "options": [],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "antithrombotics",
-            "title": "Antithrombotic medication and management",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "freeText",
-            "options": [],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "medication",
-            "title": "Premedication, sedation and doses",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "freeText",
-            "options": [],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
+            "conditionalParentSectionId": "procedure_details",
+            "conditionalEquals": "Yes",
             "indent": 0,
             "children": []
           }
@@ -211,7 +148,7 @@
       {
         "type": "section",
         "id": "group_1",
-        "title": "Quality and extent",
+        "title": "Extent and view",
         "collapsed": false,
         "style": {
           "level": "h4",
@@ -254,15 +191,19 @@
           {
             "type": "section",
             "id": "visibility",
-            "title": "Mucosal visibility / cleanliness and score used",
+            "title": "Quality of view",
             "collapsed": false,
             "style": {
               "level": "h4",
               "bold": true,
               "align": "left"
             },
-            "inputType": "freeText",
-            "options": [],
+            "inputType": "singleSelect",
+            "options": [
+              "Adequate",
+              "Limited",
+              "Cannot assess"
+            ],
             "unit": "",
             "showInPdf": true,
             "addToRecords": false,
@@ -276,7 +217,7 @@
           {
             "type": "section",
             "id": "limitations",
-            "title": "Limitations / reasons for incomplete examination",
+            "title": "Examination limitations / reason for incomplete examination, if applicable",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -298,7 +239,7 @@
           {
             "type": "section",
             "id": "duration",
-            "title": "Examination duration",
+            "title": "Examination duration, if recorded",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -308,28 +249,6 @@
             "inputType": "numeric",
             "options": [],
             "unit": "min",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "photos",
-            "title": "Landmarks and abnormalities photographed",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "freeText",
-            "options": [],
-            "unit": "",
             "showInPdf": true,
             "addToRecords": false,
             "addToLog": false,
@@ -364,8 +283,35 @@
         "children": [
           {
             "type": "section",
+            "id": "oesophagus_status",
+            "title": "Oesophagus assessment",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Abnormal",
+              "Not examined",
+              "Cannot assess"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
             "id": "oesophagus",
-            "title": "Findings",
+            "title": "Findings: location and description; describe each lesion separately",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -379,41 +325,15 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "oesophagitis",
-            "title": "Oesophagitis present?",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "singleSelect",
-            "options": [
-              "Yes",
-              "No",
-              "Not assessed"
-            ],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
+            "conditionalParentSectionId": "oesophagus_status",
+            "conditionalEquals": "Abnormal",
             "indent": 0,
             "children": []
           },
           {
             "type": "section",
             "id": "la",
-            "title": "Los Angeles grade / description",
+            "title": "Erosive oesophagitis: Los Angeles grade, if applicable",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -427,41 +347,15 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "oesophagitis",
-            "conditionalEquals": "Yes",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "barrett",
-            "title": "Suspected or known Barrett’s?",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "singleSelect",
-            "options": [
-              "Yes",
-              "No",
-              "Not assessed"
-            ],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
+            "conditionalParentSectionId": "oesophagus_status",
+            "conditionalEquals": "Abnormal",
             "indent": 0,
             "children": []
           },
           {
             "type": "section",
             "id": "barrett_detail",
-            "title": "Landmarks, Prague C/M, islands and biopsy protocol",
+            "title": "Barrett’s: landmarks, Prague C/M and biopsy details, if applicable",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -475,41 +369,15 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "barrett",
-            "conditionalEquals": "Yes",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "hernia",
-            "title": "Hiatal hernia present?",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "singleSelect",
-            "options": [
-              "Yes",
-              "No",
-              "Not assessed"
-            ],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
+            "conditionalParentSectionId": "oesophagus_status",
+            "conditionalEquals": "Abnormal",
             "indent": 0,
             "children": []
           },
           {
             "type": "section",
             "id": "hernia_detail",
-            "title": "Junction, diaphragmatic pinch and hernia size",
+            "title": "Hiatal hernia: landmarks and size, if applicable",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -523,30 +391,8 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "hernia",
-            "conditionalEquals": "Yes",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "other_oesophagus",
-            "title": "Other lesions: site, size and description",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "freeText",
-            "options": [],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
+            "conditionalParentSectionId": "oesophagus_status",
+            "conditionalEquals": "Abnormal",
             "indent": 0,
             "children": []
           }
@@ -575,8 +421,35 @@
         "children": [
           {
             "type": "section",
+            "id": "stomach_status",
+            "title": "Stomach assessment",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "singleSelect",
+            "options": [
+              "Normal",
+              "Abnormal",
+              "Not examined",
+              "Cannot assess"
+            ],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
             "id": "stomach",
-            "title": "Findings by region",
+            "title": "Findings: location and description; describe each lesion separately",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -590,41 +463,15 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "ulcer",
-            "title": "Gastric ulcer present?",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "singleSelect",
-            "options": [
-              "Yes",
-              "No",
-              "Not assessed"
-            ],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
+            "conditionalParentSectionId": "stomach_status",
+            "conditionalEquals": "Abnormal",
             "indent": 0,
             "children": []
           },
           {
             "type": "section",
             "id": "ulcer_detail",
-            "title": "Ulcer site, size, appearance and bleeding stigmata / Forrest class where applicable",
+            "title": "Each ulcer: location, size, appearance and bleeding stigmata / Forrest class where applicable",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -638,40 +485,15 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "ulcer",
-            "conditionalEquals": "Yes",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "gastric_risk",
-            "title": "Atrophy / metaplasia assessment performed?",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "singleSelect",
-            "options": [
-              "Yes",
-              "No"
-            ],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
+            "conditionalParentSectionId": "stomach_status",
+            "conditionalEquals": "Abnormal",
             "indent": 0,
             "children": []
           },
           {
             "type": "section",
             "id": "gastric_detail",
-            "title": "Assessment method, distribution and biopsy mapping",
+            "title": "Atrophy / metaplasia: distribution, method and biopsy mapping, if applicable",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -685,8 +507,8 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "gastric_risk",
-            "conditionalEquals": "Yes",
+            "conditionalParentSectionId": "stomach_status",
+            "conditionalEquals": "Abnormal",
             "indent": 0,
             "children": []
           }
@@ -715,30 +537,8 @@
         "children": [
           {
             "type": "section",
-            "id": "duodenum",
-            "title": "Bulb and distal findings",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "freeText",
-            "options": [],
-            "unit": "",
-            "showInPdf": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
-            "id": "duodenal_ulcer",
-            "title": "Duodenal ulcer present?",
+            "id": "duodenum_status",
+            "title": "Duodenum assessment",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -747,9 +547,10 @@
             },
             "inputType": "singleSelect",
             "options": [
-              "Yes",
-              "No",
-              "Not assessed"
+              "Normal",
+              "Abnormal",
+              "Not examined",
+              "Cannot assess"
             ],
             "unit": "",
             "showInPdf": true,
@@ -763,8 +564,8 @@
           },
           {
             "type": "section",
-            "id": "duodenal_detail",
-            "title": "Site, size, appearance and bleeding stigmata / Forrest class where applicable",
+            "id": "duodenum",
+            "title": "Findings: location and description; describe each lesion separately",
             "collapsed": false,
             "style": {
               "level": "h4",
@@ -778,8 +579,30 @@
             "addToRecords": false,
             "addToLog": false,
             "allowOptionalNote": false,
-            "conditionalParentSectionId": "duodenal_ulcer",
-            "conditionalEquals": "Yes",
+            "conditionalParentSectionId": "duodenum_status",
+            "conditionalEquals": "Abnormal",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "duodenal_detail",
+            "title": "Each ulcer: location, size, appearance and bleeding stigmata / Forrest class where applicable",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "duodenum_status",
+            "conditionalEquals": "Abnormal",
             "indent": 0,
             "children": []
           }
@@ -881,7 +704,7 @@
           {
             "type": "section",
             "id": "therapy_detail",
-            "title": "Method, site, devices and immediate result",
+            "title": "Each treatment: finding / site, method, devices and immediate result",
             "collapsed": false,
             "style": {
               "level": "h4",

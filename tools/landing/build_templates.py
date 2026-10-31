@@ -38,6 +38,7 @@ for entry in EXTRA:
  CATALOG.append((entry['slug'], DISPLAY_NAMES[entry['slug']], entry['specialty'], entry['description']))
  SEO[entry['slug']] = (DISPLAY_NAMES[entry['slug']]+' | Editable & PDF', entry['description'])
 REFERENCES = {**BASE_REFERENCES, **{entry['slug']:entry['references'] for entry in EXTRA}}
+CREDITS = {'structured-upper-gi-endoscopy-report-template': ('Dr Nduaguba Tobechukwu Stanley', '2026-10-31', '31 October 2026')}
 e = html.escape
 CSS = (ROOT/'tools/landing/templates.css').read_text()
 SCRIPT = (ROOT/'tools/landing/templates.js').read_text()
@@ -50,7 +51,8 @@ def walk(nodes,depth=0):
    yield from walk(n.get('children',[]),depth+1)
 def card(item):
  slug,title,specialty,desc=item
- return f'<article class="card"><span class="eyebrow">{e(specialty)}</span><h2><a href="/templates/{slug}/">{e(title)}</a></h2><p>{e(desc)}</p><p class="note">Contributor: Ripot · Starter template</p><a href="/templates/{slug}/">Preview and use →</a></article>'
+ credit = ('Developed by Ripot · Clinical contributor: '+CREDITS[slug][0]+' · Senior Registrar, Gastroenterology and Hepatology · Updated '+CREDITS[slug][2]) if slug in CREDITS else 'Contributor: Ripot · Starter template'
+ return f'<article class="card"><span class="eyebrow">{e(specialty)}</span><h2><a href="/templates/{slug}/">{e(title)}</a></h2><p>{e(desc)}</p><p class="note">{e(credit)}</p><a href="/templates/{slug}/">Preview and use →</a></article>'
 def catalog_sections():
  groups = [
   ('endoscopy', 'Endoscopy', 'Gastroenterology'),
@@ -82,10 +84,13 @@ def main():
   version_dir.mkdir(parents=True,exist_ok=True)
   version_file=version_dir/f'{version}.ripottemplate.json'
   version_file.write_bytes(raw)
-  manifest.append({'slug':slug,'version':version,'name':title,'specialty':specialty,'contributor':'Ripot','status':'approved','url':f'/templates/catalog/{slug}/{version}.ripottemplate.json','sha256':hashlib.sha256(raw).hexdigest(), 'versions':[{'version':p.stem.split('.')[0], 'sha256':hashlib.sha256(p.read_bytes()).hexdigest(), 'url':f'/templates/catalog/{slug}/{p.name}'} for p in sorted(version_dir.glob('*.ripottemplate.json'))]})
+  manifest.append({'slug':slug,'version':version,'name':title,'specialty':specialty,'contributor':CREDITS.get(slug, ('Ripot',))[0],'status':'approved','url':f'/templates/catalog/{slug}/{version}.ripottemplate.json','sha256':hashlib.sha256(raw).hexdigest(), 'versions':[{'version':p.stem.split('.')[0], 'sha256':hashlib.sha256(p.read_bytes()).hexdigest(), 'url':f'/templates/catalog/{slug}/{p.name}'} for p in sorted(version_dir.glob('*.ripottemplate.json'))]})
   payload=json.loads(raw)
   template=payload['template']
   body=page_body(slug,title,specialty,desc,template,version,''.join(card(i) for i in sorted((i for i in CATALOG if i!=item), key=lambda i:i[2]!=specialty)[:4]))
+  if slug in CREDITS:
+   name, updated, display_date = CREDITS[slug]
+   body = body.replace('Contributor: Ripot</p>', f'Developed by Ripot · Clinical contributor: {e(name)}<br>Senior Registrar, Gastroenterology and Hepatology<br>Updated <time datetime="{updated}">{display_date}</time></p>')
   guide='<section class="outline-box"><h2>Using this reporting structure</h2>'+''.join(f'<h3>{e(heading)}</h3><p>{e(text)}</p>' for heading,text in GUIDES[slug])+'<p class="note">Documentation help, not clinical guidance. Use current specialty guidance and local protocols. Review every report before signing or sharing.</p></section>'
   if slug in ('upper-gi-endoscopy-report-template', 'structured-upper-gi-endoscopy-report-template'):
    body = '<section class="card"><h2>Choose your reporting style</h2><p><a href="/templates/upper-gi-endoscopy-report-template/">Narrative: flexible free-text sections</a> · <a href="/templates/structured-upper-gi-endoscopy-report-template/">Guided: conditional follow-up fields</a></p></section>' + body
@@ -101,6 +106,9 @@ def main():
   if 'https://ripot.app'+path not in existing:
    entry=ET.SubElement(root,'{'+ns+'}url');ET.SubElement(entry,'{'+ns+'}loc').text='https://ripot.app'+path
    ET.SubElement(entry,'{'+ns+'}lastmod').text='2026-10-25'
+ for entry in root:
+  if entry.find('{'+ns+'}loc').text == 'https://ripot.app/templates/structured-upper-gi-endoscopy-report-template/':
+   entry.find('{'+ns+'}lastmod').text = CREDITS['structured-upper-gi-endoscopy-report-template'][1]
  tree.write(sitemap,encoding='utf-8',xml_declaration=True)
  home=PUBLIC/'index.html'
  home_text=home.read_text()

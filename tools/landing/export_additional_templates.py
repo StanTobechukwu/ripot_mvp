@@ -27,7 +27,7 @@ for spec in TEMPLATES:
         roots.append(node(f'group_{index}',title,children))
     payload=dict(app='Ripot',ripotFileType='template',ripotExportVersion=1,template=dict(
         templateId='ripot_public_'+slug.removesuffix('-template').replace('-','_'),
-        updatedAtIso='2026-10-25T00:00:00.000', name=spec['name'],groupName='',recordsConfigured=False,roots=roots,signature={}))
+        updatedAtIso='2026-10-31T00:00:00.000' if slug == 'structured-upper-gi-endoscopy-report-template' else '2026-10-25T00:00:00.000', name=spec['name'],groupName='',recordsConfigured=False,roots=roots,signature={}))
     OUT.mkdir(parents=True,exist_ok=True)
     (OUT/f'{slug}.ripottemplate.json').write_text(json.dumps(payload,indent=2,ensure_ascii=False)+'\n')
     samples[slug]=values
