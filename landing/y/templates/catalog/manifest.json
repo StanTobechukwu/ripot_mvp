@@ -283,13 +283,13 @@
     },
     {
       "slug": "structured-upper-gi-endoscopy-report-template",
-      "version": "a19a399e52b00cf5",
+      "version": "788ddab4951920b5",
       "name": "Upper GI endoscopy report template \u2014 guided",
       "specialty": "Gastroenterology",
       "contributor": "Dr Nduaguba Tobechukwu Stanley",
       "status": "approved",
-      "url": "/templates/catalog/structured-upper-gi-endoscopy-report-template/a19a399e52b00cf5.ripottemplate.json",
-      "sha256": "a19a399e52b00cf5205b2011657fdbe8534eec7c3e9d16e3cc0596c2853ec581",
+      "url": "/templates/catalog/structured-upper-gi-endoscopy-report-template/788ddab4951920b5.ripottemplate.json",
+      "sha256": "788ddab4951920b54962b841df92f466fa666d900e35639e4e995c6ccca9b6bc",
       "versions": [
         {
           "version": "27cb5dce044966f6",
@@ -305,6 +305,11 @@
           "version": "70531ad8474c1d4d",
           "sha256": "70531ad8474c1d4d596921755937b3381e3d1674ea62bcb3b27486aa0020c707",
           "url": "/templates/catalog/structured-upper-gi-endoscopy-report-template/70531ad8474c1d4d.ripottemplate.json"
+        },
+        {
+          "version": "788ddab4951920b5",
+          "sha256": "788ddab4951920b54962b841df92f466fa666d900e35639e4e995c6ccca9b6bc",
+          "url": "/templates/catalog/structured-upper-gi-endoscopy-report-template/788ddab4951920b5.ripottemplate.json"
         },
         {
           "version": "a19a399e52b00cf5",

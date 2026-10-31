@@ -7,7 +7,7 @@ def field(key, title, options=None, unit='', example='', multi=False, parent='',
     return dict(type='section',id=key,title=title,collapsed=False,
         style=dict(level='h4',bold=True,align='left'),
         inputType=('multiSelect' if multi else 'singleSelect') if options else 'numeric' if unit else 'freeText',
-        options=options or [],unit=unit,showInPdf=True,omitWhenEmpty=True,addToRecords=False,addToLog=False,
+        options=options or [],unit='' if unit=='count' else unit,showInPdf=True,omitWhenEmpty=True,addToRecords=False,addToLog=False,
         allowOptionalNote=note,conditionalParentSectionId=parent,conditionalEquals=equals,
         indent=0,children=children or [])
 def group(key,title,children):
@@ -27,6 +27,8 @@ FORREST=['Ia — spurting','Ib — oozing','IIa — non-bleeding visible vessel'
 def finding(region,kind,title,extras=(),size=False,biopsy=True,diffuse=False):
     k=region+'_'+kind
     fields=[field(k+'_location','Location',LOCATIONS[region],multi=diffuse,note=True)]
+    if region=='oesophagus' and kind in ('ulcer','stricture','lesion','other'):
+        fields.append(field(k+'_level','Level',unit='cm from incisors'))
     if region=='stomach':
         fields.append(field(k+'_surface','Surface / curvature, if relevant',['Lesser curvature','Greater curvature','Anterior wall','Posterior wall','Circumferential','Other'],note=True))
     if size: fields.append(field(k+'_size','Size','',unit='mm'))
@@ -88,9 +90,16 @@ def build():
         field('duration','Examination duration, if recorded',unit='min',example='8'),
     ])]
     for region in LOCATIONS:
-        roots.append(group(region+'_region',region.title(),[
-            field(region+'_status',region.title()+' assessment',['Normal','Abnormal','Not examined','Cannot assess'],example='Normal',note=True),
-            repeat(region+'_findings',region+' finding',types(region),parent=region+'_status',equals='Abnormal')]))
+        region_fields=[field(region+'_status',region.title()+' assessment',['Normal','Abnormal','Not examined','Cannot assess'],example='Normal',note=True)]
+        if region=='oesophagus':
+            landmarks=field('oesophagus_landmarks','Record landmark measurements?',['Yes','No'],example='No',children=[
+                field('landmark_gej','GEJ (top of gastric folds)',unit='cm from incisors',parent='oesophagus_landmarks',equals='Yes'),
+                field('landmark_z_line','Z-line',unit='cm from incisors',parent='oesophagus_landmarks',equals='Yes'),
+                field('landmark_pinch','Diaphragmatic pinch',unit='cm from incisors',parent='oesophagus_landmarks',equals='Yes')])
+            landmarks['showInPdf']=False
+            region_fields.append(landmarks)
+        region_fields.append(repeat(region+'_findings',region+' finding',types(region),parent=region+'_status',equals='Abnormal'))
+        roots.append(group(region+'_region',region.title(),region_fields))
     roots += [group('closing','Conclusion and follow-up',[
         field('events','Immediate adverse events',['None observed','Bleeding','Perforation','Cardiorespiratory event','Aspiration','Other'],example='None observed',multi=True,note=True),
         field('tolerance','Tolerance',['Good','Fair','Poor','Not assessed'],example='Good'),

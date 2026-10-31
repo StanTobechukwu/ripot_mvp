@@ -82,6 +82,42 @@ void main() {
     vm.dispose();
   });
 
+  test('numeric landmarks and lesion levels retain their values and units on save and PDF export', () async {
+    final vm=editor();
+    for (final id in ['landmark_gej','landmark_z_line','landmark_pinch']) {
+      expect(node(vm,id).inputType,FieldInputType.numeric);
+      expect(node(vm,id).unit,'cm from incisors');
+      expect(value(node(vm,id)),isEmpty);
+    }
+    setValue(vm,'oesophagus_status','Abnormal');
+    setValue(vm,'oesophagus_landmarks','Yes');
+    setValue(vm,'landmark_gej','39.5');
+    setValue(vm,'landmark_z_line','37.5');
+    setValue(vm,'landmark_pinch','41');
+    final ulcer=vm.addRepeatableFinding('oesophagus_findings','oesophagus_ulcer')!;
+    final level=childNamed(vm,ulcer,'Level');
+    expect(level.inputType,FieldInputType.numeric);
+    expect(level.unit,'cm from incisors');
+    setValue(vm,level.id,'32.5');
+    setValue(vm,childNamed(vm,ulcer,'Size').id,'7');
+    final count=childNamed(vm,ulcer,'Number at this location');
+    expect(count.inputType,FieldInputType.numeric);
+    expect(count.unit,isEmpty);
+    setValue(vm,count.id,'2');
+    final repo=ReportsRepository();
+    await repo.saveReport(vm.doc);
+    final reopened=await repo.loadReport(vm.doc.reportId);
+    final gej=sections(reopened.roots).firstWhere((s)=>s.id=='landmark_gej');
+    expect(value(gej),'39.5');
+    expect(gej.unit,'cm from incisors');
+    final out=Directory('build/ogd-qa')..createSync(recursive:true);
+    const plan=PdfPlan(title:'Fictional landmark QA',inlineEnabled:false,pageOne:PageOnePlan(inlineImages:[]),finalContent:FinalContentPlan(spillInlineImages:[]),attachmentPages:[]);
+    await File('${out.path}/landmarks.pdf').writeAsBytes(await PdfRendererService().generatePdfBytes(doc:reopened,plan:plan));
+    setValue(vm,'oesophagus_landmarks','No');
+    await File('${out.path}/hidden-landmarks.pdf').writeAsBytes(await PdfRendererService().generatePdfBytes(doc:vm.doc,plan:plan));
+    vm.dispose();
+  });
+
   testWidgets('real Report Editor selects one pathology and keeps separate repeated entries', (tester) async {
     // Readable visual evidence instead of Flutter's square-glyph test font.
     await tester.runAsync(() async {
@@ -96,7 +132,7 @@ void main() {
         }
       }
     });
-    await tester.binding.setSurfaceSize(const Size(430,920));
+    await tester.binding.setSurfaceSize(const Size(360,920));
     addTearDown(()=>tester.binding.setSurfaceSize(null));
     final vm=editor();
     final boundary=GlobalKey();
@@ -116,6 +152,23 @@ void main() {
       final option=find.byKey(ValueKey('finding-type-$type'));
       await reveal(option);await tester.tap(option);await tester.pumpAndSettle();
     }
+    Future<void> capture(String name) async { await tester.runAsync(() async {
+      final image=await (boundary.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage(pixelRatio:1);
+      final png=await image.toByteData(format:ui.ImageByteFormat.png);
+      Directory('build/ogd-qa').createSync(recursive:true);
+      await File('build/ogd-qa/$name.png').writeAsBytes(png!.buffer.asUint8List());
+    }); }
+    expect(find.text('GEJ (top of gastric folds)'),findsNothing);
+    await choose('oesophagus_landmarks','Yes');
+    final gejInput=find.byKey(ValueKey('content-form-numeric-${node(vm,'landmark_gej').children.whereType<ContentNode>().first.id}'));
+    await reveal(gejInput);await tester.enterText(gejInput,'39.5');await tester.pumpAndSettle();
+    expect(find.text('cm from incisors'),findsNWidgets(3));
+    await reveal(find.text('GEJ (top of gastric folds)'));
+    await capture('editor-landmarks');
+    await choose('oesophagus_landmarks','No');
+    expect(find.text('GEJ (top of gastric folds)'),findsNothing);
+    await choose('oesophagus_landmarks','Yes');
+    expect(value(node(vm,'landmark_gej')),'39.5');
     await choose('extent','Second part of duodenum');
     expect(value(node(vm,'extent')),'Second part of duodenum');
     expect(find.byKey(const ValueKey('add-finding-stomach_findings')),findsNothing);
@@ -140,12 +193,7 @@ void main() {
     await add('stomach_findings','stomach_polyp');
     expect(find.text('Morphology'),findsOneWidget);
     expect(find.text('Bleeding stigmata / Forrest category'),findsNothing,reason:'Previous ulcer cards are collapsed');
-    await tester.runAsync(() async {
-      final image=await (boundary.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage(pixelRatio:1);
-      final png=await image.toByteData(format:ui.ImageByteFormat.png);
-      Directory('build/ogd-qa').createSync(recursive:true);
-      await File('build/ogd-qa/editor-polyp.png').writeAsBytes(png!.buffer.asUint8List());
-    });
+    await capture('editor-polyp');
     await choose('stomach_status','Normal');
     expect(find.byKey(const ValueKey('add-finding-stomach_findings')),findsNothing);
     expect(find.text('Morphology'),findsNothing);

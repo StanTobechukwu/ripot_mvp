@@ -26,6 +26,8 @@ jobs:
         run: |
           pdftotext -layout build/ogd-qa/different-findings.pdf build/ogd-qa/different-findings.txt
           pdftotext -layout build/ogd-qa/normal-after-abnormal.pdf build/ogd-qa/normal-after-abnormal.txt
+          pdftotext -layout build/ogd-qa/landmarks.pdf build/ogd-qa/landmarks.txt
+          pdftotext -layout build/ogd-qa/hidden-landmarks.pdf build/ogd-qa/hidden-landmarks.txt
           python3 - <<'PY'
           from pathlib import Path
           abnormal=Path('build/ogd-qa/different-findings.txt').read_text()
@@ -35,6 +37,11 @@ jobs:
           assert abnormal.index('Cardia') < abnormal.index('Body') < abnormal.index('Antrum')
           assert 'Antrum' not in normal and '20 mm' not in normal and 'Forrest' not in normal
           assert 'Normal' in normal
+          landmarks=Path('build/ogd-qa/landmarks.txt').read_text()
+          hidden=Path('build/ogd-qa/hidden-landmarks.txt').read_text()
+          assert all(value+' cm from incisors' in landmarks for value in ['39.5','37.5','41','32.5'])
+          assert '7 mm' in landmarks and '2 count' not in landmarks
+          assert 'GEJ' not in hidden and '39.5' not in hidden and '32.5 cm from incisors' in hidden
           PY
       - run: flutter test --no-pub tools/export_template_previews.dart
       - run: python3 tools/landing/render_previews.py

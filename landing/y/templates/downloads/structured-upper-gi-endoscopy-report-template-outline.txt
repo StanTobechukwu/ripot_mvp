@@ -26,6 +26,10 @@ Examination duration, if recorded (min): ________________
 
 OESOPHAGUS
 Oesophagus assessment: ________________
+Record landmark measurements?: ________________
+GEJ (top of gastric folds) (cm from incisors): ________________
+Z-line (cm from incisors): ________________
+Diaphragmatic pinch (cm from incisors): ________________
 
 OESOPHAGUS FINDING
 Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
