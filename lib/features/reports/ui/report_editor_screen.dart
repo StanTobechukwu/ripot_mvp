@@ -1691,7 +1691,10 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Row(
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             TextButton.icon(
                               onPressed: () {
@@ -1704,7 +1707,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               label: const Text('Use free text'),
                             ),
-                            const Spacer(),
                             if (current.isNotEmpty)
                               TextButton(
                                 onPressed: () {
