@@ -46,6 +46,7 @@ class ReportsListScreen extends StatefulWidget {
 class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   bool _routeObserverSubscribed = false;
   int _section = 0;
+  bool _openingTemplate = kIsWeb && Uri.base.queryParameters.containsKey('template');
 
   Future<void> _selectSection(int index) async {
     if ((index == 1 || index == 2) &&
@@ -154,6 +155,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      String? latestVersion;
+      final incomingTemplate = _openingTemplate ? PublicTemplateCatalog.resolveForEditor(Uri.base,
+        onLatestVersion: (value) => latestVersion = value) : null;
       _incomingFileService = IncomingFileService(
         templatesRepository: context.read<TemplatesRepository>(),
         recordsRepository: context.read<RecordsRepository>(),
@@ -166,7 +170,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       if (initial != null) {
         await _refreshAfterIncomingFile(initial);
       }
-      await _refreshReports();
+      if (!_openingTemplate) await _refreshReports();
       if (mounted && kIsWeb) {
         final libraryView = Uri.base.queryParameters['templateLibrary'];
         if (['browse', 'contribute', 'review', 'mine'].contains(libraryView)) {
@@ -174,9 +178,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
           if (mounted) await _refreshReports();
           return;
         }
-        String? latestVersion;
-        var template = await PublicTemplateCatalog.resolveForEditor(Uri.base,
-          onLatestVersion: (value) => latestVersion = value);
+        var template = incomingTemplate == null ? null : await incomingTemplate;
         if (!mounted) return;
         String? templateNotice;
         final requestedVersion = Uri.base.queryParameters['version'];
@@ -200,6 +202,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         } else if (template != null && requestedVersion != null && latestVersion != null && requestedVersion != latestVersion) {
           templateNotice = 'Opened the older version specified by this link. A newer version is available in Online templates.';
         }
+        if (mounted) setState(() => _openingTemplate = false);
         if (template != null) {
           context.read<ReportEditorProvider>().newReportFromTemplate(template);
           await Navigator.push(
@@ -647,7 +650,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         icon: const Icon(Icons.add),
         label: const Text('New Report'),
       ),
-      body: Column(
+      body: _openingTemplate ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Opening your template…')])) : Column(
         children: [
           const SizedBox(height: 8),
           Center(

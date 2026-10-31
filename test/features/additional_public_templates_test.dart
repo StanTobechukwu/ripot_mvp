@@ -53,7 +53,7 @@ void main() {
         expect(node.addToRecords,isFalse);
         expect(node.addToLog,isFalse);
         final children=node.children.whereType<SectionNode>().toList();
-        if(children.isEmpty)leafIds.add(node.id);
+        if(!node.isRepeatable && (children.isEmpty || node.inputType != FieldInputType.freeText))leafIds.add(node.id);
         for(final value in node.children.whereType<ContentNode>()) { expect(value.text,isEmpty); }
         for(final child in children) { inspect(child); }
       }

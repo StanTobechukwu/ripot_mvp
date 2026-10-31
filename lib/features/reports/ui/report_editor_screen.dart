@@ -7,6 +7,7 @@ import '../../access/ui/premium_prompt.dart';
 
 import '../domain/models/nodes.dart';
 import 'template_actions.dart';
+import 'widgets/repeatable_findings.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/image_services.dart';
 import '../services/media_ref.dart';
@@ -1455,6 +1456,14 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
     SectionNode s,
   ) {
     if (!_sectionConditionAllows(vm, s)) return const SizedBox.shrink();
+    if (s.isRepeatable) return RepeatableFindings(
+      section: s,
+      buildItem: (item) => Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: item.children.whereType<SectionNode>().map((child) => _formSection(context, vm, child)).toList()),
+      onAdd: (blueprint) => vm.addRepeatableFinding(s.id, blueprint),
+      onRemove: (item) { _unfocusNow(); vm.removeRepeatableFinding(s.id, item); },
+      onToggle: vm.toggleCollapsed,
+    );
     final sectionChildren = s.children
         .whereType<SectionNode>()
         .where((child) => _sectionConditionAllows(vm, child))
@@ -1730,6 +1739,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             InkWell(
+              key: ValueKey('structured-field-${s.id}'),
               borderRadius: BorderRadius.circular(12),
               onTap: openStructuredPicker,
               child: InputDecorator(
@@ -1902,7 +1912,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
     const bool isBlock = true;
     const bool isAligned = false;
 
-    if (sectionChildren.isNotEmpty) {
+    if (s.children.whereType<SectionNode>().isNotEmpty) {
       final introNode = contentChildren.isNotEmpty
           ? contentChildren.first
           : null;

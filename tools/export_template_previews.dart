@@ -26,7 +26,8 @@ void main() {
       final leafIds = <String>{};
       void collect(SectionNode n) {
         final children = n.children.whereType<SectionNode>();
-        if (children.isEmpty) leafIds.add(n.id);
+        if (n.isRepeatable) return;
+        if (children.isEmpty || n.inputType != FieldInputType.freeText) leafIds.add(n.id);
         for (final child in children) { collect(child); }
       }
       for (final root in template.roots) { collect(root); }
@@ -35,6 +36,12 @@ void main() {
         final example = variant == 'example';
         SectionNode prepare(SectionNode n) {
           final children = n.children.whereType<SectionNode>().toList();
+          if (n.isRepeatable) return n.copyWith(
+            repeatableTemplates: const [],
+            conditionalParentSectionId: example ? n.conditionalParentSectionId : '',
+            conditionalEquals: example ? n.conditionalEquals : '',
+            children: example ? const [] : [ContentNode(id: '${n.id}_preview', text: 'Finding type: __________  Location: __________  Details: __________ (repeat for each finding)')],
+          );
           return n.copyWith(
             // A printable form shows conditional fields too, for handwriting.
             // Only this presentation copy changes; import/editor data is untouched.
@@ -42,9 +49,11 @@ void main() {
             conditionalEquals: example ? n.conditionalEquals : '',
             addToRecords: false, addToLog: false,
             unit: example && n.inputType == FieldInputType.numeric && double.tryParse(values[n.id] ?? '') == null ? '' : n.unit,
-            children: children.isEmpty
-                ? [ContentNode(id: '${n.id}_preview', text: example ? values[n.id]! : '____________________________')]
-                : children.map(prepare).toList(),
+            children: [
+              if (children.isEmpty || n.inputType != FieldInputType.freeText)
+                ContentNode(id: '${n.id}_preview', text: example ? values[n.id] ?? '' : '____________________________'),
+              ...children.map(prepare),
+            ],
           );
         }
         final doc = ReportDoc(

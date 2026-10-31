@@ -44,6 +44,13 @@ class PublicTemplateCatalog {
         if (detail['latestVersion'] is String) onLatestVersion?.call(detail['latestVersion'] as String);
         bytes = utf8.encode(detail['payload'] as String);
       } else {
+        // Versioned links already specify an immutable catalogue path. Fetch it
+        // while fetching the manifest, but never trust it until approval, URL,
+        // exact version and SHA-256 checks below have all passed.
+        final prefetched = requestedVersion == null ? null : client.get(
+          Uri.parse('$_origin/templates/catalog/$slug/$requestedVersion.ripottemplate.json'))
+          .timeout(const Duration(seconds: 8))
+          .then<http.Response?>((r) => r, onError: (_) => null);
         final index = await client.get(Uri.parse('$_origin/templates/catalog/manifest.json'))
             .timeout(const Duration(seconds: 8));
         if (index.statusCode != 200 || index.bodyBytes.length > 200000) return null;
@@ -63,14 +70,14 @@ class PublicTemplateCatalog {
         }
         final path = '/templates/catalog/$slug/${entry['version']}.ripottemplate.json';
         if (entry['url'] != path) return null;
-        final response = await client.get(Uri.parse('$_origin$path'))
+        final response = prefetched != null ? await prefetched : await client.get(Uri.parse('$_origin$path'))
             .timeout(const Duration(seconds: 8));
-        if (response.statusCode != 200) return null;
+        if (response == null || response.statusCode != 200) return null;
         bytes = response.bodyBytes;
       }
       final version = entry['version'];
       if (version is! String || !_version.hasMatch(version) ||
-          (requestedVersion != null && requestedVersion != version) || bytes.length > 250000) return null;
+          (requestedVersion != null && requestedVersion != version) || bytes.length > 600000) return null;
       final expectedHash = entry['sha256'];
       if (expectedHash is! String ||
           !RegExp(r'^[a-f0-9]{64}$').hasMatch(expectedHash) ||
@@ -78,7 +85,7 @@ class PublicTemplateCatalog {
           expectedHash.substring(0, 16) != version) return null;
       final payload = jsonDecode(utf8.decode(bytes));
       if (payload is! Map || payload['app'] != 'Ripot' ||
-          payload['ripotFileType'] != 'template' || payload['ripotExportVersion'] != 1 ||
+          payload['ripotFileType'] != 'template' || ![1, 2].contains(payload['ripotExportVersion']) ||
           payload['template'] is! Map) return null;
       final raw = Map<String, dynamic>.from(payload['template'] as Map);
       if (raw['name'] is! String || (raw['name'] as String).trim().isEmpty ||
@@ -86,17 +93,20 @@ class PublicTemplateCatalog {
       var count = 0;
       final ids = <String>{};
       bool validate(List nodes, int depth) {
-        if (depth > 8 || count + nodes.length > 200) return false;
+        if (depth > 8 || count + nodes.length > 800) return false;
         for (final node in nodes) {
           if (node is! Map || node['type'] != 'section' && node['type'] != 'content') return false;
           final id = node['id'];
           if (id is! String || id.isEmpty || id.length > 120 || !ids.add(id)) return false;
           if (node['title'] is String && (node['title'] as String).length > 250) return false;
           count++;
-          if (count > 200) return false;
+          if (count > 800) return false;
           // A public catalogue must not configure patient registry or logbook writes.
           node['addToRecords'] = false;
           node['addToLog'] = false;
+          final blueprints = node['repeatableTemplates'];
+          if (blueprints != null && (blueprints is! List || blueprints.length > 30 ||
+              blueprints.any((b) => b is! Map || b['type'] != 'section') || !validate(blueprints, depth + 1))) return false;
           final children = node['children'];
           if (children != null && (children is! List || !validate(children, depth + 1))) return false;
         }

@@ -246,7 +246,7 @@ class ReportEditorProvider extends ChangeNotifier {
   /// Safe to call repeatedly (no duplicates created).
   void ensureLeafHasContent(String sectionId) {
     final s = _findSectionById(_doc.roots, sectionId);
-    if (s == null) return;
+    if (s == null || s.isRepeatable) return;
 
     // only leaf sections get content
     if (_sectionHasSectionChildren(s)) return;
@@ -485,6 +485,7 @@ class ReportEditorProvider extends ChangeNotifier {
   // =========================
 
   SectionNode _hydrateTemplateSectionForForm(SectionNode s) {
+    if (s.isRepeatable) return s.copyWith(children: s.children.whereType<SectionNode>().map(_hydrateTemplateSectionForForm).toList());
     final sectionKids = s.children.whereType<SectionNode>().toList(
       growable: false,
     );
@@ -621,6 +622,42 @@ class ReportEditorProvider extends ChangeNotifier {
     final nextRoots = _replaceNode(_doc.roots, targetId, wrapper);
     _doc = _doc.copyWith(roots: nextRoots, updatedAtIso: nowIso());
     _commit(); // ✅ prune + notify
+  }
+
+  String? addRepeatableFinding(String containerId, String blueprintId) {
+    final container = _findSectionById(_doc.roots, containerId);
+    if (container == null || !container.isRepeatable) return null;
+    final matches = container.repeatableTemplates.where((s) => s.id == blueprintId);
+    if (matches.length != 1) return null;
+    final blueprint = matches.single;
+    final ids = <String, String>{};
+    void collect(SectionNode s) {
+      ids[s.id] = _id('finding');
+      for (final child in s.children.whereType<SectionNode>()) { collect(child); }
+    }
+    collect(blueprint);
+    SectionNode clone(SectionNode s) => SectionNode(
+      id: ids[s.id]!, title: s.title, style: s.style, indent: s.indent,
+      inputType: s.inputType, options: s.options, unit: s.unit,
+      showInPdf: s.showInPdf, omitWhenEmpty: s.omitWhenEmpty, addToRecords: s.addToRecords, addToLog: s.addToLog,
+      allowOptionalNote: s.allowOptionalNote,
+      conditionalParentSectionId: ids[s.conditionalParentSectionId] ?? s.conditionalParentSectionId,
+      conditionalEquals: s.conditionalEquals,
+      children: s.children.whereType<SectionNode>().map(clone).toList(),
+    );
+    final item = _hydrateTemplateSectionForForm(clone(blueprint));
+    _doc = _doc.copyWith(roots: _updateSectionTree(_doc.roots, containerId,
+      (s) => s.copyWith(children: [...s.children.whereType<SectionNode>().map((c) => c.copyWith(collapsed: true)), item])), updatedAtIso: nowIso());
+    _markDirty();
+    return item.id;
+  }
+
+  void removeRepeatableFinding(String containerId, String itemId) {
+    final container = _findSectionById(_doc.roots, containerId);
+    if (container == null || !container.isRepeatable) return;
+    _doc = _doc.copyWith(roots: _updateSectionTree(_doc.roots, containerId,
+      (s) => s.copyWith(children: s.children.where((c) => c.id != itemId).toList())), updatedAtIso: nowIso());
+    _markDirty();
   }
 
   void deleteSelected() {
@@ -777,7 +814,7 @@ class ReportEditorProvider extends ChangeNotifier {
   void ensureSectionContent(String sectionId) {
     final node = _findNodeById(_doc.roots, sectionId);
     if (node is! SectionNode) return;
-    if (node.children.any((child) => child is ContentNode)) return;
+    if (node.isRepeatable || node.children.any((child) => child is ContentNode)) return;
 
     _doc = _doc.copyWith(
       roots: _updateSectionTree(
@@ -1103,6 +1140,7 @@ class ReportEditorProvider extends ChangeNotifier {
     bool changed = false;
 
     SectionNode fix(SectionNode s) {
+      if (s.isRepeatable) return s.copyWith(children: s.children.whereType<SectionNode>().map(fix).toList());
       final hasSectionChildren = s.children.any((n) => n is SectionNode);
       final contentNodes = s.children.whereType<ContentNode>().toList();
 

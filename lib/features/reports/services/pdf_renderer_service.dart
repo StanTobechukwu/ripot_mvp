@@ -1,3 +1,4 @@
+import '../domain/finding_report_order.dart';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -75,6 +76,10 @@ class PdfRendererService {
 
   bool _sectionHasAnyPdfOutput(ReportDoc doc, SectionNode section) {
     if (!_sectionConditionAllows(doc, section)) return false;
+    if (section.omitWhenEmpty && section.note.trim().isEmpty) {
+      final ownValue = section.children.whereType<ContentNode>().any((c) => c.text.trim().isNotEmpty);
+      if (!ownValue && !section.children.whereType<SectionNode>().any((c) => _sectionHasAnyPdfOutput(doc, c))) return false;
+    }
     if (section.showInPdf || section.note.trim().isNotEmpty) return true;
     return section.children.whereType<SectionNode>().any(
       (child) => _sectionHasAnyPdfOutput(doc, child),
@@ -90,6 +95,7 @@ class PdfRendererService {
     bool blankReportDate = false,
     bool keepRootSectionsTogether = false,
   }) async {
+    doc = doc.copyWith(roots: findingsInAnatomicalOrder(doc.roots));
     final double fontScale = doc.fontScale;
     final double contentFontSize = 11.5 * fontScale;
     final double reportTitleFontSize = contentFontSize;
@@ -650,7 +656,7 @@ class PdfRendererService {
     required double contentFontSize,
   }) {
     final out = <pw.Widget>[];
-    if (!_sectionConditionAllows(doc, s)) return out;
+    if (!_sectionHasAnyPdfOutput(doc, s)) return out;
 
     if (!s.showInPdf) {
       final note = s.note.trim();
@@ -1791,7 +1797,7 @@ class PdfRendererService {
     final out = <_PdfTemplate>[];
 
     void walk(SectionNode s, [int treeDepth = 0]) {
-      if (!_sectionConditionAllows(doc, s)) return;
+      if (!_sectionHasAnyPdfOutput(doc, s)) return;
 
       // Structural nesting is the source of truth for visual hierarchy.
       // max() preserves any deliberate larger indent already stored.

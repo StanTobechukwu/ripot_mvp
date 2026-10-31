@@ -60,7 +60,7 @@ jobs:
               assert hashlib.sha256(raw).hexdigest()[:16]==entry['version']
               data=json.loads(raw)
               assert data['ripotFileType']=='template'
-              assert data['ripotExportVersion']==1
+              assert data['ripotExportVersion'] in (1,2)
               assert data['template']['roots']
               page=(root/slug/'index.html').read_text()
               assert 'version='+entry['version'] in page

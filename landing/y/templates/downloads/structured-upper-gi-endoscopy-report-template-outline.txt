@@ -7,45 +7,52 @@ Date: ________________
 
 PROCEDURE
 Indication: ________________
-Premedication, sedation and doses: ________________
-Include additional procedure details?: ________________
+Consent: ________________
+Fasting status: ________________
+Anticoagulant / antiplatelet medication: ________________
+Relevant medication and management details, if applicable: ________________
+Pre-procedure safety assessment: ________________
+Sedation / anaesthesia: ________________
+Drugs and doses, if administered: ________________
+Additional procedure details?: ________________
 Endoscope used: ________________
-Consent, fasting, relevant medication and safety assessment: ________________
+ASA class: ________________
 
 EXTENT AND VIEW
 Extent reached: ________________
 Quality of view: ________________
-Examination limitations / reason for incomplete examination, if applicable: ________________
+Limitations / reason for incomplete examination, if applicable: ________________
 Examination duration, if recorded (min): ________________
 
 OESOPHAGUS
 Oesophagus assessment: ________________
-Findings: location and description; describe each lesion separately: ________________
-Erosive oesophagitis: Los Angeles grade, if applicable: ________________
-Barrett’s: landmarks, Prague C/M and biopsy details, if applicable: ________________
-Hiatal hernia: landmarks and size, if applicable: ________________
+
+OESOPHAGUS FINDING
+Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
 
 STOMACH
 Stomach assessment: ________________
-Findings: location and description; describe each lesion separately: ________________
-Each ulcer: location, size, appearance and bleeding stigmata / Forrest class where applicable: ________________
-Atrophy / metaplasia: distribution, method and biopsy mapping, if applicable: ________________
+
+STOMACH FINDING
+Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
 
 DUODENUM
 Duodenum assessment: ________________
-Findings: location and description; describe each lesion separately: ________________
-Each ulcer: location, size, appearance and bleeding stigmata / Forrest class where applicable: ________________
 
-SAMPLING AND THERAPY
+DUODENUM FINDING
+Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
+
+SAMPLING
 Samples taken?: ________________
-Each specimen: site, indication and container identifier; protocol used: ________________
-Therapy performed?: ________________
-Each treatment: finding / site, method, devices and immediate result: ________________
+
+SPECIMEN
+Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
 
 CONCLUSION AND FOLLOW-UP
-Adverse events and tolerance: ________________
+Immediate adverse events: ________________
+Tolerance: ________________
 Conclusion / impression: ________________
-Plan, pathology follow-up and communication: ________________
+Plan and pathology follow-up: ________________
 
 Clinician: ________________
 Signature: ________________
