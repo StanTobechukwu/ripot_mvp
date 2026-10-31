@@ -3,64 +3,79 @@
   "templates": [
     {
       "slug": "colonoscopy-report-template",
-      "version": "3f11bbf4563cef14",
+      "version": "a0afff66db7b38b1",
       "name": "Colonoscopy report template",
       "specialty": "Gastroenterology",
       "contributor": "Ripot",
       "status": "approved",
-      "url": "/templates/catalog/colonoscopy-report-template/3f11bbf4563cef14.ripottemplate.json",
-      "sha256": "3f11bbf4563cef148aa21bcbe85c5a4c5a58dd2a3381255e53def8c5f53cca2e",
+      "url": "/templates/catalog/colonoscopy-report-template/a0afff66db7b38b1.ripottemplate.json",
+      "sha256": "a0afff66db7b38b151896bb7ccff7be1a7477522784a599e01557d33e2d2aee8",
       "versions": [
         {
           "version": "3f11bbf4563cef14",
           "sha256": "3f11bbf4563cef148aa21bcbe85c5a4c5a58dd2a3381255e53def8c5f53cca2e",
           "url": "/templates/catalog/colonoscopy-report-template/3f11bbf4563cef14.ripottemplate.json"
+        },
+        {
+          "version": "a0afff66db7b38b1",
+          "sha256": "a0afff66db7b38b151896bb7ccff7be1a7477522784a599e01557d33e2d2aee8",
+          "url": "/templates/catalog/colonoscopy-report-template/a0afff66db7b38b1.ripottemplate.json"
         }
       ]
     },
     {
       "slug": "upper-gi-endoscopy-report-template",
-      "version": "b1282b15fe6950b5",
+      "version": "b571dd24f0957322",
       "name": "Upper GI endoscopy report template",
       "specialty": "Gastroenterology",
       "contributor": "Ripot",
       "status": "approved",
-      "url": "/templates/catalog/upper-gi-endoscopy-report-template/b1282b15fe6950b5.ripottemplate.json",
-      "sha256": "b1282b15fe6950b53e42a30f37783c06ff47206fe82fd8e5813557e791ab5d49",
+      "url": "/templates/catalog/upper-gi-endoscopy-report-template/b571dd24f0957322.ripottemplate.json",
+      "sha256": "b571dd24f09573222dd7eb23ccc2947541b4302e65ee693937e3e385dbbaf013",
       "versions": [
         {
           "version": "b1282b15fe6950b5",
           "sha256": "b1282b15fe6950b53e42a30f37783c06ff47206fe82fd8e5813557e791ab5d49",
           "url": "/templates/catalog/upper-gi-endoscopy-report-template/b1282b15fe6950b5.ripottemplate.json"
+        },
+        {
+          "version": "b571dd24f0957322",
+          "sha256": "b571dd24f09573222dd7eb23ccc2947541b4302e65ee693937e3e385dbbaf013",
+          "url": "/templates/catalog/upper-gi-endoscopy-report-template/b571dd24f0957322.ripottemplate.json"
         }
       ]
     },
     {
       "slug": "abdominal-ultrasound-report-template",
-      "version": "a3ac8bcbf9744e83",
+      "version": "e67b28be7de62dec",
       "name": "Abdominal ultrasound report template",
       "specialty": "Radiology",
       "contributor": "Ripot",
       "status": "approved",
-      "url": "/templates/catalog/abdominal-ultrasound-report-template/a3ac8bcbf9744e83.ripottemplate.json",
-      "sha256": "a3ac8bcbf9744e83ac684bc0fb8f02b5885f04453c9f6a269635e44b250464e5",
+      "url": "/templates/catalog/abdominal-ultrasound-report-template/e67b28be7de62dec.ripottemplate.json",
+      "sha256": "e67b28be7de62dec869e8408b9e80b34f01ae061f354549098a9fd889bf4be76",
       "versions": [
         {
           "version": "a3ac8bcbf9744e83",
           "sha256": "a3ac8bcbf9744e83ac684bc0fb8f02b5885f04453c9f6a269635e44b250464e5",
           "url": "/templates/catalog/abdominal-ultrasound-report-template/a3ac8bcbf9744e83.ripottemplate.json"
+        },
+        {
+          "version": "e67b28be7de62dec",
+          "sha256": "e67b28be7de62dec869e8408b9e80b34f01ae061f354549098a9fd889bf4be76",
+          "url": "/templates/catalog/abdominal-ultrasound-report-template/e67b28be7de62dec.ripottemplate.json"
         }
       ]
     },
     {
       "slug": "echocardiogram-report-template",
-      "version": "62b20f5bae156960",
+      "version": "bec4d6b4f5f09be5",
       "name": "Echocardiogram report template",
       "specialty": "Cardiology",
       "contributor": "Ripot",
       "status": "approved",
-      "url": "/templates/catalog/echocardiogram-report-template/62b20f5bae156960.ripottemplate.json",
-      "sha256": "62b20f5bae15696028b1ee18f594a75df0d968d2f2ae123c7054f9546bacd053",
+      "url": "/templates/catalog/echocardiogram-report-template/bec4d6b4f5f09be5.ripottemplate.json",
+      "sha256": "bec4d6b4f5f09be52bb665dd4077dd90f4015f78096b69382258d8d334571375",
       "versions": [
         {
           "version": "466590d1d23cf128",
@@ -71,6 +86,11 @@
           "version": "62b20f5bae156960",
           "sha256": "62b20f5bae15696028b1ee18f594a75df0d968d2f2ae123c7054f9546bacd053",
           "url": "/templates/catalog/echocardiogram-report-template/62b20f5bae156960.ripottemplate.json"
+        },
+        {
+          "version": "bec4d6b4f5f09be5",
+          "sha256": "bec4d6b4f5f09be52bb665dd4077dd90f4015f78096b69382258d8d334571375",
+          "url": "/templates/catalog/echocardiogram-report-template/bec4d6b4f5f09be5.ripottemplate.json"
         }
       ]
     },
