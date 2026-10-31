@@ -74,10 +74,10 @@ def build():
         field('consent','Consent',['Obtained','Not obtained','Emergency exception documented','Documented elsewhere'],example='Obtained',note=True),
         field('fasting','Fasting status',['Confirmed','Not fasted','Uncertain','Documented elsewhere'],example='Confirmed',note=True),
         field('antithrombotics','Anticoagulant / antiplatelet medication',['None reported','Anticoagulant','Antiplatelet','Both','Unknown'],example='None reported',note=True),
-        field('medication_plan','Relevant medication and management details, if applicable'),
         field('safety','Pre-procedure safety assessment',['Completed','Concern identified','Documented elsewhere','Not recorded'],example='Completed',note=True),
         field('sedation','Sedation / anaesthesia',['None','Topical anaesthesia only','Moderate sedation','Deep sedation','General anaesthesia'],example='None',note=True),
         field('sedation_drugs','Drugs and doses, if administered'),
+        field('medication_plan','Other medications'),
         field('extra_details','Additional procedure details?',['Yes','No'],example='No',children=[
           field('scope','Endoscope used',parent='extra_details',equals='Yes'),
           field('asa','ASA class',['I','II','III','IV','V','VI','Not assessed'],parent='extra_details',equals='Yes')]),

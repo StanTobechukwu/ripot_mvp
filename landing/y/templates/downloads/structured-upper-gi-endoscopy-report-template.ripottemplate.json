@@ -153,29 +153,6 @@
           },
           {
             "type": "section",
-            "id": "medication_plan",
-            "title": "Relevant medication and management details, if applicable",
-            "collapsed": false,
-            "style": {
-              "level": "h4",
-              "bold": true,
-              "align": "left"
-            },
-            "inputType": "freeText",
-            "options": [],
-            "unit": "",
-            "showInPdf": true,
-            "omitWhenEmpty": true,
-            "addToRecords": false,
-            "addToLog": false,
-            "allowOptionalNote": false,
-            "conditionalParentSectionId": "",
-            "conditionalEquals": "",
-            "indent": 0,
-            "children": []
-          },
-          {
-            "type": "section",
             "id": "safety",
             "title": "Pre-procedure safety assessment",
             "collapsed": false,
@@ -235,6 +212,29 @@
             "type": "section",
             "id": "sedation_drugs",
             "title": "Drugs and doses, if administered",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "omitWhenEmpty": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": []
+          },
+          {
+            "type": "section",
+            "id": "medication_plan",
+            "title": "Other medications",
             "collapsed": false,
             "style": {
               "level": "h4",

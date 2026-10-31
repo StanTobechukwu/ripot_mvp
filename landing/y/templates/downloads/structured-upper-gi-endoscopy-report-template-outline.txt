@@ -10,10 +10,10 @@ Indication: ________________
 Consent: ________________
 Fasting status: ________________
 Anticoagulant / antiplatelet medication: ________________
-Relevant medication and management details, if applicable: ________________
 Pre-procedure safety assessment: ________________
 Sedation / anaesthesia: ________________
 Drugs and doses, if administered: ________________
+Other medications: ________________
 Additional procedure details?: ________________
 Endoscope used: ________________
 ASA class: ________________
