@@ -131,8 +131,8 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                   const SizedBox(width: 8),
                   IconButton(
                     tooltip: field.addToRecords
-                        ? 'Included in Records'
-                        : 'Not included in Records',
+                        ? 'Included in Report data'
+                        : 'Not included in Report data',
                     visualDensity: VisualDensity.compact,
                     icon: Icon(
                       field.addToRecords
@@ -282,7 +282,7 @@ class _SubjectInfoTemplateEditorState extends State<SubjectInfoTemplateEditor> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'The table icon controls whether each subject field is copied to Records.',
+                          'The table icon controls whether each subject field is copied to Report data.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),

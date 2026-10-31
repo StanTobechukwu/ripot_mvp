@@ -1,0 +1,48 @@
+name: Report data release checks and packages
+on:
+  push:
+    branches: [codex/report-data-release-20261031]
+  pull_request:
+    branches: [codex/global-backup-20261026]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: flutter pub get
+      - run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib test
+      - run: flutter test --no-pub
+      - run: flutter test --no-pub tools/export_public_templates.dart
+      - run: python3 tools/landing/export_additional_templates.py
+      - run: flutter test --no-pub tools/export_template_previews.dart
+      - run: sudo apt-get update -qq && sudo apt-get install -y poppler-utils
+      - run: python3 tools/landing/render_previews.py
+      - run: python3 tools/landing/build_templates.py
+      - run: python3 tools/landing/verify.py
+      - run: flutter build web --release --no-pub
+      - run: python3 tools/web/package_release.py
+      - run: python3 tools/android/prepare_ci_firebase.py
+      - run: flutter build apk --debug --no-pub
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ripot-reviewed-update
+          path: |
+            build/web-distribution
+            build/app/outputs/flutter-apk/app-debug.apk
+            landing
+            pubspec.lock
+          include-hidden-files: true
+          retention-days: 14

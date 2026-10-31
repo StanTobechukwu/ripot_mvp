@@ -493,7 +493,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         [XFile.fromData(bytes, name: fileName, mimeType: 'application/zip')],
         subject: fileName,
         text:
-            'Attached is a Ripot records package. Import it from Records > Import / Merge in Ripot.',
+            'Attached is a Ripot records package. Import it from Report data > Import / Merge in Ripot.',
       );
       return;
     }
@@ -546,7 +546,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('Records backup package'),
+                title: const Text('Report data backup package'),
                 subtitle: const Text('Record values and available PDFs. Not encrypted. Excludes editable reports, templates and field settings.'),
                 onTap: () => Navigator.pop(sheetContext, 'package'),
               ),
@@ -724,10 +724,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
     }
     if (!mounted) return;
     await _showExportDoneSheet(
-      title: 'Records backup package saved',
+      title: 'Report data backup package saved',
       fileName: fileName,
       helper:
-          'Contains the filtered record values and available PDFs. In Records, use Import / Restore and choose Records package. This is not a full app backup; field settings and editable reports are not included.',
+          'Contains the filtered record values and available PDFs. In Report data, use Import / Restore and choose Report data package. This is not a full app backup; field settings and editable reports are not included.',
       onOpen: () {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -758,20 +758,20 @@ class _RecordsScreenState extends State<RecordsScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Merge only files exported from Ripot. CSV imports record details only. Records Package imports record details and available PDFs.',
+                'Merge only files exported from Ripot. CSV imports record details only. Report data Package imports record details and available PDFs.',
               ),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.table_chart_outlined),
-                title: const Text('Merge Ripot Records CSV'),
+                title: const Text('Merge Ripot Report data CSV'),
                 subtitle: const Text('Record details only.'),
                 onTap: () => Navigator.pop(sheetContext, 'csv'),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('Restore / merge Records package'),
+                title: const Text('Restore / merge Report data package'),
                 subtitle: const Text('Record details and PDFs.'),
                 onTap: () => Navigator.pop(sheetContext, 'package'),
               ),
@@ -941,7 +941,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
     final access = context.watch<AccessProvider>().safeState;
     if (!access.canUseRecords) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Records')),
+        appBar: AppBar(title: const Text('Report data')),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -955,7 +955,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Records is a Premium feature',
+                        'Report data is a Premium feature',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -1040,7 +1040,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Records'),
+        title: const Text('Report data'),
         actions: [
           if (MediaQuery.sizeOf(context).width >= 760)
             Padding(padding: const EdgeInsets.only(right: 8), child: _viewToggle()),
@@ -1113,7 +1113,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       padding: EdgeInsets.all(24),
                       child: Text(
                         vm.records.isEmpty
-                          ? 'No records yet. Complete a report, then add it to Records.'
+                          ? 'No records yet. Complete a report, then add it to Report data.'
                           : 'No matching records. Try another search or clear the filters.',
                         textAlign: TextAlign.center,
                       ),

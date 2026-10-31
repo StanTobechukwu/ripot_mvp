@@ -1,3 +1,4 @@
+import '../../../core/services/engagement_service.dart';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 
@@ -43,6 +44,7 @@ class SavedPdfViewerScreen extends StatelessWidget {
             pdfFileName: pdfFileName,
             allowPrinting: !isNativeDesktop,
             allowSharing: !isDesktopWeb && !isNativeDesktop,
+            onShared: (_) => EngagementService.reportShared(),
           );
 
           if (!isDesktopWeb && !isNativeDesktop) return preview;
@@ -51,7 +53,10 @@ class SavedPdfViewerScreen extends StatelessWidget {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 color: const Color(0xFFF8FAFC),
                 child: Wrap(
                   alignment: WrapAlignment.spaceBetween,
@@ -63,7 +68,10 @@ class SavedPdfViewerScreen extends StatelessWidget {
                       isDesktopWeb
                           ? 'On desktop web, use Download PDF, then share the file from your downloads.'
                           : 'Use the Ripot buttons for Download and Share on desktop.',
-                      style: const TextStyle(fontSize: 12.5, color: Colors.black54),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.black54,
+                      ),
                     ),
                     Wrap(
                       spacing: 8,
@@ -73,19 +81,29 @@ class SavedPdfViewerScreen extends StatelessWidget {
                           onPressed: () async {
                             try {
                               if (kIsWeb) {
-                                await downloadBytes(bytes: bytes, fileName: pdfFileName);
+                                await downloadBytes(
+                                  bytes: bytes,
+                                  fileName: pdfFileName,
+                                );
                                 return;
                               }
-                              final file = await ripotDownloadPdf(bytes: bytes, fileName: pdfFileName);
+                              final file = await ripotDownloadPdf(
+                                bytes: bytes,
+                                fileName: pdfFileName,
+                              );
                               if (!context.mounted) return;
                               if (file == null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Download cancelled')),
+                                  const SnackBar(
+                                    content: Text('Download cancelled'),
+                                  ),
                                 );
                                 return;
                               }
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('PDF saved to: ${file.path}')),
+                                SnackBar(
+                                  content: Text('PDF saved to: ${file.path}'),
+                                ),
                               );
                             } catch (e) {
                               if (!context.mounted) return;
@@ -101,7 +119,10 @@ class SavedPdfViewerScreen extends StatelessWidget {
                           FilledButton.tonalIcon(
                             onPressed: () async {
                               try {
-                                await ripotSharePdf(bytes: bytes, fileName: pdfFileName);
+                                await ripotSharePdf(
+                                  bytes: bytes,
+                                  fileName: pdfFileName,
+                                );
                               } catch (e) {
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(

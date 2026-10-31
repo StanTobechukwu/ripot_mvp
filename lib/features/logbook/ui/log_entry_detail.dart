@@ -85,7 +85,7 @@ class LogEntryDetail extends StatelessWidget {
               if (!await confirmAction(
                     context,
                     'Delete log entry?',
-                    'This permanently deletes this log and its signed versions from this device. The source report and Records are kept.',
+                    'This permanently deletes this log and its signed versions from this device. The source report and Report data are kept.',
                   ) ||
                   !context.mounted) {
                 return;

@@ -1,3 +1,4 @@
+import '../../../core/services/engagement_service.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -167,7 +168,7 @@ Future<void> ripotShareRecordsPackage({required Uint8List bytes, required String
   await Share.shareXFiles(
     [XFile(file.path, name: safeName, mimeType: 'application/zip')],
     subject: safeName,
-    text: 'Attached is a Ripot records package. Import it from Records > Import / Merge in Ripot.',
+    text: 'Attached is a Ripot records package. Import it from Report data > Import / Merge in Ripot.',
   );
 }
 
@@ -180,8 +181,9 @@ Future<void> ripotSharePdf({required Uint8List bytes, required String fileName})
   if (!await file.exists()) {
     throw FileSystemException('Shared PDF could not be created', file.path);
   }
-  await Share.shareXFiles(
+  final result = await Share.shareXFiles(
     [XFile(file.path, mimeType: 'application/pdf')],
     subject: _safePdfName(fileName),
   );
+  if (result.status == ShareResultStatus.success) await EngagementService.reportShared();
 }

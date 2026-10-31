@@ -62,13 +62,34 @@ class TestDestination extends BackupDestination {
 }
 
 class ForegroundBackupService extends BackupService {
-  ForegroundBackupService({required super.destination});
+  ForegroundBackupService({required super.destination})
+    : super(automaticAccess: () async => true);
   @override
   bool get backgroundAndroid => false;
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'Free cannot enable automatic backup, but can disable an old schedule',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({});
+      final service = BackupService(
+        destination: TestDestination(),
+        automaticAccess: () async => false,
+      );
+      await expectLater(
+        service.configure(
+          const BackupSchedule(enabled: true),
+          'fictional password',
+        ),
+        throwsStateError,
+      );
+      await service.configure(const BackupSchedule(enabled: false), null);
+      expect((await service.schedule()).enabled, false);
+    },
+  );
   late Directory dir;
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -155,12 +176,18 @@ void main() {
         'backup.schedule.v1': jsonEncode(schedule.toJson()),
       });
       final destination = TestDestination(),
-          service = BackupService(destination: TestDestination());
+          service = BackupService(
+            destination: TestDestination(),
+            automaticAccess: () async => true,
+          );
       await service.setRetention(7);
       expect((await service.schedule()).keep, 7);
       expect((await service.schedule()).nextDue, schedule.nextDue!.toUtc());
       expect((await service.schedule()).enabled, isTrue);
-      final manual = BackupService(destination: destination);
+      final manual = BackupService(
+        destination: destination,
+        automaticAccess: () async => true,
+      );
       await manual.backUp(BackupScope.all, 'a long test passphrase', 7);
       expect((await manual.schedule()).nextDue, schedule.nextDue!.toUtc());
       expect(destination.locked, isFalse);
@@ -246,7 +273,10 @@ void main() {
         'backup.retryAfter': 'later',
       });
       final destination = TestDestination()..selected = null;
-      final service = BackupService(destination: destination);
+      final service = BackupService(
+        destination: destination,
+        automaticAccess: () async => true,
+      );
       await service.chooseFolder();
       final p = await SharedPreferences.getInstance();
       expect(p.getString('backup.baseline'), 'old');
@@ -256,30 +286,36 @@ void main() {
       expect(p.getString('backup.retryAfter'), isNull);
     },
   );
-  test('schedule edits reuse the stored password and refuse a missing password', () async {
-    final destination = TestDestination();
-    final service = ForegroundBackupService(destination: destination);
-    const secure = FlutterSecureStorage();
-    const key = 'ripot.automaticBackup.passphrase.v1';
-    const password = 'a long test passphrase';
-    await expectLater(
-      service.configure(const BackupSchedule(enabled: true), null),
-      throwsStateError,
-    );
-    await service.configure(const BackupSchedule(enabled: true), password);
-    await service.configure(const BackupSchedule(enabled: true, hour: 9, weekday: 1), null);
-    expect(await secure.read(key: key), password);
-    final saved = await service.schedule();
-    expect(saved.hour, 9);
-    expect(saved.weekday, 1);
-    await secure.delete(key: key);
-    await expectLater(
-      service.configure(const BackupSchedule(enabled: true, hour: 10), null),
-      throwsStateError,
-    );
-    expect((await service.schedule()).toJson(), saved.toJson());
-    expect(destination.locked, isFalse);
-  });
+  test(
+    'schedule edits reuse the stored password and refuse a missing password',
+    () async {
+      final destination = TestDestination();
+      final service = ForegroundBackupService(destination: destination);
+      const secure = FlutterSecureStorage();
+      const key = 'ripot.automaticBackup.passphrase.v1';
+      const password = 'a long test passphrase';
+      await expectLater(
+        service.configure(const BackupSchedule(enabled: true), null),
+        throwsStateError,
+      );
+      await service.configure(const BackupSchedule(enabled: true), password);
+      await service.configure(
+        const BackupSchedule(enabled: true, hour: 9, weekday: 1),
+        null,
+      );
+      expect(await secure.read(key: key), password);
+      final saved = await service.schedule();
+      expect(saved.hour, 9);
+      expect(saved.weekday, 1);
+      await secure.delete(key: key);
+      await expectLater(
+        service.configure(const BackupSchedule(enabled: true, hour: 10), null),
+        throwsStateError,
+      );
+      expect((await service.schedule()).toJson(), saved.toJson());
+      expect(destination.locked, isFalse);
+    },
+  );
   test(
     'full snapshot restores editable data, native PDFs, attachments and links',
     () async {

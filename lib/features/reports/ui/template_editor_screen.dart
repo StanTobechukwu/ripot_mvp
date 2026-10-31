@@ -364,7 +364,7 @@ class _TemplateEditorBody extends StatelessWidget {
     if (saveToRecordTitles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No template fields are marked Save to Records.'),
+          content: Text('No template fields are marked Save to Report data.'),
         ),
       );
       return;
@@ -375,7 +375,7 @@ class _TemplateEditorBody extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Sync existing records?'),
         content: Text(
-          'Ripot will scan saved editable reports that match this template structure and update their record data using fields currently marked Save to Records.\n\n'
+          'Ripot will scan saved editable reports that match this template structure and update their record data using fields currently marked Save to Report data.\n\n'
           'Saved PDFs will not be changed.\n\n'
           'Fields: ${saveToRecordTitles.take(8).join(', ')}${saveToRecordTitles.length > 8 ? '…' : ''}',
         ),
@@ -694,7 +694,7 @@ class _TemplateEditorBody extends StatelessWidget {
                     ),
                     if (section.addToRecords) ...[
                       Tooltip(
-                        message: 'Added to Records',
+                        message: 'Added to Report data',
                         child: Icon(
                           Icons.fact_check_outlined,
                           size: 18,
@@ -752,12 +752,12 @@ class _TemplateEditorBody extends StatelessWidget {
                 PopupMenuItem(value: 'rename', child: Text('Rename Template')),
                 PopupMenuItem(
                   value: 'recordsFields',
-                  child: Text('Records fields'),
+                  child: Text('Report data fields'),
                 ),
                 PopupMenuDivider(),
                 PopupMenuItem(
                   value: 'sync',
-                  child: Text('Sync Existing Records'),
+                  child: Text('Sync Existing Report data'),
                 ),
                 PopupMenuItem(value: 'export', child: Text('Export Template')),
                 PopupMenuDivider(),
@@ -1116,7 +1116,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                     value: _addToRecords,
                     onChanged: (v) =>
                         setState(() => _addToRecords = v ?? false),
-                    title: const Text('Save to Records'),
+                    title: const Text('Save to Report data'),
                     subtitle: const Text(
                       'Structured values are preferred for filtering, export and analysis.',
                     ),
@@ -1141,7 +1141,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                     onChanged: (v) =>
                         setState(() => _addToRecords = v ?? false),
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Save to Records'),
+                    title: const Text('Save to Report data'),
                     subtitle: const Text(
                       'Narrative text is supported for fields such as diagnosis or impression, but is less useful for filtering and analysis.',
                     ),
@@ -1153,7 +1153,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                   onChanged: (v) => setState(() => _addToLog = v ?? false),
                   title: const Text('Include when adding to Logbook'),
                   subtitle: const Text(
-                    'Prefill this field for review. Separate from Records and PDF settings.',
+                    'Prefill this field for review. Separate from Report data and PDF settings.',
                   ),
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
@@ -1221,10 +1221,10 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                         final include = await showDialog<bool>(
                           context: context,
                           builder: (dialogContext) => AlertDialog(
-                            title: const Text('Save narrative text to Records?'),
+                            title: const Text('Save narrative text to Report data?'),
                             content: Text(
                               '“${_title.text.trim().isEmpty ? 'This field' : _title.text.trim()}” '
-                              'is free text. Records work best with structured inputs '
+                              'is free text. Report data work best with structured inputs '
                               'for filtering, comparison and export. Include it only '
                               'when a structured field would lose important meaning.',
                             ),
@@ -1232,7 +1232,7 @@ class _SectionEditSheetState extends State<_SectionEditSheet> {
                               TextButton(
                                 onPressed: () =>
                                     Navigator.pop(dialogContext, false),
-                                child: const Text('Keep out of Records'),
+                                child: const Text('Keep out of Report data'),
                               ),
                               FilledButton(
                                 onPressed: () =>
