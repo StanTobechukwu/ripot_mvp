@@ -45,6 +45,20 @@ echo "Deployment completed. Open https://ripot-web.web.app and verify version {v
 (stage / 'README.txt').write_text(f'''Ripot web {version} ({build})
 Source: {source}
 
+This release fixes the guided upper GI template in the actual report editor:
+separate consent/fasting/medication/safety choices, an extent dropdown,
+one Add finding control per region, and independent repeated finding cards.
+The PDF groups findings by anatomical location. Ordinary template links now
+fetch the approval catalogue and versioned template concurrently and show
+Opening your template while loading. Checksums and approval checks remain.
+
+For this update, deploy in this order from this complete folder:
+  bash Deploy-Web.command
+  bash Deploy-Landing.command
+The guided template needs Ripot 1.0.20 or newer. Publishing the landing page
+alone will not update the editor. This correction needs no backend deployment.
+Reload the web app after deployment; keep existing browser data intact.
+
 This folder contains the combined web update; Flutter is not required to deploy it.
 Included: updated branding/support, safer Registry report linking, unlimited
 saved PDFs for Premium/active trials, dynamic public templates, the Free-user

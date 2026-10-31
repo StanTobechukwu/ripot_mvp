@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,11 +83,26 @@ void main() {
   });
 
   testWidgets('real Report Editor selects one pathology and keeps separate repeated entries', (tester) async {
+    // Readable visual evidence instead of Flutter's square-glyph test font.
+    await tester.runAsync(() async {
+      final font = FontLoader('OGD QA')..addFont(rootBundle.load('assets/fonts/NotoSans-Regular.ttf'));
+      await font.load();
+      final sdk = Platform.environment['FLUTTER_ROOT'];
+      if (sdk != null) {
+        final icons = File('$sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+        if (icons.existsSync()) {
+          final loader = FontLoader('MaterialIcons')..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync())));
+          await loader.load();
+        }
+      }
+    });
     await tester.binding.setSurfaceSize(const Size(430,920));
     addTearDown(()=>tester.binding.setSurfaceSize(null));
     final vm=editor();
     final boundary=GlobalKey();
-    await tester.pumpWidget(ChangeNotifierProvider.value(value:vm,child:MaterialApp(home:RepaintBoundary(key:boundary,child:const ReportEditorScreen()))));
+    await tester.pumpWidget(ChangeNotifierProvider.value(value:vm,child:MaterialApp(
+      theme:ThemeData(colorScheme:ColorScheme.fromSeed(seedColor:Colors.teal),useMaterial3:true,fontFamily:'OGD QA'),
+      home:RepaintBoundary(key:boundary,child:const ReportEditorScreen()))));
     await tester.pumpAndSettle();
     Future<void> reveal(Finder finder) async { await tester.ensureVisible(finder); await tester.pumpAndSettle(); }
     Future<void> choose(String id,String option) async {
