@@ -1,3 +1,5 @@
+import '../../../core/ui/suggestions_sheet.dart';
+import '../../../core/services/engagement_service.dart';
 import '../../backup/ui/backup_screen.dart';
 import 'online_templates_screen.dart';
 import 'package:flutter/foundation.dart';
@@ -69,7 +71,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       ),
       NavigationDestination(
         icon: Icon(Icons.table_rows_outlined),
-        label: 'Records',
+        label: 'Report data',
       ),
       NavigationDestination(
         icon: Icon(Icons.people_outline),
@@ -300,7 +302,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   ) async {
     const title = 'Delete report?';
     const message =
-        'This permanently deletes the saved report and any saved PDF for it from this device. Existing Records and Logbook entries are kept. This cannot be undone.';
+        'This permanently deletes the saved report and any saved PDF for it from this device. Existing Report data and Logbook entries are kept. This cannot be undone.';
     const actionLabel = 'Delete report';
 
     final confirmed = await showDialog<bool>(
@@ -347,9 +349,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       }
     }
     final recordActionLabel = !report.hasPdf
-        ? 'Records · Complete report first'
+        ? 'Report data · Complete report first'
         : switch (recordStatus) {
-            RecordReportStatus.notAdded => 'Add to Records',
+            RecordReportStatus.notAdded => 'Add to Report data',
             RecordReportStatus.current => 'View Record',
             RecordReportStatus.reportChanged => 'Update Record',
           };
@@ -404,12 +406,13 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         case 'share':
           final bytes = await repo.loadPdfBytesForReport(report.reportId);
           if (bytes == null) throw StateError('PDF unavailable');
-          await Printing.sharePdf(
+          final shared = await Printing.sharePdf(
             bytes: bytes,
             filename:
                 await repo.pdfFileNameForReport(report.reportId) ??
                 'Ripot_Report.pdf',
           );
+          if (shared) await EngagementService.reportShared();
           break;
         case 'records':
           if (!report.hasPdf) {
@@ -418,7 +421,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               builder: (dialogContext) => AlertDialog(
                 title: const Text('Complete report first'),
                 content: const Text(
-                  'Finish editing and generate the PDF to add this report to Records.',
+                  'Finish editing and generate the PDF to add this report to Report data.',
                 ),
                 actions: [
                   TextButton(
@@ -600,6 +603,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             icon: const Icon(Icons.more_horiz_rounded),
             onSelected: (value) {
               switch (value) {
+                case 'suggestions':
+                  showSuggestionsSheet(context);
+                  break;
                 case 'backup':
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const BackupScreen()),
@@ -614,6 +620,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               }
             },
             itemBuilder: (_) => [
+              const PopupMenuItem(value: 'suggestions', child: Text('Suggest an improvement')),
               const PopupMenuItem(
                 value: 'backup',
                 child: Text('Backup & restore'),

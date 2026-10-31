@@ -19,10 +19,10 @@ void main() {
       'echocardiogram-report-template':'466590d1d23cf128',
     };
     for (final entry in originals.entries) {
-      expect(sha256.convert(File('landing/y/templates/downloads/${entry.key}.ripottemplate.json').readAsBytesSync()).toString().substring(0,16),entry.value);
+      expect(sha256.convert(File('landing/y/templates/catalog/${entry.key}/${entry.value}.ripottemplate.json').readAsBytesSync()).toString().substring(0,16),entry.value);
     }
-    expect(entries, hasLength(11));
-    expect(entries.map((e) => e['slug']).toSet(), hasLength(11));
+    expect(entries, hasLength(13));
+    expect(entries.map((e) => e['slug']).toSet(), hasLength(13));
   });
   for (final entry in entries) {
     final slug = entry['slug'] as String;

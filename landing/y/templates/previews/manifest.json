@@ -13,6 +13,52 @@
       "abdominal-ultrasound-report-template-example-1.jpg"
     ]
   },
+  "ambulatory-blood-pressure-report-template-blank": {
+    "pdf": "ambulatory-blood-pressure-report-template-blank.pdf",
+    "sha256": "47b2a67995d6dfa7939589ebe9bd71d68f48c3d84928e107f31b0b20c8103e86",
+    "pages": [
+      "ambulatory-blood-pressure-report-template-blank-1.jpg"
+    ]
+  },
+  "ambulatory-blood-pressure-report-template-example": {
+    "pdf": "ambulatory-blood-pressure-report-template-example.pdf",
+    "sha256": "4058a7a91f4859d15b41b05bd88a97105de96337168bd17098767e401b05d5d4",
+    "pages": [
+      "ambulatory-blood-pressure-report-template-example-1.jpg"
+    ]
+  },
+  "appendectomy-operation-note-template-blank": {
+    "pdf": "appendectomy-operation-note-template-blank.pdf",
+    "sha256": "4d55deee1761ccff2b1c8d31c381008af29d7c2d99895416de6d2d7e49f6ea98",
+    "pages": [
+      "appendectomy-operation-note-template-blank-1.jpg",
+      "appendectomy-operation-note-template-blank-2.jpg"
+    ]
+  },
+  "appendectomy-operation-note-template-example": {
+    "pdf": "appendectomy-operation-note-template-example.pdf",
+    "sha256": "3cc78bd7501b5059509dbdcad7308f433e539124d0056cf65a8f36d58afbc88a",
+    "pages": [
+      "appendectomy-operation-note-template-example-1.jpg",
+      "appendectomy-operation-note-template-example-2.jpg"
+    ]
+  },
+  "caesarean-section-operation-note-template-blank": {
+    "pdf": "caesarean-section-operation-note-template-blank.pdf",
+    "sha256": "729306b6b9cf5fb42a24fe5f3d1a5f49eaf1110fa92f42c11f78df609bebb083",
+    "pages": [
+      "caesarean-section-operation-note-template-blank-1.jpg",
+      "caesarean-section-operation-note-template-blank-2.jpg"
+    ]
+  },
+  "caesarean-section-operation-note-template-example": {
+    "pdf": "caesarean-section-operation-note-template-example.pdf",
+    "sha256": "0942618e97b2ae17d5493450d52db84be64122a4b182f25ec49cf48b207183aa",
+    "pages": [
+      "caesarean-section-operation-note-template-example-1.jpg",
+      "caesarean-section-operation-note-template-example-2.jpg"
+    ]
+  },
   "colonoscopy-report-template-blank": {
     "pdf": "colonoscopy-report-template-blank.pdf",
     "sha256": "8e3bc80647a1b976cf12a9ffcc794156bb7251638789765ba66448a9faf25909",
@@ -29,7 +75,7 @@
   },
   "echocardiogram-report-template-blank": {
     "pdf": "echocardiogram-report-template-blank.pdf",
-    "sha256": "2e79a856cdb812dbbc8a3749177d3fde90ab3a1facaa35e26444b2e82a2280ec",
+    "sha256": "694966e59e97bcd1a5e6bb57bbdc27e10cc81da6a9cc8c55b7ac7162efa60af0",
     "pages": [
       "echocardiogram-report-template-blank-1.jpg",
       "echocardiogram-report-template-blank-2.jpg"
@@ -37,24 +83,10 @@
   },
   "echocardiogram-report-template-example": {
     "pdf": "echocardiogram-report-template-example.pdf",
-    "sha256": "45ff4a89fde9a6ef16b7bf98cf987b012318a404e6ac49ddc9aaa1d622a946b1",
+    "sha256": "8df0162ff684dc13dc1f52e38c0fccb2bd9aafa414fcf26ff2641a3d468f25ea",
     "pages": [
       "echocardiogram-report-template-example-1.jpg",
       "echocardiogram-report-template-example-2.jpg"
-    ]
-  },
-  "upper-gi-endoscopy-report-template-blank": {
-    "pdf": "upper-gi-endoscopy-report-template-blank.pdf",
-    "sha256": "cb46ba884a1d418c29524d842f44fb0ae577dbfe8cbb616a4ee0c1d57153057f",
-    "pages": [
-      "upper-gi-endoscopy-report-template-blank-1.jpg"
-    ]
-  },
-  "upper-gi-endoscopy-report-template-example": {
-    "pdf": "upper-gi-endoscopy-report-template-example.pdf",
-    "sha256": "d0c2499fce5246ce126f8d1ca11ef7cd7910c6802f213cb43039d577f12b3075",
-    "pages": [
-      "upper-gi-endoscopy-report-template-example-1.jpg"
     ]
   },
   "flexible-sigmoidoscopy-report-template-blank": {
@@ -69,6 +101,50 @@
     "sha256": "7c7abacc04342db5460718e8a30856d9e202f84cbf2cc6a8659a51c24110d2fa",
     "pages": [
       "flexible-sigmoidoscopy-report-template-example-1.jpg"
+    ]
+  },
+  "general-surgical-operation-note-template-blank": {
+    "pdf": "general-surgical-operation-note-template-blank.pdf",
+    "sha256": "d9b51c2715df11679c987f0fae8593ac4acf1b9cec1d1526a80eaebb8e02c526",
+    "pages": [
+      "general-surgical-operation-note-template-blank-1.jpg"
+    ]
+  },
+  "general-surgical-operation-note-template-example": {
+    "pdf": "general-surgical-operation-note-template-example.pdf",
+    "sha256": "a6301edda75d5af255bb2331fb3428c380d0e3345df484bec2d21805e89ec16f",
+    "pages": [
+      "general-surgical-operation-note-template-example-1.jpg",
+      "general-surgical-operation-note-template-example-2.jpg"
+    ]
+  },
+  "histopathology-report-template-blank": {
+    "pdf": "histopathology-report-template-blank.pdf",
+    "sha256": "76bafba73a4c9772df2a8d754e09af745f86695d63fe9154088d3cdb4802e2d0",
+    "pages": [
+      "histopathology-report-template-blank-1.jpg"
+    ]
+  },
+  "histopathology-report-template-example": {
+    "pdf": "histopathology-report-template-example.pdf",
+    "sha256": "7712e7d5d7382e2786af70d11ab8ec5aa9910209fd89610a31785c0439608453",
+    "pages": [
+      "histopathology-report-template-example-1.jpg"
+    ]
+  },
+  "holter-monitor-report-template-blank": {
+    "pdf": "holter-monitor-report-template-blank.pdf",
+    "sha256": "3ab8e8429975683cbf93b31edd2bf435be4b30ae8fc3d2cdd5ffd65df29e4809",
+    "pages": [
+      "holter-monitor-report-template-blank-1.jpg"
+    ]
+  },
+  "holter-monitor-report-template-example": {
+    "pdf": "holter-monitor-report-template-example.pdf",
+    "sha256": "8fd1e00d13c2b3e9bfdca9a7afc66082f7614af578045aa195b847ad77c97f3b",
+    "pages": [
+      "holter-monitor-report-template-example-1.jpg",
+      "holter-monitor-report-template-example-2.jpg"
     ]
   },
   "obstetric-ultrasound-report-template-blank": {
@@ -101,21 +177,6 @@
       "pelvic-transvaginal-ultrasound-report-template-example-1.jpg"
     ]
   },
-  "thyroid-neck-ultrasound-report-template-blank": {
-    "pdf": "thyroid-neck-ultrasound-report-template-blank.pdf",
-    "sha256": "2e01cd442bc8e783e59e16888c5771deecee5fedabe81a94b2cd52816b20bcbc",
-    "pages": [
-      "thyroid-neck-ultrasound-report-template-blank-1.jpg"
-    ]
-  },
-  "thyroid-neck-ultrasound-report-template-example": {
-    "pdf": "thyroid-neck-ultrasound-report-template-example.pdf",
-    "sha256": "be4567213373d1ace7d3f5df01647493b480335c8685a5fbc7229ab4d1bf74f5",
-    "pages": [
-      "thyroid-neck-ultrasound-report-template-example-1.jpg",
-      "thyroid-neck-ultrasound-report-template-example-2.jpg"
-    ]
-  },
   "renal-artery-doppler-report-template-blank": {
     "pdf": "renal-artery-doppler-report-template-blank.pdf",
     "sha256": "a5b9daae2dabfcbe36ae959532637d9a8cf94be805b4c397ec6341fbf7482b4b",
@@ -132,80 +193,49 @@
       "renal-artery-doppler-report-template-example-2.jpg"
     ]
   },
-  "holter-monitor-report-template-blank": {
-    "pdf": "holter-monitor-report-template-blank.pdf",
-    "sha256": "3ab8e8429975683cbf93b31edd2bf435be4b30ae8fc3d2cdd5ffd65df29e4809",
+  "structured-upper-gi-endoscopy-report-template-blank": {
+    "pdf": "structured-upper-gi-endoscopy-report-template-blank.pdf",
+    "sha256": "c7e179874cdde98bd95f04df878476378306fdf55f296d9fc38dc6bc3a4d5d3c",
     "pages": [
-      "holter-monitor-report-template-blank-1.jpg"
+      "structured-upper-gi-endoscopy-report-template-blank-1.jpg",
+      "structured-upper-gi-endoscopy-report-template-blank-2.jpg"
     ]
   },
-  "holter-monitor-report-template-example": {
-    "pdf": "holter-monitor-report-template-example.pdf",
-    "sha256": "8fd1e00d13c2b3e9bfdca9a7afc66082f7614af578045aa195b847ad77c97f3b",
+  "structured-upper-gi-endoscopy-report-template-example": {
+    "pdf": "structured-upper-gi-endoscopy-report-template-example.pdf",
+    "sha256": "3b54e454b52ed6d9cb4bd8d44ee1adcf5da19a9b34f9ec6cf78a5a84c6a3fb6c",
     "pages": [
-      "holter-monitor-report-template-example-1.jpg",
-      "holter-monitor-report-template-example-2.jpg"
+      "structured-upper-gi-endoscopy-report-template-example-1.jpg",
+      "structured-upper-gi-endoscopy-report-template-example-2.jpg"
     ]
   },
-  "ambulatory-blood-pressure-report-template-blank": {
-    "pdf": "ambulatory-blood-pressure-report-template-blank.pdf",
-    "sha256": "47b2a67995d6dfa7939589ebe9bd71d68f48c3d84928e107f31b0b20c8103e86",
+  "thyroid-neck-ultrasound-report-template-blank": {
+    "pdf": "thyroid-neck-ultrasound-report-template-blank.pdf",
+    "sha256": "2e01cd442bc8e783e59e16888c5771deecee5fedabe81a94b2cd52816b20bcbc",
     "pages": [
-      "ambulatory-blood-pressure-report-template-blank-1.jpg"
+      "thyroid-neck-ultrasound-report-template-blank-1.jpg"
     ]
   },
-  "ambulatory-blood-pressure-report-template-example": {
-    "pdf": "ambulatory-blood-pressure-report-template-example.pdf",
-    "sha256": "4058a7a91f4859d15b41b05bd88a97105de96337168bd17098767e401b05d5d4",
+  "thyroid-neck-ultrasound-report-template-example": {
+    "pdf": "thyroid-neck-ultrasound-report-template-example.pdf",
+    "sha256": "be4567213373d1ace7d3f5df01647493b480335c8685a5fbc7229ab4d1bf74f5",
     "pages": [
-      "ambulatory-blood-pressure-report-template-example-1.jpg"
+      "thyroid-neck-ultrasound-report-template-example-1.jpg",
+      "thyroid-neck-ultrasound-report-template-example-2.jpg"
     ]
   },
-  "general-surgical-operation-note-template-blank": {
-    "pdf": "general-surgical-operation-note-template-blank.pdf",
-    "sha256": "d9b51c2715df11679c987f0fae8593ac4acf1b9cec1d1526a80eaebb8e02c526",
+  "upper-gi-endoscopy-report-template-blank": {
+    "pdf": "upper-gi-endoscopy-report-template-blank.pdf",
+    "sha256": "cb46ba884a1d418c29524d842f44fb0ae577dbfe8cbb616a4ee0c1d57153057f",
     "pages": [
-      "general-surgical-operation-note-template-blank-1.jpg"
+      "upper-gi-endoscopy-report-template-blank-1.jpg"
     ]
   },
-  "general-surgical-operation-note-template-example": {
-    "pdf": "general-surgical-operation-note-template-example.pdf",
-    "sha256": "a6301edda75d5af255bb2331fb3428c380d0e3345df484bec2d21805e89ec16f",
+  "upper-gi-endoscopy-report-template-example": {
+    "pdf": "upper-gi-endoscopy-report-template-example.pdf",
+    "sha256": "d0c2499fce5246ce126f8d1ca11ef7cd7910c6802f213cb43039d577f12b3075",
     "pages": [
-      "general-surgical-operation-note-template-example-1.jpg",
-      "general-surgical-operation-note-template-example-2.jpg"
-    ]
-  },
-  "caesarean-section-operation-note-template-blank": {
-    "pdf": "caesarean-section-operation-note-template-blank.pdf",
-    "sha256": "729306b6b9cf5fb42a24fe5f3d1a5f49eaf1110fa92f42c11f78df609bebb083",
-    "pages": [
-      "caesarean-section-operation-note-template-blank-1.jpg",
-      "caesarean-section-operation-note-template-blank-2.jpg"
-    ]
-  },
-  "caesarean-section-operation-note-template-example": {
-    "pdf": "caesarean-section-operation-note-template-example.pdf",
-    "sha256": "0942618e97b2ae17d5493450d52db84be64122a4b182f25ec49cf48b207183aa",
-    "pages": [
-      "caesarean-section-operation-note-template-example-1.jpg",
-      "caesarean-section-operation-note-template-example-2.jpg"
-    ]
-  },
-  "appendectomy-operation-note-template-blank": {
-    "pdf": "appendectomy-operation-note-template-blank.pdf",
-    "sha256": "4d55deee1761ccff2b1c8d31c381008af29d7c2d99895416de6d2d7e49f6ea98",
-    "pages": [
-      "appendectomy-operation-note-template-blank-1.jpg",
-      "appendectomy-operation-note-template-blank-2.jpg"
-    ]
-  },
-  "appendectomy-operation-note-template-example": {
-    "pdf": "appendectomy-operation-note-template-example.pdf",
-    "sha256": "3cc78bd7501b5059509dbdcad7308f433e539124d0056cf65a8f36d58afbc88a",
-    "pages": [
-      "appendectomy-operation-note-template-example-1.jpg",
-      "appendectomy-operation-note-template-example-2.jpg"
+      "upper-gi-endoscopy-report-template-example-1.jpg"
     ]
   },
   "wound-debridement-minor-operation-note-template-blank": {

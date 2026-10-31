@@ -1231,7 +1231,7 @@ class RecordsRepository {
     }
 
     // Explicit template/outline mappings are trusted. Old guessing is not used
-    // once the user has chosen Add to Records on sections.
+    // once the user has chosen Add to Report data on sections.
     for (final root in doc.roots) {
       _collectExplicitRecordFields(
         root,
@@ -1311,7 +1311,7 @@ class RecordsRepository {
       return RecordFieldCatalog.doctor.key;
     }
     // Keep ordinary template fields distinct. Identical labels in unrelated
-    // templates must not silently merge into one Records column.
+    // templates must not silently merge into one Report data column.
     final stableId = section.id.trim();
     return stableId.isEmpty
         ? 'section_${_slug(section.title)}'

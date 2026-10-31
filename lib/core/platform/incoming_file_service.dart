@@ -131,13 +131,13 @@ class IncomingFileService {
     try {
       final result = await recordsRepository.mergeRipotCsv(text);
       return IncomingFileResult(
-        'Records merged. Imported: ${result.imported}, Updated: ${result.updated}, Duplicates skipped: ${result.duplicatesSkipped}',
+        'Report data merged. Imported: ${result.imported}, Updated: ${result.updated}, Duplicates skipped: ${result.duplicatesSkipped}',
         changed: result.totalChanged > 0,
       );
     } on FormatException {
       return null;
     } catch (e) {
-      return IncomingFileResult('Records CSV merge failed: $e');
+      return IncomingFileResult('Report data CSV merge failed: $e');
     }
   }
 
@@ -178,11 +178,11 @@ class IncomingFileService {
         } catch (_) {}
       }
       return IncomingFileResult(
-        'Records package merged. Imported: ${mergeResult.imported}, Updated: ${mergeResult.updated}, PDFs: $importedPdfs',
+        'Report data package merged. Imported: ${mergeResult.imported}, Updated: ${mergeResult.updated}, PDFs: $importedPdfs',
         changed: mergeResult.totalChanged > 0 || importedPdfs > 0,
       );
     } catch (e) {
-      return IncomingFileResult('Records package merge failed: $e');
+      return IncomingFileResult('Report data package merge failed: $e');
     }
   }
 }

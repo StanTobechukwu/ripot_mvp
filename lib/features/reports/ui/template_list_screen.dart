@@ -198,7 +198,7 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
     final action = await showItemActions(context, t.name, const [
       ItemAction('use', 'Use template', Icons.note_add_outlined),
       ItemAction('edit', 'Edit template', Icons.edit_outlined),
-      ItemAction('recordsFields', 'Records fields', Icons.table_rows_outlined),
+      ItemAction('recordsFields', 'Report data fields', Icons.table_rows_outlined),
       ItemAction('rename', 'Rename', Icons.drive_file_rename_outline),
       ItemAction('duplicate', 'Duplicate', Icons.copy_outlined),
       ItemAction('export', 'Export template', Icons.ios_share),
@@ -228,7 +228,7 @@ class _TemplatesListScreenState extends State<TemplatesListScreen> {
         if (!await confirmAction(
               context,
               'Delete template?',
-              'Delete “${t.name}”? Existing reports, PDFs, Records and logs are kept.',
+              'Delete “${t.name}”? Existing reports, PDFs, Report data and logs are kept.',
             ) ||
             !mounted) {
           return;

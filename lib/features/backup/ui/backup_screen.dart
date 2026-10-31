@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'package:provider/provider.dart';
+import '../../access/providers/access_provider.dart';
+import '../../access/ui/premium_prompt.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +16,7 @@ const backupScopeNames = {
   BackupScope.reports: 'Reports',
   BackupScope.registry: 'Registry',
   BackupScope.logbook: 'Logbook',
-  BackupScope.records: 'Records',
+  BackupScope.records: 'Report data',
   BackupScope.templates: 'Templates',
 };
 
@@ -83,6 +86,7 @@ class _BackupScreenState extends State<BackupScreen> {
       _confirmingLeave = false;
     }
   }
+
   @override
   void initState() {
     super.initState();
@@ -201,14 +205,19 @@ class _BackupScreenState extends State<BackupScreen> {
     return succeeded;
   }
 
-  Future<String?> _passphrase({required bool create, bool automatic = false}) async {
+  Future<String?> _passphrase({
+    required bool create,
+    bool automatic = false,
+  }) async {
     final first = TextEditingController(), second = TextEditingController();
     String? validation;
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, update) => AlertDialog(
-          title: Text(create ? 'Choose a backup password' : 'Enter backup password'),
+          title: Text(
+            create ? 'Choose a backup password' : 'Enter backup password',
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -226,7 +235,9 @@ class _BackupScreenState extends State<BackupScreen> {
                   obscureText: true,
                   autocorrect: false,
                   enableSuggestions: false,
-                  decoration: const InputDecoration(labelText: 'Backup password'),
+                  decoration: const InputDecoration(
+                    labelText: 'Backup password',
+                  ),
                 ),
                 if (create)
                   TextField(
@@ -339,12 +350,17 @@ class _BackupScreenState extends State<BackupScreen> {
                   child: const Text('Not now'),
                 ),
                 FilledButton(
-                  onPressed: choosing ? null : () async {
-                    update(() => choosing = true);
-                    // Open the browser picker directly from this button's gesture.
-                    final saved = await _run(() => service.chooseFolder());
-                    if (ctx.mounted) Navigator.pop(ctx, saved && folder != null);
-                  },
+                  onPressed: choosing
+                      ? null
+                      : () async {
+                          update(() => choosing = true);
+                          // Open the browser picker directly from this button's gesture.
+                          final saved = await _run(
+                            () => service.chooseFolder(),
+                          );
+                          if (ctx.mounted)
+                            Navigator.pop(ctx, saved && folder != null);
+                        },
                   child: Text(choosing ? 'Choosing folder…' : 'Choose folder'),
                 ),
               ],
@@ -371,22 +387,26 @@ class _BackupScreenState extends State<BackupScreen> {
       weekday: weekday,
       keep: keep,
     );
-    return _run(() async {
-      if (resume) await service.unlockSession(pass!);
-      await service.configure(input, existing ? null : pass);
-      if (mounted) {
-        setState(() {
-          // A later status/inventory refresh must not mark a completed save dirty.
-          _savedSchedule = input;
-          message = enabled
-              ? 'Automatic backup schedule saved. You can still back up now at any time.'
-              : 'Automatic backup is off.';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message!)),
-        );
-      }
-    }, reloadSettings: true, failureTitle: 'Backup settings were not saved');
+    return _run(
+      () async {
+        if (resume) await service.unlockSession(pass!);
+        await service.configure(input, existing ? null : pass);
+        if (mounted) {
+          setState(() {
+            // A later status/inventory refresh must not mark a completed save dirty.
+            _savedSchedule = input;
+            message = enabled
+                ? 'Automatic backup schedule saved. You can still back up now at any time.'
+                : 'Automatic backup is off.';
+          });
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message!)));
+        }
+      },
+      reloadSettings: true,
+      failureTitle: 'Backup settings were not saved',
+    );
   }
 
   Future<void> _restore() async {
@@ -444,7 +464,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 const SizedBox(height: 16),
                 Text(
                   full
-                      ? 'This replaces your local reports, PDFs, templates, letterheads, Records, Registry and Logbook with this backup. Make a current full backup first if you need to keep newer work.'
+                      ? 'This replaces your local reports, PDFs, templates, letterheads, Report data, Registry and Logbook with this backup. Make a current full backup first if you need to keep newer work.'
                       : 'This adds missing items. Existing items with the same identity keep their current version. Related letterheads or registry definitions are added when missing. Links to items outside this section require those items to be on this device.',
                 ),
                 const SizedBox(height: 12),
@@ -474,6 +494,8 @@ class _BackupScreenState extends State<BackupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final premium =
+        context.watch<AccessProvider?>()?.safeState.isPremiumLike ?? false;
     return PopScope(
       canPop: !busy && !_hasUnsavedSettings,
       onPopInvokedWithResult: (didPop, result) {
@@ -488,12 +510,12 @@ class _BackupScreenState extends State<BackupScreen> {
             children: [
               if (busy) const LinearProgressIndicator(),
               Text(
-                'One folder. Dated copies.',
+                'Keep a copy of your work',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 8),
               const Text(
-                'A full backup includes editable reports, saved PDFs, images, signatures, templates, letterheads, Records, Registry and Logbook. Backups are encrypted. Sign-in, billing and device settings are excluded.',
+                'Encrypted backups you can restore in Ripot. Manual backup and restore are free.',
               ),
               const SizedBox(height: 16),
               Text('Last full backup: ${_date(last)}'),
@@ -519,7 +541,8 @@ class _BackupScreenState extends State<BackupScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Backup folder'),
                   subtitle: Text(
-                    folder ?? 'Required: choose where full and section backups will be saved.',
+                    folder ??
+                        'Required: choose where full and section backups will be saved.',
                   ),
                   trailing: const Icon(Icons.folder_open),
                   onTap: () => _run(() async {
@@ -530,14 +553,11 @@ class _BackupScreenState extends State<BackupScreen> {
                   key: ValueKey('keep-$keep'),
                   initialValue: keep,
                   decoration: const InputDecoration(
-                    labelText: 'How many recent backups should Ripot keep?',
+                    labelText: 'Recent backups to keep',
                   ),
                   items: [
                     for (final n in [3, 5, 7, 10])
-                      DropdownMenuItem(
-                        value: n,
-                        child: Text('$n backups'),
-                      ),
+                      DropdownMenuItem(value: n, child: Text('$n backups')),
                   ],
                   onChanged: (v) => _run(() async {
                     await service.setRetention(v!);
@@ -545,7 +565,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Keep the latest $keep backups for each category. Full backups and Reports-only backups are counted separately. Older backups are removed only after a new backup is successfully saved and checked. Other files are kept.',
+                  'Keeps $keep copies per backup type. Older copies are removed only after a new one is saved and checked.',
                 ),
               ] else
                 const Text(
@@ -571,26 +591,41 @@ class _BackupScreenState extends State<BackupScreen> {
                 label: const Text('Back up now'),
               ),
               const Text(
-                'Consider keeping a backup somewhere other than this device. If this device is lost or damaged, backups stored on it may also be lost.',
+                'Keep a copy somewhere other than this device in case it is lost or damaged.',
               ),
               const Divider(height: 32),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Automatic full backups'),
-                subtitle: const Text(
-                  'Optional. Manual backup remains available at any time.',
+                title: const Text('Automatic backups · Premium'),
+                subtitle: Text(
+                  premium
+                      ? 'Back up everything on a schedule.'
+                      : 'Manual backup and restore stay free.',
                 ),
                 value: enabled,
                 onChanged: service.destination.supported
-                    ? (v) => setState(() => enabled = v)
+                    ? (v) async {
+                        if (v && !premium) {
+                          final unlocked = await showPremiumFeatureSheet(
+                            context,
+                            PremiumFeature.automaticBackup,
+                          );
+                          if (!mounted || !unlocked) return;
+                        }
+                        setState(() => enabled = v);
+                      }
                     : null,
               ),
-              if (service.destination.supported) ...[
+              if (enabled && !premium)
+                const Text(
+                  'Automatic backups are paused until Premium access is active.',
+                ),
+              if (service.destination.supported && premium) ...[
                 Text(
                   service.backgroundAndroid
-                      ? 'Android can run backups in the background. Battery restrictions may delay the chosen time; missed backups run when possible. Force-stopping Ripot pauses them until you reopen it.'
+                      ? 'Runs in the background on Android. Battery restrictions may delay backups.'
                       : kIsWeb
-                      ? 'Web backups run only while Ripot Web is open in this browser tab. After reopening it, enter your backup password to restart them and choose the folder again if asked.'
+                      ? 'Runs while this Ripot Web tab is open.'
                       : 'Runs while Ripot is open. A missed backup runs when you next open the app.',
                 ),
                 if (enabled) ...[
@@ -632,13 +667,19 @@ class _BackupScreenState extends State<BackupScreen> {
                         ? 'Web backups run only while Ripot Web is open in this browser tab. You may need to enter your backup password again after reopening it.'
                         : 'Your backup password is saved securely on this device so automatic backups can run without asking each time.',
                   ),
-                  if (_savedSchedule?.enabled == true && service.needsSessionPassword) ...[
+                  if (_savedSchedule?.enabled == true &&
+                      service.needsSessionPassword) ...[
                     const SizedBox(height: 8),
                     const Text('Automatic backups are paused.'),
-                    const Text('Enter your backup password to restart them. Web backups run only while Ripot Web is open in this browser tab.'),
+                    const Text(
+                      'Enter your backup password to restart them. Web backups run only while Ripot Web is open in this browser tab.',
+                    ),
                     TextButton(
                       onPressed: () async {
-                        final pass = await _passphrase(create: false, automatic: true);
+                        final pass = await _passphrase(
+                          create: false,
+                          automatic: true,
+                        );
                         if (pass != null && mounted) {
                           await _run(() async {
                             await service.unlockSession(pass);
@@ -663,9 +704,16 @@ class _BackupScreenState extends State<BackupScreen> {
                   ),
                 OutlinedButton(
                   onPressed: _hasUnsavedSettings ? _configure : null,
-                  child: Text(_hasUnsavedSettings ? 'Save settings' : 'Settings saved'),
+                  child: Text(
+                    _hasUnsavedSettings ? 'Save settings' : 'Settings saved',
+                  ),
                 ),
               ],
+              if (!premium && _hasUnsavedSettings && !enabled)
+                OutlinedButton(
+                  onPressed: _configure,
+                  child: const Text('Save settings'),
+                ),
               const Divider(height: 32),
               OutlinedButton.icon(
                 onPressed: _restore,
@@ -673,7 +721,19 @@ class _BackupScreenState extends State<BackupScreen> {
                 label: const Text('Restore from a backup file'),
               ),
               const Text(
-                'Choose a dated .ripotbackup file from your backup folder or Downloads. Ripot checks it and shows its contents before changing anything. For older Registry or Logbook exports, use Restore in that section.',
+                'Choose a .ripotbackup file. You can review its contents before restoring.',
+              ),
+              const ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text('Backup details'),
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      'Full backups include reports, saved PDFs, images, signatures, templates, letterheads, Report data, Registry and Logbook. Sign-in, billing and device settings are excluded. Other files in your folder are kept.\n\nOn Android, force-stopping Ripot pauses automatic backups until you reopen it. For older Registry or Logbook exports, restore within that section.',
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
             ],

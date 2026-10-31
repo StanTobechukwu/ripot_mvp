@@ -19,7 +19,10 @@ for spec in TEMPLATES:
     for index, (title, fields) in enumerate(spec['groups']):
         children=[]
         for f in fields:
-            children.append(node(f['key'],f['title'],unit=f['unit'],options=f['options'],numeric=f['numeric']))
+            child = node(f['key'],f['title'],unit=f['unit'],options=f['options'],numeric=f['numeric'])
+            for key in ('conditionalParentSectionId', 'conditionalEquals'):
+                child[key] = f.get(key, '')
+            children.append(child)
             values[f['key']]=f['example']
         roots.append(node(f'group_{index}',title,children))
     payload=dict(app='Ripot',ripotFileType='template',ripotExportVersion=1,template=dict(

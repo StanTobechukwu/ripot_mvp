@@ -54,3 +54,12 @@ BASE_REFERENCES = {
 GUIDES['echocardiogram-report-template'] = [
  ('Measurements and method', 'Document the study context, image quality and relevant comparison. Enter chamber measurements, systolic function and Doppler observations with the displayed units. State the method for measurements such as ejection fraction so that subsequent comparisons are meaningful.'),
  ('Integrated impression', 'Use the valve, ventricular and pericardial findings to support a concise clinician-authored summary. Document technical limitations and incomplete measurements. This structure does not calculate function or grade disease from an isolated number.')]
+
+GUIDES['structured-upper-gi-endoscopy-report-template'] = [
+ ('Choose the detail you need', 'Selecting a finding reveals its related prompts. Unselected findings are not assumed normal. Record examination extent and limitations, and review the rendered report before signing.'),
+ ('Link samples to findings', 'Identify each sample by site and container. Document any intervention and immediate outcome, and state who will review pathology results. The 2025 ESGE STAR project informed this documentation structure; this is not an independently validated clinical protocol.'),
+]
+GUIDES['histopathology-report-template'] = [
+ ('Identify specimens consistently', 'Use the accession number and container identifiers to connect the request, gross description, blocks and microscopic findings. Apply your laboratory identification and sign-out procedures.'),
+ ('Write a clear conclusion', 'The conclusion is a separate field for the pathologist’s final diagnosis. This general structure does not replace tumour-specific datasets, staging protocols or a cytology reporting system. Use a separate cytology structure when reporting cell samples such as cervical smears.'),
+]

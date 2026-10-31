@@ -1,0 +1,59 @@
+UPPER GI ENDOSCOPY — GUIDED
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+PROCEDURE CONTEXT
+Indication: ________________
+Endoscopist and team: ________________
+Examination date and time: ________________
+Endoscope used: ________________
+Consent and safety checks: ________________
+Fasting status: ________________
+Antithrombotic medication and management: ________________
+Premedication, sedation and doses: ________________
+
+QUALITY AND EXTENT
+Extent reached: ________________
+Mucosal visibility / cleanliness and score used: ________________
+Limitations / reasons for incomplete examination: ________________
+Examination duration (min): ________________
+Landmarks and abnormalities photographed: ________________
+
+OESOPHAGUS
+Findings: ________________
+Oesophagitis present?: ________________
+Los Angeles grade / description: ________________
+Suspected or known Barrett’s?: ________________
+Landmarks, Prague C/M, islands and biopsy protocol: ________________
+Hiatal hernia present?: ________________
+Junction, diaphragmatic pinch and hernia size: ________________
+Other lesions: site, size and description: ________________
+
+STOMACH
+Findings by region: ________________
+Gastric ulcer present?: ________________
+Ulcer site, size, appearance and bleeding stigmata / Forrest class where applicable: ________________
+Atrophy / metaplasia assessment performed?: ________________
+Assessment method, distribution and biopsy mapping: ________________
+
+DUODENUM
+Bulb and distal findings: ________________
+Duodenal ulcer present?: ________________
+Site, size, appearance and bleeding stigmata / Forrest class where applicable: ________________
+
+SAMPLING AND THERAPY
+Samples taken?: ________________
+Each specimen: site, indication and container identifier; protocol used: ________________
+Therapy performed?: ________________
+Method, site, devices and immediate result: ________________
+
+CONCLUSION AND FOLLOW-UP
+Adverse events and tolerance: ________________
+Conclusion / impression: ________________
+Plan, pathology follow-up and communication: ________________
+
+Clinician: ________________
+Signature: ________________

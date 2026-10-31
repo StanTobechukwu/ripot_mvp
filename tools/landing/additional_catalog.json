@@ -130,5 +130,28 @@
         "https://www.rcseng.ac.uk/standards-and-research/good-surgical-practice/domain-3/"
       ]
     ]
+  },
+  {
+    "slug": "structured-upper-gi-endoscopy-report-template",
+    "name": "Upper GI Endoscopy \u2014 Guided",
+    "specialty": "Gastroenterology",
+    "description": "A guided OGD / EGD template with optional conditional details. Keep the narrative version for a simpler report.",
+    "references": [
+      [
+        "ESGE STAR reporting standardisation (2025)",
+        "https://doi.org/10.1055/a-2652-8941"
+      ],
+      [
+        "ESGE upper GI performance measures (2025)",
+        "https://doi.org/10.1055/a-2674-4912"
+      ]
+    ]
+  },
+  {
+    "slug": "histopathology-report-template",
+    "name": "Histopathology Report",
+    "specialty": "Pathology",
+    "description": "A general tissue-reporting structure with specimen mapping, macroscopic and microscopic descriptions, and an explicit conclusion. Adapt to specimen-specific protocols.",
+    "references": []
   }
 ]
