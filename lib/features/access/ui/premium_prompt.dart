@@ -6,6 +6,7 @@ import 'premium_access_action.dart';
 import 'upgrade_screen.dart';
 
 enum PremiumFeature {
+  automaticBackup,
   moreImages,
   imageLabels,
   customLetterhead,
@@ -27,6 +28,12 @@ class PremiumPromptContent {
 
 PremiumPromptContent premiumPromptContent(PremiumFeature feature) {
   switch (feature) {
+    case PremiumFeature.automaticBackup:
+      return const PremiumPromptContent(
+        title: 'Schedule backups with Premium',
+        body:
+            'Automatic backups are included with Premium. You can always back up manually and restore your files on Free.',
+      );
     case PremiumFeature.moreImages:
       return const PremiumPromptContent(
         title: 'Need more report images?',
@@ -57,7 +64,7 @@ PremiumPromptContent premiumPromptContent(PremiumFeature feature) {
       );
     case PremiumFeature.records:
       return const PremiumPromptContent(
-        title: 'Records is included with Premium',
+        title: 'Report data is included with Premium',
         body:
             'Organize finalized reports in searchable tables, with filters to help you find them.',
       );

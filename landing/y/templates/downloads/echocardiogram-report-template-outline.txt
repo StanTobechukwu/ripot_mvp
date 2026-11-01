@@ -6,9 +6,8 @@ Date: ________________
 
 
 LEFT VENTRICLE
-Chamber Size (cm): ________________
 End Diastolic Volume (mL): ________________
-LVIDd (cm): ________________
+LV internal diameter in diastole (LVIDd) (cm): ________________
 Septal Wall (IVSd) (cm): ________________
 Posterior Wall (PWDd) (cm): ________________
 Global Systolic Wall Motion: ________________
@@ -17,8 +16,8 @@ Regional Wall Motion Abnormality: ________________
 Diastolic Function: ________________
 E/A: ________________
 E/E′: ________________
-Septal E′ (m/s): ________________
-Lateral E′ (m/s): ________________
+Septal e′ (cm/s): ________________
+Lateral e′ (cm/s): ________________
 
 MITRAL VALVE
 Leaflet Morphology: ________________

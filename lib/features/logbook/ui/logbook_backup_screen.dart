@@ -209,7 +209,7 @@ class _LogbookBackupScreenState extends State<LogbookBackupScreen> {
       final proceed = await confirmAction(
         context,
         'Restore Logbook backup?',
-        'This backup contains ${snapshot.entries.length} log entries and ${snapshot.doctors.length} doctors. It will REPLACE the ${repo.data.entries.length} log entries currently on this device. Back up current entries first if needed. Reports, templates, Records and your account will be kept.',
+        'This backup contains ${snapshot.entries.length} log entries and ${snapshot.doctors.length} doctors. It will REPLACE the ${repo.data.entries.length} log entries currently on this device. Back up current entries first if needed. Reports, templates, Report data and your account will be kept.',
         action: 'Replace Logbook',
       );
       if (!proceed || !mounted) {
@@ -259,7 +259,7 @@ class _LogbookBackupScreenState extends State<LogbookBackupScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Backups include log entries, doctors and signed versions. Source reports, PDFs, images and Records are not included.',
+                'Backups include log entries, doctors and signed versions. Source reports, PDFs, images and Report data are not included.',
               ),
               const SizedBox(height: 12),
               Text(

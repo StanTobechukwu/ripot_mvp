@@ -1,3 +1,5 @@
+import '../domain/finding_report_order.dart';
+import '../domain/guided_report_presentation.dart';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -75,6 +77,10 @@ class PdfRendererService {
 
   bool _sectionHasAnyPdfOutput(ReportDoc doc, SectionNode section) {
     if (!_sectionConditionAllows(doc, section)) return false;
+    if (section.omitWhenEmpty && section.note.trim().isEmpty) {
+      final ownValue = section.children.whereType<ContentNode>().any((c) => c.text.trim().isNotEmpty);
+      if (!ownValue && !section.children.whereType<SectionNode>().any((c) => _sectionHasAnyPdfOutput(doc, c))) return false;
+    }
     if (section.showInPdf || section.note.trim().isNotEmpty) return true;
     return section.children.whereType<SectionNode>().any(
       (child) => _sectionHasAnyPdfOutput(doc, child),
@@ -90,6 +96,7 @@ class PdfRendererService {
     bool blankReportDate = false,
     bool keepRootSectionsTogether = false,
   }) async {
+    doc = doc.copyWith(roots: findingsInAnatomicalOrder(prepareGuidedReport(doc.roots)));
     final double fontScale = doc.fontScale;
     final double contentFontSize = 11.5 * fontScale;
     final double reportTitleFontSize = contentFontSize;
@@ -649,8 +656,9 @@ class PdfRendererService {
     required ReportDoc doc,
     required double contentFontSize,
   }) {
+    final reportLayout = s.reportRole == 'report.paragraph' ? ReportLayout.inline : doc.reportLayout;
     final out = <pw.Widget>[];
-    if (!_sectionConditionAllows(doc, s)) return out;
+    if (!_sectionHasAnyPdfOutput(doc, s)) return out;
 
     if (!s.showInPdf) {
       final note = s.note.trim();
@@ -702,7 +710,7 @@ class PdfRendererService {
       growable: false,
     );
 
-    final useContentIndent = doc.reportLayout == ReportLayout.block;
+    final useContentIndent = reportLayout == ReportLayout.block;
     final indentPx = doc.indentHierarchy ? 12.0 * s.indent : 0.0;
     final contentIndentPx =
         indentPx + (useContentIndent && doc.indentContent ? 12.0 : 0.0);
@@ -866,11 +874,11 @@ class PdfRendererService {
       final introNode = contentChildren.isNotEmpty
           ? contentChildren.first
           : null;
-      if (doc.reportLayout == ReportLayout.block || introNode == null) {
+      if (reportLayout == ReportLayout.block || introNode == null) {
         final introHasText =
             introNode != null && introNode.text.trim().isNotEmpty;
         final colonTitle =
-            doc.reportLayout == ReportLayout.block &&
+            reportLayout == ReportLayout.block &&
                 doc.showColonAfterTitlesWithContent
             ? '${s.title}:'
             : s.title;
@@ -878,11 +886,11 @@ class PdfRendererService {
       }
       if (introNode != null && introNode.text.trim().isNotEmpty) {
         out.add(
-          doc.reportLayout == ReportLayout.block
+          reportLayout == ReportLayout.block
               ? blockContentWidget(introNode.text.trim())
               : inlineWidget(
                   introNode.text.trim(),
-                  aligned: doc.reportLayout == ReportLayout.aligned,
+                  aligned: reportLayout == ReportLayout.aligned,
                   showLabel: true,
                 ),
         );
@@ -901,7 +909,7 @@ class PdfRendererService {
     final leafText = contentChildren.isNotEmpty
         ? contentChildren.first.text.trim()
         : '';
-    if (doc.reportLayout == ReportLayout.block) {
+    if (reportLayout == ReportLayout.block) {
       final colonTitle = doc.showColonAfterTitlesWithContent
           ? '${s.title}:'
           : s.title;
@@ -916,7 +924,7 @@ class PdfRendererService {
     out.add(
       inlineWidget(
         leafText,
-        aligned: doc.reportLayout == ReportLayout.aligned,
+        aligned: reportLayout == ReportLayout.aligned,
         showLabel: true,
       ),
     );
@@ -1704,6 +1712,20 @@ class PdfRendererService {
           ? t.measureHeight(t.text, bodyWidth, pageTextWidth)
           : t.fixedHeight;
 
+      if (t.keepWithNext && pageEntries.isNotEmpty) {
+        var needed = fullHeight;
+        for (final next in working.skip(1)) {
+          if (next.keepWithNext) {
+            needed += next.fixedHeight;
+            continue;
+          }
+          final firstLine = next.text.substring(0, min(next.text.length, 90));
+          needed += next.splittable
+              ? next.measureHeight(firstLine, bodyWidth, pageTextWidth) : next.fixedHeight;
+          break;
+        }
+        if (needed > heightLeft) break;
+      }
       if (!t.splittable) {
         if (pageEntries.isEmpty || fullHeight <= heightLeft) {
           pageEntries.add(
@@ -1791,7 +1813,8 @@ class PdfRendererService {
     final out = <_PdfTemplate>[];
 
     void walk(SectionNode s, [int treeDepth = 0]) {
-      if (!_sectionConditionAllows(doc, s)) return;
+      final reportLayout = s.reportRole == 'report.paragraph' ? ReportLayout.inline : doc.reportLayout;
+      if (!_sectionHasAnyPdfOutput(doc, s)) return;
 
       // Structural nesting is the source of truth for visual hierarchy.
       // max() preserves any deliberate larger indent already stored.
@@ -1806,7 +1829,7 @@ class PdfRendererService {
         growable: false,
       );
 
-      final useContentIndent = doc.reportLayout == ReportLayout.block;
+      final useContentIndent = reportLayout == ReportLayout.block;
       final indentPx = doc.indentHierarchy ? 12.0 * effectiveIndent : 0.0;
       final contentIndentPx =
           indentPx + (useContentIndent && doc.indentContent ? 12.0 : 0.0);
@@ -2014,21 +2037,21 @@ class PdfRendererService {
             final lines = _estimateWrappedLines(
               piece,
               charsPerLine: inlineCharsPerLine(
-                doc.reportLayout == ReportLayout.aligned,
+                reportLayout == ReportLayout.aligned,
                 showLabel,
                 bodyWidth,
                 pageTextWidth,
               ),
             );
-            final multiplier = doc.reportLayout == ReportLayout.aligned
+            final multiplier = reportLayout == ReportLayout.aligned
                 ? 1.32
                 : 1.20;
-            final extra = doc.reportLayout == ReportLayout.aligned ? 8.0 : 4.0;
+            final extra = reportLayout == ReportLayout.aligned ? 8.0 : 4.0;
             return (lines * contentFontSize * multiplier) + extra;
           },
           buildWidget: (piece) => inlineWidget(
             piece,
-            aligned: doc.reportLayout == ReportLayout.aligned,
+            aligned: reportLayout == ReportLayout.aligned,
             showLabel: showLabel,
           ),
           plainOf: (piece) => showLabel
@@ -2056,16 +2079,17 @@ class PdfRendererService {
             ? contentChildren.first
             : null;
 
-        if (doc.reportLayout == ReportLayout.block || introNode == null) {
+        if (reportLayout == ReportLayout.block || introNode == null) {
           out.add(
             _PdfTemplate(
               text: s.title,
+              keepWithNext: true,
               splittable: false,
               fixedHeight: blockTitleSize * 1.35 + 2,
               measureHeight: (_, __, ___) => blockTitleSize * 1.35 + 2,
               buildWidget: (_) => titleWidget(
                 overrideTitle:
-                    (doc.reportLayout == ReportLayout.block &&
+                    (reportLayout == ReportLayout.block &&
                         doc.showColonAfterTitlesWithContent)
                     ? '${s.title}:'
                     : s.title,
@@ -2080,7 +2104,7 @@ class PdfRendererService {
           final introText = introNode.text.trim();
           if (introText.isNotEmpty) {
             out.add(
-              doc.reportLayout == ReportLayout.block
+              reportLayout == ReportLayout.block
                   ? makeBlockContentTemplate(introText)
                   : makeInlineTemplate(introText, showLabel: true),
             );
@@ -2107,10 +2131,11 @@ class PdfRendererService {
           ? '$rawLeafText $numericUnit'
           : rawLeafText;
 
-      if (doc.reportLayout == ReportLayout.block) {
+      if (reportLayout == ReportLayout.block) {
         out.add(
           _PdfTemplate(
             text: s.title,
+            keepWithNext: true,
             splittable: false,
             fixedHeight: blockTitleSize * 1.35 + 2,
             measureHeight: (_, __, ___) => blockTitleSize * 1.35 + 2,
@@ -2159,7 +2184,7 @@ class PdfRendererService {
             measureHeight: (_, __, ___) => contentFontSize * 1.32 + 8,
             buildWidget: (_) => inlineWidget(
               '',
-              aligned: doc.reportLayout == ReportLayout.aligned,
+              aligned: reportLayout == ReportLayout.aligned,
               showLabel: true,
             ),
             plainOf: (_) =>
@@ -2552,10 +2577,12 @@ class _PdfTemplate {
     required this.buildWidget,
     required this.plainOf,
     required this.continueWith,
+    this.keepWithNext = false,
   });
 
   final String text;
   final bool splittable;
+  final bool keepWithNext;
   final double fixedHeight;
   final double Function(String text, double bodyWidth, double pageTextWidth)
   measureHeight;

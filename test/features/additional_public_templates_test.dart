@@ -19,10 +19,10 @@ void main() {
       'echocardiogram-report-template':'466590d1d23cf128',
     };
     for (final entry in originals.entries) {
-      expect(sha256.convert(File('landing/y/templates/downloads/${entry.key}.ripottemplate.json').readAsBytesSync()).toString().substring(0,16),entry.value);
+      expect(sha256.convert(File('landing/y/templates/catalog/${entry.key}/${entry.value}.ripottemplate.json').readAsBytesSync()).toString().substring(0,16),entry.value);
     }
-    expect(entries, hasLength(11));
-    expect(entries.map((e) => e['slug']).toSet(), hasLength(11));
+    expect(entries, hasLength(13));
+    expect(entries.map((e) => e['slug']).toSet(), hasLength(13));
   });
   for (final entry in entries) {
     final slug = entry['slug'] as String;
@@ -53,7 +53,7 @@ void main() {
         expect(node.addToRecords,isFalse);
         expect(node.addToLog,isFalse);
         final children=node.children.whereType<SectionNode>().toList();
-        if(children.isEmpty)leafIds.add(node.id);
+        if(!node.isRepeatable && (children.isEmpty || node.inputType != FieldInputType.freeText))leafIds.add(node.id);
         for(final value in node.children.whereType<ContentNode>()) { expect(value.text,isEmpty); }
         for(final child in children) { inspect(child); }
       }

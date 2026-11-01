@@ -128,3 +128,39 @@ add('wound-debridement-minor-operation-note-template','Wound Debridement / Minor
  group('Procedure',F('method','Debridement method and extent','Devitalised tissue removed with sharp debridement to the documented viable margin.'),F('after','Post-procedure dimensions / deepest tissue removed','3.5 x 2.5 x 0.4 cm; subcutaneous tissue was the deepest layer removed.'),F('wash','Irrigation and haemostasis','Irrigated; haemostasis obtained.'),F('closure','Closure / packing / dressing','Left open with a non-adherent dressing; no packing.'),F('prophylaxis','Antibiotic and tetanus assessment / actions','Individual assessment and any prescribed medicines documented separately.')),
  operation_finish(),
 ],SURGERY)
+
+# Conditional prompts are editable documentation aids, never diagnostic rules.
+def when(item, parent, value):
+    return {**item, 'conditionalParentSectionId': parent, 'conditionalEquals': value}
+
+# Routine reporting stays separate from Registry and research configuration.
+ASSESSMENT = ['Normal', 'Abnormal', 'Not examined', 'Cannot assess']
+def region_fields(key, title, example):
+    return [F(key+'_status',title+' assessment','Normal',options=ASSESSMENT),
+            when(F(key, 'Findings: location and description; describe each lesion separately', example),key+'_status','Abnormal')]
+
+add('structured-upper-gi-endoscopy-report-template','Upper GI Endoscopy — Guided','Gastroenterology','A concise guided OGD / EGD template. Record each region, reveal relevant details and keep research and Registry configuration separate.',[
+ group('Procedure',F('indication','Indication','Persistent dyspepsia (fictional).'),F('medication','Premedication, sedation and doses','None administered in this fictional example.'),
+       F('procedure_details','Include additional procedure details?','No',options=['Yes','No']),
+       when(F('scope','Endoscope used','Demonstration scope identifier.'),'procedure_details','Yes'),
+       when(F('safety','Consent, fasting, relevant medication and safety assessment','Documented in the fictional procedure record.'),'procedure_details','Yes')),
+ group('Extent and view',F('extent','Extent reached','Second part of duodenum.'),F('visibility','Quality of view','Adequate',options=['Adequate','Limited','Cannot assess']),
+       F('limitations','Examination limitations / reason for incomplete examination, if applicable','None recorded in this fictional example.'),F('duration','Examination duration, if recorded','8','min')),
+ group('Oesophagus',*region_fields('oesophagus','Oesophagus','Describe each finding with its location.'),
+       when(F('la','Erosive oesophagitis: Los Angeles grade, if applicable','Not applicable.'),'oesophagus_status','Abnormal'),
+       when(F('barrett_detail','Barrett’s: landmarks, Prague C/M and biopsy details, if applicable','Not applicable.'),'oesophagus_status','Abnormal'),
+       when(F('hernia_detail','Hiatal hernia: landmarks and size, if applicable','Not applicable.'),'oesophagus_status','Abnormal')),
+ group('Stomach',*region_fields('stomach','Stomach','Describe each finding separately: region, size where relevant and appearance.'),
+       when(F('ulcer_detail','Each ulcer: location, size, appearance and bleeding stigmata / Forrest class where applicable','Not applicable.'),'stomach_status','Abnormal'),
+       when(F('gastric_detail','Atrophy / metaplasia: distribution, method and biopsy mapping, if applicable','Not applicable.'),'stomach_status','Abnormal')),
+ group('Duodenum',*region_fields('duodenum','Duodenum','Describe bulb and distal findings separately.'),
+       when(F('duodenal_detail','Each ulcer: location, size, appearance and bleeding stigmata / Forrest class where applicable','Not applicable.'),'duodenum_status','Abnormal')),
+ group('Sampling and therapy',F('biopsies','Samples taken?','No',options=['Yes','No']),when(F('specimens','Each specimen: site, indication and container identifier; protocol used','Not applicable.'),'biopsies','Yes'),F('therapy','Therapy performed?','No',options=['Yes','No']),when(F('therapy_detail','Each treatment: finding / site, method, devices and immediate result','Not applicable.'),'therapy','Yes')),
+ group('Conclusion and follow-up',F('events','Adverse events and tolerance','No immediate adverse event recorded in this fictional example.'),F('conclusion','Conclusion / impression','No focal abnormality described in this fictional demonstration.'),F('followup','Plan, pathology follow-up and communication','Individual advice and follow-up to be completed by the endoscopist.')),
+],[('ESGE STAR reporting standardisation (2025)','https://doi.org/10.1055/a-2652-8941'),('ESGE upper GI performance measures (2025)','https://doi.org/10.1055/a-2674-4912')])
+
+add('histopathology-report-template','Histopathology Report','Pathology','A general tissue-reporting structure with specimen mapping, macroscopic and microscopic descriptions, and an explicit conclusion. Adapt to specimen-specific protocols.',[
+ group('Request and specimen',F('accession','Laboratory / accession number','DEMO-HIST-001'),F('requester','Requesting clinician and facility','Dr Demo A, Demonstration Clinic (fictional).'),F('specimen','Specimen type, anatomical site and laterality','Left forearm skin lesion (fictional).'),F('containers','Container identifiers and specimen mapping','A: left forearm lesion.'),F('collected','Date collected','01 January 2026 (fictional).'),F('received','Date received','01 January 2026 (fictional).'),F('reported','Date reported','03 January 2026 (fictional).'),F('history','Clinical summary and provisional diagnosis','Superficial lesion submitted for assessment; fictional demonstration.')),
+ group('Examination',F('macro','Macroscopy / gross description','Specimen A: dimensions, orientation, appearance and sampling to be documented.'),F('blocks','Block / cassette identification','A1: representative tissue (fictional).'),F('micro','Microscopy','Describe observed tissue and relevant positive and negative findings.'),F('ancillary','Ancillary studies and results, if performed','Not performed in this fictional example.'),F('limitations','Adequacy and limitations','To be assessed by the reporting pathologist.')),
+ group('Conclusion',F('diagnosis','Conclusion / final diagnosis','Demonstration only; no diagnosis assigned.'),F('comment','Comment / clinicopathological correlation','Use a specimen-specific reporting protocol where applicable.'),F('pathologist','Reporting pathologist','Dr Demo B (fictional; not signed).')),
+],[])

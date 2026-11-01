@@ -19,12 +19,18 @@ for spec in TEMPLATES:
     for index, (title, fields) in enumerate(spec['groups']):
         children=[]
         for f in fields:
-            children.append(node(f['key'],f['title'],unit=f['unit'],options=f['options'],numeric=f['numeric']))
+            child = node(f['key'],f['title'],unit=f['unit'],options=f['options'],numeric=f['numeric'])
+            for key in ('conditionalParentSectionId', 'conditionalEquals'):
+                child[key] = f.get(key, '')
+            children.append(child)
             values[f['key']]=f['example']
         roots.append(node(f'group_{index}',title,children))
-    payload=dict(app='Ripot',ripotFileType='template',ripotExportVersion=1,template=dict(
+    if slug == 'structured-upper-gi-endoscopy-report-template':
+        from guided_ogd import build
+        roots, values = build()
+    payload=dict(app='Ripot',ripotFileType='template',ripotExportVersion=2 if slug == 'structured-upper-gi-endoscopy-report-template' else 1,template=dict(
         templateId='ripot_public_'+slug.removesuffix('-template').replace('-','_'),
-        updatedAtIso='2026-10-25T00:00:00.000', name=spec['name'],groupName='',recordsConfigured=False,roots=roots,signature={}))
+        updatedAtIso='2026-11-01T00:00:00.000' if slug == 'structured-upper-gi-endoscopy-report-template' else '2026-10-25T00:00:00.000', name=spec['name'],groupName='',recordsConfigured=False,roots=roots,signature={}))
     OUT.mkdir(parents=True,exist_ok=True)
     (OUT/f'{slug}.ripottemplate.json').write_text(json.dumps(payload,indent=2,ensure_ascii=False)+'\n')
     samples[slug]=values

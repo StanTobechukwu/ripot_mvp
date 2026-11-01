@@ -7,6 +7,8 @@ import '../../access/ui/premium_prompt.dart';
 
 import '../domain/models/nodes.dart';
 import 'template_actions.dart';
+import 'widgets/repeatable_findings.dart';
+import '../domain/guided_report_presentation.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/image_services.dart';
 import '../services/media_ref.dart';
@@ -1183,7 +1185,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
             IconButton(
               tooltip: 'Preview',
               icon: const Icon(Icons.arrow_forward_rounded),
-              onPressed: () {
+              onPressed: () async {
                 _unfocusNow();
                 vm.ensureFormReady();
                 _schedulePruneControllers(vm);
@@ -1201,6 +1203,18 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                   return;
                 }
 
+                final warnings = guidedReportWarnings(vm.doc.roots);
+                if (warnings.isNotEmpty) {
+                  final proceed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+                    title: const Text('Findings not yet described'),
+                    content: Text(warnings.join('\n')),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Complete findings')),
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Preview as entered')),
+                    ],
+                  ));
+                  if (proceed != true || !mounted) return;
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1455,6 +1469,54 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
     SectionNode s,
   ) {
     if (!_sectionConditionAllows(vm, s)) return const SizedBox.shrink();
+    if (s.reportRole == 'ogd.details') {
+      final preparation = s.children.whereType<SectionNode>()
+          .where((n) => n.reportRole == 'ogd.preparation').firstOrNull;
+      final checks = preparation?.children.whereType<SectionNode>().toList() ?? <SectionNode>[];
+      final recorded = checks.where((n) => fieldValue(n).isNotEmpty).length;
+      return Card(
+        margin: const EdgeInsets.only(bottom: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          ListTile(
+            key: ValueKey('procedure-details-${s.id}'),
+            title: Text(s.title),
+            subtitle: Text('Preparation: $recorded of ${checks.length} fields recorded'),
+            trailing: Icon(s.collapsed ? Icons.expand_more : Icons.expand_less),
+            onTap: () { _unfocusNow(); vm.toggleCollapsed(s.id); },
+          ),
+          if (!s.collapsed) Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: s.children.whereType<SectionNode>()
+                  .map((n) => _formSection(context, vm, n)).toList()),
+          ),
+        ]),
+      );
+    }
+    if (s.reportRole == 'ogd.sampling') {
+      final summary = guidedSamplingSummary(vm.doc.roots);
+      return Padding(padding: const EdgeInsets.only(bottom: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(s.title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Text('Biopsies recorded with findings appear here automatically. Add a biopsy site for other samples, including normal-looking mucosa.'),
+          for (final entry in summary) Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text('${entry.title}: ${fieldValue(entry)}', key: ValueKey('sampling-summary-${entry.id}')),
+          ),
+          const SizedBox(height: 10),
+          ...s.children.whereType<SectionNode>().map((n) => _formSection(context, vm, n)),
+        ]),
+      );
+    }
+    if (s.isRepeatable) return RepeatableFindings(
+      section: s,
+      buildItem: (item) => Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: item.children.whereType<SectionNode>().map((child) => _formSection(context, vm, child)).toList()),
+      onAdd: (blueprint) => vm.addRepeatableFinding(s.id, blueprint),
+      onRemove: (item) { _unfocusNow(); vm.removeRepeatableFinding(s.id, item); },
+      onToggle: vm.toggleCollapsed,
+    );
     final sectionChildren = s.children
         .whereType<SectionNode>()
         .where((child) => _sectionConditionAllows(vm, child))
@@ -1682,7 +1744,10 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Row(
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             TextButton.icon(
                               onPressed: () {
@@ -1695,7 +1760,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               label: const Text('Use free text'),
                             ),
-                            const Spacer(),
                             if (current.isNotEmpty)
                               TextButton(
                                 onPressed: () {
@@ -1730,6 +1794,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             InkWell(
+              key: ValueKey('structured-field-${s.id}'),
               borderRadius: BorderRadius.circular(12),
               onTap: openStructuredPicker,
               child: InputDecorator(
@@ -1763,8 +1828,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Optional note…',
-                  helperText:
-                      'Narrative detail for the report; not saved as structured data.',
                   isDense: true,
                 ),
                 onChanged: (v) => vm.updateSectionNote(s.id, v),
@@ -1797,7 +1860,21 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
                 hintText: 'Enter number…',
-                suffixText: unit.isEmpty ? null : unit,
+                // Keep the unit visible even while this field is blank and
+                // unfocused, so the expected measurement is clear up front.
+                suffixIcon: unit.isEmpty
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          widthFactor: 1,
+                          heightFactor: 1,
+                          child: Text(unit, textAlign: TextAlign.right),
+                        ),
+                      ),
+                suffixIconConstraints:
+                    const BoxConstraints(minHeight: 48, maxWidth: 156),
                 isDense: true,
               ),
               onChanged: (v) => vm.updateContent(node.id, v),
@@ -1812,8 +1889,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Optional note…',
-                  helperText:
-                      'Narrative detail for the report; not saved as structured data.',
                   isDense: true,
                 ),
                 onChanged: (v) => vm.updateSectionNote(s.id, v),
@@ -1902,7 +1977,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
     const bool isBlock = true;
     const bool isAligned = false;
 
-    if (sectionChildren.isNotEmpty) {
+    if (s.children.whereType<SectionNode>().isNotEmpty) {
       final introNode = contentChildren.isNotEmpty
           ? contentChildren.first
           : null;

@@ -24,7 +24,18 @@ def outline(template, values=None):
             if example and n.get('conditionalParentSectionId'):
                 parent=values.get(n['conditionalParentSectionId'],'')
                 if n.get('conditionalEquals','').casefold() not in [v.strip().casefold() for v in parent.split(';')]:continue
-            if children:
+            if n.get('repeatableTemplates'):
+                if not example:
+                    text.extend(['',title.upper(), 'Finding type: __________  Location: __________  Details: __________ (repeat for each finding)'])
+                    rich.append(f'<h3>{e(title)}</h3><p>Finding type: __________ Location: __________ Details: __________ (repeat for each finding)</p>')
+                continue
+            if example and n.get('omitWhenEmpty') and not children and not values.get(n['id'], '').strip():continue
+            if children and n.get('options'):
+                value=values.get(n['id'],'') if example else '________________'
+                text.append(f'{title}: {value}')
+                rich.append(f'<p><strong>{e(title)}:</strong> {e(value)}</p>')
+                walk(children,depth+1)
+            elif children:
                 text.extend(['',title.upper() if depth==0 else title])
                 rich.append(f'<h{min(depth+2,4)}>{e(title)}</h{min(depth+2,4)}>')
                 walk(children,depth+1)
@@ -59,6 +70,7 @@ def page_body(slug,title,specialty,desc,template,version,other_cards):
             if n.get('type')=='section':
                 details.append(e(n['title']))
                 fields(n.get('children',[]))
+                fields(n.get('repeatableTemplates',[]))
     fields(template['roots'])
     return f'''<a href="/templates/">← All templates</a>
 <p class="eyebrow">{e(specialty)} · Contributor: Ripot</p>

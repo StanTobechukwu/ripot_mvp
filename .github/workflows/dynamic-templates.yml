@@ -38,7 +38,7 @@ jobs:
               assert hashlib.sha256(data).hexdigest().startswith(item['version'])
               doc=json.loads(data)
               assert doc['ripotFileType']=='template'
-              assert doc['ripotExportVersion']==1
+              assert doc['ripotExportVersion'] in (1,2)
               assert doc['template']['roots']
           print('Validated',len(manifest['templates']),'versioned public templates')
           PY

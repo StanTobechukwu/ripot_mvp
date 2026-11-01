@@ -47,7 +47,7 @@ Future<TemplateDoc?> chooseRecordsFields(
     context: context,
     builder: (c) => StatefulBuilder(
       builder: (c, setLocal) => AlertDialog(
-        title: const Text('Choose Records fields'),
+        title: const Text('Choose Report data fields'),
         content: SizedBox(
           width: 480,
           child: SingleChildScrollView(
@@ -56,8 +56,8 @@ Future<TemplateDoc?> chooseRecordsFields(
               children: [
                 Text(
                   forReport
-                      ? 'Records are structured-first. Choose reusable fields for this report. Narrative text can still be included when clinically useful. The PDF stays unchanged.'
-                      : 'Records are structured-first. Prefer Yes/No, choice or numeric fields for searchable and exportable data. Narrative clinical fields can still be included selectively.',
+                      ? 'Report data are structured-first. Choose reusable fields for this report. Narrative text can still be included when clinically useful. The PDF stays unchanged.'
+                      : 'Report data are structured-first. Prefer Yes/No, choice or numeric fields for searchable and exportable data. Narrative clinical fields can still be included selectively.',
                 ),
                 if (onRememberChanged != null)
                   CheckboxListTile(
@@ -101,7 +101,7 @@ Future<TemplateDoc?> chooseRecordsFields(
                         final keep = await showDialog<bool>(
                           context: c,
                           builder: (warningContext) => AlertDialog(
-                            title: const Text('Add narrative text to Records?'),
+                            title: const Text('Add narrative text to Report data?'),
                             content: Text(
                               '“${s.title}” is free text. It will be kept as narrative information, '
                               'but it will be less useful for filtering, comparison and analytics. '
@@ -110,7 +110,7 @@ Future<TemplateDoc?> chooseRecordsFields(
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(warningContext, false),
-                                child: const Text('Keep out of Records'),
+                                child: const Text('Keep out of Report data'),
                               ),
                               FilledButton(
                                 onPressed: () => Navigator.pop(warningContext, true),

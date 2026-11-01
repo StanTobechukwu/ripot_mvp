@@ -16,10 +16,12 @@ SEO = {
  'colonoscopy-report-template': ('Colonoscopy Report Template – Findings, Bowel Prep & PDF', 'Preview a structured colonoscopy report template with bowel preparation, segmental findings and interventions. Copy a blank outline or open it in Ripot Web.'),
  'upper-gi-endoscopy-report-template': ('Upper GI Endoscopy Report Template – OGD / EGD & PDF', 'Explore an upper GI endoscopy (OGD / EGD) reporting template with oesophagus, stomach, duodenum and intervention sections. Open it in Ripot Web.'),
  'abdominal-ultrasound-report-template': ('Abdominal Ultrasound Report Template – Organs & Measurements', 'Use a structured abdominal ultrasound report template for liver, gallbladder, kidneys and other organs. Preview fields and open it in Ripot Web.'),
- 'echocardiogram-report-template': ('Echocardiogram Report Template – 2D Echo Measurements & PDF', 'Preview a 2D echocardiogram report template with chamber measurements, LVEF, Doppler and valve findings. Open the structured editor in Ripot Web.'),
+ 'echocardiogram-report-template': ('2D Echo Report Template & PDF', 'Preview a 2D echocardiogram report template with chamber measurements, LVEF, Doppler and valve findings. Open the structured editor in Ripot Web.'),
 }
 EXTRA = json.loads((ROOT/'tools/landing/additional_catalog.json').read_text())
 DISPLAY_NAMES = {
+ 'structured-upper-gi-endoscopy-report-template': 'Upper GI endoscopy report template — guided',
+ 'histopathology-report-template': 'Histopathology report template',
  'flexible-sigmoidoscopy-report-template': 'Flexible sigmoidoscopy report template',
  'obstetric-ultrasound-report-template': 'Obstetric ultrasound report template',
  'pelvic-transvaginal-ultrasound-report-template': 'Pelvic and transvaginal ultrasound report template',
@@ -36,6 +38,7 @@ for entry in EXTRA:
  CATALOG.append((entry['slug'], DISPLAY_NAMES[entry['slug']], entry['specialty'], entry['description']))
  SEO[entry['slug']] = (DISPLAY_NAMES[entry['slug']]+' | Editable & PDF', entry['description'])
 REFERENCES = {**BASE_REFERENCES, **{entry['slug']:entry['references'] for entry in EXTRA}}
+CREDITS = {'structured-upper-gi-endoscopy-report-template': ('Dr Nduaguba Tobechukwu Stanley', '2026-11-01', '1 November 2026')}
 e = html.escape
 CSS = (ROOT/'tools/landing/templates.css').read_text()
 SCRIPT = (ROOT/'tools/landing/templates.js').read_text()
@@ -48,13 +51,15 @@ def walk(nodes,depth=0):
    yield from walk(n.get('children',[]),depth+1)
 def card(item):
  slug,title,specialty,desc=item
- return f'<article class="card"><span class="eyebrow">{e(specialty)}</span><h2><a href="/templates/{slug}/">{e(title)}</a></h2><p>{e(desc)}</p><p class="note">Contributor: Ripot · Starter template</p><a href="/templates/{slug}/">Preview and use →</a></article>'
+ credit = ('Developed by Ripot · Clinical contributor: '+CREDITS[slug][0]+' · Senior Registrar, Gastroenterology and Hepatology · Updated '+CREDITS[slug][2]) if slug in CREDITS else 'Contributor: Ripot · Starter template'
+ return f'<article class="card"><span class="eyebrow">{e(specialty)}</span><h2><a href="/templates/{slug}/">{e(title)}</a></h2><p>{e(desc)}</p><p class="note">{e(credit)}</p><a href="/templates/{slug}/">Preview and use →</a></article>'
 def catalog_sections():
  groups = [
   ('endoscopy', 'Endoscopy', 'Gastroenterology'),
   ('ultrasound', 'Ultrasound', 'Radiology'),
   ('cardiology', 'Cardiology', 'Cardiology'),
   ('operation-notes', 'Operation notes', 'Surgery'),
+  ('pathology', 'Pathology', 'Pathology'),
  ]
  navigation='<nav class="actions" aria-label="Template specialties">'+''.join(f'<a class="button secondary" href="#specialty-{key}">{label} ({sum(item[2]==specialty for item in CATALOG)})</a>' for key,label,specialty in groups)+'</nav>'
  sections=''.join(f'<section id="specialty-{key}"><h2>{label}</h2><div class="cards">'+''.join(card(item) for item in CATALOG if item[2]==specialty)+'</div></section>' for key,label,specialty in groups)
@@ -67,7 +72,7 @@ def main():
  shutil.copyfile(ROOT/'tools/landing/community.js', out/'community.js')
  shutil.copyfile(ROOT/'web/template-funnel.js', out/'template-funnel.js')
  (out/'community.html').write_text(shell('Community reporting template','Preview an approved community reporting structure and use it in Ripot.','/templates/community.html','<p id="community-status" role="status">Loading template…</p><section id="community-preview"></section><a href="/templates/">Back to all templates</a>'))
- (out/'index.html').write_text(shell('Clinical report templates','Browse endoscopy, ultrasound, cardiology and surgical report structures. Preview, download or open a template in Ripot.','/templates/', '<span class="eyebrow">The Ripot template library</span><h1>A clear starting point for your next report.</h1><p class="lead">Choose a specialty, explore the fields and make the report your own.</p><p>Explore 15 templates across endoscopy, ultrasound, cardiology and operation notes. Download a printable PDF, or open an editable template in Ripot. Blank forms and clearly labelled fictional examples are available separately.</p>'+catalog_sections()+'<section id="community-section" hidden><h2>From the Ripot community</h2><p id="community-status" role="status"></p><div id="community-templates" class="cards"></div></section><section class="card"><h2>Have a useful reporting structure?</h2><p>Submit a patient-free reporting structure with your specialty and contributor credit. An authorised reviewer checks it before publication; contributors cannot review their own submissions. You receive an email when it is approved, rejected or needs changes, with a reason for rejection or requested changes. Feedback also stays in My submissions.</p><p>Changed your mind? Open the three-dot menu on your pending submission in My submissions and choose Withdraw submission. Your saved template is kept, and you can resubmit later.</p><div class="actions"><a class="button" href="https://ripot-web.web.app/?templateLibrary=contribute">Contribute a template</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=mine">My submissions</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=browse">Browse in Ripot</a></div></section>'))
+ (out/'index.html').write_text(shell('Clinical report templates','Browse endoscopy, ultrasound, cardiology and surgical report structures. Preview, download or open a template in Ripot.','/templates/', '<span class="eyebrow">The Ripot template library</span><h1>A clear starting point for your next report.</h1><p class="lead">Choose a specialty, explore the fields and make the report your own.</p><p>Explore reporting templates across endoscopy, ultrasound, cardiology, operation notes and pathology. Download a printable PDF, or open an editable template in Ripot. Blank forms and clearly labelled fictional examples are available separately.</p>'+catalog_sections()+'<section id="community-section" hidden><h2>From the Ripot community</h2><p id="community-status" role="status"></p><div id="community-templates" class="cards"></div></section><section class="card"><h2>Have a useful reporting structure?</h2><p>Submit a patient-free reporting structure with your specialty and contributor credit. An authorised reviewer checks it before publication; contributors cannot review their own submissions. You receive an email when it is approved, rejected or needs changes, with a reason for rejection or requested changes. Feedback also stays in My submissions.</p><p>Changed your mind? Open the three-dot menu on your pending submission in My submissions and choose Withdraw submission. Your saved template is kept, and you can resubmit later.</p><div class="actions"><a class="button" href="https://ripot-web.web.app/?templateLibrary=contribute">Contribute a template</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=mine">My submissions</a><a class="button secondary" href="https://ripot-web.web.app/?templateLibrary=browse">Browse in Ripot</a></div></section>'))
  manifest=[]
  for item in CATALOG:
   slug,title,specialty,desc=item
@@ -79,11 +84,16 @@ def main():
   version_dir.mkdir(parents=True,exist_ok=True)
   version_file=version_dir/f'{version}.ripottemplate.json'
   version_file.write_bytes(raw)
-  manifest.append({'slug':slug,'version':version,'name':title,'specialty':specialty,'contributor':'Ripot','status':'approved','url':f'/templates/catalog/{slug}/{version}.ripottemplate.json','sha256':hashlib.sha256(raw).hexdigest(), 'versions':[{'version':p.stem.split('.')[0], 'sha256':hashlib.sha256(p.read_bytes()).hexdigest(), 'url':f'/templates/catalog/{slug}/{p.name}'} for p in sorted(version_dir.glob('*.ripottemplate.json'))]})
+  manifest.append({'slug':slug,'version':version,'name':title,'specialty':specialty,'contributor':CREDITS.get(slug, ('Ripot',))[0],'status':'approved','url':f'/templates/catalog/{slug}/{version}.ripottemplate.json','sha256':hashlib.sha256(raw).hexdigest(), 'versions':[{'version':p.stem.split('.')[0], 'sha256':hashlib.sha256(p.read_bytes()).hexdigest(), 'url':f'/templates/catalog/{slug}/{p.name}'} for p in sorted(version_dir.glob('*.ripottemplate.json'))]})
   payload=json.loads(raw)
   template=payload['template']
   body=page_body(slug,title,specialty,desc,template,version,''.join(card(i) for i in sorted((i for i in CATALOG if i!=item), key=lambda i:i[2]!=specialty)[:4]))
+  if slug in CREDITS:
+   name, updated, display_date = CREDITS[slug]
+   body = body.replace('Contributor: Ripot</p>', f'Developed by Ripot · Clinical contributor: {e(name)}<br>Senior Registrar, Gastroenterology and Hepatology<br>Updated <time datetime="{updated}">{display_date}</time></p>')
   guide='<section class="outline-box"><h2>Using this reporting structure</h2>'+''.join(f'<h3>{e(heading)}</h3><p>{e(text)}</p>' for heading,text in GUIDES[slug])+'<p class="note">Documentation help, not clinical guidance. Use current specialty guidance and local protocols. Review every report before signing or sharing.</p></section>'
+  if slug in ('upper-gi-endoscopy-report-template', 'structured-upper-gi-endoscopy-report-template'):
+   body = '<section class="card"><h2>Choose your reporting style</h2><p><a href="/templates/upper-gi-endoscopy-report-template/">Narrative: flexible free-text sections</a> · <a href="/templates/structured-upper-gi-endoscopy-report-template/">Guided: conditional follow-up fields</a></p></section>' + body
   body=body.replace('<section><h2>Explore other templates</h2>',guide+'<section><h2>Explore other templates</h2>')
   if slug in REFERENCES:
    body += '<section class="note"><h2>Documentation references</h2><p>Adapt these fields to your examination and local protocol. These editable structures have not undergone independent clinical validation; no organisation listed here endorses Ripot.</p><ul>'+''.join(f'<li><a href="{e(url,quote=True)}" target="_blank" rel="noopener noreferrer">{e(label)}</a></li>' for label,url in REFERENCES[slug])+'</ul></section>'
@@ -96,6 +106,9 @@ def main():
   if 'https://ripot.app'+path not in existing:
    entry=ET.SubElement(root,'{'+ns+'}url');ET.SubElement(entry,'{'+ns+'}loc').text='https://ripot.app'+path
    ET.SubElement(entry,'{'+ns+'}lastmod').text='2026-10-25'
+ for entry in root:
+  if entry.find('{'+ns+'}loc').text == 'https://ripot.app/templates/structured-upper-gi-endoscopy-report-template/':
+   entry.find('{'+ns+'}lastmod').text = CREDITS['structured-upper-gi-endoscopy-report-template'][1]
  tree.write(sitemap,encoding='utf-8',xml_declaration=True)
  home=PUBLIC/'index.html'
  home_text=home.read_text()

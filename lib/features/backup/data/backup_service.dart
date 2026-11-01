@@ -1,4 +1,6 @@
 import 'dart:convert';
+import '../../../core/firebase/firebase_bootstrap.dart';
+import '../../access/data/access_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +20,7 @@ final backupAppRevision = ValueNotifier<int>(0);
 void backupDispatcher() {
   Workmanager().executeTask((task, input) async {
     if (task != _job) return true;
+    await FirebaseBootstrap.initializeIfConfigured();
     await BackupService().runIfDue();
     return true; // Failures are retained in status and retried after 15 minutes.
   });
@@ -31,9 +34,17 @@ class BackupResult {
 }
 
 class BackupService {
-  BackupService({BackupDestination? destination, BackupSnapshots? snapshots})
-    : destination = destination ?? BackupDestination(),
-      snapshots = snapshots ?? BackupSnapshots();
+  BackupService({
+    BackupDestination? destination,
+    BackupSnapshots? snapshots,
+    Future<bool> Function()? automaticAccess,
+  }) : destination = destination ?? BackupDestination(),
+       snapshots = snapshots ?? BackupSnapshots(),
+       _automaticAccess = automaticAccess ?? _hasAutomaticAccess;
+  final Future<bool> Function() _automaticAccess;
+  static Future<bool> _hasAutomaticAccess() async =>
+      (await AccessRepository().loadCached())?.isPremiumLike ?? false;
+  Future<bool> canRunAutomatically() => _automaticAccess();
   final BackupDestination destination;
   final BackupSnapshots snapshots;
   static const _secure = FlutterSecureStorage();
@@ -114,19 +125,28 @@ class BackupService {
         if (backgroundAndroid) await Workmanager().cancelByUniqueName(_job);
         return;
       }
+      if (!await canRunAutomatically()) {
+        throw StateError(
+          'Automatic backups require Premium. Manual backup and restore remain available.',
+        );
+      }
       if (!destination.supported || await destination.location() == null) {
         throw StateError('Choose a backup folder first.');
       }
       final reusePassword = passphrase == null;
       if (reusePassword) {
         if (!(await schedule()).enabled) {
-          throw StateError('Choose a backup password to set up automatic backups.');
+          throw StateError(
+            'Choose a backup password to set up automatic backups.',
+          );
         }
         passphrase = kIsWeb
             ? _webPassphrase
             : await _secure.read(key: _secretKey);
         if (passphrase == null) {
-          throw StateError('Your backup password is unavailable. Enter it again on the web, or turn automatic backups off and set them up again on this device.');
+          throw StateError(
+            'Your backup password is unavailable. Enter it again on the web, or turn automatic backups off and set them up again on this device.',
+          );
         }
       }
       if (passphrase == null) throw StateError('Enter your backup password.');
@@ -164,12 +184,16 @@ class BackupService {
   }
 
   Future<void> unlockSession(String passphrase) async {
+    if (!await canRunAutomatically())
+      throw StateError('Automatic backups require Premium.');
     if (passphrase.length < 12 || passphrase.length > 1024) {
       throw const FormatException('Enter your backup password.');
     }
     final check = (await _prefs()).getString('backup.sessionCheck');
     if (check == null) {
-      throw StateError('Turn automatic backups off and set them up again to choose a backup password.');
+      throw StateError(
+        'Turn automatic backups off and set them up again to choose a backup password.',
+      );
     }
     await BackupCipher.decrypt(base64Decode(check), passphrase);
     _webPassphrase = passphrase;
@@ -287,6 +311,7 @@ class BackupService {
       var s = await schedule();
       final now = DateTime.now();
       if (!s.due(now) || !destination.supported) return;
+      if (!await canRunAutomatically()) return;
       final p = await _prefs(),
           retry = DateTime.tryParse(
             (await _prefs()).getString('backup.retryAfter') ?? '',
@@ -303,8 +328,11 @@ class BackupService {
           ? _webPassphrase
           : await _secure.read(key: _secretKey);
       if (pass == null) {
-        throw StateError('Open Backup & restore and enter your backup password.');
+        throw StateError(
+          'Open Backup & restore and enter your backup password.',
+        );
       }
+      if (!await canRunAutomatically()) return;
       final snapshot = await snapshots.capture(BackupScope.all);
       // Compare all captured logical values, including saved native PDFs.
       final baseline = p.getString('backup.baseline');

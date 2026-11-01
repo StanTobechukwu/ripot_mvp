@@ -103,8 +103,9 @@ class UpgradeScreen extends StatelessWidget {
                       _FeatureChip('Custom letterhead'),
                       _FeatureChip('Remove Ripot branding'),
                       _FeatureChip('Advanced layout'),
-                      _FeatureChip('Records and filters'),
+                      _FeatureChip('Report data and filters'),
                       _FeatureChip('Higher report/template limits'),
+                      _FeatureChip('Automatic backups'),
                     ],
                   ),
                 ],
@@ -483,7 +484,7 @@ class _PlanComparison extends StatelessWidget {
       ['Your templates (built-ins excluded)', '4', '20'],
       ['Finalized reports on this device', '10', 'Unlimited*'],
       ['Drafts (excluded from report limit)', 'Unlimited', 'Unlimited'],
-      ['Records table and filters', 'No', 'Yes'],
+      ['Report data table and filters', 'No', 'Yes'],
     ];
     return Card(
       child: Padding(

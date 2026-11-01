@@ -149,10 +149,23 @@ class _OnlineTemplatesScreenState extends State<OnlineTemplatesScreen> {
   }
 
   Future<void> _preview(Map<String, dynamic> row, {bool review = false}) async {
+    final result = review ? null : await PublicTemplateCatalog.load(Uri(queryParameters: {
+      'template': row['slug'] as String, 'version': row['version'] as String}));
     final doc = review ? TemplateCodec.templateFromJson(Map<String, dynamic>.from(row['template'] as Map))
-        : await PublicTemplateCatalog.resolve(Uri(queryParameters: {'template': row['slug'] as String, 'version': row['version'] as String}));
+        : result?.template;
     if (!mounted) return;
-    if (doc == null) { showMessage(context, 'This version could not be loaded. Please refresh the library.'); return; }
+    if (doc == null) {
+      if (result?.failure == PublicTemplateLoadFailure.connection) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Could not download the template. Check your connection and try again.'),
+          duration: const Duration(seconds: 20),
+          action: SnackBarAction(label: 'Try again', onPressed: () => _preview(row)),
+        ));
+      } else {
+        showMessage(context, 'This version could not be loaded. Please refresh the library.');
+      }
+      return;
+    }
     if (review) {
       final reviewer = AccountRuntime.session?.currentUser;
       final decision = await showDialog<String>(

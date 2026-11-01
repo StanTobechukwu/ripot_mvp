@@ -1,0 +1,62 @@
+UPPER GI ENDOSCOPY — GUIDED
+
+Patient: ________________
+Identifier: ________________
+Date: ________________
+
+
+PROCEDURE
+Indication: ________________
+Consent: ________________
+Fasting status: ________________
+Anticoagulant / antiplatelet medication: ________________
+Pre-procedure safety assessment: ________________
+Sedation / anaesthesia: ________________
+Drugs and doses, if administered: ________________
+Other medications: ________________
+Additional procedure details?: ________________
+Endoscope used: ________________
+ASA class: ________________
+
+EXTENT AND VIEW
+Extent reached: ________________
+Quality of view: ________________
+Limitations / reason for incomplete examination, if applicable: ________________
+Examination duration, if recorded (min): ________________
+
+OESOPHAGUS
+Oesophagus assessment: ________________
+Record landmark measurements?: ________________
+GEJ (top of gastric folds) (cm from incisors): ________________
+Z-line (cm from incisors): ________________
+Diaphragmatic pinch (cm from incisors): ________________
+
+OESOPHAGUS FINDING
+Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
+
+STOMACH
+Stomach assessment: ________________
+
+STOMACH FINDING
+Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
+
+DUODENUM
+Duodenum assessment: ________________
+
+DUODENUM FINDING
+Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
+
+SAMPLING
+Samples taken?: ________________
+
+SPECIMEN
+Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
+
+CONCLUSION AND FOLLOW-UP
+Immediate adverse events: ________________
+Tolerance: ________________
+Conclusion / impression: ________________
+Plan and pathology follow-up: ________________
+
+Clinician: ________________
+Signature: ________________

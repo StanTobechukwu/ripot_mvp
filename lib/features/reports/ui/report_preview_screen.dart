@@ -1,10 +1,10 @@
+import 'ripot_pdf_preview.dart';
 import '../../../core/web/template_funnel.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../records/ui/records_field_picker.dart';
-import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/web/file_download.dart';
@@ -219,7 +219,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       final unlocked = await showPremiumFeatureSheet(
         context,
         PremiumFeature.records,
-        message: 'Your PDF has been saved. Adding it to Records is optional.',
+        message: 'Your PDF has been saved. Adding it to Report data is optional.',
       );
       if (!unlocked || !mounted) return;
     }
@@ -258,7 +258,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               children: [
                 Text(
                   status == RecordReportStatus.notAdded
-                      ? 'Add this report to Records?'
+                      ? 'Add this report to Report data?'
                       : 'Update this Record from the report?',
                   style: Theme.of(
                     sheetContext,
@@ -267,7 +267,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 const SizedBox(height: 8),
                 Text(
                   status == RecordReportStatus.notAdded
-                      ? 'The PDF has been saved. Records are optional, but they make this final report easier to find later in list or table form.'
+                      ? 'The PDF has been saved. Report data are optional, but they make this final report easier to find later in list or table form.'
                       : 'The report has changed since this Record was last synced. Review the included fields. Deliberate Record corrections are preserved.',
                 ),
                 const SizedBox(height: 16),
@@ -286,7 +286,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         icon: const Icon(Icons.library_add_outlined),
                         label: Text(
                           status == RecordReportStatus.notAdded
-                              ? 'Add to Records'
+                              ? 'Add to Report data'
                               : 'Update Record',
                         ),
                       ),
@@ -327,7 +327,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         SnackBar(
           content: Text(
             status == RecordReportStatus.notAdded
-                ? 'Report added to Records.'
+                ? 'Report added to Report data.'
                 : 'Record updated from report.',
           ),
         ),
@@ -927,7 +927,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   width: constraints.maxWidth,
                   height: constraints.maxHeight,
                 ),
-                child: PdfPreview(
+                child: RipotPdfPreview(
                   key: ValueKey(
                     'preview-'
                     '${vm.doc.reportLayout}-'
@@ -944,7 +944,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     '${vm.doc.updatedAtIso}-'
                     '$_letterheadPreviewRevision',
                   ),
-                  build: (_) => _buildBytes(),
+                  buildDocument: (_) => _buildBytes(),
                   pdfFileName: pdfFileName,
                   allowPrinting: !isNativeDesktop,
                   allowSharing: !isDesktopWeb && !isNativeDesktop,

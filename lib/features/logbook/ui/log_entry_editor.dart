@@ -230,7 +230,7 @@ class _LogEntryEditorState extends State<LogEntryEditor> {
                     const Padding(
                       padding: EdgeInsets.only(bottom: 16),
                       child: Text(
-                        'Review the copied information before saving. You can remove subject details. Changes here do not alter the report or Records.',
+                        'Review the copied information before saving. You can remove subject details. Changes here do not alter the report or Report data.',
                       ),
                     ),
                   TextFormField(

@@ -59,7 +59,10 @@ class CatalogFixture {
         }), status);
       }
       expect(request.url.path,
-          '/templates/catalog/$slug/$version.ripottemplate.json');
+          matches(RegExp('^/templates/catalog/$slug/[a-f0-9]{16}\\.ripottemplate\\.json\$')));
+      if (request.url.path != '/templates/catalog/$slug/$version.ripottemplate.json') {
+        return http.Response('Not found', 404);
+      }
       return http.Response.bytes(bytes, status);
     }),
   );
@@ -157,7 +160,8 @@ void main() {
   test('missing requested version does not fall back to bundled template', () async {
     final f = CatalogFixture(payload());
     expect(await f.resolve(query: 'template=$slug&version=0000000000000000'), isNull);
-    expect(f.requests, hasLength(1));
+    expect(f.requests, hasLength(3)); // payload plus one fresh-manifest check
+    expect(f.requests.every((u) => u.origin == 'https://ripot.app'), isTrue);
   });
 
   test('unapproved and duplicate entries are rejected', () async {
@@ -167,14 +171,17 @@ void main() {
     f.entry['status'] = 'approved';
     f.entries.add(Map<String, dynamic>.from(f.entry));
     expect(await f.resolve(), isNull);
-    expect(f.requests.every((u) => u.path.endsWith('manifest.json')), isTrue);
+    // Immutable first-party bytes can be prefetched, but cannot be accepted
+    // before the manifest approves exactly one entry.
+    expect(f.requests.every((u) => u.origin == 'https://ripot.app'), isTrue);
   });
 
   test('external payload URL cannot be fetched', () async {
     final f = CatalogFixture(payload());
     f.entry['url'] = 'https://evil.example/template.json';
     expect(await f.resolve(), isNull);
-    expect(f.requests, hasLength(1));
+    expect(f.requests, hasLength(2));
+    expect(f.requests.any((u) => u.host == 'evil.example'), isFalse);
   });
 
   test('changed bytes fail checksum verification', () async {
@@ -227,7 +234,7 @@ void main() {
   test('total node limit includes siblings after a nested subtree', () async {
     final doc = payload();
     doc['template']['roots'] = [
-      section('parent', List.generate(199, (i) => section('child$i'))),
+      section('parent', List.generate(799, (i) => section('child$i'))),
       section('last-sibling'),
     ];
     expect(await CatalogFixture(doc).resolve(), isNull);

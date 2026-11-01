@@ -483,9 +483,8 @@ class BuiltInTemplates {
       roots: const [
         SectionNode(
           id: 'echo_lv', title: 'Left Ventricle', children: [
-            SectionNode(id: 'echo_lv_chamber_size', title: 'Chamber Size', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
             SectionNode(id: 'echo_lv_edv', title: 'End Diastolic Volume', inputType: FieldInputType.numeric, unit: 'mL', addToRecords: true, style: numericStyle),
-            SectionNode(id: 'echo_lvidd', title: 'LVIDd', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_lvidd', title: 'LV internal diameter in diastole (LVIDd)', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
             SectionNode(id: 'echo_ivsd', title: 'Septal Wall (IVSd)', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
             SectionNode(id: 'echo_pwdd', title: 'Posterior Wall (PWDd)', inputType: FieldInputType.numeric, unit: 'cm', addToRecords: true, style: numericStyle),
             SectionNode(id: 'echo_lv_global_motion', title: 'Global Systolic Wall Motion', inputType: FieldInputType.singleSelect, options: ['Normal', 'Hyperdynamic', 'Reduced'], addToRecords: true),
@@ -494,8 +493,8 @@ class BuiltInTemplates {
             SectionNode(id: 'echo_diastolic_function', title: 'Diastolic Function', inputType: FieldInputType.singleSelect, options: ['Normal', 'Grade I', 'Grade II', 'Grade III'], addToRecords: true),
             SectionNode(id: 'echo_e_a', title: 'E/A', inputType: FieldInputType.numeric, addToRecords: true, style: numericStyle),
             SectionNode(id: 'echo_e_eprime', title: 'E/E′', inputType: FieldInputType.numeric, addToRecords: true, style: numericStyle),
-            SectionNode(id: 'echo_septal_eprime', title: 'Septal E′', inputType: FieldInputType.numeric, unit: 'm/s', addToRecords: true, style: numericStyle),
-            SectionNode(id: 'echo_lateral_eprime', title: 'Lateral E′', inputType: FieldInputType.numeric, unit: 'm/s', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_septal_eprime', title: 'Septal e′', inputType: FieldInputType.numeric, unit: 'cm/s', addToRecords: true, style: numericStyle),
+            SectionNode(id: 'echo_lateral_eprime', title: 'Lateral e′', inputType: FieldInputType.numeric, unit: 'cm/s', addToRecords: true, style: numericStyle),
           ],
         ),
         SectionNode(

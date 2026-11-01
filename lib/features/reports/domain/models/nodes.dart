@@ -69,6 +69,11 @@ class SectionNode extends Node {
 
   /// When false, this field is hidden from the final PDF but can still be used for records.
   final bool showInPdf;
+  final bool omitWhenEmpty;
+
+  /// Presentation metadata; blank values preserve the original report layout.
+  final String reportLabel;
+  final String reportRole;
 
   /// When true, this section's structured value is copied into Records
   /// when the report is saved. Both narrative and structured values are supported.
@@ -96,6 +101,12 @@ class SectionNode extends Node {
       conditionalParentSectionId.trim().isNotEmpty &&
       conditionalEquals.trim().isNotEmpty;
 
+  /// Patient-free blueprints offered by the Add finding control. Actual entries
+  /// live in children, with new IDs for every instance.
+  final List<SectionNode> repeatableTemplates;
+  final String repeatableAddLabel;
+  bool get isRepeatable => repeatableTemplates.isNotEmpty;
+
   /// ✅ indentation level for this section (0,1,2...)
   final int indent;
 
@@ -109,12 +120,17 @@ class SectionNode extends Node {
     this.options = const [],
     this.unit = '',
     this.showInPdf = true,
+    this.omitWhenEmpty = false,
+    this.reportLabel = '',
+    this.reportRole = '',
     this.addToRecords = false,
     this.addToLog = false,
     this.allowOptionalNote = false,
     this.note = '',
     this.conditionalParentSectionId = '',
     this.conditionalEquals = '',
+    this.repeatableTemplates = const [],
+    this.repeatableAddLabel = 'Add finding',
     this.indent = 0,
   });
 
@@ -127,12 +143,17 @@ class SectionNode extends Node {
     List<String>? options,
     String? unit,
     bool? showInPdf,
+    bool? omitWhenEmpty,
+    String? reportLabel,
+    String? reportRole,
     bool? addToRecords,
     bool? addToLog,
     bool? allowOptionalNote,
     String? note,
     String? conditionalParentSectionId,
     String? conditionalEquals,
+    List<SectionNode>? repeatableTemplates,
+    String? repeatableAddLabel,
     int? indent,
   }) {
     return SectionNode(
@@ -145,6 +166,9 @@ class SectionNode extends Node {
       options: options ?? this.options,
       unit: unit ?? this.unit,
       showInPdf: showInPdf ?? this.showInPdf,
+      omitWhenEmpty: omitWhenEmpty ?? this.omitWhenEmpty,
+      reportLabel: reportLabel ?? this.reportLabel,
+      reportRole: reportRole ?? this.reportRole,
       addToRecords: addToRecords ?? this.addToRecords,
       addToLog: addToLog ?? this.addToLog,
       allowOptionalNote: allowOptionalNote ?? this.allowOptionalNote,
@@ -152,6 +176,8 @@ class SectionNode extends Node {
       conditionalParentSectionId:
           conditionalParentSectionId ?? this.conditionalParentSectionId,
       conditionalEquals: conditionalEquals ?? this.conditionalEquals,
+      repeatableTemplates: repeatableTemplates ?? this.repeatableTemplates,
+      repeatableAddLabel: repeatableAddLabel ?? this.repeatableAddLabel,
       indent: indent ?? this.indent,
     );
   }
@@ -203,14 +229,19 @@ extension TemplateClone on SectionNode {
       options: options,
       unit: unit,
       showInPdf: showInPdf,
+      omitWhenEmpty: omitWhenEmpty,
+      reportLabel: reportLabel,
+      reportRole: reportRole,
       addToRecords: addToRecords,
       addToLog: addToLog,
       allowOptionalNote: allowOptionalNote,
       note: '',
       conditionalParentSectionId: conditionalParentSectionId,
       conditionalEquals: conditionalEquals,
+      repeatableTemplates: repeatableTemplates.map((s) => s.toTemplateNode(includeContent: false)).toList(),
+      repeatableAddLabel: repeatableAddLabel,
       indent: indent,
-      children: outChildren,
+      children: isRepeatable && !includeContent ? const [] : outChildren,
     );
   }
 }
@@ -226,12 +257,17 @@ extension ReportClone on SectionNode {
       options: options,
       unit: unit,
       showInPdf: showInPdf,
+      omitWhenEmpty: omitWhenEmpty,
+      reportLabel: reportLabel,
+      reportRole: reportRole,
       addToRecords: addToRecords,
       addToLog: addToLog,
       allowOptionalNote: allowOptionalNote,
       note: note,
       conditionalParentSectionId: conditionalParentSectionId,
       conditionalEquals: conditionalEquals,
+      repeatableTemplates: repeatableTemplates.map((s) => s.toTemplateNode(includeContent: false)).toList(),
+      repeatableAddLabel: repeatableAddLabel,
       indent: indent,
       children: children
           .map((n) {

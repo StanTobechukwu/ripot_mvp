@@ -214,12 +214,17 @@ class ReportCodec {
     'options': s.options,
     'unit': s.unit,
     'showInPdf': s.showInPdf,
+    if (s.omitWhenEmpty) 'omitWhenEmpty': true,
+    if (s.reportLabel.isNotEmpty) 'reportLabel': s.reportLabel,
+    if (s.reportRole.isNotEmpty) 'reportRole': s.reportRole,
     'addToRecords': s.addToRecords,
     'addToLog': s.addToLog,
     'allowOptionalNote': s.allowOptionalNote,
     'note': s.note,
     'conditionalParentSectionId': s.conditionalParentSectionId,
     'conditionalEquals': s.conditionalEquals,
+    if (s.isRepeatable) 'repeatableTemplates': s.repeatableTemplates.map(sectionToJson).toList(),
+    if (s.isRepeatable) 'repeatableAddLabel': s.repeatableAddLabel,
     'indent': s.indent,
   };
 
@@ -243,6 +248,9 @@ class ReportCodec {
         .toList(growable: false),
     unit: (j['unit'] as String?) ?? '',
     showInPdf: (j['showInPdf'] as bool?) ?? true,
+    omitWhenEmpty: j['omitWhenEmpty'] == true,
+    reportLabel: (j['reportLabel'] as String?) ?? '',
+    reportRole: (j['reportRole'] as String?) ?? '',
     addToRecords: (j['addToRecords'] as bool?) ?? false,
     addToLog: (j['addToLog'] as bool?) ?? false,
     allowOptionalNote: (j['allowOptionalNote'] as bool?) ?? false,
@@ -250,6 +258,8 @@ class ReportCodec {
     conditionalParentSectionId:
         (j['conditionalParentSectionId'] as String?) ?? '',
     conditionalEquals: (j['conditionalEquals'] as String?) ?? '',
+    repeatableTemplates: ((j['repeatableTemplates'] as List?) ?? const []).whereType<Map>().map((e) => sectionFromJson(Map<String, dynamic>.from(e))).toList(),
+    repeatableAddLabel: (j['repeatableAddLabel'] as String?) ?? 'Add finding',
     indent: (j['indent'] as int?) ?? 0,
   );
 

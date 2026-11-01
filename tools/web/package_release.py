@@ -45,15 +45,47 @@ echo "Deployment completed. Open https://ripot-web.web.app and verify version {v
 (stage / 'README.txt').write_text(f'''Ripot web {version} ({build})
 Source: {source}
 
+This release fixes the guided upper GI template in the actual report editor:
+separate consent/fasting/medication/safety choices, an extent dropdown,
+one Add finding control per region, and independent repeated finding cards.
+The PDF groups findings by anatomical location. Ordinary template links now
+fetch the approval catalogue and versioned template concurrently and show
+Opening your template while loading. Checksums and approval checks remain.
+Optional numeric GEJ, Z-line and diaphragmatic-pinch measurements use
+cm from incisors, as do individual oesophageal lesion levels. Units remain
+visible in blank numeric fields. Enter the number only; blank optional
+measurements are omitted from the PDF.
+Template loading now allows 15 seconds per request and retries transient failures
+once. Connection failures offer Try again without replacing the linked version.
+Version-aware catalogue requests and revalidation prevent stale lists from
+rejecting newly published templates. Approval and checksum checks remain intact.
+
+The guided OGD report now prints each location once, removes form-only prompts,
+and uses compact finding descriptions. Medications are entered once with dose,
+unit and route. Additional procedure details expands to separate preparation
+and safety choices. Biopsies on findings and other biopsy sites feed one sampling
+summary with actual container labels. Older saved reports retain their structure.
+
+For this update, deploy in this order from this complete folder:
+  bash Deploy-Web.command
+  bash Deploy-Landing.command
+The guided template needs Ripot 1.0.22 or newer. Publishing the landing page
+alone will not update the editor. This correction needs no backend deployment.
+Reload the web app after deployment; keep existing browser data intact.
+
 This folder contains the combined web update; Flutter is not required to deploy it.
 Included: updated branding/support, safer Registry report linking, unlimited
 saved PDFs for Premium/active trials, dynamic public templates, the Free-user
 letterhead invitation, Web/Windows checkout-availability messaging, and the
 community template library with contributor decision emails, per-submission
 withdrawal menus, clear reviewer ownership labels, and encrypted full/section
-backups with optional schedules. Web automatic backups require a supported
+backups. Manual backup and restore are Free; automatic schedules require Premium
+or an active trial. The Records tab is now Report data. Android includes a
+rate-app request after ten successful PDF shares, subject to Google Play limits.
+More > Suggest an improvement opens the support-email route.
+Web automatic backups require a supported
 browser and an open Ripot tab. The landing page explains these features.
-The fifteen reporting templates include real PDF previews, blank and fictional
+The reporting templates include real PDF previews, blank and fictional
 example PDF downloads, page zoom and readable plain/formatted copied outlines.
 To apply these landing-page improvements, run bash Deploy-Landing.command.
 The contribution backend, reviewer account and SMTP notification setup must

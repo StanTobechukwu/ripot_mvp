@@ -2,6 +2,8 @@ name: Build Windows installer
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [codex/global-backup-20261026]
   push:
     branches:
       - codex/windows-download

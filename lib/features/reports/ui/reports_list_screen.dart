@@ -1,3 +1,5 @@
+import '../../../core/ui/suggestions_sheet.dart';
+import '../../../core/services/engagement_service.dart';
 import '../../backup/ui/backup_screen.dart';
 import 'online_templates_screen.dart';
 import 'package:flutter/foundation.dart';
@@ -44,6 +46,7 @@ class ReportsListScreen extends StatefulWidget {
 class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   bool _routeObserverSubscribed = false;
   int _section = 0;
+  bool _openingTemplate = kIsWeb && Uri.base.queryParameters.containsKey('template');
 
   Future<void> _selectSection(int index) async {
     if ((index == 1 || index == 2) &&
@@ -69,7 +72,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       ),
       NavigationDestination(
         icon: Icon(Icons.table_rows_outlined),
-        label: 'Records',
+        label: 'Report data',
       ),
       NavigationDestination(
         icon: Icon(Icons.people_outline),
@@ -82,6 +85,17 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     ],
   );
   IncomingFileService? _incomingFileService;
+
+  Future<void> _rateApp() async {
+    try {
+      await EngagementService.openStoreListing();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Play. Please try again.')),
+      );
+    }
+  }
 
   Future<void> _manageTemplates() async {
     await Navigator.push(
@@ -147,11 +161,76 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
     ).showSnackBar(SnackBar(content: Text(result.message)));
   }
 
+  Future<void> _openLinkedTemplate(Uri uri, {Future<PublicTemplateLoadResult>? pending}) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    if (!_openingTemplate) setState(() => _openingTemplate = true);
+    var result = await (pending ?? PublicTemplateCatalog.load(uri, forEditor: true));
+    if (!mounted) return;
+    var template = result.template;
+    String? templateNotice;
+    final requestedVersion = uri.queryParameters['version'];
+    // A connection failure does not establish that a version is missing.
+    // Do not replace the requested version, or start another slow lookup.
+    if (template == null && result.failure != PublicTemplateLoadFailure.connection &&
+        requestedVersion != null && RegExp(r'^[a-f0-9]{16}$').hasMatch(requestedVersion)) {
+      final latestResult = await PublicTemplateCatalog.load(Uri(queryParameters: {
+        'template': uri.queryParameters['template'] ?? '',
+      }));
+      if (!mounted) return;
+      final latest = latestResult.template;
+      if (latest != null && latest.sourceVersion == requestedVersion) {
+        template = latest;
+      } else if (latest != null) {
+        final useLatest = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(
+          title: const Text('This template version could not be loaded'),
+          content: const Text('The linked version could not be loaded, but a current approved version is available. Open it as a new report?'),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Open latest version'))],
+        ));
+        if (!mounted) return;
+        if (useLatest != true) {
+          setState(() => _openingTemplate = false);
+          await _refreshReports();
+          return;
+        }
+        template = latest;
+        templateNotice = 'Opened the latest approved template version. Your saved reports and templates are unchanged.';
+      } else if (latestResult.failure == PublicTemplateLoadFailure.connection) {
+        result = latestResult;
+      }
+    } else if (template != null && requestedVersion != null && result.latestVersion != null &&
+        requestedVersion != result.latestVersion) {
+      templateNotice = 'Opened the older version specified by this link. A newer version is available in Online templates.';
+    }
+    if (!mounted) return;
+    setState(() => _openingTemplate = false);
+    if (template != null) {
+      context.read<ReportEditorProvider>().newReportFromTemplate(template);
+      await Navigator.push(context, MaterialPageRoute<void>(
+        builder: (_) => ReportEditorScreen(templateNotice: templateNotice)));
+      if (mounted) await _refreshReports();
+    } else {
+      final connection = result.failure == PublicTemplateLoadFailure.connection;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(connection
+            ? 'Could not download the template. Check your connection and try again.'
+            : 'This template link is not available. Choose a template from Templates.'),
+        duration: const Duration(seconds: 20),
+        action: connection ? SnackBarAction(label: 'Try again',
+            onPressed: () => _openLinkedTemplate(uri)) : null,
+      ));
+      await _refreshReports();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      final incomingTemplate = _openingTemplate
+          ? PublicTemplateCatalog.load(Uri.base, forEditor: true) : null;
       _incomingFileService = IncomingFileService(
         templatesRepository: context.read<TemplatesRepository>(),
         recordsRepository: context.read<RecordsRepository>(),
@@ -164,7 +243,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       if (initial != null) {
         await _refreshAfterIncomingFile(initial);
       }
-      await _refreshReports();
+      if (!_openingTemplate) await _refreshReports();
       if (mounted && kIsWeb) {
         final libraryView = Uri.base.queryParameters['templateLibrary'];
         if (['browse', 'contribute', 'review', 'mine'].contains(libraryView)) {
@@ -172,47 +251,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
           if (mounted) await _refreshReports();
           return;
         }
-        String? latestVersion;
-        var template = await PublicTemplateCatalog.resolveForEditor(Uri.base,
-          onLatestVersion: (value) => latestVersion = value);
-        if (!mounted) return;
-        String? templateNotice;
-        final requestedVersion = Uri.base.queryParameters['version'];
-        if (template == null && requestedVersion != null && RegExp(r'^[a-f0-9]{16}$').hasMatch(requestedVersion)) {
-          final latest = await PublicTemplateCatalog.resolve(Uri(queryParameters: {
-            'template': Uri.base.queryParameters['template'] ?? '',
-          }));
-          if (!mounted) return;
-          if (latest != null) {
-            final useLatest = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(
-              title: const Text('This template version could not be loaded'),
-              content: const Text('The linked version could not be loaded, but a current approved version is available. Open it as a new report?'),
-              actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
-                FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Open latest version'))],
-            ));
-            if (!mounted) return;
-            if (useLatest != true) return;
-            template = latest;
-            templateNotice = 'Opened the latest approved template version. Your saved reports and templates are unchanged.';
-          }
-        } else if (template != null && requestedVersion != null && latestVersion != null && requestedVersion != latestVersion) {
-          templateNotice = 'Opened the older version specified by this link. A newer version is available in Online templates.';
-        }
-        if (template != null) {
-          context.read<ReportEditorProvider>().newReportFromTemplate(template);
-          await Navigator.push(
-            context,
-            MaterialPageRoute<void>(builder: (_) => ReportEditorScreen(templateNotice: templateNotice)),
-          );
-          if (mounted) await _refreshReports();
-        } else if (Uri.base.queryParameters.containsKey('template')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'This template link is not available. Choose a template from Templates.',
-              ),
-            ),
-          );
+        if (incomingTemplate != null) {
+          await _openLinkedTemplate(Uri.base, pending: incomingTemplate);
         }
       }
     });
@@ -300,7 +340,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   ) async {
     const title = 'Delete report?';
     const message =
-        'This permanently deletes the saved report and any saved PDF for it from this device. Existing Records and Logbook entries are kept. This cannot be undone.';
+        'This permanently deletes the saved report and any saved PDF for it from this device. Existing Report data and Logbook entries are kept. This cannot be undone.';
     const actionLabel = 'Delete report';
 
     final confirmed = await showDialog<bool>(
@@ -347,9 +387,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       }
     }
     final recordActionLabel = !report.hasPdf
-        ? 'Records · Complete report first'
+        ? 'Report data · Complete report first'
         : switch (recordStatus) {
-            RecordReportStatus.notAdded => 'Add to Records',
+            RecordReportStatus.notAdded => 'Add to Report data',
             RecordReportStatus.current => 'View Record',
             RecordReportStatus.reportChanged => 'Update Record',
           };
@@ -404,12 +444,13 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         case 'share':
           final bytes = await repo.loadPdfBytesForReport(report.reportId);
           if (bytes == null) throw StateError('PDF unavailable');
-          await Printing.sharePdf(
+          final shared = await Printing.sharePdf(
             bytes: bytes,
             filename:
                 await repo.pdfFileNameForReport(report.reportId) ??
                 'Ripot_Report.pdf',
           );
+          if (shared) await EngagementService.reportShared();
           break;
         case 'records':
           if (!report.hasPdf) {
@@ -418,7 +459,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               builder: (dialogContext) => AlertDialog(
                 title: const Text('Complete report first'),
                 content: const Text(
-                  'Finish editing and generate the PDF to add this report to Records.',
+                  'Finish editing and generate the PDF to add this report to Report data.',
                 ),
                 actions: [
                   TextButton(
@@ -600,6 +641,12 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             icon: const Icon(Icons.more_horiz_rounded),
             onSelected: (value) {
               switch (value) {
+                case 'rate':
+                  _rateApp();
+                  break;
+                case 'suggestions':
+                  showSuggestionsSheet(context);
+                  break;
                 case 'backup':
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const BackupScreen()),
@@ -614,6 +661,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               }
             },
             itemBuilder: (_) => [
+              if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+                const PopupMenuItem(value: 'rate', child: Text('Rate Ripot')),
+              const PopupMenuItem(value: 'suggestions', child: Text('Suggest an improvement')),
               const PopupMenuItem(
                 value: 'backup',
                 child: Text('Backup & restore'),
@@ -640,7 +690,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
         icon: const Icon(Icons.add),
         label: const Text('New Report'),
       ),
-      body: Column(
+      body: _openingTemplate ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Opening your template…')])) : Column(
         children: [
           const SizedBox(height: 8),
           Center(

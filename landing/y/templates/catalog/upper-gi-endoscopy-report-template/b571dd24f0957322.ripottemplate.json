@@ -1,0 +1,547 @@
+{
+  "app": "Ripot",
+  "ripotFileType": "template",
+  "ripotExportVersion": 1,
+  "template": {
+    "templateId": "ripot_starter_upper_gi_endoscopy",
+    "updatedAtIso": "2026-08-25T00:00:00.000",
+    "name": "Upper GI Endoscopy",
+    "groupName": "",
+    "sourceSlug": "",
+    "sourceVersion": "",
+    "contributor": "",
+    "recordsConfigured": false,
+    "roots": [
+      {
+        "type": "section",
+        "id": "ugi_indication",
+        "title": "Indication",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": true,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "ugi_premedication",
+        "title": "Premedication / Sedation",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "ugi_findings",
+        "title": "Findings",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": [
+          {
+            "type": "section",
+            "id": "ugi_oesophagus",
+            "title": "Oesophagus",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": [
+              {
+                "type": "section",
+                "id": "ugi_oesophagus_upper",
+                "title": "Upper oesophagus",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              },
+              {
+                "type": "section",
+                "id": "ugi_oesophagus_middle",
+                "title": "Middle oesophagus",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              },
+              {
+                "type": "section",
+                "id": "ugi_oesophagus_lower",
+                "title": "Lower oesophagus",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              },
+              {
+                "type": "section",
+                "id": "ugi_ge_junction",
+                "title": "Gastro-oesophageal junction",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "id": "ugi_stomach",
+            "title": "Stomach",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": [
+              {
+                "type": "section",
+                "id": "ugi_cardia",
+                "title": "Cardia",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              },
+              {
+                "type": "section",
+                "id": "ugi_fundus",
+                "title": "Fundus",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              },
+              {
+                "type": "section",
+                "id": "ugi_body",
+                "title": "Body",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              },
+              {
+                "type": "section",
+                "id": "ugi_antrum",
+                "title": "Antrum",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              },
+              {
+                "type": "section",
+                "id": "ugi_pylorus",
+                "title": "Pylorus",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "id": "ugi_duodenum",
+            "title": "Duodenum",
+            "collapsed": false,
+            "style": {
+              "level": "h4",
+              "bold": true,
+              "align": "left"
+            },
+            "inputType": "freeText",
+            "options": [],
+            "unit": "",
+            "showInPdf": true,
+            "addToRecords": false,
+            "addToLog": false,
+            "allowOptionalNote": false,
+            "conditionalParentSectionId": "",
+            "conditionalEquals": "",
+            "indent": 0,
+            "children": [
+              {
+                "type": "section",
+                "id": "ugi_duodenal_bulb",
+                "title": "Bulb",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              },
+              {
+                "type": "section",
+                "id": "ugi_duodenum_d2",
+                "title": "Second part",
+                "collapsed": false,
+                "style": {
+                  "level": "h4",
+                  "bold": true,
+                  "align": "left"
+                },
+                "inputType": "freeText",
+                "options": [],
+                "unit": "",
+                "showInPdf": true,
+                "addToRecords": false,
+                "addToLog": false,
+                "allowOptionalNote": false,
+                "conditionalParentSectionId": "",
+                "conditionalEquals": "",
+                "indent": 0,
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "id": "ugi_biopsy",
+        "title": "Biopsy taken",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "yesNo",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": true,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "ugi_biopsy_site",
+        "title": "Biopsy site",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "multiSelect",
+        "options": [
+          "Oesophagus",
+          "Cardia",
+          "Fundus",
+          "Body",
+          "Antrum",
+          "Pylorus",
+          "Duodenal bulb",
+          "Second part of duodenum",
+          "Other"
+        ],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": true,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "ugi_biopsy",
+        "conditionalEquals": "Yes",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "ugi_biopsy_number",
+        "title": "Number of biopsies",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": true,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "ugi_biopsy",
+        "conditionalEquals": "Yes",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "ugi_impression",
+        "title": "Assessment / Impression",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": true,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      },
+      {
+        "type": "section",
+        "id": "ugi_recommendation",
+        "title": "Recommendation",
+        "collapsed": false,
+        "style": {
+          "level": "h4",
+          "bold": true,
+          "align": "left"
+        },
+        "inputType": "freeText",
+        "options": [],
+        "unit": "",
+        "showInPdf": true,
+        "addToRecords": false,
+        "addToLog": false,
+        "allowOptionalNote": false,
+        "conditionalParentSectionId": "",
+        "conditionalEquals": "",
+        "indent": 0,
+        "children": []
+      }
+    ],
+    "subjectInfo": {
+      "enabled": true,
+      "columns": 2,
+      "schemaVersion": 1,
+      "heading": "",
+      "fields": [
+        {
+          "key": "subjectName",
+          "title": "Subject Name",
+          "required": true,
+          "order": 0,
+          "isSystem": true,
+          "addToRecords": true
+        },
+        {
+          "key": "subjectId",
+          "title": "Subject ID",
+          "required": false,
+          "order": 1,
+          "isSystem": true,
+          "addToRecords": true
+        }
+      ]
+    },
+    "signature": {
+      "roleTitle": "Endoscopist",
+      "name": "",
+      "credentials": "",
+      "assistantLabel": "Assistant",
+      "assistantName": "",
+      "signatureFilePath": null
+    }
+  }
+}

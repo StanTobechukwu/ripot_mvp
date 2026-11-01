@@ -60,7 +60,7 @@ jobs:
               assert hashlib.sha256(raw).hexdigest()[:16]==entry['version']
               data=json.loads(raw)
               assert data['ripotFileType']=='template'
-              assert data['ripotExportVersion']==1
+              assert data['ripotExportVersion'] in (1,2)
               assert data['template']['roots']
               page=(root/slug/'index.html').read_text()
               assert 'version='+entry['version'] in page
@@ -93,8 +93,8 @@ jobs:
       - name: Test catalogue-only template in compiled web app
         run: |
           npm install --prefix "$RUNNER_TEMP/ripot-browser" --no-package-lock --no-save playwright@1.58.2
-          NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/web/smoke_dynamic_template.cjs
           python3 tools/landing/build_templates.py
+          NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/web/smoke_dynamic_template.cjs
           NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/landing/smoke_community.cjs
           NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/landing/smoke_template_previews.cjs
       - uses: actions/upload-artifact@v4
