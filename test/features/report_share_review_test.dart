@@ -1,7 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -147,35 +144,10 @@ void main() {
         .setMockMethodCallHandler(reviewChannel, null);
   });
 
-  testWidgets('ten real saved-PDF Share taps reach review only after return',
+  testWidgets('draft and saved-PDF Share taps reach review at ten after return',
       (tester) async {
-    final prefs = await SharedPreferences.getInstance();
-    await _mount(tester, _savedPdf());
-    expect(find.byIcon(Icons.share), findsOneWidget);
-    expect(find.byTooltip('Share PDF'), findsOneWidget);
-
-    for (var count = 1; count <= 10; count++) {
-      await tester.tap(find.byTooltip('Share PDF'));
-      await tester.pump();
-      expect(printing.shares, count);
-      expect(prefs.getInt('review.completedShares'), count);
-      expect(reviewRequests, 0, reason: 'Never request over the share chooser');
-      await _returnToApp(tester);
-      expect(reviewRequests, count == 10 ? 1 : 0);
-    }
-    expect(printing.sharedFilename, 'fictional-report.pdf');
-    expect(printing.sharedBytes, orderedEquals([37, 80, 68, 70]));
-    expect(prefs.getInt('review.lastRequestShares'), 10);
-
-    // Returning from Google's surface cannot immediately prompt again.
-    await _returnToApp(tester);
-    expect(reviewRequests, 1);
-    await tester.pumpWidget(const SizedBox.shrink());
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-  testWidgets('draft Preview Share renders PDF and reaches the same counter',
-      (tester) async {
-    SharedPreferences.setMockInitialValues({'review.completedShares': 9});
+    // Keep both screens in one app lifetime, just like the production static
+    // controller. Completed futures must not cross widget tests' fake clocks.
     final prefs = await SharedPreferences.getInstance();
     final reports = ReportsRepository();
     final editor = ReportEditorProvider(
@@ -208,8 +180,30 @@ void main() {
     expect(printing.shares, 1);
     expect(printing.sharedBytes!.take(5), orderedEquals([37, 80, 68, 70, 45]));
     expect(printing.sharedFilename, reports.pdfFileNameForDoc(editor.doc));
-    expect(prefs.getInt('review.completedShares'), 10);
+    expect(prefs.getInt('review.completedShares'), 1);
     expect(reviewRequests, 0);
+    await _returnToApp(tester);
+    expect(reviewRequests, 0);
+
+    // Navigate to a saved PDF. It must use the same persistent counter and
+    // count exactly once per actual toolbar tap, without a duplicate action.
+    await _mount(tester, _savedPdf());
+    expect(find.byIcon(Icons.share), findsOneWidget);
+    expect(find.byTooltip('Share PDF'), findsOneWidget);
+    for (var count = 2; count <= 10; count++) {
+      await tester.tap(find.byTooltip('Share PDF'));
+      await tester.pump();
+      expect(printing.shares, count);
+      expect(prefs.getInt('review.completedShares'), count);
+      expect(reviewRequests, 0, reason: 'Never request over the share chooser');
+      await _returnToApp(tester);
+      expect(reviewRequests, count == 10 ? 1 : 0);
+    }
+    expect(printing.sharedFilename, 'fictional-report.pdf');
+    expect(printing.sharedBytes, orderedEquals([37, 80, 68, 70]));
+    expect(prefs.getInt('review.lastRequestShares'), 10);
+
+    // Returning from Google's surface cannot immediately prompt again.
     await _returnToApp(tester);
     expect(reviewRequests, 1);
     await tester.pumpWidget(const SizedBox.shrink());
