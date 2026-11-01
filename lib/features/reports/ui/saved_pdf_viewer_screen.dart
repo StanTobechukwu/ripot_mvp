@@ -1,10 +1,9 @@
-import '../../../core/services/engagement_service.dart';
+import 'ripot_pdf_preview.dart';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 
 import '../../../core/web/file_download.dart';
 import '../services/pdf_actions_service.dart';
@@ -39,12 +38,11 @@ class SavedPdfViewerScreen extends StatelessWidget {
           final mq = MediaQuery.of(context);
           final isDesktopWeb = kIsWeb && mq.size.width >= 900;
           final isNativeDesktop = ripotIsNativeDesktop;
-          final preview = PdfPreview(
-            build: (_) async => bytes,
+          final preview = RipotPdfPreview(
+            buildDocument: (_) async => bytes,
             pdfFileName: pdfFileName,
             allowPrinting: !isNativeDesktop,
             allowSharing: !isDesktopWeb && !isNativeDesktop,
-            onShared: (_) => EngagementService.reportShared(),
           );
 
           if (!isDesktopWeb && !isNativeDesktop) return preview;

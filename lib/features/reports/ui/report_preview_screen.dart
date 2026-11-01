@@ -1,11 +1,10 @@
-import '../../../core/services/engagement_service.dart';
+import 'ripot_pdf_preview.dart';
 import '../../../core/web/template_funnel.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../records/ui/records_field_picker.dart';
-import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/web/file_download.dart';
@@ -928,7 +927,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   width: constraints.maxWidth,
                   height: constraints.maxHeight,
                 ),
-                child: PdfPreview(
+                child: RipotPdfPreview(
                   key: ValueKey(
                     'preview-'
                     '${vm.doc.reportLayout}-'
@@ -945,11 +944,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                     '${vm.doc.updatedAtIso}-'
                     '$_letterheadPreviewRevision',
                   ),
-                  build: (_) => _buildBytes(),
+                  buildDocument: (_) => _buildBytes(),
                   pdfFileName: pdfFileName,
                   allowPrinting: !isNativeDesktop,
                   allowSharing: !isDesktopWeb && !isNativeDesktop,
-                  onShared: (_) => EngagementService.reportShared(),
                 ),
               );
 
