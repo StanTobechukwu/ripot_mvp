@@ -184,6 +184,22 @@ void main() {
     expect(h.requests, 1);
   });
 
+  testWidgets('quick return during availability check schedules a fresh foreground check', (tester) async {
+    final pendingAvailability = Completer<bool>();
+    final h = _ReviewHarness()..availability = () => pendingAvailability.future;
+    final c = h.controller();
+    await _mount(tester, c);
+    await c.reportShared();
+    await _returnToApp(tester);
+    expect(h.availabilityChecks, 1);
+    await _returnToApp(tester);
+    pendingAvailability.complete(true);
+    await tester.pump();
+    expect(h.requests, 0);
+    await tester.pump(const Duration(seconds: 1));
+    expect(h.requests, 1);
+  });
+
   testWidgets('failed API request backs off without spending the 90-day cooldown', (tester) async {
     final h = _ReviewHarness()
       ..request = () async => throw StateError('Play unavailable');

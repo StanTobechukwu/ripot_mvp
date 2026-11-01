@@ -47,6 +47,7 @@ class ReviewPromptController with WidgetsBindingObserver {
   bool _started = false;
   bool _waitingForReturn = false;
   bool _requestInFlight = false;
+  bool _checkAfterRequest = false;
   bool _skipNextResume = false;
   int _epoch = 0;
 
@@ -65,6 +66,7 @@ class ReviewPromptController with WidgetsBindingObserver {
 
   void _cancelScheduledRequest() {
     _epoch++;
+    _checkAfterRequest = false;
     _resumeTimer?.cancel();
     _resumeTimer = null;
   }
@@ -106,7 +108,11 @@ class ReviewPromptController with WidgetsBindingObserver {
   }
 
   void _scheduleRequest() {
-    if (!_canRequest || _requestInFlight) return;
+    if (!_canRequest) return;
+    if (_requestInFlight) {
+      _checkAfterRequest = true;
+      return;
+    }
     _resumeTimer?.cancel();
     final epoch = _epoch;
     _resumeTimer = Timer(resumeDelay, () {
@@ -160,6 +166,10 @@ class ReviewPromptController with WidgetsBindingObserver {
       }
     } finally {
       _requestInFlight = false;
+      if (_checkAfterRequest) {
+        _checkAfterRequest = false;
+        _scheduleRequest();
+      }
     }
   }
 
