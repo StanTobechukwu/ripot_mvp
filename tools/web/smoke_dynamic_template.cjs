@@ -174,6 +174,17 @@ async function finishSave(page) {
       assert(!JSON.stringify(imported.roots).includes('fictional'), 'Sample findings leaked into a new report');
       const raw = JSON.parse(fs.readFileSync('landing/y'+entry.url)).template;
       assert.equal(imported.roots.length,raw.roots.length);
+      if (entry.slug === 'structured-upper-gi-endoscopy-report-template') {
+        const sections = roots => roots.flatMap(n => n.type === 'section'
+          ? [n, ...sections(n.children || [])] : []);
+        const nodes = sections(imported.roots);
+        const details = nodes.find(n => n.reportRole === 'ogd.details');
+        assert(details && details.collapsed, 'Additional details must start collapsed');
+        assert(nodes.some(n => n.reportRole === 'ogd.medications'), 'Unified medication fields missing');
+        assert(nodes.some(n => n.reportRole === 'ogd.sampling'), 'Unified sampling section missing');
+        assert(!nodes.some(n => ['sedation_drugs','medication_plan'].includes(n.id)), 'Old duplicate medication fields returned');
+        console.log('PASS: current guided OGD catalogue preserves report metadata and collapsed preparation after compiled browser import/save.');
+      }
     }
     const firstEntry=actualCatalog.templates.find(e=>e.slug===extra[0].slug);
     await realPage.goto(`${origin}/?template=${firstEntry.slug}&version=0000000000000000`);
