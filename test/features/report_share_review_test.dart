@@ -32,7 +32,6 @@ class _NativePrinting extends PrintingPlatform {
   int prints = 0;
   Uint8List? sharedBytes;
   String? sharedFilename;
-  Completer<void>? shared;
 
   @override
   Future<PrintingInfo> info() async =>
@@ -50,7 +49,6 @@ class _NativePrinting extends PrintingPlatform {
     shares++;
     sharedBytes = bytes;
     sharedFilename = filename;
-    if (shared != null && !shared!.isCompleted) shared!.complete();
     return shareSucceeds;
   }
 
@@ -123,7 +121,6 @@ void main() {
   late int reviewRequests;
 
   setUp(() {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     SharedPreferences.setMockInitialValues({});
     originalPrinting = PrintingPlatform.instance;
     printing = _NativePrinting();
@@ -148,7 +145,6 @@ void main() {
     PrintingPlatform.instance = originalPrinting;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(reviewChannel, null);
-    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('ten real saved-PDF Share taps reach review only after return',
@@ -175,7 +171,7 @@ void main() {
     await _returnToApp(tester);
     expect(reviewRequests, 1);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('draft Preview Share renders PDF and reaches the same counter',
       (tester) async {
@@ -199,12 +195,15 @@ void main() {
       child: const ReportPreviewScreen(),
     ));
     expect(find.byIcon(Icons.share), findsOneWidget);
-    printing.shared = Completer<void>();
-    // The production renderer loads bundled fonts and performs real PDF IO.
-    await tester.runAsync(() async {
-      await tester.tap(find.byTooltip('Share PDF'));
-      await printing.shared!.future.timeout(const Duration(seconds: 20));
-    });
+    await tester.tap(find.byTooltip('Share PDF'));
+    // Let real font/PDF IO progress, while also draining the widget's fake-async
+    // continuations. Waiting inside runAsync alone cannot drain that queue.
+    for (var attempt = 0; printing.shares == 0 && attempt < 500; attempt++) {
+      await tester.runAsync(() => Future<void>.delayed(
+        const Duration(milliseconds: 20),
+      ));
+      await tester.pump();
+    }
     await tester.pump();
     expect(printing.shares, 1);
     expect(printing.sharedBytes!.take(5), orderedEquals([37, 80, 68, 70, 45]));
@@ -214,7 +213,7 @@ void main() {
     await _returnToApp(tester);
     expect(reviewRequests, 1);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('Print does not count as Share or reach the review threshold',
       (tester) async {
@@ -229,7 +228,7 @@ void main() {
     await _returnToApp(tester);
     expect(reviewRequests, 0);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('unsuccessful native share does not count or request review',
       (tester) async {
@@ -244,7 +243,7 @@ void main() {
     await _returnToApp(tester);
     expect(reviewRequests, 0);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('preview respects disabled sharing and printing', (tester) async {
     await _mount(tester, Scaffold(body: RipotPdfPreview(
@@ -256,5 +255,5 @@ void main() {
     expect(find.byIcon(Icons.share), findsNothing);
     expect(find.byIcon(Icons.print), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 }
