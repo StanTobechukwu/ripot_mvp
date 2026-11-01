@@ -86,6 +86,17 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
   );
   IncomingFileService? _incomingFileService;
 
+  Future<void> _rateApp() async {
+    try {
+      await EngagementService.openStoreListing();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Play. Please try again.')),
+      );
+    }
+  }
+
   Future<void> _manageTemplates() async {
     await Navigator.push(
       context,
@@ -630,6 +641,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
             icon: const Icon(Icons.more_horiz_rounded),
             onSelected: (value) {
               switch (value) {
+                case 'rate':
+                  _rateApp();
+                  break;
                 case 'suggestions':
                   showSuggestionsSheet(context);
                   break;
@@ -647,6 +661,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
               }
             },
             itemBuilder: (_) => [
+              if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+                const PopupMenuItem(value: 'rate', child: Text('Rate Ripot')),
               const PopupMenuItem(value: 'suggestions', child: Text('Suggest an improvement')),
               const PopupMenuItem(
                 value: 'backup',

@@ -185,5 +185,7 @@ Future<void> ripotSharePdf({required Uint8List bytes, required String fileName})
     [XFile(file.path, mimeType: 'application/pdf')],
     subject: _safePdfName(fileName),
   );
-  if (result.status == ShareResultStatus.success) await EngagementService.reportShared();
+  if (result.status == ShareResultStatus.success) {
+    await EngagementService.reportShared(waitForReturn: false);
+  }
 }
