@@ -42,10 +42,10 @@ FORREST = ['Ia — spurting', 'Ib — oozing', 'IIa — non-bleeding visible ves
 
 def biopsy_fields(key, parent='', equals=''):
     return [
-        field(key+'_number', 'Number of biopsies', unit='count', parent=parent, equals=equals, role='biopsy.count'),
+        field(key+'_number', 'Number of biopsies', unit='count', parent=parent, equals=equals, report='Biopsies', role='biopsy.count'),
         field(key+'_type', 'Sampling type', ['Targeted', 'Non-targeted / random', 'Both', 'Not recorded'],
-              parent=parent, equals=equals, role='biopsy.type'),
-        field(key+'_container', 'Container / label', parent=parent, equals=equals, role='biopsy.container'),
+              parent=parent, equals=equals, report='Sampling', role='biopsy.type'),
+        field(key+'_container', 'Container / label', parent=parent, equals=equals, report='Container', role='biopsy.container'),
         field(key+'_note', 'Sampling note, if needed', parent=parent, equals=equals, report='Sampling note', role='biopsy.note')]
 
 
@@ -107,7 +107,7 @@ def types(region):
         finding(region, 'hernia', 'Hiatal hernia', [f(region, 'hernia', 'Axial length', unit='cm', suffix='length'), f(region, 'hernia', 'Hill grade', ['I', 'II', 'III', 'IV', 'Not assessed'], suffix='hill')], biopsy=False),
         finding(region, 'eoe', 'EoE features', [f(region, 'eoe', 'Oedema', ['Absent', 'Present', 'Not assessed'], suffix='oedema'), f(region, 'eoe', 'Rings', ['Absent', 'Mild', 'Moderate', 'Severe', 'Not assessed'], suffix='rings'), f(region, 'eoe', 'Exudates', ['Absent', 'Present', 'Not assessed'], suffix='exudates'), f(region, 'eoe', 'Furrows', ['Absent', 'Present', 'Not assessed'], suffix='furrows'), f(region, 'eoe', 'Stricture', YES, suffix='stricture')], diffuse=True),
         finding(region, 'varices', 'Oesophageal varices', [
-            f(region, 'varices', 'Size', ['Small (<5 mm)', 'Large (≥5 mm)', 'Not assessed'], suffix='size_grade'),
+            f(region, 'varices', 'Size', ['Small (under 5 mm)', 'Large (5 mm or greater)', 'Not assessed'], suffix='size_grade'),
             f(region, 'varices', 'Extent', ['Lower third', 'To middle third', 'To upper third', 'Other'], note=True),
             f(region, 'varices', 'Number of columns, if recorded', unit='count', suffix='columns', report='Columns'),
             f(region, 'varices', 'Red signs', ['None seen', 'Red wale marks', 'Cherry-red spots', 'Haematocystic spots', 'Other', 'Not assessed'], multi=True, note=True, suffix='red'),

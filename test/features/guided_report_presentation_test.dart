@@ -67,7 +67,7 @@ void main() {
     setChild(vm, reflux, 'Los Angeles grade', 'B');
     final varices = vm.addRepeatableFinding('oesophagus_findings', 'oesophagus_varices')!;
     setChild(vm, varices, 'Location', 'Middle oesophagus');
-    setChild(vm, varices, 'Size', 'Large (≥5 mm)');
+    setChild(vm, varices, 'Size', 'Large (5 mm or greater)');
     setChild(vm, varices, 'Red signs', 'Red wale marks');
     setChild(vm, varices, 'Bleeding', 'White nipple sign');
     set(vm, 'stomach_status', 'Abnormal');
@@ -110,14 +110,14 @@ void main() {
     expect(text, contains('Midazolam: 2 mg; IV'));
     expect(text, contains('Preparation and safety: Consent: Obtained'));
     expect(guidedSamplingSummary(vm.doc.roots), hasLength(2));
-    expect('Container / label: A'.allMatches(text), hasLength(1));
+    expect('Container: A'.allMatches(text), hasLength(1));
     expect(guidedReportWarnings(vm.doc.roots), isEmpty);
     expect(ReportCodec.reportToJson(vm.doc), original);
     final out = Directory('build/ogd-qa')..createSync(recursive: true);
     await File('${out.path}/concise-report.pdf').writeAsBytes(await PdfRendererService().generatePdfBytes(doc: vm.doc, plan: plan));
     set(vm, 'stomach_status', 'Normal');
     expect(guidedSamplingSummary(vm.doc.roots), hasLength(1), reason: 'Hidden abnormal biopsies must not leak into sampling');
-    expect(reportText(vm.doc.roots), isNot(contains('Container / label: A')));
+    expect(reportText(vm.doc.roots), isNot(contains('Container: A')));
     await File('${out.path}/concise-normal.pdf').writeAsBytes(await PdfRendererService().generatePdfBytes(doc: vm.doc, plan: plan));
     set(vm, 'stomach_status', 'Abnormal');
     expect(guidedSamplingSummary(vm.doc.roots), hasLength(2));

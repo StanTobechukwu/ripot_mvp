@@ -44,15 +44,16 @@ jobs:
           assert all(value+' cm from incisors' in landmarks for value in ['39.5','37.5','41','32.5'])
           assert '7 mm' in landmarks and '2 count' not in landmarks
           assert 'GEJ' not in hidden and '39.5' not in hidden and '32.5 cm from incisors' in hidden
-          concise=Path('build/ogd-qa/concise-report.txt').read_text()
-          concise_normal=Path('build/ogd-qa/concise-normal.txt').read_text()
+          concise=' '.join(Path('build/ogd-qa/concise-report.txt').read_text().split())
+          concise_normal=' '.join(Path('build/ogd-qa/concise-normal.txt').read_text().split())
           assert 'Abnormal' not in concise and 'Location:' not in concise
           assert all(prompt not in concise for prompt in ['if applicable', 'if recorded', 'if relevant', 'stomach finding', 'oesophagus finding'])
           assert concise.count('Upper oesophagus') == 1
           assert 'Midazolam' in concise and '2 mg' in concise and 'IV' in concise
           assert 'Preparation and safety' in concise and 'Consent: Obtained' in concise
-          assert 'Container / label: A' in concise and 'Container / label: B' in concise
-          assert 'Container / label: A' not in concise_normal and 'Container / label: B' in concise_normal
+          assert 'Container: A' in concise and 'Container: B' in concise
+          assert 'Container: A' not in concise_normal and 'Container: B' in concise_normal
+          assert 'Large (5 mm or greater)' in concise
           assert 'Red wale marks' in concise and 'Oozing' in concise and '10 mm' in concise
           PY
       - run: flutter test --no-pub tools/export_template_previews.dart
