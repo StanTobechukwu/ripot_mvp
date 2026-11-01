@@ -23,6 +23,11 @@ class RepeatableFindings extends StatelessWidget {
           icon: const Icon(Icons.add), label: Text(section.repeatableAddLabel),
           onPressed: () async {
             FocusManager.instance.primaryFocus?.unfocus();
+            if (section.repeatableTemplates.length == 1 &&
+                (section.reportRole == 'ogd.medications' || section.reportRole == 'ogd.specimens')) {
+              onAdd(section.repeatableTemplates.single.id);
+              return;
+            }
             final selected = await showModalBottomSheet<String>(
               context: context, showDragHandle: true, isScrollControlled: true,
               builder: (context) => SafeArea(child: SizedBox(
@@ -41,8 +46,11 @@ class RepeatableFindings extends StatelessWidget {
             if (selected != null && context.mounted) onAdd(selected);
           },
         ),
-        if (items.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 10),
-          child: Text('Choose a finding to enter its details. Add separate entries for findings that differ.')),
+        if (items.isEmpty && section.reportRole != 'ogd.specimens') Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Text(section.reportRole == 'ogd.medications'
+            ? 'Record medications actually administered, with dose, unit and route.'
+            : 'Choose a finding to enter its details. Add separate entries for findings that differ.')),
         for (final item in items) Card(
           key: ValueKey('finding-card-${item.id}'),
           margin: const EdgeInsets.only(top: 12),

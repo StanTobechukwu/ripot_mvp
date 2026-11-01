@@ -534,7 +534,7 @@ class ReportEditorProvider extends ChangeNotifier {
 
     return s.copyWith(
       children: hydratedChildren.toList(growable: false),
-      collapsed: false,
+      collapsed: s.reportRole == 'ogd.details' ? s.collapsed : false,
     );
   }
 
@@ -639,6 +639,7 @@ class ReportEditorProvider extends ChangeNotifier {
     SectionNode clone(SectionNode s) => SectionNode(
       id: ids[s.id]!, title: s.title, style: s.style, indent: s.indent,
       inputType: s.inputType, options: s.options, unit: s.unit,
+      reportLabel: s.reportLabel, reportRole: s.reportRole,
       showInPdf: s.showInPdf, omitWhenEmpty: s.omitWhenEmpty, addToRecords: s.addToRecords, addToLog: s.addToLog,
       allowOptionalNote: s.allowOptionalNote,
       conditionalParentSectionId: ids[s.conditionalParentSectionId] ?? s.conditionalParentSectionId,

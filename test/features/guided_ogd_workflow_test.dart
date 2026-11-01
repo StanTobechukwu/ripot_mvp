@@ -57,7 +57,7 @@ void main() {
     setValue(vm,childNamed(vm,a,'Bleeding stigmata / Forrest category').id,'III — clean base');
     setValue(vm,childNamed(vm,b,'Bleeding stigmata / Forrest category').id,'IIa — non-bleeding visible vessel');
     setValue(vm,childNamed(vm,a,'Biopsy taken?').id,'Yes');
-    final containerA=childNamed(vm,a,'Specimen container / label');
+    final containerA=childNamed(vm,a,'Container / label');
     expect(containerA.conditionalParentSectionId,childNamed(vm,a,'Biopsy taken?').id);
     expect(containerA.conditionalParentSectionId,isNot(childNamed(vm,b,'Biopsy taken?').id));
     setValue(vm,containerA.id,'A');
@@ -158,6 +158,24 @@ void main() {
       Directory('build/ogd-qa').createSync(recursive:true);
       await File('build/ogd-qa/$name.png').writeAsBytes(png!.buffer.asUint8List());
     }); }
+    expect(find.text('Consent'), findsNothing);
+    final details = find.byKey(const ValueKey('procedure-details-extra_details'));
+    await reveal(details); await tester.tap(details); await tester.pumpAndSettle();
+    await choose('consent', 'Obtained');
+    await reveal(details); await tester.tap(details); await tester.pumpAndSettle();
+    expect(find.text('Consent'), findsNothing);
+    expect(value(node(vm, 'consent')), 'Obtained');
+    expect(find.text('Preparation: 1 of 4 fields recorded'), findsOneWidget);
+    final addMedication = find.byKey(const ValueKey('add-finding-medications'));
+    await reveal(addMedication); await tester.tap(addMedication); await tester.pumpAndSettle();
+    expect(find.text('Drug'), findsOneWidget);
+    final medication = node(vm, 'medications').children.whereType<SectionNode>().single.id;
+    final dose = childNamed(vm, medication, 'Dose');
+    final doseInput = find.byKey(ValueKey('content-form-numeric-${dose.children.whereType<ContentNode>().first.id}'));
+    await reveal(doseInput); await tester.enterText(doseInput, '2'); await tester.pumpAndSettle();
+    await choose(childNamed(vm, medication, 'Dose unit').id, 'mg');
+    await choose(childNamed(vm, medication, 'Route').id, 'IV');
+    await reveal(find.text('Drug')); await capture('editor-medications');
     expect(find.text('GEJ (top of gastric folds)'),findsNothing);
     await choose('oesophagus_landmarks','Yes');
     final gejInput=find.byKey(ValueKey('content-form-numeric-${node(vm,'landmark_gej').children.whereType<ContentNode>().first.id}'));

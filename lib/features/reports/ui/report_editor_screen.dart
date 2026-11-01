@@ -8,6 +8,7 @@ import '../../access/ui/premium_prompt.dart';
 import '../domain/models/nodes.dart';
 import 'template_actions.dart';
 import 'widgets/repeatable_findings.dart';
+import '../domain/guided_report_presentation.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/image_services.dart';
 import '../services/media_ref.dart';
@@ -1184,7 +1185,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
             IconButton(
               tooltip: 'Preview',
               icon: const Icon(Icons.arrow_forward_rounded),
-              onPressed: () {
+              onPressed: () async {
                 _unfocusNow();
                 vm.ensureFormReady();
                 _schedulePruneControllers(vm);
@@ -1202,6 +1203,18 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
                   return;
                 }
 
+                final warnings = guidedReportWarnings(vm.doc.roots);
+                if (warnings.isNotEmpty) {
+                  final proceed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+                    title: const Text('Findings not yet described'),
+                    content: Text(warnings.join('\n')),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Complete findings')),
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Preview as entered')),
+                    ],
+                  ));
+                  if (proceed != true || !mounted) return;
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1456,6 +1469,46 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
     SectionNode s,
   ) {
     if (!_sectionConditionAllows(vm, s)) return const SizedBox.shrink();
+    if (s.reportRole == 'ogd.details') {
+      final preparation = s.children.whereType<SectionNode>()
+          .where((n) => n.reportRole == 'ogd.preparation').firstOrNull;
+      final checks = preparation?.children.whereType<SectionNode>().toList() ?? <SectionNode>[];
+      final recorded = checks.where((n) => fieldValue(n).isNotEmpty).length;
+      return Card(
+        margin: const EdgeInsets.only(bottom: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          ListTile(
+            key: ValueKey('procedure-details-${s.id}'),
+            title: Text(s.title),
+            subtitle: Text('Preparation: $recorded of ${checks.length} fields recorded'),
+            trailing: Icon(s.collapsed ? Icons.expand_more : Icons.expand_less),
+            onTap: () { _unfocusNow(); vm.toggleCollapsed(s.id); },
+          ),
+          if (!s.collapsed) Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: s.children.whereType<SectionNode>()
+                  .map((n) => _formSection(context, vm, n)).toList()),
+          ),
+        ]),
+      );
+    }
+    if (s.reportRole == 'ogd.sampling') {
+      final summary = guidedSamplingSummary(vm.doc.roots);
+      return Padding(padding: const EdgeInsets.only(bottom: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(s.title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Text('Biopsies recorded with findings appear here automatically. Add a biopsy site for other samples, including normal-looking mucosa.'),
+          for (final entry in summary) Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text('${entry.title}: ${fieldValue(entry)}', key: ValueKey('sampling-summary-${entry.id}')),
+          ),
+          const SizedBox(height: 10),
+          ...s.children.whereType<SectionNode>().map((n) => _formSection(context, vm, n)),
+        ]),
+      );
+    }
     if (s.isRepeatable) return RepeatableFindings(
       section: s,
       buildItem: (item) => Column(crossAxisAlignment: CrossAxisAlignment.stretch,

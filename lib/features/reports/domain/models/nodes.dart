@@ -71,6 +71,10 @@ class SectionNode extends Node {
   final bool showInPdf;
   final bool omitWhenEmpty;
 
+  /// Presentation metadata; blank values preserve the original report layout.
+  final String reportLabel;
+  final String reportRole;
+
   /// When true, this section's structured value is copied into Records
   /// when the report is saved. Both narrative and structured values are supported.
   final bool addToRecords;
@@ -117,6 +121,8 @@ class SectionNode extends Node {
     this.unit = '',
     this.showInPdf = true,
     this.omitWhenEmpty = false,
+    this.reportLabel = '',
+    this.reportRole = '',
     this.addToRecords = false,
     this.addToLog = false,
     this.allowOptionalNote = false,
@@ -138,6 +144,8 @@ class SectionNode extends Node {
     String? unit,
     bool? showInPdf,
     bool? omitWhenEmpty,
+    String? reportLabel,
+    String? reportRole,
     bool? addToRecords,
     bool? addToLog,
     bool? allowOptionalNote,
@@ -159,6 +167,8 @@ class SectionNode extends Node {
       unit: unit ?? this.unit,
       showInPdf: showInPdf ?? this.showInPdf,
       omitWhenEmpty: omitWhenEmpty ?? this.omitWhenEmpty,
+      reportLabel: reportLabel ?? this.reportLabel,
+      reportRole: reportRole ?? this.reportRole,
       addToRecords: addToRecords ?? this.addToRecords,
       addToLog: addToLog ?? this.addToLog,
       allowOptionalNote: allowOptionalNote ?? this.allowOptionalNote,
@@ -220,6 +230,8 @@ extension TemplateClone on SectionNode {
       unit: unit,
       showInPdf: showInPdf,
       omitWhenEmpty: omitWhenEmpty,
+      reportLabel: reportLabel,
+      reportRole: reportRole,
       addToRecords: addToRecords,
       addToLog: addToLog,
       allowOptionalNote: allowOptionalNote,
@@ -246,6 +258,8 @@ extension ReportClone on SectionNode {
       unit: unit,
       showInPdf: showInPdf,
       omitWhenEmpty: omitWhenEmpty,
+      reportLabel: reportLabel,
+      reportRole: reportRole,
       addToRecords: addToRecords,
       addToLog: addToLog,
       allowOptionalNote: allowOptionalNote,

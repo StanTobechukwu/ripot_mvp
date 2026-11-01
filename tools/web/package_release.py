@@ -60,10 +60,16 @@ once. Connection failures offer Try again without replacing the linked version.
 Version-aware catalogue requests and revalidation prevent stale lists from
 rejecting newly published templates. Approval and checksum checks remain intact.
 
+The guided OGD report now prints each location once, removes form-only prompts,
+and uses compact finding descriptions. Medications are entered once with dose,
+unit and route. Additional procedure details expands to separate preparation
+and safety choices. Biopsies on findings and other biopsy sites feed one sampling
+summary with actual container labels. Older saved reports retain their structure.
+
 For this update, deploy in this order from this complete folder:
   bash Deploy-Web.command
   bash Deploy-Landing.command
-The guided template needs Ripot 1.0.20 or newer. Publishing the landing page
+The guided template needs Ripot 1.0.22 or newer. Publishing the landing page
 alone will not update the editor. This correction needs no backend deployment.
 Reload the web app after deployment; keep existing browser data intact.
 

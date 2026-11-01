@@ -38,7 +38,7 @@ for entry in EXTRA:
  CATALOG.append((entry['slug'], DISPLAY_NAMES[entry['slug']], entry['specialty'], entry['description']))
  SEO[entry['slug']] = (DISPLAY_NAMES[entry['slug']]+' | Editable & PDF', entry['description'])
 REFERENCES = {**BASE_REFERENCES, **{entry['slug']:entry['references'] for entry in EXTRA}}
-CREDITS = {'structured-upper-gi-endoscopy-report-template': ('Dr Nduaguba Tobechukwu Stanley', '2026-10-31', '31 October 2026')}
+CREDITS = {'structured-upper-gi-endoscopy-report-template': ('Dr Nduaguba Tobechukwu Stanley', '2026-11-01', '1 November 2026')}
 e = html.escape
 CSS = (ROOT/'tools/landing/templates.css').read_text()
 SCRIPT = (ROOT/'tools/landing/templates.js').read_text()

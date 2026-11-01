@@ -38,9 +38,10 @@ void main() {
           final children = n.children.whereType<SectionNode>().toList();
           if (n.isRepeatable) return n.copyWith(
             repeatableTemplates: const [],
+            reportRole: example ? n.reportRole : '',
             conditionalParentSectionId: example ? n.conditionalParentSectionId : '',
             conditionalEquals: example ? n.conditionalEquals : '',
-            children: example ? const [] : [ContentNode(id: '${n.id}_preview', text: 'Finding type: __________  Location: __________  Details: __________ (repeat for each finding)')],
+            children: example ? const [] : [ContentNode(id: '${n.id}_preview', text: n.reportRole == 'ogd.medications' ? 'Drug: __________  Dose and unit: __________  Route: __________ (repeat for each medication)' : n.reportRole == 'ogd.specimens' ? 'Site: __________  Number: __________  Sampling type: __________  Container: __________' : 'Finding type: __________  Location: __________  Details: __________ (repeat for each finding)')],
           );
           return n.copyWith(
             // A printable form shows conditional fields too, for handwriting.
@@ -48,6 +49,7 @@ void main() {
             conditionalParentSectionId: example ? n.conditionalParentSectionId : '',
             conditionalEquals: example ? n.conditionalEquals : '',
             addToRecords: false, addToLog: false,
+            reportRole: example ? n.reportRole : '',
             unit: example && n.inputType == FieldInputType.numeric && double.tryParse(values[n.id] ?? '') == null ? '' : n.unit,
             children: [
               if (children.isEmpty || n.inputType != FieldInputType.freeText)
