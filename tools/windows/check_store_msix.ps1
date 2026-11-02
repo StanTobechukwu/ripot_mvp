@@ -92,6 +92,25 @@ try {
         } elseif (Test-Path $certReport) {
             $report.certificationKit = "completed; exit code $($certProcess.ExitCode); review app-certification.xml"
             $report.certificationKitExitCode = $certProcess.ExitCode
+            # WACK can exit successfully with warnings or optional test failures.
+            # Surface the XML results and never treat exit code zero as certification.
+            [xml]$certXml = Get-Content $certReport -Raw
+            $report.certificationKitOverall = [string]$certXml.REPORT.OVERALL_RESULT
+            $issues = @(foreach ($test in $certXml.SelectNodes('/REPORT/REQUIREMENTS/REQUIREMENT/TEST')) {
+                $result = $test.SelectSingleNode('RESULT').InnerText.Trim()
+                if ($result -ne 'PASS') {
+                    [ordered]@{
+                        name = [string]$test.NAME; result = $result
+                        optional = [string]$test.OPTIONAL -eq 'TRUE'
+                        messages = @($test.SelectNodes('MESSAGES/MESSAGE') | ForEach-Object { [string]$_.TEXT })
+                    }
+                }
+            })
+            $report.certificationKitIssues = $issues
+            if (@($issues | Where-Object { -not $_.optional -and $_.result -eq 'FAIL' }).Count -gt 0) {
+                throw 'Windows App Certification Kit reported a required test failure. Review app-certification.xml.'
+            }
+            if ($issues.Count -gt 0) { Write-Warning 'Certification-kit findings require review; see store-package-check.json.' }
         } else {
             $report.certificationKit = "no report; exit code $($certProcess.ExitCode); manual certification-kit run required"
         }

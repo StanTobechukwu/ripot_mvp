@@ -58,6 +58,11 @@ Store submission. A missing backend produces a retry message and does not grant
 free copying. CI tests the emulator, not production deployment. Include the copy
 ledger in the existing support-managed account deletion procedure.
 
+Windows and web currently recognise verified Premium accounts but do not offer
+subscription checkout. The copy upgrade action opens the existing Premium screen;
+it does not create a payment integration. Complete and test that purchase path
+before relying on the Free copy limit to convert users on those platforms.
+
 ## Limits of enforcement
 
 This is an account allowance for the official app, not DRM. It does not prevent

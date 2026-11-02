@@ -42,7 +42,18 @@ No test key or signed test copy is uploaded as a release artifact.
 
 Windows App Certification Kit runs if installed on the runner. Its result is
 reported separately from the install/workflow checks; inspect the XML report
-and resolve failures. A green workflow is not Microsoft certification.
+and resolve failures. CI records each non-passing test, including whether it is
+optional, and blocks required failures. A green workflow is not Microsoft
+certification.
+
+The initial package check flagged `NOTICES.Z` (verified to contain only UTF-8
+licence text), process-launch API and executable-name references in Flutter,
+PDFium, URL launching and printing dependencies, and a DPI-awareness warning.
+The runner manifest now includes both the legacy per-monitor declaration and
+PerMonitorV2. Keep the licence notices; do not remove them to silence a scanner.
+Review the current report and test the relevant URL/printing behavior on the
+intended Windows editions. Microsoft describes the Desktop Bridge archive and
+blocked-executable tests as informational [optional tests](https://learn.microsoft.com/en-us/windows/uwp/debug-test-perf/windows-desktop-bridge-app-tests).
 
 ## Upload
 
