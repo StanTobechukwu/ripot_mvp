@@ -28,6 +28,7 @@ class _WindowsUpdatePromptState extends State<WindowsUpdatePrompt> {
 
   Future<void> _check() async {
     if (_checkedThisSession ||
+        const bool.fromEnvironment('RIPOT_MICROSOFT_STORE') ||
         kIsWeb ||
         defaultTargetPlatform != TargetPlatform.windows) {
       return;

@@ -2,6 +2,9 @@
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
+      <!-- Keep the legacy declaration for tools that do not inspect dpiAwareness.
+           Supported Windows releases use PerMonitorV2 below. -->
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
       <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
     </windowsSettings>
   </application>

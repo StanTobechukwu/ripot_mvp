@@ -102,6 +102,11 @@ service cloud.firestore {
         && resource.data.ownerId == request.auth.uid;
     }
 
+    // Only callable functions maintain the lifetime copy ledger.
+    match /ripot_copy_allowances/{uid} {
+      allow read, write: if false;
+    }
+
     // Deny every collection not explicitly designed above.
     match /{document=**} {
       allow read, write: if false;

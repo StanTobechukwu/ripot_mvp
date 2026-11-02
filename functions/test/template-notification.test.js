@@ -1,10 +1,35 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {deliverTemplateNotification} = require('../template-notification');
+const nodemailer = require('nodemailer');
 function queue() {
   const row={status:'queued',submissionId:'s-example',revision:1,to:'attacker@example.invalid',payload:'PRIVATE DATA'};
   return {row,ref:{get:async()=>({data:()=>row}),update:async change=>Object.assign(row,change)}};
 }
+
+test('Nodemailer serializes review and decision notifications without sending mail', async () => {
+  // Exercise the installed mail library after dependency upgrades. The stream
+  // transport only builds a message in memory; no SMTP server is contacted.
+  const transport = nodemailer.createTransport({streamTransport: true, buffer: true});
+  try {
+    for (const decision of [false, true]) {
+      const {row, ref} = queue();
+      if (decision) Object.assign(row, {kind: 'decision', ownerUid: 'author', name: 'Sample', decision: 'approved', note: 'Units verified.'});
+      let serialized;
+      await deliverTemplateNotification(ref, 'serialization-test', async message => {
+        serialized = await transport.sendMail(message);
+      }, 'support@ripot.app', async () => ({email: 'author@example.invalid'}));
+      assert.equal(row.status, 'sent');
+      assert.deepEqual(serialized.envelope.to, [decision ? 'author@example.invalid' : 'support@ripot.app']);
+      assert.equal(serialized.envelope.from, 'support@ripot.app');
+      const text = serialized.message.toString('utf8');
+      assert.match(text, /Message-ID: <serialization-test@ripot.app>/i);
+      assert.match(text, /templateLibrary=(?:3D)?(?:mine|review)/);
+      assert.equal(text.includes('PRIVATE DATA'), false);
+      assert.equal(text.includes('attacker@example.invalid'), false);
+    }
+  } finally { transport.close(); }
+});
 test('notification uses a fixed recipient and review link, excludes submission contents and skips completed delivery',async()=>{
   const {row,ref}=queue(), messages=[];
   const send=async m=>messages.push(m);

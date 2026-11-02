@@ -232,7 +232,7 @@ async function finishSave(page) {
 
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
     const letterheadPrompt = page.getByRole('button', {
-      name: 'Add your hospital / clinic logo & letterhead · Premium', exact: true,
+      name: 'Add logo & letterhead · Premium', exact: true,
     });
     await letterheadPrompt.waitFor({ state: 'visible' });
     await page.screenshot({ path: path.join(out, 'letterhead-prompt-mobile.png'), fullPage: true });

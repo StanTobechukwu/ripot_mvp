@@ -16,6 +16,8 @@ class AccountFunctions {
     'activatePremiumTrial',
     'syncFounderEntitlement',
     'refreshPlayEntitlement',
+    'getReportCopyAllowance',
+    'authorizeReportCopy',
   };
 
   static Future<dynamic> call(

@@ -9,6 +9,13 @@ const { createHash } = require("node:crypto");
 initializeApp();
 const db = getFirestore();
 
+const { createReportCopyService } = require('./report-copy');
+const reportCopy = createReportCopyService(db);
+const reportCopyOptions = { region: 'us-central1', maxInstances: 4,
+  concurrency: 20, timeoutSeconds: 20, memory: '256MiB' };
+exports.getReportCopyAllowance = onCall(reportCopyOptions, reportCopy.status);
+exports.authorizeReportCopy = onCall(reportCopyOptions, reportCopy.authorize);
+
 // An operator creates preview/apply documents in the Firebase console. App
 // clients cannot create or read these jobs. Never accept a project override.
 const { runFounderAdminJob } = require('./founder-admin-job');
