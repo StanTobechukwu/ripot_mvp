@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'ripot_pdf_preview.dart';
 import 'report_copy_action.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -9,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../records/ui/records_field_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/web/file_download.dart';
 import '../../access/providers/access_provider.dart';
@@ -40,6 +43,132 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   final _planBuilder = const PdfPlanBuilder();
 
   bool _saving = false;
+  bool _openingLetterhead = false;
+
+  // A local introduction, not a report setting or a Premium entitlement.
+  static const _letterheadGuideKey = 'onboarding.letterheadPreview.v1.complete';
+  final _letterheadTipKey = GlobalKey<TooltipState>();
+  bool _letterheadGuideReady = false;
+  bool _letterheadGuideComplete = false;
+  bool _showLetterheadTip = false;
+  Timer? _letterheadTipTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreLetterheadGuide());
+  }
+
+  @override
+  void dispose() {
+    _letterheadTipTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<bool> _hasActiveLetterhead() async {
+    if (!mounted || !context.read<AccessProvider>().safeState.canUseLetterhead) {
+      return false;
+    }
+    final doc = context.read<ReportEditorProvider>().doc;
+    if (doc.letterheadMode == LetterheadMode.prePrinted) return true;
+    final id = doc.letterheadId;
+    if (doc.letterheadMode != LetterheadMode.digital || id == null) return false;
+    try {
+      await context.read<LetterheadsRepository>().loadLetterhead(id);
+      if (!mounted) return false;
+      final current = context.read<ReportEditorProvider>().doc;
+      return context.read<AccessProvider>().safeState.canUseLetterhead &&
+          current.letterheadMode == LetterheadMode.digital &&
+          current.letterheadId == id;
+    } catch (_) {
+      // An unavailable saved letterhead is not a completed setup.
+      return false;
+    }
+  }
+
+  Future<void> _restoreLetterheadGuide() async {
+    var complete = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      complete = prefs.getBool(_letterheadGuideKey) ?? false;
+    } catch (_) {
+      // Keep the invitation usable if local preferences are unavailable.
+    }
+    if (!mounted) return;
+    if (!complete) complete = await _hasActiveLetterhead();
+    if (!mounted) return;
+    setState(() {
+      _letterheadGuideReady = true;
+      // A slow read must not undo a dismissal or setup in this screen.
+      _letterheadGuideComplete = _letterheadGuideComplete || complete;
+    });
+    if (complete) unawaited(_persistLetterheadGuide());
+  }
+
+  Future<void> _persistLetterheadGuide() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_letterheadGuideKey, true);
+    } catch (_) {
+      // Setup and editing still work; the guide stays hidden this session.
+    }
+  }
+
+  void _completeLetterheadGuide({required bool showTip}) {
+    if (!mounted || _letterheadGuideComplete) return;
+    setState(() {
+      _letterheadGuideComplete = true;
+      _showLetterheadTip = showTip;
+    });
+    unawaited(_persistLetterheadGuide());
+    if (!showTip) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_showLetterheadTip) return;
+      _letterheadTipKey.currentState?.ensureTooltipVisible();
+      // Programmatically shown tooltips need an explicit end to the lesson.
+      _letterheadTipTimer = Timer(const Duration(seconds: 8), _hideLetterheadTip);
+    });
+  }
+
+  void _hideLetterheadTip() {
+    _letterheadTipTimer?.cancel();
+    if (mounted && _showLetterheadTip) {
+      // Removing the teaching Tooltip also removes its overlay.
+      setState(() => _showLetterheadTip = false);
+    }
+  }
+
+  Widget _letterheadToolbarButton() {
+    final colors = Theme.of(context).colorScheme;
+    final button = IconButton(
+      tooltip: _showLetterheadTip ? null : 'Letterhead',
+      icon: const Icon(Icons.view_headline_outlined, semanticLabel: 'Letterhead'),
+      style: _showLetterheadTip
+          ? IconButton.styleFrom(
+              side: BorderSide(color: colors.primary),
+              shape: const CircleBorder(),
+            )
+          : null,
+      onPressed: _openLetterheadSheet,
+    );
+    if (!_showLetterheadTip) return button;
+    return Tooltip(
+      key: _letterheadTipKey,
+      message: 'Change your letterhead here anytime',
+      triggerMode: TooltipTriggerMode.manual,
+      preferBelow: true,
+      enableTapToDismiss: true,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.primary),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: TextStyle(color: colors.primary, fontWeight: FontWeight.w600),
+      child: button,
+    );
+  }
 
   // The selected letterhead ID does not change when the same letterhead
   // is edited. Incrementing this value forces PdfPreview to rebuild
@@ -339,6 +468,20 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   }
 
   Future<void> _openLetterheadSheet() async {
+    if (_openingLetterhead) return;
+    _openingLetterhead = true;
+    _hideLetterheadTip();
+    try {
+      await _showLetterheadOptions();
+      if (!_letterheadGuideComplete && await _hasActiveLetterhead()) {
+        _completeLetterheadGuide(showTip: true);
+      }
+    } finally {
+      _openingLetterhead = false;
+    }
+  }
+
+  Future<void> _showLetterheadOptions() async {
     final access = context.read<AccessProvider>().safeState;
 
     if (!access.canUseLetterhead) {
@@ -601,6 +744,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       if (!mounted) return;
 
       if (createdLetterheadId != null && createdLetterheadId != '__deleted__') {
+        vm.setLetterhead(createdLetterheadId);
         _refreshLetterheadPreview();
       }
 
@@ -786,25 +930,40 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             ),
             child: SizedBox(
               width: double.infinity,
-              child: TextButton.icon(
-                onPressed: _openLetterheadSheet,
-                style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                  minimumSize: const Size(0, 48),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: _openLetterheadSheet,
+                      style: TextButton.styleFrom(
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onSurfaceVariant,
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: Text(
+                        access.canUseLetterhead
+                            ? 'Add logo & letterhead'
+                            : 'Add logo & letterhead · Premium',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                  IconButton(
+                    tooltip: 'Dismiss letterhead introduction',
+                    icon: const Icon(Icons.close, size: 18),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    onPressed: () => _completeLetterheadGuide(showTip: false),
                   ),
-                ),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text(
-                  'Add your hospital / clinic logo & letterhead · Premium',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13),
-                ),
+                ],
               ),
             ),
           ),
@@ -827,11 +986,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         toolbarHeight: 56,
         titleSpacing: 0,
         actions: [
-          IconButton(
-            tooltip: 'Letterhead',
-            icon: const Icon(Icons.view_headline_outlined),
-            onPressed: _openLetterheadSheet,
-          ),
+          _letterheadToolbarButton(),
 
           IconButton(
             tooltip: 'Layout',
@@ -1005,8 +1160,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         ),
                       ),
                     ),
-                    if (!access.canUseLetterhead) letterheadPrompt,
                     copyAction,
+                    if (_letterheadGuideReady && !_letterheadGuideComplete)
+                      letterheadPrompt,
                     Expanded(child: preview),
                   ],
                 );
@@ -1016,7 +1172,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 children: [
                   header,
                   copyAction,
-                  if (!access.canUseLetterhead) letterheadPrompt,
+                  if (_letterheadGuideReady && !_letterheadGuideComplete)
+                    letterheadPrompt,
 
                   if (isNativeDesktop)
                     FutureBuilder<Uint8List>(
