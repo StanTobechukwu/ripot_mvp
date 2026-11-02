@@ -211,6 +211,7 @@ try {
         if ($app.HasExited) { throw 'Ripot exited at startup.' }
     } while ($app.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
     if ($app.MainWindowHandle -eq 0) { throw 'Ripot window unavailable.' }
+    if ($AppxPackageFamilyName) { $report.checks += Get-RipotStoreDpiState $app }
     $null = [RipotDesktop]::MoveWindow($app.MainWindowHandle, 20, 20, 960, 700, $true)
     $null = [RipotDesktop]::SetForegroundWindow($app.MainWindowHandle)
     Start-Sleep -Seconds 8

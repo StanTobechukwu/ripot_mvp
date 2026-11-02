@@ -51,8 +51,9 @@ licence text), process-launch API and executable-name references in Flutter,
 PDFium, URL launching and printing dependencies, and a DPI-awareness warning.
 The runner manifest now includes both the legacy per-monitor declaration and
 PerMonitorV2. The binary-processing/DPI warning still occurred on the Windows
-Server CI runner. The installed-app check independently queries the running
-process with `GetProcessDpiAwareness` and requires per-monitor awareness. Re-run
+Server CI runner. After the main window initializes, the installed-app check
+queries both process and window DPI modes and requires per-monitor window
+awareness. Activation alone can return before User32 initializes. Re-run
 WACK and check scaling on a supported Windows client before Store submission;
 the runtime check does not override or clear WACK's warning.
 Keep the licence notices; do not remove them to silence a scanner.

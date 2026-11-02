@@ -79,7 +79,6 @@ try {
     $workflow = Get-Content (Join-Path $output 'workflow/workflow-result.json') -Raw | ConvertFrom-Json
     if ($workflow.result -ne 'passed') { throw 'Installed MSIX workflow check failed.' }
     $report.checks += $workflow.checks
-    $report.checks += 'GetProcessDpiAwareness confirms the activated MSIX process is per-monitor DPI aware (2).'
 
     $appcert = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/App Certification Kit/appcert.exe'
     if (Test-Path $appcert) {

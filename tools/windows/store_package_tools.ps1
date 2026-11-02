@@ -31,6 +31,8 @@ public static class RipotStoreActivation {
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
     [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] static extern int GetPackageFullName(IntPtr process, ref uint length, StringBuilder name);
     [DllImport("shcore.dll")] static extern int GetProcessDpiAwareness(IntPtr process, out int awareness);
+    [DllImport("user32.dll")] static extern IntPtr GetWindowDpiAwarenessContext(IntPtr window);
+    [DllImport("user32.dll")] static extern int GetAwarenessFromDpiAwarenessContext(IntPtr context);
     public static uint Launch(string appId) {
         var manager = (IRipotApplicationActivationManager)new RipotApplicationActivationManager();
         try {
@@ -61,6 +63,9 @@ public static class RipotStoreActivation {
             return awareness;
         } finally { CloseHandle(handle); }
     }
+    public static int WindowDpiAwareness(IntPtr window) {
+        return GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(window));
+    }
 }
 '@
     }
@@ -71,10 +76,18 @@ public static class RipotStoreActivation {
     if ($registered.Count -ne 1 -or $registered[0].PackageFullName -ne $actualPackage) {
         throw 'Activated process did not have the installed MSIX package identity.'
     }
-    # Check the actual process independently of WACK's binary-manifest scanner.
-    # PROCESS_PER_MONITOR_DPI_AWARE is 2 (also returned for PerMonitorV2).
-    if ([RipotStoreActivation]::DpiAwareness($processId) -ne 2) {
-        throw 'Activated process is not per-monitor DPI aware.'
-    }
     return $process
+}
+
+function Get-RipotStoreDpiState($Process) {
+    # Activation can return before User32 initializes the process. Call this
+    # only after the native workflow has waited for the visible main window.
+    $Process.Refresh()
+    if ($Process.MainWindowHandle -eq [IntPtr]::Zero) { throw 'DPI inspection requires the initialized main window.' }
+    $processAwareness = [RipotStoreActivation]::DpiAwareness($Process.Id)
+    $windowAwareness = [RipotStoreActivation]::WindowDpiAwareness($Process.MainWindowHandle)
+    if ($windowAwareness -ne 2) {
+        throw "Ripot window is not per-monitor DPI aware: process=$processAwareness, window=$windowAwareness."
+    }
+    return "Runtime DPI awareness after window initialization: process=$processAwareness, window=$windowAwareness (per-monitor)."
 }
