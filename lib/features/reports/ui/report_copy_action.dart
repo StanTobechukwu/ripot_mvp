@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../access/domain/access_state.dart';
 import '../domain/models/report_doc.dart';
 import '../services/report_copy_service.dart';
-import '../services/report_text_service.dart';
 
 class ReportCopyAction extends StatefulWidget {
   const ReportCopyAction({super.key, required this.doc, required this.accountUid,
@@ -56,7 +55,9 @@ class _ReportCopyActionState extends State<ReportCopyAction> {
   }
 
   void _message(String message, {bool upgrade = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
       content: Text(message),
       action: upgrade ? SnackBarAction(label: 'View Premium', onPressed: widget.onUpgrade) : null,
     ));
@@ -72,25 +73,24 @@ class _ReportCopyActionState extends State<ReportCopyAction> {
     final uid = widget.accountUid;
     setState(() => _busy = true);
     try {
-      final result = await _service.copy(const ReportTextService().render(widget.doc), access: widget.access);
+      final result = await _service.copyReport(widget.doc, access: widget.access);
       if (!mounted || widget.accountUid != uid) return;
       setState(() => _allowance = result);
       final warning = !result.unlimited && result.charged &&
           {10, 5, 1, 0}.contains(result.remaining);
-      _message(result.unlimited ? 'Complete draft text copied.' :
-        'Complete draft text copied. ${result.remaining} free report versions remaining.'
-        '${result.repeated ? ' This repeat used no additional copy.' : ''}'
-        '${warning ? ' Premium includes unlimited report copying.' : ''}',
+      _message(warning
+          ? 'Report copied. ${result.remaining == 1 ? '1 free copy left' : '${result.remaining} free copies left'}.'
+          : 'Report copied.',
         upgrade: warning);
     } on ReportCopyException catch (error) {
       if (!mounted || widget.accountUid != uid) return;
       switch (error.code) {
         case 'resource-exhausted':
           setState(() => _allowance = const ReportCopyAllowance(limit: 50, remaining: 0));
-          _message('Your 50 free report versions have been used. Previously copied, unchanged versions are still free.', upgrade: true);
+          _message('No free copies left. You can still copy reports you copied before if their text has not changed.', upgrade: true);
           break;
         case 'clipboard':
-          _message('Clipboard access failed. Tap Copy report again. Retrying this unchanged version uses no additional copy.');
+          _message('Could not copy. Tap Copy report to retry; you will not be charged twice.');
           _refresh();
           break;
         case 'unauthenticated':
@@ -100,27 +100,50 @@ class _ReportCopyActionState extends State<ReportCopyAction> {
         case 'busy':
           break;
         default:
-          _message('Copy allowance could not be verified. Connect to the internet and try again. Your draft is unchanged.');
+          _message('Connect to the internet to check your free copies, then try again.');
       }
     } catch (_) {
       if (mounted && widget.accountUid == uid) {
-        _message('Copy allowance could not be verified. Connect to the internet and try again. Your draft is unchanged.');
+        _message('Connect to the internet to check your free copies, then try again.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  Future<void> _showCopyInfo() => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('About copying reports'),
+      scrollable: true,
+      content: const Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Formatting', style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 8),
+          Text('Copies the whole draft, with headings, spacing and alignment where the receiving app supports them. Plain-text fields keep the text only. Use PDF for the exact page layout, images and signatures.'),
+          SizedBox(height: 20),
+          Text('Free copies', style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 8),
+          Text('Your account includes 50 free copies in total. They do not renew.\n\nCopying the same report again is free until you change its text. Copying after a text change uses another free copy.\n\nPremium includes unlimited copies.'),
+        ],
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Got it'))],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final premium = widget.access.hasCurrentVerification && widget.access.isPremiumLike;
     final status = widget.accountUid == null
-        ? 'Sign in for 50 free report versions.'
+        ? 'Sign in to copy'
         : premium || _allowance?.unlimited == true
-        ? 'Unlimited report copying with active Premium or trial.'
+        ? 'Unlimited copies'
         : _allowance == null
-        ? '50 free report versions per account; allowance checked online.'
-        : '${_allowance!.remaining} of 50 free report versions remaining.';
+        ? 'Free copies checked online'
+        : _allowance!.remaining == 1 ? '1 free copy left'
+        : '${_allowance!.remaining} free copies left';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Wrap(
@@ -134,12 +157,16 @@ class _ReportCopyActionState extends State<ReportCopyAction> {
               child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.copy_all_outlined),
             label: const Text('Copy report'),
           ),
-          Text('$status\nUnchanged text counts once. The allowance does not reset.',
-            style: Theme.of(context).textTheme.bodySmall),
-          Tooltip(
-            triggerMode: TooltipTriggerMode.tap,
-            message: 'Copies the complete draft as plain text. Changed report text uses another free copy. Images, handwritten signatures and letterhead layout need PDF export.',
-            child: const Icon(Icons.info_outline, size: 20, semanticLabel: 'About copying report text'),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(status, style: Theme.of(context).textTheme.bodySmall)),
+              IconButton(
+                tooltip: 'About copying reports',
+                onPressed: _showCopyInfo,
+                icon: const Icon(Icons.info_outline, size: 20),
+              ),
+            ],
           ),
         ],
       ),

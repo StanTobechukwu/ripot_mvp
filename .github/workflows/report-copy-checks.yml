@@ -41,6 +41,23 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib test
       - run: flutter test --no-pub
+      - name: Check Windows HTML clipboard byte offsets
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror tools/testing/report_clipboard_format_test.cpp -o /tmp/report-clipboard-test
+          /tmp/report-clipboard-test
+      - name: Verify formatted and plain paste in Chrome
+        run: |
+          flutter build web --release --no-pub --target tools/testing/report_copy_preview.dart --output build/copy-preview
+          npm install --prefix "$RUNNER_TEMP/ripot-browser" --no-package-lock --no-save playwright@1.58.2
+          NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/web/smoke_report_copy.cjs
+      - name: Save clipboard verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-copy-format-check-${{ github.run_number }}
+          path: build/copy-browser-check
+          if-no-files-found: ignore
+          retention-days: 14
       - run: flutter build web --release --no-pub
       - run: python3 tools/web/package_release.py
       - run: python3 tools/android/prepare_ci_firebase.py

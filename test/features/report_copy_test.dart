@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:ripot/core/platform/report_clipboard.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ripot/features/access/domain/access_state.dart';
 import 'package:ripot/features/reports/domain/models/nodes.dart';
@@ -48,6 +50,87 @@ void main() {
     expect(text.indexOf('First full paragraph.'), lessThan(text.indexOf('Second full paragraph.')));
   });
 
+  test('existing allowance fingerprint text stays byte-for-byte compatible', () {
+    const previous = 'DRAFT\n\nFictional clinical report\n\nDate: 2026-11-02'
+        '\n\nSubject Name: Fictional Patient\nSubject ID: TEST-001'
+        '\n\nFindings:\nFirst full paragraph.\nSecond full paragraph.\nAnother line.'
+        '\nMeasurement:\n12.5 mm\nInternal code:\nVisible clinical note.'
+        '\nExtra findings?:\nNo\n\nClinician\nTest Clinician\nMD\n\nAssistant: Test Assistant';
+    expect(renderer.render(report), previous);
+    final empty = report.copyWith(roots: const []);
+    expect(renderer.render(empty.copyWith(roots: const [SectionNode(id: 'blank', title: '')])),
+        renderer.render(empty));
+  });
+
+  test('formatted and plain clipboard drafts preserve content and selected layout', () {
+    for (final layout in ReportLayout.values) {
+      final doc = report.copyWith(reportLayout: layout, indentContent: true);
+      final data = renderer.clipboard(doc);
+      for (final value in ['Fictional Patient', 'TEST-001', 'First full paragraph.',
+        'Second full paragraph.', 'Another line.', '12.5 mm', 'Visible clinical note.',
+        'Test Clinician', 'Test Assistant']) {
+        expect(data.text, contains(value));
+        expect(data.html, contains(value));
+      }
+      for (final value in ['DO NOT COPY THIS CODE', 'OMIT EMPTY', 'Hidden old value']) {
+        expect(data.text, isNot(contains(value)));
+        expect(data.html, isNot(contains(value)));
+      }
+      expect(data.html, contains('Second full paragraph.<br>Another line.'));
+      expect(data.html, contains('font-weight:bold'));
+      if (layout == ReportLayout.aligned) {
+        expect(data.html, contains('width:140pt'));
+      } else if (layout == ReportLayout.block) {
+        expect(data.text, contains('Findings:\n\n  First full paragraph.'));
+        expect(data.html, contains('margin:0 0 10pt 24pt'));
+      } else {
+        expect(data.text, contains('Findings: First full paragraph.'));
+        expect(data.html, contains('Findings:</span> First full paragraph.'));
+      }
+    }
+  });
+
+  test('clinical text is escaped, not interpreted as HTML or external content', () {
+    final doc = report.copyWith(reportTitle: '<img src="https://example.test/tracker">',
+      roots: const [SectionNode(id: 'value', title: 'A & B', children: [
+        ContentNode(id: 'clinical', text: '<script>alert(1)</script>\n<5 mm & >2 mm'),
+      ])]);
+    final data = renderer.clipboard(doc);
+    expect(data.html, isNot(contains('<script>')));
+    expect(data.html, isNot(contains('<img')));
+    expect(data.html, contains('&lt;5 mm &amp; &gt;2 mm'));
+    expect(data.text, contains('<5 mm & >2 mm'));
+  });
+
+  test('layout changes preserve authorization identity while changing both clipboard formats', () async {
+    final keys = <String>[];
+    final writes = <ReportClipboardData>[];
+    final service = ReportCopyService(currentUid: () => 'alice',
+      call: (name, data) async {
+        expect(data.keys, ['fingerprint']);
+        keys.add(data['fingerprint'] as String);
+        return response(repeated: keys.length > 1, charged: keys.length == 1);
+      }, writeClipboard: (data) async { writes.add(data); });
+    await service.copyReport(report);
+    await service.copyReport(report.copyWith(reportLayout: ReportLayout.block));
+    expect(keys[0], keys[1]);
+    expect(writes[0].html, isNot(writes[1].html));
+    expect(writes[0].text, isNot(writes[1].text));
+    expect(writes[0].html, contains('Fictional Patient'));
+  });
+
+  test('native bridge receives HTML and plain text in one authorized write', () async {
+    const channel = MethodChannel('ripot/report_clipboard');
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    MethodCall? captured;
+    messenger.setMockMethodCallHandler(channel, (call) async { captured = call; });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final data = renderer.clipboard(report);
+    await writeReportClipboard(data);
+    expect(captured?.method, 'write');
+    expect(captured?.arguments, {'text': data.text, 'html': data.html});
+  });
+
   test('no truncation and fingerprints ignore save/layout changes but include changed clinical text', () {
     final longText = List.filled(3000,'A complete sentence.').join('\n');
     final large = report.copyWith(roots:[SectionNode(id:'long',title:'Narrative',
@@ -71,7 +154,7 @@ void main() {
       expect(data.keys, ['fingerprint']);
       expect(data['fingerprint'],ReportTextService.fingerprint('alice',text));
       return response();
-    }, writeClipboard:(value) async => clipboard = value);
+    }, writeClipboard:(value) async => clipboard = value.text);
     expect((await service.copy(text)).remaining,49);
     expect(clipboard,text);
   });
@@ -143,21 +226,44 @@ void main() {
     final service = ReportCopyService(currentUid:()=> 'alice',
       call:(name,data) async => response(remaining:name == 'getReportCopyAllowance' ? 11 : 10,
         charged:name == 'authorizeReportCopy'),
-      writeClipboard:(text) async => clipboard = text);
+      writeClipboard:(text) async => clipboard = text.text);
     await tester.pumpWidget(MaterialApp(home:Scaffold(body:ReportCopyAction(
       doc:report,accountUid:'alice',access:AccessState.initial(installationId:'test'),
       service:service,onSignIn:() async {},onUpgrade:() async {upgrades++;},
     ))));
     await tester.pumpAndSettle();
-    expect(find.textContaining('11 of 50'),findsOneWidget);
+    expect(find.text('11 free copies left'),findsOneWidget);
     await tester.tap(find.text('Copy report'));
     await tester.pumpAndSettle();
-    expect(clipboard,renderer.render(report));
-    expect(find.textContaining('10 of 50'),findsOneWidget);
+    expect(clipboard,renderer.clipboard(report).text);
+    expect(find.text('10 free copies left'),findsOneWidget);
     expect(find.text('View Premium'),findsOneWidget);
     await tester.tap(find.text('View Premium'));
     expect(upgrades,1);
     expect(tester.takeException(),isNull);
+  });
+
+  testWidgets('compact copy toolbar fits a phone and explains allowance on demand', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final service = ReportCopyService(currentUid: () => 'alice',
+      call: (name, data) async => response(remaining: 49));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ReportCopyAction(
+      doc: report, accountUid: 'alice', access: AccessState.initial(installationId: 'test'),
+      service: service, onSignIn: () async {}, onUpgrade: () async {},
+    ))));
+    await tester.pumpAndSettle();
+    expect(find.text('49 free copies left'), findsOneWidget);
+    expect(find.textContaining('They do not renew'), findsNothing);
+    await tester.tap(find.byTooltip('About copying reports'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('They do not renew'), findsOneWidget);
+    expect(find.textContaining('until you change its text'), findsOneWidget);
+    await tester.tap(find.text('Got it'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('guest copy offers sign-in without claiming an allowance', (tester) async {

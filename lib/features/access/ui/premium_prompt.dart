@@ -32,7 +32,7 @@ PremiumPromptContent premiumPromptContent(PremiumFeature feature) {
     case PremiumFeature.reportCopy:
       return const PremiumPromptContent(
         title: 'Keep copying reports with Premium',
-        body: 'Free accounts can copy 50 distinct report text versions in total. Re-copying unchanged text uses no additional copy. Active Premium and Premium trials include unlimited report copying. Your drafts stay available.',
+        body: 'Your account includes 50 free copies in total. Copying a report again is free until you change its text. Premium and active Premium trials include unlimited copies. Your drafts stay available.',
       );
     case PremiumFeature.automaticBackup:
       return const PremiumPromptContent(

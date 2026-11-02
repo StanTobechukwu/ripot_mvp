@@ -8,6 +8,16 @@ Guided OGD reports use the same presentation and anatomical ordering as the PDF.
 Record-only values and inactive conditional fields are excluded. Images,
 signature images and letterhead layout require PDF export.
 
+Copy now writes HTML and a readable plain-text alternative together. Supported
+receiving apps can retain heading styles, paragraph spacing, hierarchy, subject
+columns, and block/inline/aligned layout. Text-only destinations use the plain
+alternative. The receiving app controls final appearance; PDF is still the format
+for exact page layout. User text is HTML-escaped and includes no external resources.
+Preview shows only “Copy report”, the remaining count, and an accessible info
+button. The explanation of the lifetime allowance and repeats is in that dialog.
+The v1 fingerprint text stays unchanged, so formatting-only updates do not spend
+another free copy. No backend redeployment is needed for this copy UI update.
+
 ## Allowance
 
 - A registered Free account gets 50 distinct text versions in total, not monthly.

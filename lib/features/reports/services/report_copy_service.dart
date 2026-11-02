@@ -1,10 +1,11 @@
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/firebase/account_functions.dart';
 import '../../../core/firebase/account_runtime.dart';
 import '../../../core/firebase/callable_http_client.dart';
+import '../../../core/platform/report_clipboard.dart';
 import '../../access/domain/access_state.dart';
+import '../domain/models/report_doc.dart';
 import 'report_text_service.dart';
 
 typedef CopyCallable = Future<dynamic> Function(String name, Map<String, dynamic> data);
@@ -38,15 +39,15 @@ class ReportCopyException implements Exception {
 
 class ReportCopyService {
   ReportCopyService({String? Function()? currentUid, CopyCallable? call,
-    Future<void> Function(String)? writeClipboard, DateTime Function()? clock})
+    Future<void> Function(ReportClipboardData)? writeClipboard, DateTime Function()? clock})
       : _currentUid = currentUid ?? (() => AccountRuntime.session?.currentUser?.uid),
         _call = call ?? ((name, data) => AccountFunctions.call(name, data: data)),
-        _writeClipboard = writeClipboard ?? ((text) => Clipboard.setData(ClipboardData(text: text))),
+        _writeClipboard = writeClipboard ?? writeReportClipboard,
         _clock = clock ?? DateTime.now;
 
   final String? Function() _currentUid;
   final CopyCallable _call;
-  final Future<void> Function(String) _writeClipboard;
+  final Future<void> Function(ReportClipboardData) _writeClipboard;
   final DateTime Function() _clock;
   bool _busy = false;
   // A clipboard failure may need a fresh user gesture in web browsers. Keep
@@ -76,7 +77,16 @@ class ReportCopyService {
   Future<ReportCopyAllowance> status() =>
       _request('getReportCopyAllowance', _uid(), const {});
 
-  Future<ReportCopyAllowance> copy(String text, {AccessState? access}) async {
+  Future<ReportCopyAllowance> copyReport(ReportDoc doc, {AccessState? access}) {
+    const renderer = ReportTextService();
+    return _copy(renderer.render(doc), renderer.clipboard(doc), access: access);
+  }
+
+  Future<ReportCopyAllowance> copy(String text, {AccessState? access}) =>
+      _copy(text, ReportClipboardData(text: text), access: access);
+
+  Future<ReportCopyAllowance> _copy(String text, ReportClipboardData clipboard,
+      {AccessState? access}) async {
     if (_busy) throw const ReportCopyException('busy');
     final uid = _uid();
     final key = ReportTextService.fingerprint(uid, text);
@@ -94,7 +104,7 @@ class ReportCopyService {
       }
       if (_currentUid() != uid) throw const ReportCopyException('account-changed');
       try {
-        await _writeClipboard(text);
+        await _writeClipboard(clipboard);
       } catch (_) {
         _retryKey = key;
         _retryUntil = _clock().add(const Duration(seconds: 60));
