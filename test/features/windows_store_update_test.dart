@@ -10,8 +10,6 @@ void main() {
   testWidgets(
     'Store build does not start the standalone Windows installer update check',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       var packageInfoCalls = 0;
       const channel = MethodChannel('dev.fluttercommunity.plus/package_info');
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
@@ -42,5 +40,6 @@ void main() {
       expect(find.text('Download update'), findsNothing);
     },
     skip: !isStore,
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 }
