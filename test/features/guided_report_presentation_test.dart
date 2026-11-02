@@ -46,7 +46,7 @@ void main() {
     final saved = ReportCodec.reportToJson(vm.doc);
     final reopened = ReportCodec.reportFromJson(saved);
     expect(reportText(reopened.roots), contains('Fictional drug: 2.5 mg; IV'));
-    expect(const ReportTextService().render(reopened), contains('Fictional drug: 2.5 mg; IV'));
+    expect(const ReportTextService().render(reopened), contains('Fictional drug:\n2.5 mg; IV'));
     expect(ReportCodec.reportToJson(reopened), saved);
     final roundTrip = TemplateCodec.templateFromJson(TemplateCodec.templateToJson(template()));
     expect(walk(roundTrip.roots).firstWhere((n) => n.id == 'extra_details').reportRole, 'ogd.details');

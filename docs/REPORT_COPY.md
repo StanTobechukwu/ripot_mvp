@@ -47,6 +47,12 @@ Function deployment command from the repository root:
 firebase deploy --project ripot-4edf7 --only functions:getReportCopyAllowance,functions:authorizeReportCopy
 ```
 
+The functions runtime and emulator CI now use Node.js 22. Google lists Node.js 20
+as decommissioned on 30 October 2026 in its [runtime support schedule](https://docs.cloud.google.com/functions/docs/runtime-support).
+Changing source configuration does not migrate already-deployed functions;
+review their runtime and redeploy the existing endpoints as a separate release
+operation using the tested source.
+
 Use a test account to verify the deployed functions from Windows and web before
 Store submission. A missing backend produces a retry message and does not grant
 free copying. CI tests the emulator, not production deployment. Include the copy

@@ -235,6 +235,16 @@ try {
     $report.checks += 'Opened the built-in echo form and invoked Save progress.'
     Click-Label 'Preview'
     Save-State '06-report-preview'
+    if ($AppxPackageFamilyName) {
+        Click-Label 'Copy report'
+        Save-State '06-copy-sign-in'
+        if (@((Get-AppElements) | Where-Object { $_.Name -eq 'Sign in' }).Count -eq 0) {
+            throw 'Guest Copy report did not open sign-in.'
+        }
+        Click-Label 'Back'
+        Save-State '06-copy-returned-to-preview'
+        $report.checks += 'Preview Copy report requires sign-in for the account allowance; returning keeps the draft intact.'
+    }
     # The custom save icon exposes its tooltip as text, not as a button in MSAA.
     # This point is its observed centre in the fixed 960x700 window (run #7).
     Click-WindowPoint 924 60
