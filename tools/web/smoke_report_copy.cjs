@@ -64,9 +64,12 @@ const server = http.createServer((req, res) => {
     await page.setViewportSize({ width: 360, height: 800 });
     await page.screenshot({ path: path.join(out, 'toolbar-phone.png') });
     // A separate rich editor receives the clipboard through an actual paste.
+    await context.route(`${origin}/paste-target.html`, route => route.fulfill({
+      contentType: 'text/html',
+      body: '<html><body style="padding:24px;font-family:Arial"><h2>Paste check (fictional report)</h2><div id="editor" contenteditable="true" style="border:1px solid #bbb;padding:24px;min-height:400px"></div><textarea id="plain"></textarea></body></html>',
+    }));
     const editor = await context.newPage();
-    await editor.goto(origin);
-    await editor.setContent('<html><body style="padding:24px;font-family:Arial"><h2>Paste check (fictional report)</h2><div id="editor" contenteditable="true" style="border:1px solid #bbb;padding:24px;min-height:400px"></div><textarea id="plain"></textarea></body></html>');
+    await editor.goto(`${origin}/paste-target.html`);
     await editor.locator('#editor').focus();
     await editor.keyboard.press('Control+V');
     await editor.waitForFunction(() => document.querySelector('#editor').innerText.includes('12.5 mm'));
