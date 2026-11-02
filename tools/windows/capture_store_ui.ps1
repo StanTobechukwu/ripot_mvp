@@ -218,6 +218,14 @@ public static class RipotCaptureDisplay {
     [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref Point point);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool EnumDisplaySettings(string device, int mode, ref DevMode value);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int ChangeDisplaySettings(ref DevMode value, uint flags);
+    public static int SetResolution() {
+        DevMode mode = new DevMode();
+        mode.Size = (ushort)Marshal.SizeOf(typeof(DevMode));
+        // Pass a real native NULL device name; PowerShell coerces a string null to empty.
+        if (!EnumDisplaySettings(null, -1, ref mode)) return -100;
+        mode.PelsWidth = 1920; mode.PelsHeight = 1080; mode.Fields = 0x180000;
+        return ChangeDisplaySettings(ref mode, 0);
+    }
 }
 '@
 
@@ -286,11 +294,11 @@ try {
     $report.installerSha256 = $manifest.sha256
     $report.packageType = 'MSIX'
     [RipotCaptureDisplay]::SetProcessDPIAware() | Out-Null
-    $mode = [RipotCaptureDisplay+DevMode]::new()
-    $mode.Size = [Runtime.InteropServices.Marshal]::SizeOf($mode)
-    if (-not [RipotCaptureDisplay]::EnumDisplaySettings($null, -1, [ref]$mode)) { throw 'Cannot read display mode.' }
-    $mode.PelsWidth=1920; $mode.PelsHeight=1080; $mode.Fields=0x180000
-    $result = [RipotCaptureDisplay]::ChangeDisplaySettings([ref]$mode, 0)
+    Write-Host "Initial desktop: $([RipotCaptureDisplay]::GetSystemMetrics(0)) x $([RipotCaptureDisplay]::GetSystemMetrics(1))"
+    $result = [RipotCaptureDisplay]::SetResolution()
+    if ($result -ne 0 -and (Get-Command Set-DisplayResolution -ErrorAction SilentlyContinue)) {
+        Set-DisplayResolution -Width 1920 -Height 1080 -Force
+    }
     Write-Host "Display mode result: $result"
     Start-Sleep -Seconds 3
     $report.display = @([RipotCaptureDisplay]::GetSystemMetrics(0), [RipotCaptureDisplay]::GetSystemMetrics(1))
