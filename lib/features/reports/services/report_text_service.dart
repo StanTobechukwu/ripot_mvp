@@ -106,7 +106,7 @@ class ReportTextService {
         }
       } else if (layout == ReportLayout.aligned && title.isNotEmpty) {
         html.write('<table style="width:100%;border-collapse:collapse;margin:0 0 10pt ${indent}pt;" cellpadding="0" cellspacing="0"><tbody><tr>');
-        html.write('<td style="width:140pt;vertical-align:top;padding:0 10pt 0 0;text-align:$align;">$labelHtml</td>');
+        html.write('<td style="width:160pt;vertical-align:top;padding:0 10pt 0 0;text-align:$align;">$labelHtml</td>');
         html.write('<td style="vertical-align:top;padding:0;">${_escape(first)}</td></tr></tbody></table>');
       } else {
         html.write('<p style="margin:0 0 10pt ${indent}pt;">${title.isEmpty ? '' : '$labelHtml '}${_escape(first)}</p>');

@@ -79,7 +79,7 @@ void main() {
       expect(data.html, contains('Second full paragraph.<br>Another line.'));
       expect(data.html, contains('font-weight:bold'));
       if (layout == ReportLayout.aligned) {
-        expect(data.html, contains('width:140pt'));
+        expect(data.html, contains('width:160pt'));
       } else if (layout == ReportLayout.block) {
         expect(data.text, contains('Findings:\n\n  First full paragraph.'));
         expect(data.html, contains('margin:0 0 10pt 24pt'));

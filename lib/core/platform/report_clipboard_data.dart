@@ -1,4 +1,4 @@
-/// Two representations of the same complete draft. Neither leaves the device.
+/// Two locally generated representations of the same complete draft.
 class ReportClipboardData {
   const ReportClipboardData({required this.text, this.html});
 
