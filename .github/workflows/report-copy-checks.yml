@@ -22,6 +22,7 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci --prefix functions
+      - run: npm audit --prefix functions
       - run: npx --yes firebase-tools@14.22.0 emulators:exec --only firestore --project demo-ripot-founders --config firebase.test.json "npm test --prefix functions"
   shared-app:
     runs-on: ubuntu-22.04

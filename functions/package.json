@@ -14,13 +14,21 @@
     "activity:audit": "node scripts/activity.js"
   },
   "dependencies": {
-    "firebase-admin": "^12.7.0",
-    "firebase-functions": "^6.1.1",
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0",
     "google-auth-library": "^10.0.0",
-    "nodemailer": "^7.0.13"
+    "nodemailer": "^10.3.1"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "3.0.4",
-    "firebase": "10.14.1"
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0"
+  },
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.14.7"
+    },
+    "@google-cloud/firestore-api": {
+      "google-gax": "5.0.4"
+    }
   }
 }
