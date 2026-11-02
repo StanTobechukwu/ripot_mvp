@@ -265,19 +265,19 @@ function Complete-FictionalDraft {
     $candidates = @(foreach ($location in $locations) {
         if (Test-Path $location) { Get-ChildItem $location -Filter shared_preferences.json -Recurse -File -ErrorAction SilentlyContinue }
     }) | Sort-Object FullName -Unique
-    $matches = @()
+    $fixtures = @()
     foreach ($file in $candidates) {
         $prefs = Get-Content $file.FullName -Raw | ConvertFrom-Json
         foreach ($property in $prefs.PSObject.Properties) {
             if ($property.Name -notmatch '(^|\.)reports\.doc\.') { continue }
             $doc = $property.Value | ConvertFrom-Json
             if ($doc.reportTitle -eq 'Echocardiography - fictional sample') {
-                $matches += [pscustomobject]@{File=$file; Prefs=$prefs; Property=$property; Doc=$doc}
+                $fixtures += [pscustomobject]@{File=$file; Prefs=$prefs; Property=$property; Doc=$doc}
             }
         }
     }
-    if ($matches.Count -ne 1) { throw "Expected one fictional draft preference, found $($matches.Count)." }
-    $fixture = $matches[0]
+    if ($fixtures.Count -ne 1) { throw "Expected one fictional draft preference, found $($fixtures.Count)." }
+    $fixture = $fixtures[0]
     Populate-FictionalSections $fixture.Doc.roots
     $fixture.Property.Value = $fixture.Doc | ConvertTo-Json -Depth 80 -Compress
     $json = $fixture.Prefs | ConvertTo-Json -Depth 80 -Compress
@@ -330,7 +330,7 @@ try {
     $report.checks += 'Actual installed Windows UI captured at native resolution; no image resizing or marketing overlays.'
     $report.result = 'passed'
 } catch {
-    $report.result = 'failed'; $report.error = $_.Exception.Message
+    $report.result = 'failed'; $report.error = $_.Exception.Message; $report.stack = $_.ScriptStackTrace
     if ($null -ne $app -and -not $app.HasExited) { try { Save-State 'failure-state' } catch { Write-Warning $_ } }
     throw
 } finally {
