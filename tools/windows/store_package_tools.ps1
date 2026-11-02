@@ -30,6 +30,7 @@ public static class RipotStoreActivation {
     [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr OpenProcess(uint access, bool inherit, uint id);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
     [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] static extern int GetPackageFullName(IntPtr process, ref uint length, StringBuilder name);
+    [DllImport("shcore.dll")] static extern int GetProcessDpiAwareness(IntPtr process, out int awareness);
     public static uint Launch(string appId) {
         var manager = (IRipotApplicationActivationManager)new RipotApplicationActivationManager();
         try {
@@ -51,6 +52,15 @@ public static class RipotStoreActivation {
             return name.ToString();
         } finally { CloseHandle(handle); }
     }
+    public static int DpiAwareness(uint id) {
+        IntPtr handle = OpenProcess(0x0400, false, id);
+        if (handle == IntPtr.Zero) throw new InvalidOperationException("Cannot inspect process DPI awareness.");
+        try {
+            int awareness;
+            Marshal.ThrowExceptionForHR(GetProcessDpiAwareness(handle, out awareness));
+            return awareness;
+        } finally { CloseHandle(handle); }
+    }
 }
 '@
     }
@@ -60,6 +70,11 @@ public static class RipotStoreActivation {
     $registered = @(Get-AppxPackage | Where-Object { $_.PackageFamilyName -eq $PackageFamilyName })
     if ($registered.Count -ne 1 -or $registered[0].PackageFullName -ne $actualPackage) {
         throw 'Activated process did not have the installed MSIX package identity.'
+    }
+    # Check the actual process independently of WACK's binary-manifest scanner.
+    # PROCESS_PER_MONITOR_DPI_AWARE is 2 (also returned for PerMonitorV2).
+    if ([RipotStoreActivation]::DpiAwareness($processId) -ne 2) {
+        throw 'Activated process is not per-monitor DPI aware.'
     }
     return $process
 }

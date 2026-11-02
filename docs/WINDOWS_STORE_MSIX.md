@@ -50,7 +50,12 @@ The initial package check flagged `NOTICES.Z` (verified to contain only UTF-8
 licence text), process-launch API and executable-name references in Flutter,
 PDFium, URL launching and printing dependencies, and a DPI-awareness warning.
 The runner manifest now includes both the legacy per-monitor declaration and
-PerMonitorV2. Keep the licence notices; do not remove them to silence a scanner.
+PerMonitorV2. The binary-processing/DPI warning still occurred on the Windows
+Server CI runner. The installed-app check independently queries the running
+process with `GetProcessDpiAwareness` and requires per-monitor awareness. Re-run
+WACK and check scaling on a supported Windows client before Store submission;
+the runtime check does not override or clear WACK's warning.
+Keep the licence notices; do not remove them to silence a scanner.
 Review the current report and test the relevant URL/printing behavior on the
 intended Windows editions. Microsoft describes the Desktop Bridge archive and
 blocked-executable tests as informational [optional tests](https://learn.microsoft.com/en-us/windows/uwp/debug-test-perf/windows-desktop-bridge-app-tests).
