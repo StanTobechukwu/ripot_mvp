@@ -1,0 +1,35 @@
+name: Capture Microsoft Store screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/store-screenshots-20261102]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  screenshots:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the unchanged uploaded release
+        uses: actions/download-artifact@v4
+        with:
+          name: ripot-microsoft-store-x64-23
+          run-id: 41511495967
+          github-token: ${{ github.token }}
+          path: screenshot-package
+      - name: Capture installed Windows app with fictional data
+        shell: powershell
+        run: ./tools/windows/capture_store_package.ps1 -ArtifactDirectory screenshot-package -ExpectedCommit 1dc88973b206c03c9888de0a08ee629204228787 -OutputDirectory store-screenshots
+      - name: Save native screenshots and provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-store-screenshots-${{ github.run_number }}
+          path: store-screenshots/**
+          if-no-files-found: error
+          retention-days: 30
