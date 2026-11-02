@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory)][string]$OutputDirectory,
     [string]$ExpectedCommit = '599633c46f7d860fd2f8c24daa46e4baf60f865e',
     [string]$UpgradeDirectory = '',
-    [string]$ExpectedUpgradeCommit = ''
+    [string]$ExpectedUpgradeCommit = '',
+    [string]$AppxPackageFamilyName = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,6 +19,14 @@ $output = (Resolve-Path $OutputDirectory).Path
 $install = Join-Path $env:RUNNER_TEMP ('ripot-ui-' + [guid]::NewGuid())
 $report = [ordered]@{ result = 'incomplete'; checks = @(); screenshots = @() }
 $app = $null
+if ($AppxPackageFamilyName) {
+    if ($UpgradeDirectory) { throw 'The EXE upgrade check cannot be used for MSIX.' }
+    . (Join-Path $PSScriptRoot 'store_package_tools.ps1')
+}
+function Start-WorkflowApp {
+    if ($AppxPackageFamilyName) { return Start-RipotStoreApp $AppxPackageFamilyName }
+    return Start-Process (Join-Path $install 'ripot.exe') -WorkingDirectory $install -PassThru
+}
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms, Accessibility
 Add-Type @'
 using System;
@@ -176,16 +185,25 @@ function Click-WindowPoint([int]$X, [int]$Y) {
 }
 
 try {
-    $manifest = Get-Content (Join-Path $package 'windows-release.json') -Raw | ConvertFrom-Json
-    if ($manifest.sourceCommit -ne $ExpectedCommit -or $manifest.sourceDirty) { throw 'Unexpected installer source.' }
+    $manifestName = if ($AppxPackageFamilyName) { 'windows-store-release.json' } else { 'windows-release.json' }
+    $manifest = Get-Content (Join-Path $package $manifestName) -Raw | ConvertFrom-Json
+    if ($manifest.sourceCommit -ne $ExpectedCommit -or $manifest.sourceDirty) { throw 'Unexpected package source.' }
     $installer = Join-Path $package $manifest.filename
-    if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne $manifest.sha256) { throw 'Installer checksum mismatch.' }
+    if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne $manifest.sha256) { throw 'Package checksum mismatch.' }
     $report.sourceCommit = $manifest.sourceCommit
     $report.installerSha256 = $manifest.sha256
-    $setup = Start-Process $installer -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=`"$install`"") -PassThru
-    if (-not $setup.WaitForExit(60000)) { Stop-Process -Id $setup.Id -Force; throw 'Installer timed out.' }
-    if ($setup.ExitCode -ne 0) { throw 'Installer failed.' }
-    $app = Start-Process (Join-Path $install 'ripot.exe') -WorkingDirectory $install -PassThru
+    if ($AppxPackageFamilyName) {
+        $registered = @(Get-AppxPackage | Where-Object { $_.PackageFamilyName -eq $AppxPackageFamilyName })
+        if ($registered.Count -ne 1) { throw 'Expected one installed MSIX package.' }
+        $install = $registered[0].InstallLocation
+        $report.packageType = 'MSIX'
+        $report.checks += 'App activation verifies the process carries the installed MSIX identity.'
+    } else {
+        $setup = Start-Process $installer -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=`"$install`"") -PassThru
+        if (-not $setup.WaitForExit(60000)) { Stop-Process -Id $setup.Id -Force; throw 'Installer timed out.' }
+        if ($setup.ExitCode -ne 0) { throw 'Installer failed.' }
+    }
+    $app = Start-WorkflowApp
     $deadline = [DateTime]::UtcNow.AddSeconds(45)
     do {
         Start-Sleep -Milliseconds 500
@@ -254,7 +272,7 @@ try {
         $report.upgradeInstallerSha256 = $upgrade.sha256
         $report.checks += "Installed build $($upgrade.build) over build $($manifest.build) without uninstalling; saved PDF bytes remained unchanged."
     }
-    $app = Start-Process (Join-Path $install 'ripot.exe') -WorkingDirectory $install -PassThru
+    $app = Start-WorkflowApp
     Start-Sleep -Seconds 8
     $app.Refresh()
     $null = [RipotDesktop]::MoveWindow($app.MainWindowHandle, 20, 20, 960, 700, $true)
@@ -284,7 +302,7 @@ try {
 } finally {
     if ($null -ne $app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force }
     $uninstaller = Join-Path $install 'unins000.exe'
-    if (Test-Path $uninstaller) {
+    if (-not $AppxPackageFamilyName -and (Test-Path $uninstaller)) {
         $remove = Start-Process $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -PassThru
         if (-not $remove.WaitForExit(60000)) { Stop-Process -Id $remove.Id -Force }
     }

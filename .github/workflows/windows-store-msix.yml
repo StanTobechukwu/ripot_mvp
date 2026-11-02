@@ -1,0 +1,56 @@
+name: Build Microsoft Store MSIX
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/windows-store-msix-20261102]
+  pull_request:
+    paths:
+      - .github/workflows/windows-store-msix.yml
+      - windows/packaging/**
+      - tools/windows/*store*
+      - tools/windows/check_installed_workflows.ps1
+      - lib/features/update/windows_update_prompt.dart
+      - test/features/windows_store_update_test.dart
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-store-msix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  store-package:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: stable
+          cache: true
+      - name: Test and build unsigned Store package
+        shell: pwsh
+        run: ./tools/windows/build_store_msix.ps1
+      - name: Test install, package identity, PDF workflow and certification kit
+        shell: powershell
+        env:
+          RIPOT_SOURCE_COMMIT: ${{ github.sha }}
+        run: ./tools/windows/check_store_msix.ps1 -ArtifactDirectory build/windows-store -ExpectedCommit $env:RIPOT_SOURCE_COMMIT -OutputDirectory store-validation
+      - name: Save Store upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-microsoft-store-x64-${{ github.run_number }}
+          path: build/windows-store/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripot-msix-validation-${{ github.run_number }}
+          path: store-validation/**
+          if-no-files-found: warn
+          retention-days: 30

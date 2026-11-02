@@ -12,6 +12,7 @@ import 'package:ripot/features/reports/domain/serialization/template_codec.dart'
 import 'package:ripot/features/reports/domain/pdf/pdf_plan.dart';
 import 'package:ripot/features/reports/providers/report_editor_provider.dart';
 import 'package:ripot/features/reports/services/pdf_renderer_service.dart';
+import 'package:ripot/features/reports/services/report_text_service.dart';
 
 Iterable<SectionNode> walk(Iterable<SectionNode> roots) sync* {
   for (final n in roots) { yield n; yield* walk(n.children.whereType<SectionNode>()); }
@@ -45,6 +46,7 @@ void main() {
     final saved = ReportCodec.reportToJson(vm.doc);
     final reopened = ReportCodec.reportFromJson(saved);
     expect(reportText(reopened.roots), contains('Fictional drug: 2.5 mg; IV'));
+    expect(const ReportTextService().render(reopened), contains('Fictional drug: 2.5 mg; IV'));
     expect(ReportCodec.reportToJson(reopened), saved);
     final roundTrip = TemplateCodec.templateFromJson(TemplateCodec.templateToJson(template()));
     expect(walk(roundTrip.roots).firstWhere((n) => n.id == 'extra_details').reportRole, 'ogd.details');

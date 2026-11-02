@@ -1,4 +1,7 @@
 import 'ripot_pdf_preview.dart';
+import 'report_copy_action.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/ui/auth_screens.dart';
 import '../../../core/web/template_funnel.dart';
 import 'dart:typed_data';
 
@@ -912,6 +915,17 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
       body: Consumer<ReportEditorProvider>(
         builder: (context, vm, _) {
+          final copyAction = ReportCopyAction(
+            doc: vm.doc,
+            accountUid: context.watch<AuthProvider?>()?.currentUser?.uid,
+            access: access,
+            onSignIn: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(builder: (_) => const SignInScreen()),
+            ),
+            onUpgrade: () async {
+              await showPremiumFeatureSheet(context, PremiumFeature.reportCopy);
+            },
+          );
           final reportsRepo = context.read<ReportsRepository>();
 
           final pdfFileName = reportsRepo.pdfFileNameForDoc(vm.doc);
@@ -992,6 +1006,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       ),
                     ),
                     if (!access.canUseLetterhead) letterheadPrompt,
+                    copyAction,
                     Expanded(child: preview),
                   ],
                 );
@@ -1000,6 +1015,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               return Column(
                 children: [
                   header,
+                  copyAction,
                   if (!access.canUseLetterhead) letterheadPrompt,
 
                   if (isNativeDesktop)

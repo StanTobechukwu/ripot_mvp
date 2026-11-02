@@ -18,6 +18,7 @@ enum PremiumFeature {
   moreTemplates,
   moreReports,
   advancedLayout,
+  reportCopy,
 }
 
 class PremiumPromptContent {
@@ -28,6 +29,11 @@ class PremiumPromptContent {
 
 PremiumPromptContent premiumPromptContent(PremiumFeature feature) {
   switch (feature) {
+    case PremiumFeature.reportCopy:
+      return const PremiumPromptContent(
+        title: 'Keep copying reports with Premium',
+        body: 'Free accounts can copy 50 distinct report text versions in total. Re-copying unchanged text uses no additional copy. Active Premium and Premium trials include unlimited report copying. Your drafts stay available.',
+      );
     case PremiumFeature.automaticBackup:
       return const PremiumPromptContent(
         title: 'Schedule backups with Premium',
