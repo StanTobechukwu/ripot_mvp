@@ -44,11 +44,11 @@ const server=http.createServer((req,res)=>{
       assert.equal(await page.locator('#plan-comparison').getAttribute('open'),null);
       assert.equal(await page.locator('.plan-grid').isVisible(),false);
       await page.screenshot({path:path.join(out,`home-plans-collapsed-${width}.png`)});
-      await page.locator('#plan-comparison summary').click();
+      await page.locator('#plan-comparison > summary').click();
       assert.equal(await page.locator('.plan-grid').isVisible(),true);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Expanded plan overflow at ${width}`);
       await page.screenshot({path:path.join(out,`home-plans-${width}.png`)});
-      await page.locator('#plan-comparison summary').click();
+      await page.locator('#plan-comparison > summary').click();
       assert.equal(await page.locator('.plan-grid').isVisible(),false);
       await page.goto(`${origin}/templates/`);
       assert.equal(await page.locator('section[id^="specialty-"] .card').count(),JSON.parse(fs.readFileSync('landing/y/templates/catalog/manifest.json')).templates.length);
