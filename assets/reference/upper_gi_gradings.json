@@ -1,0 +1,106 @@
+{
+  "updated": "8 November 2026",
+  "guides": {
+    "la": {
+      "title": "Los Angeles classification",
+      "intro": "Choose the grade that describes the observed oesophageal mucosal breaks.",
+      "rows": [
+        ["A", "One or more breaks 5 mm or shorter, without joining the tops of two mucosal folds."],
+        ["B", "At least one break longer than 5 mm, without joining the tops of two mucosal folds."],
+        ["C", "Breaks join the tops of two or more folds but involve less than 75% of the circumference."],
+        ["D", "Breaks involve at least 75% of the circumference."]
+      ],
+      "options": ["A", "B", "C", "D", "Not assessed"],
+      "source": "ESGE STAR reporting standard, 2025 (Los Angeles classification).",
+      "url": "https://doi.org/10.1055/a-2652-8941"
+    },
+    "prague": {
+      "title": "Prague C & M measurements",
+      "intro": "Measure in centimetres above the gastro-oesophageal junction, identified by the top of the gastric folds. These describe extent; they do not establish a histological diagnosis.",
+      "rows": [
+        ["C", "Circumferential extent. Enter 0 if there is no circumferential segment."],
+        ["M", "Maximum extent, including tongues. M includes C; do not add C to M."],
+        ["Example", "C = 2 cm and M = 4 cm are recorded as Prague C2M4."],
+        ["Check", "Both values must be non-negative, with M at least as large as C. Leave an unmeasured value blank."]
+      ],
+      "source": "International Working Group for the Classification of Oesophagitis: Prague C & M criteria.",
+      "url": "https://iwgco.net/prague-barretts-cm-criteria/"
+    },
+    "forrest": {
+      "title": "Forrest ulcer stigmata",
+      "intro": "Record the observed ulcer stigma. The classification does not select treatment or generate a risk alert.",
+      "rows": [
+        ["Ia", "Active spurting bleeding."],
+        ["Ib", "Active oozing bleeding."],
+        ["IIa", "Non-bleeding visible vessel."],
+        ["IIb", "Adherent clot."],
+        ["IIc", "Flat pigmented spot."],
+        ["III", "Clean ulcer base."]
+      ],
+      "options": ["Ia — spurting", "Ib — oozing", "IIa — non-bleeding visible vessel", "IIb — adherent clot", "IIc — flat pigmented spot", "III — clean base", "Not assessed", "Not applicable"],
+      "source": "Endoscopy Campus: Forrest classification.",
+      "url": "https://www.endoscopy-campus.com/en/classifications/forrest-classification/"
+    },
+    "sarin": {
+      "title": "Sarin gastric varices",
+      "intro": "Choose the anatomical pattern. Record size, bleeding and any treatment separately.",
+      "rows": [
+        ["GOV1", "Oesophageal varices extending along the lesser curvature of the stomach."],
+        ["GOV2", "Oesophageal varices extending into the gastric fundus."],
+        ["IGV1", "Isolated gastric varices in the fundus."],
+        ["IGV2", "Isolated gastric varices elsewhere in the stomach."]
+      ],
+      "options": ["GOV1", "GOV2", "IGV1", "IGV2", "Not classified"],
+      "source": "ESGE STAR reporting standard, 2025 (Sarin classification).",
+      "url": "https://doi.org/10.1055/a-2652-8941"
+    },
+    "baveno": {
+      "title": "Oesophageal variceal size & red signs",
+      "intro": "Document size and red signs separately. These observations do not calculate a bleeding-risk score.",
+      "rows": [
+        ["Small", "Diameter less than 5 mm."],
+        ["Large", "Diameter 5 mm or greater."],
+        ["Red signs", "Record the observed red wale marks, cherry-red spots or haematocystic spots. Use Not assessed when the signs could not be assessed."]
+      ],
+      "options": ["Small (under 5 mm)", "Large (5 mm or greater)", "Not assessed"],
+      "source": "ESGE STAR reporting standard, 2025 (Baveno size categories and red signs).",
+      "url": "https://doi.org/10.1055/a-2652-8941"
+    },
+    "erefs": {
+      "title": "EREFS components",
+      "intro": "Record each endoscopic feature separately using the ESGE 2025 reporting definitions below. No total is calculated. Not assessed is different from 0 (absent).",
+      "rows": [
+        ["Oedema", "0: absent. 1: reduced or absent vascular markings."],
+        ["Rings", "0: absent. 1: subtle circumferential ridges. 2: distinct rings that allow passage of a standard diagnostic endoscope. 3: rings that prevent its passage."],
+        ["Exudates", "0: absent. 1: 10% or less of the oesophageal surface. 2: more than 10%."],
+        ["Furrows", "0: absent. 1: present. This version uses a binary furrow component."],
+        ["Stricture", "0: absent. 1: present. This does not establish an EoE diagnosis."]
+      ],
+      "components": {
+        "oedema": ["0 — absent", "1 — reduced or absent vascular markings", "Not assessed"],
+        "rings": ["0 — absent", "1 — subtle rings", "2 — distinct rings; diagnostic scope passes", "3 — rings prevent diagnostic scope passage", "Not assessed"],
+        "exudates": ["0 — absent", "1 — 10% or less of the surface", "2 — more than 10% of the surface", "Not assessed"],
+        "furrows": ["0 — absent", "1 — present", "Not assessed"],
+        "stricture": ["0 — absent", "1 — present", "Not assessed"]
+      },
+      "source": "ESGE STAR reporting standard, 2025: EREFS component definitions (binary furrows).",
+      "url": "https://doi.org/10.1055/a-2652-8941"
+    },
+    "paris": {
+      "title": "Paris superficial lesion morphology",
+      "intro": "Use when appropriate for a superficial lesion. Morphology alone does not establish malignancy, depth of invasion or a treatment plan. Keep the free description for other appearances.",
+      "rows": [
+        ["0-Ip", "Pedunculated (on a stalk)."],
+        ["0-Is", "Sessile (broad-based)."],
+        ["0-IIa", "Slightly elevated."],
+        ["0-IIb", "Flat."],
+        ["0-IIc", "Slightly depressed."],
+        ["0-III", "Excavated."],
+        ["Mixed", "Record the dominant component first, for example 0-IIa + IIc or 0-IIc + IIa."]
+      ],
+      "options": ["0-Ip — pedunculated", "0-Is — sessile", "0-IIa — slightly elevated", "0-IIb — flat", "0-IIc — slightly depressed", "0-III — excavated", "0-IIa + IIc", "0-IIc + IIa", "Other / mixed — describe below", "Not assessed", "Not applicable"],
+      "source": "Paris classification of superficial neoplastic lesions; ESGE STAR reporting standard, 2025.",
+      "url": "https://doi.org/10.1055/a-2652-8941"
+    }
+  }
+}

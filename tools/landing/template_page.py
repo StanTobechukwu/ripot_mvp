@@ -26,8 +26,12 @@ def outline(template, values=None):
                 if n.get('conditionalEquals','').casefold() not in [v.strip().casefold() for v in parent.split(';')]:continue
             if n.get('repeatableTemplates'):
                 if not example:
-                    text.extend(['',title.upper(), 'Finding type: __________  Location: __________  Details: __________ (repeat for each finding)'])
-                    rich.append(f'<h3>{e(title)}</h3><p>Finding type: __________ Location: __________ Details: __________ (repeat for each finding)</p>')
+                    prompt = {
+                        'ogd.medications': 'Drug: __________  Dose and unit: __________  Route: __________ (repeat for each medication)',
+                        'ogd.specimens': 'Site: __________  Number: __________  Sampling type: __________  Container: __________',
+                    }.get(n.get('reportRole'), 'Finding type: __________  Location: __________  Details: __________ (repeat for each finding)')
+                    text.extend(['', title.upper(), prompt])
+                    rich.append(f'<h3>{e(title)}</h3><p>{e(prompt)}</p>')
                 continue
             if example and n.get('omitWhenEmpty') and not children and not values.get(n['id'], '').strip():continue
             if children and n.get('options'):

@@ -45,6 +45,20 @@ echo "Deployment completed. Open https://ripot-web.web.app and verify version {v
 (stage / 'README.txt').write_text(f'''Ripot web {version} ({build})
 Source: {source}
 
+Guided OGD update — 8 November 2026:
+Los Angeles, Prague C/M, Forrest, Sarin, Baveno size/red signs, EREFS
+components and optional Paris morphology are available in relevant findings.
+The guide buttons use bundled references and work offline. Prague measurements
+are checked before combining them as C2M4. EREFS has no automatic total,
+and the app generates no risk alert, treatment or surveillance recommendation.
+The landing page names the classifications, retains Dr Nduaguba Tobechukwu
+Stanley's contributor credit and shows the update date. Older saved reports
+and prior immutable template versions are retained.
+Deploy the web update before the landing page. Existing installed Android
+and Windows apps need a separate binary update for the guide buttons and
+Prague checks; the new template fields themselves remain compatible.
+Microsoft subscription checkout is not enabled by this release.
+
 This release fixes the guided upper GI template in the actual report editor:
 separate consent/fasting/medication/safety choices, an extent dropdown,
 one Add finding control per region, and independent repeated finding cards.

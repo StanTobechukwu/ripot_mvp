@@ -139,7 +139,7 @@ def region_fields(key, title, example):
     return [F(key+'_status',title+' assessment','Normal',options=ASSESSMENT),
             when(F(key, 'Findings: location and description; describe each lesion separately', example),key+'_status','Abnormal')]
 
-add('structured-upper-gi-endoscopy-report-template','Upper GI Endoscopy — Guided','Gastroenterology','A concise guided OGD / EGD template. Record each region, reveal relevant details and keep research and Registry configuration separate.',[
+add('structured-upper-gi-endoscopy-report-template','Upper GI Endoscopy — Guided','Gastroenterology','Guided OGD / EGD reporting with Los Angeles, Prague C/M, Forrest, Sarin, Baveno variceal size and red signs, EREFS components and optional Paris morphology. Record each finding separately; research and Registry remain separate.',[
  group('Procedure',F('indication','Indication','Persistent dyspepsia (fictional).'),F('medication','Premedication, sedation and doses','None administered in this fictional example.'),
        F('procedure_details','Include additional procedure details?','No',options=['Yes','No']),
        when(F('scope','Endoscope used','Demonstration scope identifier.'),'procedure_details','Yes'),

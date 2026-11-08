@@ -1,7 +1,7 @@
 name: Landing page checks and deployment package
 on:
   push:
-    branches: [codex/global-backup-20261026]
+    branches: [codex/global-backup-20261026, codex/guided-ogd-gradings-20261108]
     paths: ['landing/**', 'tools/landing/**', '.github/workflows/landing-checks.yml']
   workflow_dispatch:
 permissions:
