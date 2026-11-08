@@ -57,7 +57,9 @@ test("accounts cannot self-grant Premium, trials, Founder status or billing acce
   const db = env.authenticatedContext("alice").firestore();
   for (const change of [{ plan: "free" }, { trialEndsAtIso: "2030-01-01" }, { founderNumber: 1 },
     { founderCohort: "founding_100" }, { hasUsedTrial: false }, { billingProvider: "google_play" },
-    { playEntitlementExpiresAtIso: "2030-01-01" }, { ownerId: "bob" }]) {
+    { playEntitlementExpiresAtIso: "2030-01-01" },
+    { premiumEntitlementExpiresAtIso: "2030-01-01" },
+    { verifiedPaidEntitlements: { microsoft_store: { entitled: true } } }, { ownerId: "bob" }]) {
     await assertFails(updateDoc(doc(db, "ripot_user_access", "alice"), change));
   }
   const bob = env.authenticatedContext("bob").firestore();
@@ -70,6 +72,8 @@ test("activity, Founder ledger and purchase tokens remain private for every clie
     for (const path of ["ripot_installation_activity/existing", "ripot_installation_activity/existing/events/day",
       "ripot_internal/founding_100", "ripot_internal/founding_100/members/alice",
       "ripot_internal_play/alice", "ripot_internal_play_tokens/token",
+      "ripot_internal_microsoft/alice", "ripot_internal_microsoft_owners/token",
+      "ripot_internal_microsoft_limits/alice",
       "ripot_internal_founder_jobs/operator-preview", "ripot_copy_allowances/alice"] ) {
       await assertFails(getDoc(doc(db, path)));
       await assertFails(setDoc(doc(db, path), { arbitrary: true }));

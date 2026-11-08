@@ -5,6 +5,7 @@ const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { GoogleAuth } = require("google-auth-library");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { createHash } = require("node:crypto");
+const { writeVerifiedPaid } = require("./paid-entitlements");
 
 initializeApp();
 const db = getFirestore();
@@ -166,7 +167,7 @@ async function acknowledgeIfNeeded(playData, purchaseToken) {
   await playJson(url, { method:"POST", body:JSON.stringify({}) });
 }
 
-async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
+async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData, verificationStartedAtIso) {
   const accessRef = db.collection(ACCESS).doc(uid);
   const internalRef = db.collection(PLAY_INTERNAL_COLLECTION).doc(uid);
   const accessSnap = await accessRef.get();
@@ -178,20 +179,8 @@ async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
   // omits externalAccountIdentifiers for an older purchase.
   const purchaseTokenHash = await claimPurchaseToken(uid, purchaseToken);
 
-  if (!e.entitled) {
-    if (current.entitlementAuthority === "google_play_verified") {
-      await accessRef.set({
-        plan:"free", billingProvider:"google_play", billingProductId:PLAY_PREMIUM_PRODUCT_ID,
-        billingSubscriptionState:e.state, billingBasePlanId:e.basePlanId, billingOfferId:e.offerId,
-        playEntitlementExpiresAtIso:e.expiry?.toISOString() || null,
-        billingLastVerifiedAtIso:nowIso, entitlementAuthority:"google_play_verified", updatedAtIso:nowIso,
-      }, { merge:true });
-    }
-    return e;
-  }
-
   const isFounderOffer = e.offerId === PLAY_FOUNDER_OFFER_ID;
-  if (isFounderOffer) {
+  if (e.entitled && isFounderOffer) {
     // Restoring the same verified purchase is not a second redemption.
     const previous = (await internalRef.get()).data();
     const restoring = previous?.purchaseTokenHash === purchaseTokenHash &&
@@ -201,20 +190,21 @@ async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
     if (!eligible) throw new HttpsError("failed-precondition", "The Founding 100 annual offer is not available for this account.");
   }
 
-  await acknowledgeIfNeeded(playData, purchaseToken);
+  if (e.entitled) await acknowledgeIfNeeded(playData, purchaseToken);
   await Promise.all([
     internalRef.set({ uid, provider:"google_play", productId:PLAY_PREMIUM_PRODUCT_ID, purchaseToken, purchaseTokenHash,
       latestOrderId:e.latestOrderId, basePlanId:e.basePlanId, offerId:e.offerId, lastVerifiedAtIso:nowIso }, { merge:true }),
-    accessRef.set({
-      ownerType:"user", ownerId:uid, authUid:uid, plan:"premium",
-      premiumStartedAtIso:current.premiumStartedAtIso || playData?.startTime || nowIso,
-      billingProvider:"google_play", billingProductId:PLAY_PREMIUM_PRODUCT_ID,
-      billingBasePlanId:e.basePlanId, billingOfferId:e.offerId, billingSubscriptionState:e.state,
-      billingLatestOrderId:e.latestOrderId, playEntitlementExpiresAtIso:e.expiry?.toISOString() || null,
-      billingLastVerifiedAtIso:nowIso, entitlementAuthority:"google_play_verified",
-      ...(isFounderOffer ? { founderDiscountRedeemed:true, founderDiscountRedeemedAtIso:current.founderDiscountRedeemedAtIso || nowIso } : {}),
-      updatedAtIso:nowIso, lastSyncedAtIso:nowIso,
-    }, { merge:true }),
+    writeVerifiedPaid(db, uid, 'google_play', {
+      entitled: e.entitled, expiresAtIso: e.expiry?.toISOString() || null,
+      verifiedAtIso: nowIso, startedAtIso: verificationStartedAtIso,
+      productId: PLAY_PREMIUM_PRODUCT_ID, state: e.state,
+    }, {
+      billingBasePlanId:e.basePlanId, billingOfferId:e.offerId,
+      billingSubscriptionState:e.state, billingLatestOrderId:e.latestOrderId,
+      playEntitlementExpiresAtIso:e.expiry?.toISOString() || null,
+      ...(e.entitled && isFounderOffer ? { founderDiscountRedeemed:true,
+        founderDiscountRedeemedAtIso:current.founderDiscountRedeemedAtIso || nowIso } : {}),
+    }),
   ]);
   return e;
 }
@@ -235,10 +225,11 @@ exports.verifyGooglePlaySubscription = onCall(async (request) => {
   const productId = String(request.data?.productId || "").trim();
   if (!purchaseToken || purchaseToken.length < 20) throw new HttpsError("invalid-argument", "A valid purchase token is required.");
   if (productId !== PLAY_PREMIUM_PRODUCT_ID) throw new HttpsError("invalid-argument", "Unknown Premium product.");
+  const verificationStartedAtIso = new Date().toISOString();
   const playData = await getPlaySubscription(purchaseToken);
   assertPlayAccountMatches(uid, playData);
   if (!premiumLineItems(playData).length) throw new HttpsError("failed-precondition", "This is not a Ripot Premium purchase.");
-  const e = await applyVerifiedPlayEntitlement(uid, purchaseToken, playData);
+  const e = await applyVerifiedPlayEntitlement(uid, purchaseToken, playData, verificationStartedAtIso);
   return { entitled:e.entitled, subscriptionState:e.state, basePlanId:e.basePlanId, offerId:e.offerId,
     expiresAtIso:e.expiry?.toISOString() || null };
 });
@@ -249,12 +240,15 @@ exports.refreshPlayEntitlement = onCall(async (request) => {
   if (!snap.exists) return { checked:false, entitled:false, reason:"no_play_purchase" };
   const purchaseToken = String(snap.data()?.purchaseToken || "").trim();
   if (!purchaseToken) return { checked:false, entitled:false, reason:"no_play_purchase" };
+  const verificationStartedAtIso = new Date().toISOString();
   const playData = await getPlaySubscription(purchaseToken);
   assertPlayAccountMatches(uid, playData);
-  const e = await applyVerifiedPlayEntitlement(uid, purchaseToken, playData);
+  const e = await applyVerifiedPlayEntitlement(uid, purchaseToken, playData, verificationStartedAtIso);
   return { checked:true, entitled:e.entitled, subscriptionState:e.state, basePlanId:e.basePlanId,
     offerId:e.offerId, expiresAtIso:e.expiry?.toISOString() || null };
 });
 
 // Reviewed community templates and server-controlled notifications.
 Object.assign(exports, require('./template-library-endpoints'));
+
+Object.assign(exports, require('./microsoft-store-endpoints'));

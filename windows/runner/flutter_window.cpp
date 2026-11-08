@@ -27,6 +27,8 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   report_clipboard_channel_ = RegisterReportClipboard(
       flutter_controller_->engine()->messenger(), GetHandle());
+  microsoft_store_ = std::make_unique<MicrosoftStoreBridge>(
+      flutter_controller_->engine()->messenger(), GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -42,6 +44,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  microsoft_store_.reset();
   if (report_clipboard_channel_) {
     report_clipboard_channel_->SetMethodCallHandler(nullptr);
     report_clipboard_channel_ = nullptr;

@@ -4,11 +4,15 @@ Updated 8 November 2026 for Ripot: Clinical Reports & PDF (`9P91S5JQ1FK0`).
 
 ## Status
 
-The landing page changes add the Microsoft Store download option. They do not
-enable payments. Windows currently recognizes an existing Ripot account's
-verified Premium access, but the billing provider purchases through Google Play
-on Android only. No Microsoft add-ons, prices or credentials were created in
-this change. Partner Center could not be reached from the working session.
+The existing published app has no Microsoft checkout. This branch adds a draft
+Windows Store bridge, monthly/annual purchase UI, authenticated verification,
+purchase ownership checks, restoration, and shared entitlement reconciliation.
+Checkout is disabled by default. No Store add-ons or prices have been published,
+no credentials have been configured, and no production backend has been deployed.
+Partner Center returned a connection error before sign-in from this session.
+
+The landing-page changes are separately prepared in PR #10. Do not change the
+landing page to advertise live Windows purchases until the rollout below passes.
 
 ## Existing Windows users before checkout launches
 
@@ -78,22 +82,63 @@ Suggested monthly description (replace “monthly” with “annual” for annua
 > Manage renewal through your Microsoft account. Clinical reports stay on your
 > device; subscription access does not sync clinical data between devices.
 
-## Integration still required
+## Configuration and release steps
 
-| Area | Required work |
-| --- | --- |
-| Windows runner | Add a `Windows.Services.Store` bridge with the owning window handle, product lookup, purchase and restore. Keep the existing MSIX identity. |
-| Billing provider and upgrade screen | Add Windows plans with localized Store prices, Ripot sign-in, cancellation/error handling and Manage subscription. Preserve Android billing. |
-| Account transport | Use the Windows REST account session for authenticated calls; the Cloud Functions Flutter plugin does not implement Windows. |
-| Backend | Associate the appropriate Entra application with the Store product. Store verification credentials only in server secrets. Verify purchases with Microsoft and bind each subscription to one Ripot UID. Never grant access from a client success flag. |
-| Access refresh | Support Microsoft verification/expiry alongside Play, without an expired plan revoking another active plan. Preserve the maximum 72-hour offline verification window and subscription expiry. |
-| Report copying | Extend the server's paid-access check to Microsoft purchases; it currently explicitly checks Google Play entitlement. |
-| Release | Build a new MSIX with a higher three-part version, test through a Store-licensed Windows installation, then submit for certification. Self-signed CI installation does not validate real checkout. |
+1. Confirm **Subscription** is available in Partner Center, then create the two
+   add-ons above. Confirm prices, currencies, markets and renewal terms before
+   publishing. Record both 12-character Microsoft Store IDs. Do not use the
+   developer product ID strings in the Store ID fields.
+2. Register a server application in Microsoft Entra ID and associate its client
+   ID under the Ripot product's **Services → Product collections and purchases**.
+   Store its secret with `firebase functions:secrets:set MICROSOFT_CLIENT_SECRET
+   --project ripot-4edf7`. Use the secure local prompt, never chat or source files.
+3. Set deployment parameters (non-secret values) for project `ripot-4edf7`:
 
-Required inputs: both Microsoft-assigned Store IDs, confirmed prices/markets,
-subscription eligibility, and authorized server verification credentials. Do not
-paste client secrets or test passwords into chat or source. Do not advertise
-Microsoft checkout as available until integration and deployment are complete.
+   | Parameter | Value |
+   | --- | --- |
+   | `MICROSOFT_BILLING_ENABLED` | `false` initially |
+   | `MICROSOFT_TENANT_ID` | Entra tenant GUID |
+   | `MICROSOFT_CLIENT_ID` | Associated Entra application GUID |
+   | `MICROSOFT_MONTHLY_STORE_ID` | Published monthly add-on Store ID |
+   | `MICROSOFT_ANNUAL_STORE_ID` | Published annual add-on Store ID |
+
+4. Deploy the four Microsoft callables plus the updated Play verification and
+   report-copy functions. Preserve Firestore's existing deny-by-default rules;
+   clients must never read/write `ripot_internal_microsoft*` collections.
+5. Build the Windows app with the existing package identity and
+   `RIPOT_MICROSOFT_STORE=true`. Increase the three-part app version before the
+   release MSIX is built; Microsoft reserves the fourth version component.
+6. Enable billing only for the Store-licensed test release after both published
+   products and backend credentials are ready. Test the complete acceptance list
+   below with actual Store purchases. CI compilation and mocked Microsoft API
+   responses cannot prove a real charge, renewal or refund works.
+7. Submit the tested higher-version MSIX to Microsoft. After approval, users
+   receive it through Store updates. Only then update landing-page purchase copy.
+
+Only the restricted purchase-key creation ticket is sent to Windows. The broad
+Store service token and Entra secret remain on the backend. A native checkout
+success never grants Premium directly. The backend queries Microsoft and binds
+both recurrence and beneficiary to a single Ripot UID; account switching cannot
+reuse that purchase. Do not enable a second Store free trial.
+
+The backend renews a saved Microsoft identity key when it is within seven days
+of expiry during an entitlement refresh. If a user stays away until the key has
+expired or Microsoft revokes it, **Restore purchases** on Windows reconnects the
+Store identity. Failed verification does not extend the 72-hour allowance. No
+scheduled renewal job is included in this change.
+
+Verified entitlements from both stores are reconciled transactionally. Expiry
+or refund in one store preserves a still-active, recently verified purchase in
+the other, and original trial dates are preserved. Shared access uses the new
+`premiumEntitlementExpiresAtIso` field, so Android/web also need this client
+update to recognize Microsoft purchases. Older builds retain their existing
+behavior and cannot perform Microsoft checkout.
+
+Required account inputs remain: subscription eligibility, prices/markets, both
+Microsoft-assigned Store IDs, and authorized server verification credentials.
+Do not paste secrets or passwords into chat or source. If subscriptions are
+unavailable for this account, leave this integration disabled and decide on an
+alternative payment provider before changing the customer offer.
 
 ## Acceptance checks
 
