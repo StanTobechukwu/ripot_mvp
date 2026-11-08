@@ -57,7 +57,18 @@ SectionNode _paragraph(String id, String title, String text) => SectionNode(
 
 List<String> _detailParts(Iterable<SectionNode> fields) {
   final out = <String>[];
+  final c = fields.where((n) => n.reportRole == 'grading.prague.c').firstOrNull;
+  final m = fields.where((n) => n.reportRole == 'grading.prague.m').firstOrNull;
+  final validPrague = c != null && m != null && c.showInPdf && m.showInPdf &&
+      _pragueValid(c, m);
   for (final field in fields) {
+    if (validPrague && field.reportRole.startsWith('grading.prague.')) {
+      if (field == c) {
+        out.add('Prague C${_pragueNumber(c!)}M${_pragueNumber(m!)}');
+      }
+      if (field.note.trim().isNotEmpty) out.add('${field.title} note: ${field.note.trim()}');
+      continue;
+    }
     if (field.reportRole == 'finding.location') {
       if (field.note.trim().isNotEmpty) out.add('Location detail: ${field.note.trim()}');
       continue;
@@ -71,6 +82,17 @@ List<String> _detailParts(Iterable<SectionNode> fields) {
     out.addAll(_detailParts(field.children.whereType<SectionNode>()));
   }
   return out;
+}
+
+bool _pragueValid(SectionNode c, SectionNode m) {
+  final cv = double.tryParse(fieldValue(c));
+  final mv = double.tryParse(fieldValue(m));
+  return cv != null && mv != null && cv.isFinite && mv.isFinite && cv >= 0 && mv >= cv;
+}
+
+String _pragueNumber(SectionNode field) {
+  final number = double.parse(fieldValue(field));
+  return number == number.truncateToDouble() ? number.toInt().toString() : number.toString();
 }
 
 SectionNode? _role(SectionNode n, String role) {
@@ -136,12 +158,22 @@ List<SectionNode> _samplingFromVisible(List<SectionNode> roots) {
 /// Prompt before export; drafts can still be saved at any stage.
 List<String> guidedReportWarnings(List<SectionNode> roots) {
   final result = <String>[];
-  for (final region in _sections(_visible(roots)).where((n) => n.reportRole == 'ogd.region')) {
+  final visible = _visible(roots);
+  for (final region in _sections(visible).where((n) => n.reportRole == 'ogd.region')) {
     final assessment = _role(region, 'ogd.assessment');
     final findings = _role(region, 'ogd.findings');
     if (assessment != null && fieldValue(assessment) == 'Abnormal' &&
         (findings == null || findings.children.whereType<SectionNode>().isEmpty)) {
       result.add('${region.title}: add a finding or record the limitation.');
+    }
+  }
+  for (final entry in _sections(visible).where((n) => n.reportRole == 'ogd.finding')) {
+    final c = _role(entry, 'grading.prague.c');
+    final m = _role(entry, 'grading.prague.m');
+    if (c == null || m == null || (fieldValue(c).isEmpty && fieldValue(m).isEmpty)) continue;
+    if (!_pragueValid(c, m)) {
+      result.add('${entry.title}: check Prague C and M. Enter both measurements in cm, '
+          'with C at least 0 and M at least C. Unconfirmed measurements remain separate in the report.');
     }
   }
   return result;

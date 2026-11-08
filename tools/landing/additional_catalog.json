@@ -135,7 +135,7 @@
     "slug": "structured-upper-gi-endoscopy-report-template",
     "name": "Upper GI Endoscopy \u2014 Guided",
     "specialty": "Gastroenterology",
-    "description": "A concise guided OGD / EGD template. Record each region, reveal relevant details and keep research and Registry configuration separate.",
+    "description": "Guided OGD / EGD reporting with Los Angeles, Prague C/M, Forrest, Sarin, Baveno variceal size and red signs, EREFS components and optional Paris morphology. Record each finding separately; research and Registry remain separate.",
     "references": [
       [
         "ESGE STAR reporting standardisation (2025)",

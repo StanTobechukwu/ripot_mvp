@@ -59,6 +59,21 @@ const server=http.createServer((req,res)=>{
         const img=page.locator('[data-page-image]');
         await img.evaluate(i=>i.decode());
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${slug}: overflow at ${width}`);
+        if (slug === 'structured-upper-gi-endoscopy-report-template') {
+          assert.equal(await page.locator('[data-grading]').count(), 7);
+          assert((await page.locator('body').innerText()).includes('Dr Nduaguba Tobechukwu Stanley'));
+          assert((await page.locator('body').innerText()).includes('8 November 2026'));
+          for (const guide of await page.locator('[data-grading]').all()) {
+            await guide.locator('summary').click();
+            assert.equal(await guide.evaluate(el => el.open), true);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth), false, `Grading guide overflow at ${width}`);
+            await guide.locator('summary').click();
+          }
+          await page.locator('[data-grading="erefs"] > summary').click();
+          await page.locator('[data-grading="erefs"]').scrollIntoViewIfNeeded();
+          await page.screenshot({path:path.join(out,`guided-erefs-${width}.png`)});
+          await page.locator('[data-grading="erefs"] > summary').click();
+        }
         assert.equal(await page.locator('[data-variant="blank"]').getAttribute('aria-pressed'),'true');
         for(const variant of ['blank','example']){
           await page.locator(`[data-variant="${variant}"]`).click();

@@ -8,6 +8,7 @@ import '../../access/ui/premium_prompt.dart';
 import '../domain/models/nodes.dart';
 import 'template_actions.dart';
 import 'widgets/repeatable_findings.dart';
+import 'widgets/grading_guide_button.dart';
 import '../domain/guided_report_presentation.dart';
 import '../providers/report_editor_provider.dart';
 import '../services/image_services.dart';
@@ -1566,7 +1567,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
         padding: EdgeInsets.only(left: indentPx, bottom: 8),
         child: Align(
           alignment: titleAlign,
-          child: Text(s.title, textAlign: titleTextAlign, style: titleStyle),
+          child: s.reportRole.startsWith('grading.')
+              ? Row(children: [
+                  Expanded(child: Text(s.title, textAlign: titleTextAlign, style: titleStyle)),
+                  GradingGuideButton(role: s.reportRole),
+                ])
+              : Text(s.title, textAlign: titleTextAlign, style: titleStyle),
         ),
       );
     }

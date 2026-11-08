@@ -7,14 +7,18 @@ Date: ________________
 
 PROCEDURE
 Indication: ________________
+Sedation / anaesthesia: ________________
+
+MEDICATIONS ADMINISTERED
+Drug: __________  Dose and unit: __________  Route: __________ (repeat for each medication)
+
+Additional procedure details
+
+Preparation and safety
 Consent: ________________
 Fasting status: ________________
 Anticoagulant / antiplatelet medication: ________________
 Pre-procedure safety assessment: ________________
-Sedation / anaesthesia: ________________
-Drugs and doses, if administered: ________________
-Other medications: ________________
-Additional procedure details?: ________________
 Endoscope used: ________________
 ASA class: ________________
 
@@ -47,10 +51,9 @@ DUODENUM FINDING
 Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
 
 SAMPLING
-Samples taken?: ________________
 
-SPECIMEN
-Finding type: __________  Location: __________  Details: __________ (repeat for each finding)
+BIOPSY SITE
+Site: __________  Number: __________  Sampling type: __________  Container: __________
 
 CONCLUSION AND FOLLOW-UP
 Immediate adverse events: ________________

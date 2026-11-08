@@ -38,7 +38,7 @@ for entry in EXTRA:
  CATALOG.append((entry['slug'], DISPLAY_NAMES[entry['slug']], entry['specialty'], entry['description']))
  SEO[entry['slug']] = (DISPLAY_NAMES[entry['slug']]+' | Editable & PDF', entry['description'])
 REFERENCES = {**BASE_REFERENCES, **{entry['slug']:entry['references'] for entry in EXTRA}}
-CREDITS = {'structured-upper-gi-endoscopy-report-template': ('Dr Nduaguba Tobechukwu Stanley', '2026-11-01', '1 November 2026')}
+CREDITS = {'structured-upper-gi-endoscopy-report-template': ('Dr Nduaguba Tobechukwu Stanley', '2026-11-08', '8 November 2026')}
 e = html.escape
 CSS = (ROOT/'tools/landing/templates.css').read_text()
 SCRIPT = (ROOT/'tools/landing/templates.js').read_text()
@@ -92,6 +92,14 @@ def main():
    name, updated, display_date = CREDITS[slug]
    body = body.replace('Contributor: Ripot</p>', f'Developed by Ripot · Clinical contributor: {e(name)}<br>Senior Registrar, Gastroenterology and Hepatology<br>Updated <time datetime="{updated}">{display_date}</time></p>')
   guide='<section class="outline-box"><h2>Using this reporting structure</h2>'+''.join(f'<h3>{e(heading)}</h3><p>{e(text)}</p>' for heading,text in GUIDES[slug])+'<p class="note">Documentation help, not clinical guidance. Use current specialty guidance and local protocols. Review every report before signing or sharing.</p></section>'
+  if slug == 'structured-upper-gi-endoscopy-report-template':
+   grading_data=json.loads((ROOT/'assets/reference/upper_gi_gradings.json').read_text())
+   guide+='<section id="grading-guides"><h2>Grading reference</h2><p>Open a guide when it is relevant to your finding.</p>'
+   for key, grading in grading_data['guides'].items():
+    guide+=f'<details class="outline-box" data-grading="{key}"><summary>{e(grading["title"])}</summary><p>{e(grading["intro"])}</p><ul>'
+    guide+=''.join(f'<li><strong>{e(label)}:</strong> {e(description)}</li>' for label,description in grading['rows'])
+    guide+=f'</ul><p class="note">Reference: <a href="{e(grading["url"],quote=True)}" target="_blank" rel="noopener noreferrer">{e(grading["source"])}</a></p></details>'
+   guide+='</section>'
   if slug in ('upper-gi-endoscopy-report-template', 'structured-upper-gi-endoscopy-report-template'):
    body = '<section class="card"><h2>Choose your reporting style</h2><p><a href="/templates/upper-gi-endoscopy-report-template/">Narrative: flexible free-text sections</a> · <a href="/templates/structured-upper-gi-endoscopy-report-template/">Guided: conditional follow-up fields</a></p></section>' + body
   body=body.replace('<section><h2>Explore other templates</h2>',guide+'<section><h2>Explore other templates</h2>')
@@ -114,7 +122,9 @@ def main():
  home_text=home.read_text()
  start='<!-- TEMPLATE_LINKS_START -->';end='<!-- TEMPLATE_LINKS_END -->'
  if start in home_text and end in home_text:
-  links='<nav class="template-highlights" aria-label="Featured templates">'+''.join(f'<a class="text-link" href="/templates/{slug}/">{e(title)}</a>' for slug,title,_,_ in CATALOG[:2])+'</nav>'
+  featured=[i for i in CATALOG if i[0] in ('colonoscopy-report-template', 'structured-upper-gi-endoscopy-report-template')]
+  links='<nav class="template-highlights" aria-label="Featured templates">'+''.join(f'<a class="text-link" href="/templates/{slug}/">{e(title)}</a>' for slug,title,_,_ in featured)+'</nav>'
+  links+='<p class="caption-note">Guided upper GI reporting includes Los Angeles, Prague C/M, Forrest, Sarin, Baveno, EREFS components and optional Paris morphology. <a class="text-link" href="/templates/structured-upper-gi-endoscopy-report-template/#grading-guides">Explore the grading fields</a> · Updated <time datetime="2026-11-08">8 November 2026</time>.</p>'
   before,rest=home_text.split(start,1);_,after=rest.split(end,1)
   home.write_text(before+start+'\n'+links+'\n'+end+after)
  print(f'Built hub and {len(CATALOG)} template pages with app-rendered PDF previews and labelled downloads.')

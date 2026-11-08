@@ -1,6 +1,11 @@
 """Guided OGD: conditional entry and concise, observation-only report output.
 No automatic diagnosis, treatment advice, Registry or research fields.
 """
+import json
+from pathlib import Path
+
+GRADINGS = json.loads((Path(__file__).resolve().parents[2] /
+    'assets/reference/upper_gi_gradings.json').read_text())['guides']
 VALUES = {}
 
 
@@ -35,9 +40,7 @@ LOCATIONS = {
  'oesophagus': ['Upper oesophagus', 'Middle oesophagus', 'Lower oesophagus', 'Gastro-oesophageal junction', 'Multiple regions', 'Other'],
  'stomach': ['Cardia', 'Fundus', 'Body', 'Incisura', 'Antrum', 'Pylorus', 'Multiple regions', 'Other'],
  'duodenum': ['Bulb', 'Second part', 'Beyond second part', 'Multiple regions', 'Other']}
-FORREST = ['Ia — spurting', 'Ib — oozing', 'IIa — non-bleeding visible vessel',
-           'IIb — adherent clot', 'IIc — flat pigmented spot', 'III — clean base',
-           'Not assessed', 'Not applicable']
+FORREST = GRADINGS['forrest']['options']
 
 
 def biopsy_fields(key, parent='', equals=''):
@@ -84,12 +87,14 @@ def ulcer(region):
         f(region, 'ulcer', 'Shape', ['Round', 'Oval', 'Linear', 'Irregular', 'Other'], note=True),
         f(region, 'ulcer', 'Edge', ['Regular', 'Irregular', 'Raised', 'Undermined', 'Other'], multi=True, note=True),
         f(region, 'ulcer', 'Base appearance', ['Clean', 'Fibrinous / slough-covered', 'Other'], note=True),
-        f(region, 'ulcer', 'Bleeding stigmata / Forrest category', FORREST, suffix='forrest', report='Forrest category')], size=True)
+        f(region, 'ulcer', 'Bleeding stigmata / Forrest category', FORREST, suffix='forrest', report='Forrest category', role='grading.forrest')], size=True)
 
 
 def lesion(region, kind, title):
     return finding(region, kind, title, [f(region, kind, 'Morphology',
-        ['Pedunculated', 'Sessile', 'Flat', 'Elevated', 'Depressed', 'Ulcerated', 'Other'], suffix='morphology', note=True)], size=True)
+        ['Pedunculated', 'Sessile', 'Flat', 'Elevated', 'Depressed', 'Ulcerated', 'Other'], suffix='morphology', note=True),
+        f(region, kind, 'Paris classification, if applicable', GRADINGS['paris']['options'],
+          suffix='paris', note=True, report='Paris classification', role='grading.paris')], size=True)
 
 
 def erosions(region, title='Erosions'):
@@ -102,15 +107,18 @@ def erosions(region, title='Erosions'):
 
 def types(region):
     if region == 'oesophagus':
-        return [finding(region, 'reflux', 'Reflux oesophagitis', [f(region, 'reflux', 'Los Angeles grade', ['A', 'B', 'C', 'D', 'Not assessed'], suffix='la')], biopsy=False, diffuse=True),
-        finding(region, 'barrett', 'Suspected / known Barrett’s', [f(region, 'barrett', 'Prague C', unit='cm', suffix='c'), f(region, 'barrett', 'Prague M', unit='cm', suffix='m'), f(region, 'barrett', 'Visible lesion?', YES, suffix='lesion'), f(region, 'barrett', 'Biopsy protocol', ['Targeted', 'Seattle', 'Other', 'Not performed'], suffix='protocol')]),
+        return [finding(region, 'reflux', 'Reflux oesophagitis', [f(region, 'reflux', 'Los Angeles grade', GRADINGS['la']['options'], suffix='la', role='grading.la')], biopsy=False, diffuse=True),
+        finding(region, 'barrett', 'Suspected / known Barrett’s', [f(region, 'barrett', 'Prague C', unit='cm', suffix='c', role='grading.prague.c'), f(region, 'barrett', 'Prague M', unit='cm', suffix='m', role='grading.prague.m'), f(region, 'barrett', 'Visible lesion?', YES, suffix='lesion'), f(region, 'barrett', 'Biopsy protocol', ['Targeted', 'Seattle', 'Other', 'Not performed'], suffix='protocol')]),
         finding(region, 'hernia', 'Hiatal hernia', [f(region, 'hernia', 'Axial length', unit='cm', suffix='length'), f(region, 'hernia', 'Hill grade', ['I', 'II', 'III', 'IV', 'Not assessed'], suffix='hill')], biopsy=False),
-        finding(region, 'eoe', 'EoE features', [f(region, 'eoe', 'Oedema', ['Absent', 'Present', 'Not assessed'], suffix='oedema'), f(region, 'eoe', 'Rings', ['Absent', 'Mild', 'Moderate', 'Severe', 'Not assessed'], suffix='rings'), f(region, 'eoe', 'Exudates', ['Absent', 'Present', 'Not assessed'], suffix='exudates'), f(region, 'eoe', 'Furrows', ['Absent', 'Present', 'Not assessed'], suffix='furrows'), f(region, 'eoe', 'Stricture', YES, suffix='stricture')], diffuse=True),
+        finding(region, 'eoe', 'EoE features', [
+            f(region, 'eoe', name.title(), options, suffix=name, report='EREFS '+name,
+              role='grading.erefs.'+name)
+            for name, options in GRADINGS['erefs']['components'].items()], diffuse=True),
         finding(region, 'varices', 'Oesophageal varices', [
-            f(region, 'varices', 'Size', ['Small (under 5 mm)', 'Large (5 mm or greater)', 'Not assessed'], suffix='size_grade'),
+            f(region, 'varices', 'Size', GRADINGS['baveno']['options'], suffix='size_grade', role='grading.baveno'),
             f(region, 'varices', 'Extent', ['Lower third', 'To middle third', 'To upper third', 'Other'], note=True),
             f(region, 'varices', 'Number of columns, if recorded', unit='count', suffix='columns', report='Columns'),
-            f(region, 'varices', 'Red signs', ['None seen', 'Red wale marks', 'Cherry-red spots', 'Haematocystic spots', 'Other', 'Not assessed'], multi=True, note=True, suffix='red'),
+            f(region, 'varices', 'Red signs', ['None seen', 'Red wale marks', 'Cherry-red spots', 'Haematocystic spots', 'Other', 'Not assessed'], multi=True, note=True, suffix='red', role='grading.baveno'),
             f(region, 'varices', 'Bleeding', ['None seen', 'Active spurting', 'Active oozing', 'White nipple sign', 'Adherent clot', 'Other recent stigmata', 'Not assessed'], suffix='bleeding', note=True)], biopsy=False),
         finding(region, 'stricture', 'Ring / web / stricture', [f(region, 'stricture', 'Type', ['Ring', 'Web', 'Stricture', 'Other'], suffix='type'), f(region, 'stricture', 'Length', unit='cm', suffix='length'), f(region, 'stricture', 'Minimum diameter', unit='mm', suffix='diameter')]),
         finding(region, 'candida', 'Suspected candidiasis', diffuse=True), ulcer(region), lesion(region, 'lesion', 'Mass / lesion'), finding(region, 'other', 'Other finding')]
@@ -120,7 +128,7 @@ def types(region):
             f(region, 'gastritis', 'Distribution', ['Focal', 'Patchy', 'Diffuse', 'Other'], note=True)], diffuse=True), erosions(region),
         lesion(region, 'polyp', 'Polyp'), lesion(region, 'lesion', 'Mass / lesion'),
         finding(region, 'atrophy', 'Suspected atrophy / intestinal metaplasia', [f(region, 'atrophy', 'Appearance', ['Atrophy', 'Intestinal metaplasia suspected', 'Both', 'Uncertain'], suffix='appearance')], diffuse=True),
-        finding(region, 'varices', 'Gastric varices', [f(region, 'varices', 'Sarin type', ['GOV1', 'GOV2', 'IGV1', 'IGV2', 'Not classified'], suffix='sarin'),
+        finding(region, 'varices', 'Gastric varices', [f(region, 'varices', 'Sarin type', GRADINGS['sarin']['options'], suffix='sarin', role='grading.sarin'),
             f(region, 'varices', 'Largest diameter, if measured', unit='mm', suffix='diameter', report='Largest diameter'),
             f(region, 'varices', 'Bleeding', ['None seen', 'Active', 'Recent stigmata', 'Not assessed'], suffix='bleeding', note=True)], biopsy=False),
         finding(region, 'phg', 'Portal hypertensive gastropathy', [f(region, 'phg', 'Severity', ['Mild', 'Severe', 'Not graded'], suffix='severity')], biopsy=False, diffuse=True),
