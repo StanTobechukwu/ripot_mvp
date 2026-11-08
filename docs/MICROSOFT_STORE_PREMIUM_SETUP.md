@@ -1,6 +1,6 @@
 # Microsoft Store Premium setup
 
-Prepared 4 November 2026 for Ripot: Clinical Reports & PDF (`9P91S5JQ1FK0`).
+Updated 8 November 2026 for Ripot: Clinical Reports & PDF (`9P91S5JQ1FK0`).
 
 ## Status
 
@@ -9,6 +9,30 @@ enable payments. Windows currently recognizes an existing Ripot account's
 verified Premium access, but the billing provider purchases through Google Play
 on Android only. No Microsoft add-ons, prices or credentials were created in
 this change. Partner Center could not be reached from the working session.
+
+## Existing Windows users before checkout launches
+
+Verified against the current release source on 8 November 2026:
+
+- Installing the app starts with Free; downloading does not grant permanent
+  Premium or start a paid subscription.
+- Registered users can explicitly activate an eligible account trial. The first
+  100 eligible activations receive 84 days; later eligible activations receive
+  21 days. The server preserves the original trial dates and previous-use record.
+- Trial expiry returns the account to Free limits even while Windows checkout
+  is unavailable. Existing reports and drafts remain available. New final PDF
+  saves and Premium features are subject to the Free limits after expiry.
+- An existing verified Premium entitlement is recognized when signing in with
+  the same Ripot account. Clinical data remains local to each device.
+- Microsoft checkout requires a future Store app update plus backend verification.
+  Keep the existing MSIX identity, preserve the local data store and account trial
+  history, and test an upgrade from the current Store version before release.
+- Users must choose to buy Premium. Existing installations are not automatically
+  charged. Users who remain on the old version will not see the new checkout;
+  their original trial expiry and Free limits still apply.
+
+The landing-page FAQ explains this without promising a checkout launch date.
+This source review is not a Windows runtime purchase test.
 
 ## First Partner Center step
 
