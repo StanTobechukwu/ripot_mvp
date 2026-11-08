@@ -106,13 +106,16 @@ Suggested monthly description (replace “monthly” with “annual” for annua
    report-copy functions. Preserve Firestore's existing deny-by-default rules;
    clients must never read/write `ripot_internal_microsoft*` collections.
 5. Build the Windows app with the existing package identity and
-   `RIPOT_MICROSOFT_STORE=true`. Increase the three-part app version before the
-   release MSIX is built; Microsoft reserves the fourth version component.
+   `RIPOT_MICROSOFT_STORE=true`. The candidate version is `1.0.26+61` (Store `1.0.26.0`), above the
+   current `1.0.25.0`. Microsoft reserves the fourth version component.
 6. Enable billing only for the Store-licensed test release after both published
    products and backend credentials are ready. Test the complete acceptance list
    below with actual Store purchases. CI compilation and mocked Microsoft API
    responses cannot prove a real charge, renewal or refund works.
-7. Submit the tested higher-version MSIX to Microsoft. After approval, users
+7. Publish the prepared privacy-policy update with the billing launch. It names
+   Microsoft Store and the subscription/ownership/verification data. For an
+   account-deletion request, use the operator procedure below.
+8. Submit the tested higher-version MSIX to Microsoft. After approval, users
    receive it through Store updates. Only then update landing-page purchase copy.
 
 Only the restricted purchase-key creation ticket is sent to Windows. The broad
@@ -139,6 +142,19 @@ Microsoft-assigned Store IDs, and authorized server verification credentials.
 Do not paste secrets or passwords into chat or source. If subscriptions are
 unavailable for this account, leave this integration disabled and decide on an
 alternative payment provider before changing the customer offer.
+
+## Operator account deletion
+
+After verifying the account-deletion request, explain that deleting a Ripot
+account does not cancel a Microsoft Store subscription and provide the Microsoft
+subscription-management link. Do not promise cancellation from a database delete.
+Review the active payment status with the requester before removing its Ripot link.
+Remove that UID's `ripot_internal_microsoft` document (including its key),
+`ripot_internal_microsoft_limits` document, and all
+`ripot_internal_microsoft_owners` documents whose `uid` equals the deleted UID,
+as well as the account's existing access/copy/template records under the normal
+support procedure. Do not put verification keys in support replies or logs.
+This release does not add automatic account deletion or cancel subscriptions.
 
 ## Acceptance checks
 

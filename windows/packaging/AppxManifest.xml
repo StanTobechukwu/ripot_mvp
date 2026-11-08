@@ -5,7 +5,7 @@
          IgnorableNamespaces="uap rescap">
   <Identity Name="RipotTechnologiesLtd.RipotClinicalReportsPDF"
             Publisher="CN=3847E5A6-6457-4608-A67B-00E03F0C03C2"
-            Version="1.0.25.0" ProcessorArchitecture="x64" />
+            Version="1.0.26.0" ProcessorArchitecture="x64" />
   <Properties>
     <DisplayName>Ripot: Clinical Reports &amp; PDF</DisplayName>
     <PublisherDisplayName>Ripot Technologies Ltd</PublisherDisplayName>

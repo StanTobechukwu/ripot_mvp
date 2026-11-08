@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:report/features/access/domain/access_state.dart';
-import 'package:report/features/billing/providers/microsoft_billing_controller.dart';
-import 'package:report/features/billing/services/microsoft_store_client.dart';
+import 'package:ripot/features/access/domain/access_state.dart';
+import 'package:ripot/features/billing/providers/microsoft_billing_controller.dart';
+import 'package:ripot/features/billing/services/microsoft_store_client.dart';
 
 class FakeStore implements MicrosoftStoreClient {
   int purchases = 0;

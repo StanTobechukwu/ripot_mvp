@@ -64,15 +64,16 @@ struct MicrosoftStoreBridge::State : std::enable_shared_from_this<State> {
           const auto id = winrt::to_string(product.StoreId());
           if (id != monthly && id != annual) continue;
           bool valid = false;
+          bool hasTrial = false;
           for (const auto& sku : product.Skus()) {
             if (!sku.IsSubscription()) continue;
             const auto info = sku.SubscriptionInfo();
             // Ripot already supplies its account trial; no second Store trial.
-            if (info.HasTrialPeriod()) continue;
+            hasTrial = hasTrial || info.HasTrialPeriod();
             valid = valid || (info.BillingPeriod() == 1 &&
                 info.BillingPeriodUnit() == (id == monthly ? StoreDurationUnit::Month : StoreDurationUnit::Year));
           }
-          if (!valid) continue;
+          if (!valid || hasTrial) continue;
           state->products.insert_or_assign(id, product);
           list.emplace_back(Map{
               {Value("id"), Value(id)},

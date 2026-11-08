@@ -139,3 +139,41 @@ test('rate limiting blocks excessive requests and stale paid verification cannot
     expiresAtIso: '2027-01-01', verifiedAtIso: '2026-11-01' }, now);
   assert.equal(expired.plan, 'free');
 });
+
+test('concurrent account claims have exactly one owner', async () => {
+  const results = await Promise.allSettled(['alice', 'bob'].map(uid =>
+    service.verify(request({ key: key(uid) }, uid))));
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal(results.find(r => r.status === 'rejected').reason.code, 'permission-denied');
+});
+
+test('near-expiry keys renew at the fixed Microsoft endpoint with the server-only ticket', async () => {
+  const oldKey = key('alice', { exp: now.getTime() / 1000 + 86400,
+    'http://schemas.microsoft.com/marketplace/2015/08/claims/key/refreshUri': 'https://untrusted.invalid' });
+  await db.collection('ripot_internal_microsoft').doc('alice').set({ key: oldKey });
+  assert.equal((await service.refresh(request())).entitled, true);
+  const renew = calls.find(c => c.url.endsWith('/keys/renew'));
+  assert.equal(renew.url, 'https://purchase.mp.microsoft.com/v6.0/b2b/keys/renew');
+  assert.equal(JSON.parse(renew.options.body).serviceTicket, 'server-only');
+  assert.equal((await db.collection('ripot_internal_microsoft').doc('alice').get()).data().key, key());
+});
+
+test('expired keys require restoration and network failures do not refresh the access deadline', async () => {
+  await service.verify(request({ key: key() }));
+  const access = db.collection('ripot_user_access').doc('alice');
+  const before = (await access.get()).data();
+  fail = true;
+  await assert.rejects(service.refresh(request()), { code: 'unavailable' });
+  assert.deepEqual((await access.get()).data(), before);
+  await db.collection('ripot_internal_microsoft').doc('alice').set({ key: key('alice', { exp: 1 }) });
+  await assert.rejects(service.refresh(request()), { code: 'failed-precondition' });
+  assert.deepEqual((await access.get()).data(), before);
+});
+
+test('older responses cannot replace a more recent revocation', async () => {
+  const recent = { entitled: false, startedAtIso: '2026-11-08T12:00:00Z', verifiedAtIso: now.toISOString() };
+  await writeVerifiedPaid(db, 'alice', 'microsoft_store', recent, {}, now);
+  await writeVerifiedPaid(db, 'alice', 'microsoft_store', { entitled: true,
+    startedAtIso: '2026-11-08T11:59:00Z', verifiedAtIso: now.toISOString(), expiresAtIso: '2027-01-01' }, {}, now);
+  assert.equal((await db.collection('ripot_user_access').doc('alice').get()).data().plan, 'free');
+});

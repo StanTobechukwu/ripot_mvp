@@ -113,6 +113,23 @@ void main() {
     },
   );
 
+  test('Microsoft paid access uses the shared expiry and expires with verification', () async {
+    documents.access = {
+      'plan': 'premium',
+      'entitlementAuthority': 'microsoft_store_verified',
+      'premiumEntitlementExpiresAtIso': DateTime.now().add(const Duration(days: 10)).toIso8601String(),
+      'billingLastVerifiedAtIso': DateTime.now().toIso8601String(),
+    };
+    expect((await repo.load(refreshPlay: false)).isPremiumLike, isTrue);
+    documents.access!['billingLastVerifiedAtIso'] = DateTime.now().subtract(const Duration(hours: 73)).toIso8601String();
+    expect((await repo.load(refreshPlay: false)).isPremiumLike, isFalse);
+  });
+
+  test('explicitly revoked shared expiry cannot fall back to an old Play expiry', () async {
+    documents.access!['premiumEntitlementExpiresAtIso'] = null;
+    expect((await repo.load(refreshPlay: false)).isPremiumLike, isFalse);
+  });
+
   test(
     'stale cache stops new Premium work and retains trial history',
     () async {

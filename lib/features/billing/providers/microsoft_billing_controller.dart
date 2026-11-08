@@ -36,8 +36,7 @@ class MicrosoftBillingController extends ChangeNotifier {
         !a.isTrialActive &&
         !(a.plan == RipotPlan.premium &&
             (a.premiumExpiresAt == null ||
-                DateTime.now().isBefore(a.premiumExpiresAt!))) &&
-        !products.any((p) => p.owned);
+                DateTime.now().isBefore(a.premiumExpiresAt!)));
   }
 
   void _check(String uid) {
