@@ -16,6 +16,10 @@ class AccountFunctions {
     'activatePremiumTrial',
     'syncFounderEntitlement',
     'refreshPlayEntitlement',
+    'getMicrosoftBillingConfig',
+    'getMicrosoftPurchaseTicket',
+    'verifyMicrosoftSubscription',
+    'refreshMicrosoftEntitlement',
     'getReportCopyAllowance',
     'authorizeReportCopy',
   };

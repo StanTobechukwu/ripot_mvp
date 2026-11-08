@@ -8,6 +8,7 @@
 
 #include "win32_window.h"
 #include "report_clipboard.h"
+#include "microsoft_store.h"
 
 // A window that does nothing but host a Flutter view.
 class FlutterWindow : public Win32Window {
@@ -24,6 +25,8 @@ class FlutterWindow : public Win32Window {
                          LPARAM const lparam) noexcept override;
 
  private:
+  std::unique_ptr<MicrosoftStoreBridge> microsoft_store_;
+
   // The project to run.
   flutter::DartProject project_;
 

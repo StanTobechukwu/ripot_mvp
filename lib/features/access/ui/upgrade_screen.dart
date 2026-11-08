@@ -7,6 +7,8 @@ import '../providers/access_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'premium_access_action.dart';
 import '../../billing/providers/billing_provider.dart';
+import '../../billing/widgets/microsoft_billing_card.dart';
+import '../../../core/firebase/account_runtime.dart';
 
 class UpgradeScreen extends StatelessWidget {
   const UpgradeScreen({super.key});
@@ -16,6 +18,8 @@ class UpgradeScreen extends StatelessWidget {
     final access = context.watch<AccessProvider>().safeState;
     final auth = context.watch<AuthProvider>();
     final theme = Theme.of(context);
+    final isWindows =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
     final messageTitle = access.premiumMessageTitle;
     final messageBody = access.premiumMessageBody;
 
@@ -144,7 +148,7 @@ class UpgradeScreen extends StatelessWidget {
                 leading: const Icon(Icons.lock_clock_outlined),
                 title: const Text('Premium Trial ended'),
                 subtitle: Text(
-                  BillingProvider.supportsGooglePlay
+                  (BillingProvider.supportsGooglePlay || isWindows)
                       ? 'Choose a Premium plan below to continue using premium features.'
                       : 'Web subscription checkout is being prepared. You can continue using Ripot Free while it becomes available.',
                 ),
@@ -157,7 +161,7 @@ class UpgradeScreen extends StatelessWidget {
             const SizedBox(height: 12),
             if (BillingProvider.supportsGooglePlay)
               const _BillingPlansCard()
-            else
+            else if (!isWindows)
               const _AccountPremiumCard(),
           ],
           if (auth.isSignedIn &&
@@ -173,6 +177,10 @@ class UpgradeScreen extends StatelessWidget {
               label: const Text('Restore an existing subscription'),
             ),
           ],
+          if (auth.isSignedIn && isWindows)
+            MicrosoftBillingCard(
+              key: ValueKey(AccountRuntime.session?.currentUser?.uid),
+            ),
           if (!access.isPremiumLike && access.canActivatePremiumTrial) ...[
             const SizedBox(height: 8),
             Text(
@@ -477,7 +485,11 @@ class _PlanComparison extends StatelessWidget {
       ['Core report creation', 'Yes', 'Yes'],
       ['Numeric fields + units', 'Yes', 'Yes'],
       ['PDF export', 'Yes', 'Yes'],
-      ['Copy complete draft text (signed in)', '50 versions total; repeats free', 'Unlimited while active'],
+      [
+        'Copy complete draft text (signed in)',
+        '50 versions total; repeats free',
+        'Unlimited while active',
+      ],
       ['Images per report', '4', '12'],
       ['Image labels', 'No', 'Yes'],
       ['Custom letterhead', 'No', 'Yes'],

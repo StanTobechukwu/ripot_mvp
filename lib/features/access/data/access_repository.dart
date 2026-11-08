@@ -271,7 +271,11 @@ class AccessRepository {
       trialStartAt: remoteTrialStart ?? state.trialStartAt,
       trialEndsAt: remoteTrialEnd ?? state.trialEndsAt,
       premiumStartedAt: remotePremiumStart ?? state.premiumStartedAt,
-      premiumExpiresAt: _dateFromJson(data['playEntitlementExpiresAtIso']),
+      premiumExpiresAt: _dateFromJson(
+        data.containsKey('premiumEntitlementExpiresAtIso')
+            ? data['premiumEntitlementExpiresAtIso']
+            : data['playEntitlementExpiresAtIso'],
+      ),
       hasUsedTrial: remoteHasUsedTrial ?? state.hasUsedTrial,
       founderCohort: remoteFounderCohort,
       founderNumber: remoteFounderNumber,
@@ -296,10 +300,20 @@ class AccessRepository {
     try {
       if (refreshPlay) {
         try {
-          await AccountFunctions.call(
-            'refreshPlayEntitlement',
-            timeout: const Duration(seconds: 8),
-          ).timeout(const Duration(seconds: 8));
+          await Future.wait(
+            ['refreshPlayEntitlement', 'refreshMicrosoftEntitlement'].map((
+              name,
+            ) async {
+              try {
+                await AccountFunctions.call(
+                  name,
+                  timeout: const Duration(seconds: 8),
+                ).timeout(const Duration(seconds: 8));
+              } catch (
+                _
+              ) {} // Keep the last verified, bounded offline allowance.
+            }),
+          );
         } catch (_) {}
       }
 
@@ -358,8 +372,8 @@ class AccessRepository {
       // never by an offline load or writing the local cache back to disk.
       next = next.verifiedNow();
       if (next.plan == RipotPlan.premium && overridePlan != 'premium') {
-        // Reading a stale Firestore document is not a fresh Play verification.
-        // A failing Play refresh must not keep extending an annual subscriber's
+        // Reading a stale Firestore document is not a fresh store verification.
+        // A failing store refresh must not keep extending an annual subscriber's
         // offline window after a refund or revocation.
         final paidVerifiedAt = _dateFromJson(data['billingLastVerifiedAtIso']);
         final paidDeadline = paidVerifiedAt?.add(AccessState.offlineAllowance);

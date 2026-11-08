@@ -18,8 +18,9 @@ function unlimitedCopy(data, now) {
   if (data.plan === 'trial') return future(data.trialEndsAtIso || data.trialEndsAt);
   const verified = dateFromAny(data.billingLastVerifiedAtIso)?.getTime();
   return data.plan === 'premium' &&
-    data.entitlementAuthority === 'google_play_verified' &&
-    future(data.playEntitlementExpiresAtIso) &&
+    ['google_play_verified', 'microsoft_store_verified'].includes(data.entitlementAuthority) &&
+    future(Object.hasOwn(data, 'premiumEntitlementExpiresAtIso')
+      ? data.premiumEntitlementExpiresAtIso : data.playEntitlementExpiresAtIso) &&
     Number.isFinite(verified) && verified <= now.getTime() + 300000 &&
     now.getTime() - verified < FRESH_MS;
 }
