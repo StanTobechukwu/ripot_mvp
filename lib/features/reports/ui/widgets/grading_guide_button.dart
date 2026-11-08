@@ -8,11 +8,15 @@ class GradingGuideButton extends StatelessWidget {
   const GradingGuideButton({super.key, required this.role});
 
   final String role;
-  static Future<Map<String, dynamic>>? _reference;
+  static Map<String, dynamic>? _reference;
 
-  static Future<Map<String, dynamic>> _load() => _reference ??= rootBundle
-      .loadString('assets/reference/upper_gi_gradings.json')
-      .then((text) => jsonDecode(text) as Map<String, dynamic>);
+  static Future<Map<String, dynamic>> _load() async {
+    if (_reference != null) return _reference!;
+    final text = await rootBundle.loadString('assets/reference/upper_gi_gradings.json');
+    // Cache the decoded content, not a Future tied to a previous async zone.
+    // A failed asset load can also be retried the next time a guide is opened.
+    return _reference = jsonDecode(text) as Map<String, dynamic>;
+  }
 
   @override
   Widget build(BuildContext context) => IconButton(
