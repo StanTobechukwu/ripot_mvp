@@ -1,10 +1,12 @@
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { GoogleAuth } = require("google-auth-library");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { createHash } = require("node:crypto");
+const { defineSecret } = require("firebase-functions/params");
+const { paidProjection } = require("./paid-access");
 
 initializeApp();
 const db = getFirestore();
@@ -178,20 +180,8 @@ async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
   // omits externalAccountIdentifiers for an older purchase.
   const purchaseTokenHash = await claimPurchaseToken(uid, purchaseToken);
 
-  if (!e.entitled) {
-    if (current.entitlementAuthority === "google_play_verified") {
-      await accessRef.set({
-        plan:"free", billingProvider:"google_play", billingProductId:PLAY_PREMIUM_PRODUCT_ID,
-        billingSubscriptionState:e.state, billingBasePlanId:e.basePlanId, billingOfferId:e.offerId,
-        playEntitlementExpiresAtIso:e.expiry?.toISOString() || null,
-        billingLastVerifiedAtIso:nowIso, entitlementAuthority:"google_play_verified", updatedAtIso:nowIso,
-      }, { merge:true });
-    }
-    return e;
-  }
-
   const isFounderOffer = e.offerId === PLAY_FOUNDER_OFFER_ID;
-  if (isFounderOffer) {
+  if (isFounderOffer && e.entitled) {
     // Restoring the same verified purchase is not a second redemption.
     const previous = (await internalRef.get()).data();
     const restoring = previous?.purchaseTokenHash === purchaseTokenHash &&
@@ -201,20 +191,29 @@ async function applyVerifiedPlayEntitlement(uid, purchaseToken, playData) {
     if (!eligible) throw new HttpsError("failed-precondition", "The Founding 100 annual offer is not available for this account.");
   }
 
-  await acknowledgeIfNeeded(playData, purchaseToken);
+  if (e.entitled) await acknowledgeIfNeeded(playData, purchaseToken);
   await Promise.all([
     internalRef.set({ uid, provider:"google_play", productId:PLAY_PREMIUM_PRODUCT_ID, purchaseToken, purchaseTokenHash,
       latestOrderId:e.latestOrderId, basePlanId:e.basePlanId, offerId:e.offerId, lastVerifiedAtIso:nowIso }, { merge:true }),
-    accessRef.set({
-      ownerType:"user", ownerId:uid, authUid:uid, plan:"premium",
-      premiumStartedAtIso:current.premiumStartedAtIso || playData?.startTime || nowIso,
-      billingProvider:"google_play", billingProductId:PLAY_PREMIUM_PRODUCT_ID,
-      billingBasePlanId:e.basePlanId, billingOfferId:e.offerId, billingSubscriptionState:e.state,
-      billingLatestOrderId:e.latestOrderId, playEntitlementExpiresAtIso:e.expiry?.toISOString() || null,
-      billingLastVerifiedAtIso:nowIso, entitlementAuthority:"google_play_verified",
-      ...(isFounderOffer ? { founderDiscountRedeemed:true, founderDiscountRedeemedAtIso:current.founderDiscountRedeemedAtIso || nowIso } : {}),
-      updatedAtIso:nowIso, lastSyncedAtIso:nowIso,
-    }, { merge:true }),
+    db.runTransaction(async tx => {
+      const latest = (await tx.get(accessRef)).data() || {};
+      const fields = {
+        playEntitlementExpiresAtIso: e.entitled ? e.expiry.toISOString() : null,
+        playReportedExpiresAtIso: e.expiry?.toISOString() || null,
+        playLastVerifiedAtIso: nowIso,
+        billingProductId: PLAY_PREMIUM_PRODUCT_ID,
+        billingBasePlanId: e.basePlanId, billingOfferId: e.offerId,
+        billingSubscriptionState: e.state, billingLatestOrderId: e.latestOrderId,
+      };
+      tx.set(accessRef, {
+        ownerType: 'user', ownerId: uid, authUid: uid,
+        ...(e.entitled ? { premiumStartedAtIso: latest.premiumStartedAtIso || playData?.startTime || nowIso } : {}),
+        ...fields, ...paidProjection({ ...latest, ...fields }),
+        ...(isFounderOffer && e.entitled ? { founderDiscountRedeemed: true,
+          founderDiscountRedeemedAtIso: latest.founderDiscountRedeemedAtIso || nowIso } : {}),
+        lastSyncedAtIso: nowIso,
+      }, { merge: true });
+    }),
   ]);
   return e;
 }
@@ -258,3 +257,47 @@ exports.refreshPlayEntitlement = onCall(async (request) => {
 
 // Reviewed community templates and server-controlled notifications.
 Object.assign(exports, require('./template-library-endpoints'));
+
+async function refreshPlayForUid(uid) {
+  const snap = await db.collection(PLAY_INTERNAL_COLLECTION).doc(uid).get();
+  const token = snap.data()?.purchaseToken;
+  if (!token) return { checked: false };
+  const playData = await getPlaySubscription(token);
+  assertPlayAccountMatches(uid, playData);
+  return applyVerifiedPlayEntitlement(uid, token, playData);
+}
+const paystackSecret = defineSecret('PAYSTACK_SECRET_KEY');
+const paystackWebhookSecret = defineSecret('PAYSTACK_WEBHOOK_SECRET');
+const { createPaystackApi, createPaystackService, verifySignature } = require('./paystack');
+const paystack = createPaystackService(db, {
+  api: createPaystackApi(() => paystackSecret.value()),
+  apiSecret: () => paystackSecret.value(), refreshPlay: refreshPlayForUid,
+});
+const paystackOptions = { region: 'us-central1', maxInstances: 4, concurrency: 20,
+  timeoutSeconds: 60, memory: '256MiB', secrets: [paystackSecret] };
+exports.getPaystackPlans = onCall({ region: 'us-central1', maxInstances: 4 }, paystack.catalogue);
+exports.startPaystackCheckout = onCall(paystackOptions, paystack.start);
+exports.refreshPaystackEntitlement = onCall(paystackOptions, paystack.refresh);
+exports.managePaystackSubscription = onCall(paystackOptions, paystack.manage);
+exports.refreshPaidEntitlements = onCall(paystackOptions, async request => {
+  const uid = requireUid(request);
+  const results = await Promise.allSettled([refreshPlayForUid(uid), paystack.refreshUid(uid)]);
+  return { checked: results.some(r => r.status === 'fulfilled'),
+    providers: results.map(r => r.status === 'fulfilled' ? 'checked' : 'unavailable') };
+});
+exports.paystackWebhook = onRequest({ ...paystackOptions,
+  secrets: [paystackSecret, paystackWebhookSecret] }, async (req, res) => {
+  if (req.method !== 'POST') return res.status(405).send('Method not allowed');
+  if (!verifySignature(req.rawBody, req.headers, paystackSecret.value(), paystackWebhookSecret.value())) {
+    return res.status(401).send('Invalid signature');
+  }
+  try {
+    const body = JSON.parse(req.rawBody.toString('utf8'));
+    await paystack.event(body);
+    // Respond only AFTER the idempotent ledger write. A retry can safely repeat it.
+    return res.status(200).send('OK');
+  } catch (error) {
+    console.error('Paystack event processing failed', { code: error.code || 'internal' });
+    return res.status(503).send('Retry later');
+  }
+});

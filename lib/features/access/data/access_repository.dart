@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -271,7 +272,9 @@ class AccessRepository {
       trialStartAt: remoteTrialStart ?? state.trialStartAt,
       trialEndsAt: remoteTrialEnd ?? state.trialEndsAt,
       premiumStartedAt: remotePremiumStart ?? state.premiumStartedAt,
-      premiumExpiresAt: _dateFromJson(data['playEntitlementExpiresAtIso']),
+      premiumExpiresAt: _dateFromJson(
+        data['premiumExpiresAtIso'] ?? data['playEntitlementExpiresAtIso'],
+      ),
       hasUsedTrial: remoteHasUsedTrial ?? state.hasUsedTrial,
       founderCohort: remoteFounderCohort,
       founderNumber: remoteFounderNumber,
@@ -297,10 +300,18 @@ class AccessRepository {
       if (refreshPlay) {
         try {
           await AccountFunctions.call(
-            'refreshPlayEntitlement',
+            'refreshPaidEntitlements',
             timeout: const Duration(seconds: 8),
           ).timeout(const Duration(seconds: 8));
-        } catch (_) {}
+        } catch (_) {
+          // Keep already-released Play billing working during a staged backend rollout.
+          try {
+            await AccountFunctions.call(
+              'refreshPlayEntitlement',
+              timeout: const Duration(seconds: 8),
+            );
+          } catch (_) {}
+        }
       }
 
       final data = await documents
@@ -332,9 +343,8 @@ class AccessRepository {
         );
       }
 
-      final overridePlan = _stringOrNull(
-        data['adminPlanOverride'],
-      )?.toLowerCase();
+      final overridePlan = _stringOrNull(data['adminPlanOverride'])
+          ?.toLowerCase();
       if (overridePlan == 'premium') {
         next = next.copyWith(
           plan: RipotPlan.premium,
@@ -358,8 +368,8 @@ class AccessRepository {
       // never by an offline load or writing the local cache back to disk.
       next = next.verifiedNow();
       if (next.plan == RipotPlan.premium && overridePlan != 'premium') {
-        // Reading a stale Firestore document is not a fresh Play verification.
-        // A failing Play refresh must not keep extending an annual subscriber's
+        // Reading a stale Firestore document is not a fresh payment verification.
+        // A failing provider refresh must not keep extending a subscriber's
         // offline window after a refund or revocation.
         final paidVerifiedAt = _dateFromJson(data['billingLastVerifiedAtIso']);
         final paidDeadline = paidVerifiedAt?.add(AccessState.offlineAllowance);

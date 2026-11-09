@@ -245,6 +245,10 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       }
       if (!_openingTemplate) await _refreshReports();
       if (mounted && kIsWeb) {
+        if (Uri.base.queryParameters['premium'] == 'return') {
+          await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const UpgradeScreen()));
+          return;
+        }
         final libraryView = Uri.base.queryParameters['templateLibrary'];
         if (['browse', 'contribute', 'review', 'mine'].contains(libraryView)) {
           await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => OnlineTemplatesScreen(initialView: libraryView!)));

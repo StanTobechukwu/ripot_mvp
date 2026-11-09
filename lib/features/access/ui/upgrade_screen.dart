@@ -7,6 +7,8 @@ import '../providers/access_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'premium_access_action.dart';
 import '../../billing/providers/billing_provider.dart';
+import '../../billing/paystack_billing.dart';
+import '../../billing/ui/paystack_plans_card.dart';
 
 class UpgradeScreen extends StatelessWidget {
   const UpgradeScreen({super.key});
@@ -146,7 +148,7 @@ class UpgradeScreen extends StatelessWidget {
                 subtitle: Text(
                   BillingProvider.supportsGooglePlay
                       ? 'Choose a Premium plan below to continue using premium features.'
-                      : 'Web subscription checkout is being prepared. You can continue using Ripot Free while it becomes available.',
+                      : 'Check the Premium payment options below. You can continue using Ripot Free.',
                 ),
               ),
             ),
@@ -157,8 +159,12 @@ class UpgradeScreen extends StatelessWidget {
             const SizedBox(height: 12),
             if (BillingProvider.supportsGooglePlay)
               const _BillingPlansCard()
-            else
+            else if (!PaystackBilling.supported)
               const _AccountPremiumCard(),
+          ],
+          if (auth.isSignedIn && PaystackBilling.supported) ...[
+            const SizedBox(height: 12),
+            const PaystackPlansCard(),
           ],
           if (auth.isSignedIn &&
               BillingProvider.supportsGooglePlay &&
@@ -226,9 +232,7 @@ class _AccountPremiumCardState extends State<_AccountPremiumCard> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            active
-                ? 'Your Premium features are active.'
-                : 'No active Premium access was confirmed. Check your connection and Ripot account.',
+            active ? 'Your Premium features are active.' : 'No active Premium access was confirmed. Check your connection and Ripot account.',
           ),
         ),
       );
@@ -477,7 +481,11 @@ class _PlanComparison extends StatelessWidget {
       ['Core report creation', 'Yes', 'Yes'],
       ['Numeric fields + units', 'Yes', 'Yes'],
       ['PDF export', 'Yes', 'Yes'],
-      ['Copy complete draft text (signed in)', '50 versions total; repeats free', 'Unlimited while active'],
+      [
+        'Copy complete draft text (signed in)',
+        '50 versions total; repeats free',
+        'Unlimited while active',
+      ],
       ['Images per report', '4', '12'],
       ['Image labels', 'No', 'Yes'],
       ['Custom letterhead', 'No', 'Yes'],
