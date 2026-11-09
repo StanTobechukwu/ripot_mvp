@@ -70,6 +70,21 @@ bash tools/deploy/Deploy-Paystack-Backend.command
 node functions/scripts/paystack-setup.js --mode test --test-uid YOUR_TEST_UID
 ```
 
+The owner created the following plans manually and confirmed **Test mode** on 9 November 2026. Provider-side amounts, currency and interval still need verification when connecting them:
+
+| Offer | Expected amount | Supplied plan code |
+| --- | --- | --- |
+| Monthly | NGN 2,500 | `PLN_f4dbw4c8h3wjh0c` |
+| Annual | NGN 25,000 | `PLN_m01ex335fgxv4i2` |
+
+To select those exact plans, use this configuration command after saving the test secrets and deploying the backend:
+
+```bash
+node functions/scripts/paystack-setup.js --mode test --test-uid YOUR_TEST_UID --ng-monthly-plan PLN_f4dbw4c8h3wjh0c --ng-annual-plan PLN_m01ex335fgxv4i2
+```
+
+The setup fetches and checks each supplied code before writing the catalogue. An unknown code or a mode, amount, currency or interval mismatch stops setup; it does not silently create replacement plans. These test codes must not be reused for live checkout. International approval was last shown as **Requested**; international checkout remains disabled until approval and the overseas pricing choice are confirmed.
+
 Enter keys only in the secure Firebase prompts. Deploying the backend alone does not enable checkout: the private catalogue must also exist.
 
 Configure the **test-mode webhook endpoint** in Paystack:
@@ -107,6 +122,7 @@ For approved USD collection and **separately confirmed** overseas pricing, appen
 Automated preparation checks:
 
 - **74 backend tests passed**, including payment ownership/amount/currency checks, duplicate events, replay safety, paid-period expiry, refunds, foreign-card NGN checkout, missing-event recovery, isolated test access, provider freshness and Firestore permissions. The landing-page link/content checker also passed.
+- **3 additional setup tests passed** after the owner supplied the test plan codes: exact-code selection despite differing names, rejection of swapped or live plans and mismatched prices, and no silent replacement of unknown codes.
 - Local Dart formatting parsed the new controller, widget and test source. JavaScript syntax, shell syntax and diff checks were run.
 - **Flutter analysis, app tests and compilation have not run.** Automatic approval review blocked Flutter's version/bootstrap command because it tried to contact the environment's cloud metadata service, which can expose instance credentials. That rejected execution was not retried. Offline dependency resolution also could not complete because the Flutter package cache was empty. Run the app validation on an approved development environment before releasing. The preparation commit skips automatic CI to avoid indirectly rerunning the blocked Flutter execution; it must not be treated as a verified release.
 

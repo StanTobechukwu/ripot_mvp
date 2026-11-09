@@ -12,6 +12,25 @@ const PROJECT = 'ripot-4edf7';
 const args = process.argv.slice(2);
 const option = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const mode = option('--mode');
+async function resolveProviderPlan(api, definition, mode, available, requestedCode) {
+  if (requestedCode && !/^PLN_[A-Za-z0-9]+$/.test(requestedCode)) throw Error('Invalid supplied plan code.');
+  const name = `Ripot Premium ${definition.currency} ${definition.interval === 'monthly' ? 'Monthly' : 'Annual'}`;
+  const matches = available.filter(p => p.name === name && p.domain === mode && p.currency === definition.currency &&
+    p.amount === definition.amount && p.interval === definition.interval);
+  if (!requestedCode && matches.length > 1) throw Error(`Multiple matching plans for ${name}; review the dashboard.`);
+  const provider = requestedCode
+    ? await api(`/plan/${encodeURIComponent(requestedCode)}`)
+    : matches[0] || await api('/plan', { name, amount: definition.amount, currency: definition.currency,
+      interval: definition.interval, send_invoices: true, send_sms: false });
+  if (!/^PLN_[A-Za-z0-9]+$/.test(provider?.plan_code || '') ||
+      (requestedCode && provider.plan_code !== requestedCode) || provider.domain !== mode ||
+      provider.amount !== definition.amount || provider.currency !== definition.currency ||
+      provider.interval !== definition.interval || provider.is_deleted === true ||
+      (provider.invoice_limit != null && provider.invoice_limit !== 0)) {
+    throw Error(`The provider plan does not match the required mode, price or recurring interval for ${definition.id}.`);
+  }
+  return { ...definition, code: provider.plan_code };
+}
 async function main() {
   if (!['test', 'live'].includes(mode)) throw Error('Use --mode test or --mode live.');
   const credentialFile = process.env.GOOGLE_APPLICATION_CREDENTIALS ||
@@ -66,13 +85,9 @@ async function main() {
   }
   const plans = [];
   for (const definition of definitions) {
-    const name = `Ripot Premium ${definition.currency} ${definition.interval === 'monthly' ? 'Monthly' : 'Annual'}`;
-    const matches = allPlans.filter(p => p.name === name && p.domain === mode && p.currency === definition.currency &&
-      p.amount === definition.amount && p.interval === definition.interval);
-    if (matches.length > 1) throw Error(`Multiple matching plans for ${name}; review the dashboard.`);
-    const provider = matches[0] || await api('/plan', { name, amount: definition.amount, currency: definition.currency,
-      interval: definition.interval, send_invoices: true, send_sms: false });
-    plans.push({ ...definition, code: provider.plan_code });
+    const requestedCode = definition.id === 'ng_monthly' ? option('--ng-monthly-plan') :
+      definition.id === 'ng_annual' ? option('--ng-annual-plan') : null;
+    plans.push(await resolveProviderPlan(api, definition, mode, allPlans, requestedCode));
   }
   // Keep older codes for verification of existing subscribers, while disabling new sales.
   for (const old of existing?.mode === mode ? existing.plans || [] : []) {
@@ -88,4 +103,5 @@ async function main() {
     plans: plans.filter(p => p.enabled).map(({ id, amount, currency, interval, code }) => ({ id, amount, currency, interval, code })) }, null, 2));
   console.log('Webhook URL: https://us-central1-ripot-4edf7.cloudfunctions.net/paystackWebhook');
 }
-main().catch(error => { console.error(error.message || 'Paystack setup failed.'); process.exitCode = 1; });
+if (require.main === module) main().catch(error => { console.error(error.message || 'Paystack setup failed.'); process.exitCode = 1; });
+module.exports = { resolveProviderPlan };
