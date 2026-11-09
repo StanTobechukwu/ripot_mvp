@@ -16,6 +16,11 @@ class AccountFunctions {
     'activatePremiumTrial',
     'syncFounderEntitlement',
     'refreshPlayEntitlement',
+    'refreshPaidEntitlements',
+    'getPaystackPlans',
+    'startPaystackCheckout',
+    'refreshPaystackEntitlement',
+    'managePaystackSubscription',
     'getReportCopyAllowance',
     'authorizeReportCopy',
   };

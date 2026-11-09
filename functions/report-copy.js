@@ -1,10 +1,10 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { FieldValue } = require('firebase-admin/firestore');
 const { dateFromAny, requireRegisteredUid } = require('./founding-100');
+const { paidAccess } = require('./paid-access');
 
 const COPY_ALLOWANCES = 'ripot_copy_allowances';
 const FREE_COPY_LIMIT = 50;
-const FRESH_MS = 72 * 60 * 60 * 1000;
 const FINGERPRINT = /^[a-f0-9]{64}$/;
 
 function unlimitedCopy(data, now) {
@@ -16,12 +16,7 @@ function unlimitedCopy(data, now) {
   if (override === 'trial') return future(adminEnd);
   if (future(adminEnd)) return true;
   if (data.plan === 'trial') return future(data.trialEndsAtIso || data.trialEndsAt);
-  const verified = dateFromAny(data.billingLastVerifiedAtIso)?.getTime();
-  return data.plan === 'premium' &&
-    data.entitlementAuthority === 'google_play_verified' &&
-    future(data.playEntitlementExpiresAtIso) &&
-    Number.isFinite(verified) && verified <= now.getTime() + 300000 &&
-    now.getTime() - verified < FRESH_MS;
+  return data.plan === 'premium' && paidAccess(data, now)?.fresh === true;
 }
 
 function fingerprints(snapshot) {
