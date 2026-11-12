@@ -7,7 +7,7 @@ const os = require('node:os');
 const { GoogleAuth } = require('google-auth-library');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
-const { createPaystackApi, validateCatalog } = require('../paystack');
+const { createPaystackApi, validateCatalog, NIGERIA_PRICES } = require('../paystack');
 const PROJECT = 'ripot-4edf7';
 const args = process.argv.slice(2);
 const option = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
@@ -27,10 +27,12 @@ function countryDefinitions(rows) {
   return rows.flatMap(row => {
     if (!countries.has(row?.country) || row.country === 'NG' || seen.has(row.country)) throw Error('Use unique overseas ISO country codes; Nigeria retains its approved offers.');
     seen.add(row.country);
-    return [['monthly', row.monthlyNgn], ['annually', row.annualNgn]].map(([interval, value]) => ({
-      id: `${row.country.toLowerCase()}_ngn_${interval === 'monthly' ? 'monthly' : 'annual'}`,
-      amount: minor(value), currency: 'NGN', interval, markets: [row.country], enabled: true,
-    }));
+    return [['monthly', row.monthlyNgn], ['annually', row.annualNgn]].map(([interval, value]) => {
+      const amount = minor(value);
+      if (amount <= NIGERIA_PRICES[interval]) throw Error('International NGN prices must be higher than the Nigerian price for the same billing period.');
+      return {id: `${row.country.toLowerCase()}_ngn_${interval === 'monthly' ? 'monthly' : 'annual'}`,
+        amount, currency: 'NGN', interval, markets: [row.country], enabled: true};
+    });
   });
 }
 async function resolveProviderPlan(api, definition, mode, available, requestedCode) {
@@ -81,8 +83,8 @@ async function main() {
   const testUid = option('--test-uid');
   if (mode === 'test' && !testUid) throw Error('A registered test Ripot UID is required with --test-uid.');
   const definitions = [
-    { id: 'ng_monthly', amount: 250000, currency: 'NGN', interval: 'monthly', markets: ['NG'], enabled: true },
-    { id: 'ng_annual', amount: 2500000, currency: 'NGN', interval: 'annually', markets: ['NG'], enabled: true },
+    { id: 'ng_monthly', amount: NIGERIA_PRICES.monthly, currency: 'NGN', interval: 'monthly', markets: ['NG'], enabled: true },
+    { id: 'ng_annual', amount: NIGERIA_PRICES.annually, currency: 'NGN', interval: 'annually', markets: ['NG'], enabled: true },
   ];
   const international = args.includes('--international-approved');
   const internationalCurrency = option('--international-currency');

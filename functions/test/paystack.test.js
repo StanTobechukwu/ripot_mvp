@@ -227,11 +227,12 @@ test('pausing sales preserves existing access refresh and subscription managemen
 });
 
 test('foreign-card checkout can use NGN without silently converting the amount', async () => {
-  const localPlans = plans.map(p => ({ ...p, markets: p.currency === 'NGN' ? ['NG', 'international'] : p.markets }));
-  await db.doc('ripot_internal/paystack_config').update({ plans: localPlans });
-  await service.start(req({ planId: 'ng_monthly', market: 'international' }));
+  const overseas = {...plans[0],id:'intl_ngn_monthly',code:'PLN_intlNGN',amount:1200000,markets:['international']};
+  await db.doc('ripot_internal/paystack_config').update({ plans: [plans[0],plans[1],overseas] });
+  responses['/plan/PLN_intlNGN'] = {...overseas,domain:mode};
+  await service.start(req({ planId: overseas.id, market: 'international' }));
   const sent = calls.find(c => c.path === '/transaction/initialize').body;
-  assert.equal(sent.amount, 250000); assert.equal(sent.currency, 'NGN');
+  assert.equal(sent.amount, 1200000); assert.equal(sent.currency, 'NGN');
   assert.equal(sent.metadata.ripotMarket, 'international');
 });
 

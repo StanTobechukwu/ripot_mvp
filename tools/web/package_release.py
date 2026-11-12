@@ -50,6 +50,7 @@ The landing page links directly to Ripot Premium. Web users sign in, select thei
 billing country and review the server-approved offer before Paystack checkout.
 Nigeria retains NGN 2,500 monthly / 25,000 yearly. No overseas prices are enabled
 by this package. Add country-specific NGN offers only after their approval.
+International rates must be higher than the corresponding Nigerian rates.
 
 On your Mac with Node 22, Firebase CLI and Firebase owner access:
 1. Read docs/PAYSTACK_SETUP.md. Save the Paystack test secrets securely using

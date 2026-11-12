@@ -16,7 +16,7 @@ Prepared 9 November; payment path and country pricing updated 12 November 2026. 
 
 The current selected route is **country-specific prices charged in NGN**, including eligible international cards, with NGN settlement to the company's existing Access Bank account. This supersedes the earlier proposal to start with USD settlement. Customer banks handle conversion; no live foreign exchange quote is promised.
 
-Nigeria retains its previously approved **NGN 2,500/month and NGN 25,000/year**. Overseas amounts have **not** been approved. No suggested price from a conversation or test fixture is a production offer.
+Nigeria retains its previously approved **NGN 2,500/month and NGN 25,000/year**. Overseas amounts have **not** been approved. No suggested price from a conversation or test fixture is a production offer. Both setup and server validation require every enabled international NGN monthly/yearly price to be strictly higher than the corresponding Nigerian price, as the owner reconfirmed on 12 November.
 
 The web screen asks for the customer's billing country/region and shows only a configured offer. The server owns amounts and validates the plan against that country. This selection is customer-declared; it is not proof of residence and does not prevent customers misdeclaring their country. No IP geolocation is used.
 

@@ -32,3 +32,20 @@ test('missing, rounded, duplicate, invalid and Nigeria override prices fail befo
   assert.equal(new Set(countries.map(c=>c.code)).size,countries.length);
   assert(countries.some(c=>c.code==='NG' && c.label==='Nigeria'));
 });
+
+test('overseas monthly and annual prices must each exceed their Nigerian counterpart', () => {
+  for(const change of [{monthlyNgn:'2500'},{monthlyNgn:'2499.99'},{annualNgn:'25000'},{annualNgn:'24999.99'}]){
+    assert.throws(()=>countryDefinitions([{...fixture[0],...change}]),/higher than the Nigerian price/);
+  }
+  const plans=countryDefinitions([{country:'US',monthlyNgn:'2500.01',annualNgn:'25000.01'}]);
+  assert.deepEqual(plans.map(p=>p.amount),[250001,2500001]);
+});
+test('manual catalogues cannot bypass the Nigeria discount, while historical prices remain verifiable', () => {
+  const local={id:'ng_monthly',code:'PLN_ng',amount:250000,currency:'NGN',interval:'monthly',markets:['NG'],enabled:true};
+  for(const amount of [250000,249999]){
+    const overseas={...local,id:'us_monthly',code:'PLN_us',amount,markets:['US']};
+    assert.throws(()=>validateCatalog({mode:'live',plans:[local,overseas]}),/higher than the Nigerian price/);
+    assert.doesNotThrow(()=>validateCatalog({mode:'live',plans:[local,{...overseas,enabled:false}]}));
+  }
+  assert.throws(()=>validateCatalog({mode:'live',plans:[{...local,markets:['NG','international']}]}),/higher than the Nigerian price/);
+});

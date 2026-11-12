@@ -10,6 +10,7 @@ const RETURN_URL = 'https://ripot-web.web.app/?premium=return';
 const REFERENCE = /^[A-Za-z0-9_-]{8,100}$/;
 const PLAN = /^PLN_[A-Za-z0-9]+$/;
 const DAY = 86400000;
+const NIGERIA_PRICES = Object.freeze({ monthly: 250000, annually: 2500000 });
 const fail = (message, code = 'failed-precondition') => { throw new HttpsError(code, message); };
 const codeOf = value => typeof value === 'string' ? value : value?.plan_code;
 const customerOf = data => data?.customer?.customer_code;
@@ -47,6 +48,14 @@ function validateCatalog(config) {
       fail('The payment catalogue needs an administrator review.');
     }
     ids.add(p.id); codes.add(p.code);
+  }
+  for (const interval of ['monthly', 'annually']) {
+    const local = plans.filter(p => p.enabled === true && p.currency === 'NGN' && p.interval === interval && p.markets.includes('NG'));
+    const floor = Math.max(NIGERIA_PRICES[interval], ...local.map(p => p.amount));
+    if (plans.some(p => p.enabled === true && p.currency === 'NGN' && p.interval === interval &&
+        p.markets.some(m => m !== 'NG') && p.amount <= floor)) {
+      fail('International NGN prices must be higher than the Nigerian price for the same billing period.');
+    }
   }
   return plans;
 }
@@ -373,4 +382,4 @@ function createPaystackService(db, { api, apiSecret = () => '', clock = () => ne
   return { catalogue, start, manage, refreshUid, event, applyCharge,
     refresh: request => refreshUid(requireRegisteredUid(request)) };
 }
-module.exports = { CONFIG, RETURN_URL, validateCatalog, plansForMarket, nextPeriod, verifySignature, createPaystackApi, createPaystackService };
+module.exports = { CONFIG, RETURN_URL, NIGERIA_PRICES, validateCatalog, plansForMarket, nextPeriod, verifySignature, createPaystackApi, createPaystackService };
