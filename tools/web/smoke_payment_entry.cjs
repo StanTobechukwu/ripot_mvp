@@ -38,6 +38,10 @@ const server = http.createServer((req,res)=>{
         await page.locator('flt-semantics-placeholder').waitFor({state:'attached',timeout:60000});
         await page.locator('flt-semantics-placeholder').evaluate(e=>e.click());
         await page.getByText('Ripot Premium',{exact:true}).waitFor({timeout:60000});
+        const signIn = page.getByRole('button',{name:'Sign in to check your free trial',exact:true});
+        await signIn.waitFor({state:'visible'});
+        const bounds = await signIn.boundingBox();
+        assert(bounds && bounds.y >= 0 && bounds.y + bounds.height <= 1000,'Sign-in must be reachable without scrolling past the feature comparison');
         assert.equal(await page.getByText('Premium active',{exact:true}).count(),0);
         assert.equal(await page.getByText('Subscribe monthly',{exact:true}).count(),0);
         assert.equal(await page.evaluate(()=>localStorage.getItem('ripot.qa.local-data')),'preserve-me');
