@@ -245,7 +245,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> with RouteAware {
       }
       if (!_openingTemplate) await _refreshReports();
       if (mounted && kIsWeb) {
-        if (Uri.base.queryParameters['premium'] == 'return') {
+        if (const ['plans', 'return'].contains(Uri.base.queryParameters['premium'])) {
           await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const UpgradeScreen()));
           return;
         }

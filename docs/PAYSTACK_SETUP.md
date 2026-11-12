@@ -1,6 +1,6 @@
 # Paystack Premium setup
 
-Prepared 9 November 2026. This branch is a **deployment candidate, not a live payment release**. It is based on the guided OGD release at `c7d1a48`, preserving its template changes. No production credentials, plans, webhooks, deployments or charges were created during preparation.
+Prepared 9 November; payment path and country pricing updated 12 November 2026. This branch is a **deployment candidate, not a live payment release**. It is based on the guided OGD release at `c7d1a48`, preserving its template changes. No production credentials, plans, webhooks, deployments or charges were created during preparation.
 
 ## What the integration does
 
@@ -12,30 +12,25 @@ Prepared 9 November 2026. This branch is a **deployment candidate, not a live pa
 - Current trials remain unchanged. Checkout does not charge accounts during an active trial or with active paid access.
 - Test payments use separate internal records and `ripot_test_user_access`; they cannot grant production Premium.
 
-## Prices and international payments
+## Prices and international payments — updated 12 November 2026
 
-The saved country-pricing record dated 31 October 2026 confirms Nigeria at **NGN 2,500/month and NGN 25,000/year**. These are the setup script's local defaults, represented as 250000 and 2500000 kobo.
+The current selected route is **country-specific prices charged in NGN**, including eligible international cards, with NGN settlement to the company's existing Access Bank account. This supersedes the earlier proposal to start with USD settlement. Customer banks handle conversion; no live foreign exchange quote is promised.
 
-On 9 November 2026, the owner chose **separate USD pricing for customers outside Nigeria**, preferably matching Google Play. The saved record confirms **USD 5.99/month and USD 59.99/year for the United States**; those amounts are the proposed overseas web and Windows prices. One global USD price will not match every regional Play price. The amounts remain a proposal pending confirmation; no international checkout or USD plan has been enabled by this branch. Do not copy the older USD 4.99 new-country default into an existing US price.
+Nigeria retains its previously approved **NGN 2,500/month and NGN 25,000/year**. Overseas amounts have **not** been approved. No suggested price from a conversation or test fixture is a production offer.
 
-For a Nigerian Paystack business:
+The web screen asks for the customer's billing country/region and shows only a configured offer. The server owns amounts and validates the plan against that country. This selection is customer-declared; it is not proof of residence and does not prevent customers misdeclaring their country. No IP geolocation is used.
 
-| Option | Checkout currency | Required merchant setup |
-| --- | --- | --- |
-| Nigerian customers | NGN | Activated Nigerian Paystack business |
-| Foreign cards paying the Nigerian price | NGN | International payments approved/enabled; customer bank converts |
-| A separate overseas price | USD | International payments and USD collection approved, including the eligible Zenith USD domiciliary settlement account |
+Configure overseas NGN prices only after the owner confirms both amounts. Put the approved offers in a private JSON array, with `country` (ISO two-letter code), `monthlyNgn` and `annualNgn` (decimal strings). Then append:
 
-The current UI offers **Nigeria / Outside Nigeria**. The selected approach is NGN for Nigeria and USD for other countries; do not configure the overseas NGN alternative without a new owner instruction. This is not a full country-by-country regional-pricing engine, and it does not charge directly in GBP, EUR, AUD or CAD. Checkout displays the actual charged currency and warns that the customer's bank may apply conversion and fees. Do not advertise a currency based only on the customer's location.
+```text
+--international-approved --international-currency NGN --country-prices /absolute/path/to/approved-country-prices.json
+```
 
-International checkout is disabled by default. Before enabling it, confirm the setting in Paystack **Settings → Preferences → Accept international payments** and, for USD, the approved USD settlement account. Card acceptance remains subject to the issuer and Paystack; recurring American Express payments are not supported by this integration.
+The script validates the complete file before network access, preserves the Nigerian prices, and creates separate recurring offers for each country. Without a file, **no overseas NGN offers are created**. It no longer silently gives every country the Nigerian price. A general USD fallback is supported for an explicitly approved future USD rollout, but is not part of this launch. Country-specific offers take precedence over a fallback.
 
-Primary references checked during preparation:
+The owner reported international-payment approval. Confirm the current Paystack dashboard settings before enabling production checkout. NGN collection does not require a Zenith USD domiciliary account. Direct USD collection remains a separate merchant approval and settlement decision.
 
-- [Paystack international payments](https://support.paystack.com/en/articles/2130690)
-- [Subscriptions and supported recurring methods](https://paystack.com/docs/payments/subscriptions/)
-- [Transactions API and amount subunits](https://paystack.com/docs/api/transaction/)
-- [Webhook signature verification](https://paystack.com/docs/payments/webhooks/)
+References: [international payments](https://support.paystack.com/en/articles/2130690), [subscriptions](https://paystack.com/docs/payments/subscriptions/), [transactions](https://paystack.com/docs/api/transaction/), [webhooks](https://paystack.com/docs/payments/webhooks/).
 
 ## Operator prerequisites
 
@@ -83,7 +78,7 @@ To select those exact plans, use this configuration command after saving the tes
 node functions/scripts/paystack-setup.js --mode test --test-uid YOUR_TEST_UID --ng-monthly-plan PLN_f4dbw4c8h3wjh0c --ng-annual-plan PLN_m01ex335fgxv4i2
 ```
 
-The setup fetches and checks each supplied code before writing the catalogue. An unknown code or a mode, amount, currency or interval mismatch stops setup; it does not silently create replacement plans. These test codes must not be reused for live checkout. International approval was last shown as **Requested**; international checkout remains disabled until approval, USD settlement eligibility and the exact overseas amounts are confirmed. The two supplied codes cover the NGN offers only; separate USD plans are needed.
+The setup fetches and checks each supplied code before writing the catalogue. An unknown code or a mode, amount, currency or interval mismatch stops setup; it does not silently create replacement plans. These test codes must not be reused for live checkout. These codes cover the Nigerian NGN offers only. Country-specific overseas offers need their own verified plans after their NGN prices are approved.
 
 Enter keys only in the secure Firebase prompts. Deploying the backend alone does not enable checkout: the private catalogue must also exist.
 
@@ -103,19 +98,7 @@ https://ripot-web.web.app/?premium=return
 
 The candidate web app must be built and deployed before that screen contains the new payment controls. Do not point a production checkout at an unrelated preview domain. Test through a separate Firebase project before public deployment when a full isolated app release is needed; the setup script's project constant must then be deliberately changed, along with the app's Firebase configuration and return URL.
 
-The script also supports foreign-card NGN collection, but this is **not the owner's selected approach**. Do not append these flags for the requested USD rollout:
-
-```text
---international-approved --international-currency NGN
-```
-
-For approved USD collection and **separately confirmed** overseas pricing, append:
-
-```text
---international-approved --international-currency USD --usd-monthly CONFIRMED_PRICE --usd-annual CONFIRMED_PRICE
-```
-
-`CONFIRMED_PRICE` is a decimal dollar amount, not cents. These placeholders are intentionally not executable prices. The script validates prices before creating plans, reuses matching provider plans and retains obsolete plan codes as disabled entries for existing-payment verification.
+For this rollout use the country-specific NGN flags described above. Do not enable USD collection or use a proposed overseas amount without a separate decision.
 
 ## Verification before real payments
 

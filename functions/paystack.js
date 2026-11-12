@@ -2,6 +2,8 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { createHmac, timingSafeEqual, randomUUID } = require('node:crypto');
 const { requireRegisteredUid } = require('./founding-100');
 const { paidAccess, paidProjection, time } = require('./paid-access');
+const billingCountries = require('./billing-countries.json');
+const countryCodes = new Set(billingCountries.map(c => c.code));
 
 const CONFIG = 'ripot_internal/paystack_config';
 const RETURN_URL = 'https://ripot-web.web.app/?premium=return';
@@ -41,12 +43,20 @@ function validateCatalog(config) {
         !['NGN', 'USD'].includes(p.currency) || !['monthly', 'annually'].includes(p.interval) ||
         !Number.isSafeInteger(p.amount) || p.amount < (p.currency === 'USD' ? 200 : 5000) ||
         !Array.isArray(p.markets) || p.markets.length === 0 ||
-        p.markets.some(m => !/^(NG|international|[A-Z]{2})$/.test(m))) {
+        p.markets.some(m => m !== 'international' && !countryCodes.has(m))) {
       fail('The payment catalogue needs an administrator review.');
     }
     ids.add(p.id); codes.add(p.code);
   }
   return plans;
+}
+// A named country's approved offers take precedence over any general overseas offer.
+// This is a customer-declared billing country, not verified residency or an IP check.
+function plansForMarket(plans, market) {
+  if (market !== 'international' && !countryCodes.has(market)) return [];
+  const enabled = plans.filter(p => p.enabled === true);
+  const exact = enabled.filter(p => p.markets.includes(market));
+  return exact.length || market === 'NG' ? exact : enabled.filter(p => p.markets.includes('international'));
 }
 function verifySignature(raw, headers, apiSecret, webhookSecret, now = Date.now()) {
   if (!Buffer.isBuffer(raw) || raw.length > 1024 * 1024) return false;
@@ -124,11 +134,13 @@ function createPaystackService(db, { api, apiSecret = () => '', clock = () => ne
     const enabled = c.enabled === true && (!c.allowedUids?.length || c.allowedUids.includes(uid));
     return { enabled, mode: c.mode,
       internationalEnabled: c.internationalEnabled === true,
-      plans: validateCatalog(c).filter(p => enabled && p.enabled === true).map(({ id, amount, currency, interval, markets }) =>
+      billingCountries,
+      plans: validateCatalog(c).filter(p => enabled && p.enabled === true && (c.internationalEnabled === true || p.markets.includes('NG'))).map(({ id, amount, currency, interval, markets }) =>
         ({ id, amount, currency, interval, markets })),
       locked, provider: paid?.provider || null, expiresAtIso: paid?.expiresAtIso || null,
       subscriptionStatus: account.subscriptionStatus || null,
       canManage: Boolean(account.subscriptionCode), pendingPlanId: account.pendingPlanId || null,
+      pendingMarket: account.pendingMarket || null,
       paymentConfirmed: Boolean(account.lastReference),
     };
   }
@@ -137,7 +149,7 @@ function createPaystackService(db, { api, apiSecret = () => '', clock = () => ne
     const data = request.data || {};
     if (Object.keys(data).some(k => !['planId', 'market'].includes(k))) fail('Only a plan and billing market are accepted.', 'invalid-argument');
     const c = await configFor(uid, true);
-    const p = validateCatalog(c).find(p => p.id === data.planId && p.enabled === true && p.markets.includes(data.market));
+    const p = plansForMarket(validateCatalog(c), data.market).find(p => p.id === data.planId);
     if (!p || (data.market !== 'NG' && c.internationalEnabled !== true)) fail('This payment option is not available.', 'invalid-argument');
     const email = request.auth.token?.email;
     if (typeof email !== 'string' || !email.includes('@')) fail('A Ripot account email is required.');
@@ -153,10 +165,11 @@ function createPaystackService(db, { api, apiSecret = () => '', clock = () => ne
       if (a.subscriptionCode && !['cancelled', 'completed', 'complete'].includes(a.subscriptionStatus)) fail('Manage your existing Paystack subscription before starting another.');
       if (a.pendingReference) {
         if (a.pendingPlanId !== p.id) fail('Resume your existing checkout before choosing a different plan.');
+        if (a.pendingMarket && a.pendingMarket !== data.market) fail('Resume your existing checkout for its original billing country.');
         return a.pendingReference;
       }
       const ref = `ripot_${randomUUID().replaceAll('-', '')}`;
-      tx.set(aRef, { pendingReference: ref, pendingPlanId: p.id, latestCheckoutPlanCode: p.code, latestCheckoutAmount: p.amount }, { merge: true });
+      tx.set(aRef, { pendingReference: ref, pendingPlanId: p.id, pendingMarket: data.market, latestCheckoutPlanCode: p.code, latestCheckoutAmount: p.amount }, { merge: true });
       tx.create(references(c.mode).doc(ref), { uid, planId: p.id, planCode: p.code,
         amount: p.amount, currency: p.currency, interval: p.interval, market: data.market,
         email, createdAtIso: clock().toISOString(), status: 'initializing' });
@@ -215,7 +228,7 @@ function createPaystackService(db, { api, apiSecret = () => '', clock = () => ne
         transactionId: payment.transactionId }, { merge: true });
       tx.set(aRef, { lastReference: active[0]?.reference || payment.reference,
         ...(!a.subscriptionCode ? { planCode: payment.planCode, amount: payment.amount, currency: payment.currency, interval: payment.interval } : {}),
-        ...(a.pendingReference === payment.reference ? { pendingReference: null, pendingPlanId: null } : {}) }, { merge: true });
+        ...(a.pendingReference === payment.reference ? { pendingReference: null, pendingPlanId: null, pendingMarket: null } : {}) }, { merge: true });
       tx.set(uRef, { ownerType: 'user', ownerId: uid, authUid: uid, ...fields,
         premiumStartedAtIso: u.premiumStartedAtIso || payment.paidAtIso,
         ...paidProjection({ ...u, ...fields }, clock()) }, { merge: true });
@@ -360,4 +373,4 @@ function createPaystackService(db, { api, apiSecret = () => '', clock = () => ne
   return { catalogue, start, manage, refreshUid, event, applyCharge,
     refresh: request => refreshUid(requireRegisteredUid(request)) };
 }
-module.exports = { CONFIG, RETURN_URL, validateCatalog, nextPeriod, verifySignature, createPaystackApi, createPaystackService };
+module.exports = { CONFIG, RETURN_URL, validateCatalog, plansForMarket, nextPeriod, verifySignature, createPaystackApi, createPaystackService };

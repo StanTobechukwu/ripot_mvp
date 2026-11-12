@@ -275,3 +275,24 @@ test('API errors identify missing records without leaking provider details', asy
     json: async () => ({ status: false, message: 'SENSITIVE PROVIDER DETAILS' }) }));
   await assert.rejects(unavailable('/customer/alice'), e => e.code === 'unavailable' && !e.message.includes('SENSITIVE'));
 });
+
+test('country-specific NGN checkout uses server price and rejects a different country offer', async () => {
+  const us = {...plans[0],id:'us_ngn_monthly',code:'PLN_countryUS',amount:1200000,markets:['US']};
+  const gb = {...plans[0],id:'gb_ngn_monthly',code:'PLN_countryGB',amount:1100000,markets:['GB']};
+  await db.doc('ripot_internal/paystack_config').update({plans:[...plans,us,gb]});
+  responses['/plan/PLN_countryUS'] = {...us,domain:mode};
+  await assert.rejects(service.start(req({planId:gb.id,market:'US'})),{code:'invalid-argument'});
+  await assert.rejects(service.start(req({planId:'usd_monthly',market:'US'})),{code:'invalid-argument'});
+  await service.start(req({planId:us.id,market:'US'}));
+  const sent = calls.find(c=>c.path==='/transaction/initialize').body;
+  assert.equal(sent.amount,1200000);
+  assert.equal(sent.currency,'NGN');
+  assert.equal(sent.metadata.ripotMarket,'US');
+  const catalog = await service.catalogue(req());
+  assert.equal(catalog.pendingMarket,'US');
+  assert(catalog.billingCountries.some(c=>c.code==='GB'));
+});
+test('pending checkout cannot change country even if both use the same overseas offer', async () => {
+  await service.start(req({planId:'usd_monthly',market:'US'}));
+  await assert.rejects(service.start(req({planId:'usd_monthly',market:'GB'})), /original billing country/);
+});

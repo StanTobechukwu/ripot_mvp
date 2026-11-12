@@ -12,9 +12,31 @@ const PROJECT = 'ripot-4edf7';
 const args = process.argv.slice(2);
 const option = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const mode = option('--mode');
+function countryDefinitions(rows) {
+  if (!Array.isArray(rows) || !rows.length) throw Error('Country prices must be a nonempty JSON array of confirmed offers.');
+  const countries = new Set(require('../billing-countries.json').map(c => c.code));
+  const seen = new Set();
+  const minor = value => {
+    // Decimal strings avoid rounding a guessed exchange rate or accepting excess precision.
+    if (typeof value !== 'string' || !/^\d+(\.\d{1,2})?$/.test(value)) throw Error('Use confirmed decimal NGN price strings.');
+    const parts = value.split('.');
+    const amount = Number(parts[0]) * 100 + Number((parts[1] || '').padEnd(2, '0'));
+    if (!Number.isSafeInteger(amount) || amount < 5000) throw Error('Invalid NGN amount.');
+    return amount;
+  };
+  return rows.flatMap(row => {
+    if (!countries.has(row?.country) || row.country === 'NG' || seen.has(row.country)) throw Error('Use unique overseas ISO country codes; Nigeria retains its approved offers.');
+    seen.add(row.country);
+    return [['monthly', row.monthlyNgn], ['annually', row.annualNgn]].map(([interval, value]) => ({
+      id: `${row.country.toLowerCase()}_ngn_${interval === 'monthly' ? 'monthly' : 'annual'}`,
+      amount: minor(value), currency: 'NGN', interval, markets: [row.country], enabled: true,
+    }));
+  });
+}
 async function resolveProviderPlan(api, definition, mode, available, requestedCode) {
   if (requestedCode && !/^PLN_[A-Za-z0-9]+$/.test(requestedCode)) throw Error('Invalid supplied plan code.');
-  const name = `Ripot Premium ${definition.currency} ${definition.interval === 'monthly' ? 'Monthly' : 'Annual'}`;
+  const region = definition.markets[0] === 'NG' || definition.markets[0] === 'international' ? '' : `${definition.markets[0]} `;
+  const name = `Ripot Premium ${region}${definition.currency} ${definition.interval === 'monthly' ? 'Monthly' : 'Annual'}`;
   const matches = available.filter(p => p.name === name && p.domain === mode && p.currency === definition.currency &&
     p.amount === definition.amount && p.interval === definition.interval);
   if (!requestedCode && matches.length > 1) throw Error(`Multiple matching plans for ${name}; review the dashboard.`);
@@ -33,6 +55,12 @@ async function resolveProviderPlan(api, definition, mode, available, requestedCo
 }
 async function main() {
   if (!['test', 'live'].includes(mode)) throw Error('Use --mode test or --mode live.');
+  const countryFile = option('--country-prices');
+  // Validate every proposed amount before any network request or provider plan creation.
+  const countryOffers = countryFile ? countryDefinitions(JSON.parse(fs.readFileSync(countryFile, 'utf8'))) : [];
+  if (countryOffers.length && (!args.includes('--international-approved') || option('--international-currency') !== 'NGN')) {
+    throw Error('Country pricing requires --international-approved --international-currency NGN.');
+  }
   const credentialFile = process.env.GOOGLE_APPLICATION_CREDENTIALS ||
     path.join(os.homedir(), '.config/gcloud/application_default_credentials.json');
   if (!fs.existsSync(credentialFile)) throw Error('Local Google credentials are required. Run gcloud auth application-default login on your computer first.');
@@ -63,7 +91,8 @@ async function main() {
     throw Error('Choose the confirmed overseas charging currency with --international-currency NGN or USD.');
   }
   if (international && internationalCurrency === 'NGN') {
-    for (const p of definitions) p.markets.push('international');
+    // Do not silently give every overseas customer the Nigerian price.
+    definitions.push(...countryOffers);
   }
   if (international && internationalCurrency === 'USD') {
     const minor = value => {
@@ -104,4 +133,4 @@ async function main() {
   console.log('Webhook URL: https://us-central1-ripot-4edf7.cloudfunctions.net/paystackWebhook');
 }
 if (require.main === module) main().catch(error => { console.error(error.message || 'Paystack setup failed.'); process.exitCode = 1; });
-module.exports = { resolveProviderPlan };
+module.exports = { resolveProviderPlan, countryDefinitions };

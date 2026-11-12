@@ -32,7 +32,7 @@ config['headers'] = [
     {'source': name, 'headers': [{'key': 'Cache-Control', 'value': 'no-cache, max-age=0, must-revalidate'}]}
     for name in ('/', '/index.html', '/flutter_bootstrap.js', '/flutter_service_worker.js', '/main.dart.js', '/version.json', '/release.json')
 ]
-(stage / 'firebase.json').write_text(json.dumps({'hosting': config, 'functions': {'source': 'functions', 'runtime': 'nodejs20'}, 'firestore': {'rules': 'firestore.rules'}}, indent=2) + '\n')
+(stage / 'firebase.json').write_text(json.dumps({'hosting': config, 'functions': {'source': 'functions', 'runtime': 'nodejs22'}, 'firestore': {'rules': 'firestore.rules'}}, indent=2) + '\n')
 (stage / '.firebaserc').write_text(json.dumps(aliases, indent=2) + '\n')
 (stage / 'Deploy-Web.command').write_text(f'''#!/bin/bash
 set -euo pipefail
@@ -42,89 +42,38 @@ firebase deploy --only hosting:webapp --project ripot-4edf7
 echo "Deployment completed. Open https://ripot-web.web.app and verify version {version} ({build})."
 ''')
 (stage / 'Deploy-Web.command').chmod(0o755)
-(stage / 'README.txt').write_text(f'''Ripot web {version} ({build})
+(stage / 'README.txt').write_text(f'''Ripot Web {version} ({build}) — payment path and guided OGD update
 Source: {source}
 
-Guided OGD update — 8 November 2026:
-Los Angeles, Prague C/M, Forrest, Sarin, Baveno size/red signs, EREFS
-components and optional Paris morphology are available in relevant findings.
-The guide buttons use bundled references and work offline. Prague measurements
-are checked before combining them as C2M4. EREFS has no automatic total,
-and the app generates no risk alert, treatment or surveillance recommendation.
-The landing page names the classifications, retains Dr Nduaguba Tobechukwu
-Stanley's contributor credit and shows the update date. Older saved reports
-and prior immutable template versions are retained.
-Deploy the web update before the landing page. Existing installed Android
-and Windows apps need a separate binary update for the guide buttons and
-Prague checks; the new template fields themselves remain compatible.
-Microsoft subscription checkout is not enabled by this release.
+This is a compiled deployment candidate. Deployment and merchant setup are separate.
+The landing page links directly to Ripot Premium. Web users sign in, select their
+billing country and review the server-approved offer before Paystack checkout.
+Nigeria retains NGN 2,500 monthly / 25,000 yearly. No overseas prices are enabled
+by this package. Add country-specific NGN offers only after their approval.
 
-This release fixes the guided upper GI template in the actual report editor:
-separate consent/fasting/medication/safety choices, an extent dropdown,
-one Add finding control per region, and independent repeated finding cards.
-The PDF groups findings by anatomical location. Ordinary template links now
-fetch the approval catalogue and versioned template concurrently and show
-Opening your template while loading. Checksums and approval checks remain.
-Optional numeric GEJ, Z-line and diaphragmatic-pinch measurements use
-cm from incisors, as do individual oesophageal lesion levels. Units remain
-visible in blank numeric fields. Enter the number only; blank optional
-measurements are omitted from the PDF.
-Template loading now allows 15 seconds per request and retries transient failures
-once. Connection failures offer Try again without replacing the linked version.
-Version-aware catalogue requests and revalidation prevent stale lists from
-rejecting newly published templates. Approval and checksum checks remain intact.
+On your Mac with Node 22, Firebase CLI and Firebase owner access:
+1. Read docs/PAYSTACK_SETUP.md. Save the Paystack test secrets securely using
+   bash tools/deploy/Setup-Paystack-Secrets.command test
+2. Deploy the backend, then web app, then landing page with:
+   bash tools/deploy/Update-Payment-Web.command
+3. Configure the test catalogue and webhook using docs/PAYSTACK_SETUP.md.
+4. Complete test checkout before enabling any approved live pilot.
+No command in this package charges a customer or enables new sales automatically.
 
-The guided OGD report now prints each location once, removes form-only prompts,
-and uses compact finding descriptions. Medications are entered once with dose,
-unit and route. Additional procedure details expands to separate preparation
-and safety choices. Biopsies on findings and other biopsy sites feed one sampling
-summary with actual container labels. Older saved reports retain their structure.
+The same package retains the guided OGD changes dated 8 November 2026:
+Los Angeles, Prague C/M, Forrest, Sarin, Baveno, EREFS components and Paris.
+Contributor: Dr Nduaguba Tobechukwu Stanley. Existing findings, medications,
+biopsy summary, images, report layout and saved reports are preserved.
+There is no automatic EREFS total or treatment/surveillance recommendation.
+Android and Windows binaries need a separate release for their new guide controls.
 
-For this update, deploy in this order from this complete folder:
-  bash Deploy-Web.command
-  bash Deploy-Landing.command
-The guided template needs Ripot 1.0.22 or newer. Publishing the landing page
-alone will not update the editor. This correction needs no backend deployment.
-Reload the web app after deployment; keep existing browser data intact.
+Reports and registry data remain local. Sign in with the same account to check
+verified Premium on supported devices; this does not transfer clinical data.
+Reload the web app after deployment. Do not clear browser storage containing reports.
+Check https://ripot-web.web.app/release.json for the exact deployed source commit.
 
-This folder contains the combined web update; Flutter is not required to deploy it.
-Included: updated branding/support, safer Registry report linking, unlimited
-saved PDFs for Premium/active trials, dynamic public templates, the Free-user
-letterhead invitation, Web/Windows checkout-availability messaging, and the
-community template library with contributor decision emails, per-submission
-withdrawal menus, clear reviewer ownership labels, and encrypted full/section
-backups. Manual backup and restore are Free; automatic schedules require Premium
-or an active trial. The Records tab is now Report data. Android includes a
-rate-app request after ten successful PDF shares, subject to Google Play limits.
-More > Suggest an improvement opens the support-email route.
-Web automatic backups require a supported
-browser and an open Ripot tab. The landing page explains these features.
-The reporting templates include real PDF previews, blank and fictional
-example PDF downloads, page zoom and readable plain/formatted copied outlines.
-To apply these landing-page improvements, run bash Deploy-Landing.command.
-The contribution backend, reviewer account and SMTP notification setup must
-be deployed separately using the included TEMPLATE_LIBRARY.md instructions.
-See TEMPLATE_GROWTH_CHECKS.md for Search Console, print acceptance and analytics.
-Funnel hooks are present but no analytics collector is configured.
-Direct online payment checkout is not enabled. Android and Windows installers
-are separate releases.
-
-Use this complete folder rather than copying files into an older download.
-On the Mac already used for Firebase deployment, open Terminal in this folder:
-  bash Deploy-Web.command
-If Firebase asks you to sign in, run firebase login and try again.
-The destination is ripot-web in project ripot-4edf7.
-For an existing installation with reviewer access and SMTP already configured,
-update the backend, web app and landing page together from THIS same folder:
-  bash Update-Ripot.command
-This updates the email worker before the decision service, then publishes the
-web app and landing page. It does not reset the mailbox password or reviewer roles.
-For first-time setup, follow TEMPLATE_LIBRARY.md before testing any review decisions.
-New emails apply to new decisions; older decisions are not emailed retroactively.
-The deployment scripts require Node 20 or newer and Firebase owner access.
-The web-only script does not deploy the separate landing page or backend.
-Check /release.json on the live web app to confirm the exact release.
-Reload existing tabs after deployment. Do not clear browser storage containing local data.
+Deploy-Web.command and Deploy-Landing.command are available for hosting-only updates.
+Update-Ripot.command retains the separate contributor/email update workflow.
 ''')
 shutil.copyfile(root / 'functions/TEMPLATE_LIBRARY.md', stage / 'TEMPLATE_LIBRARY.md')
 shutil.copyfile(root / 'tools/web/TEMPLATE_GROWTH_CHECKS.md', stage / 'TEMPLATE_GROWTH_CHECKS.md')
@@ -132,9 +81,9 @@ shutil.copyfile(root / 'tools/web/TEMPLATE_GROWTH_CHECKS.md', stage / 'TEMPLATE_
 (stage / 'functions/scripts').mkdir(parents=True, exist_ok=True)
 for source_file in sorted((root / 'functions').glob('*.js')):
     shutil.copyfile(source_file, stage / 'functions' / source_file.name)
-for name in ('package.json', 'package-lock.json', 'TEMPLATE_LIBRARY.md'):
+for name in ('package.json', 'package-lock.json', 'TEMPLATE_LIBRARY.md', 'billing-countries.json'):
     shutil.copyfile(root / 'functions' / name, stage / 'functions' / name)
-for script in ('template-reviewer.js', 'check-template-services.js'):
+for script in ('template-reviewer.js', 'check-template-services.js', 'paystack-setup.js'):
     shutil.copyfile(root / 'functions/scripts' / script, stage / 'functions/scripts' / script)
 shutil.copyfile(root / 'firestore.rules', stage / 'firestore.rules')
 shutil.copytree(root / 'landing/y', stage / 'landing/y', dirs_exist_ok=True)
@@ -152,6 +101,13 @@ firebase deploy --only hosting --project ripot-landing
 ''')
 for name in ('Deploy-Template-Services.command', 'Deploy-Landing.command'):
     (stage / name).chmod(0o755)
+(stage / 'tools/deploy').mkdir(parents=True, exist_ok=True)
+(stage / 'docs').mkdir(exist_ok=True)
+for name in ('Update-Payment-Web.command', 'Setup-Paystack-Secrets.command', 'Deploy-Paystack-Backend.command'):
+    shutil.copyfile(root / 'tools/deploy' / name, stage / 'tools/deploy' / name)
+    (stage / 'tools/deploy' / name).chmod(0o755)
+shutil.copyfile(root / 'docs/PAYSTACK_SETUP.md', stage / 'docs/PAYSTACK_SETUP.md')
+shutil.copyfile(root / 'docs/GUIDED_OGD_GRADINGS_20261108.md', stage / 'docs/GUIDED_OGD_GRADINGS_20261108.md')
 checks = []
 for path in sorted(stage.rglob('*')):
     if path.is_file():
