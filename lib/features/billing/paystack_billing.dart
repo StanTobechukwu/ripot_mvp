@@ -91,6 +91,7 @@ class PaystackBilling extends ChangeNotifier {
     plans = [];
     countries = [];
     pendingMarket = null;
+    mode = 'live';
     enabled = false;
     canManage = false;
     busy = false;

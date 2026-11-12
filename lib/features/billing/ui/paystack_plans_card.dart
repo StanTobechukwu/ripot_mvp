@@ -7,7 +7,8 @@ import '../../access/providers/access_provider.dart';
 import '../paystack_billing.dart';
 
 class PaystackPlansCard extends StatefulWidget {
-  const PaystackPlansCard({super.key});
+  const PaystackPlansCard({super.key, this.paymentCall});
+  final PaymentCall? paymentCall;
   @override
   State<PaystackPlansCard> createState() => _PaystackPlansCardState();
 }
@@ -22,6 +23,7 @@ class _PaystackPlansCardState extends State<PaystackPlansCard>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     billing = PaystackBilling(
+      call: widget.paymentCall,
       currentUid: () => context.read<AuthProvider>().currentUser?.uid,
       refreshAccess: () =>
           context.read<AccessProvider>().refresh(refreshPlay: false),
@@ -132,7 +134,9 @@ class _PaystackPlansCardState extends State<PaystackPlansCard>
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  key: ValueKey('billing-country-${billing.pendingMarket}'),
+                  key: ValueKey(
+                    'billing-country-$_uid-${billing.pendingMarket}',
+                  ),
                   initialValue: market,
                   isExpanded: true,
                   decoration: const InputDecoration(

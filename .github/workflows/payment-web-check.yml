@@ -54,6 +54,8 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/ripot-browser" --no-package-lock --no-save playwright@1.58.2
           NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/landing/smoke_template_previews.cjs
       - run: flutter build web --release --no-pub
+      - name: Verify compiled Premium entry and payment-return screens
+        run: NODE_PATH="$RUNNER_TEMP/ripot-browser/node_modules" node tools/web/smoke_payment_entry.cjs
       - run: python3 tools/web/package_release.py
       - uses: actions/upload-artifact@v4
         with:
