@@ -96,19 +96,25 @@ class UpgradeScreen extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  const Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  const ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: Text('Premium features'),
                     children: [
-                      _FeatureChip('Up to 12 report images'),
-                      _FeatureChip('Image labels'),
-                      _FeatureChip('Custom letterhead'),
-                      _FeatureChip('Remove Ripot branding'),
-                      _FeatureChip('Advanced layout'),
-                      _FeatureChip('Report data and filters'),
-                      _FeatureChip('Higher report/template limits'),
-                      _FeatureChip('Automatic backups'),
-                      _FeatureChip('Unlimited report copying'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _FeatureChip('Up to 12 report images'),
+                          _FeatureChip('Image labels'),
+                          _FeatureChip('Custom letterhead'),
+                          _FeatureChip('Remove Ripot branding'),
+                          _FeatureChip('Advanced layout'),
+                          _FeatureChip('Report data and filters'),
+                          _FeatureChip('Higher report/template limits'),
+                          _FeatureChip('Automatic backups'),
+                          _FeatureChip('Unlimited report copying'),
+                        ],
+                      ),
                     ],
                   ),
                 ],
@@ -116,8 +122,6 @@ class UpgradeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const _PlanComparison(),
-          const SizedBox(height: 16),
           if (!auth.isSignedIn ||
               !access.hasCurrentVerification ||
               access.canActivatePremiumTrial)
@@ -188,6 +192,11 @@ class UpgradeScreen extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ],
+          const SizedBox(height: 12),
+          const ExpansionTile(
+            title: Text('Compare Free and Premium'),
+            children: [_PlanComparison()],
+          ),
           if (kDebugMode) ...[
             const SizedBox(height: 12),
             OutlinedButton.icon(

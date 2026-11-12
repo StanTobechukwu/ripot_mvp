@@ -65,8 +65,23 @@ class PaystackBilling extends ChangeNotifier {
       internationalEnabled = false,
       canManage = false;
   String mode = 'live';
-  String? message, error, locked, provider, subscriptionStatus, pendingPlanId;
+  String? message,
+      error,
+      locked,
+      provider,
+      subscriptionStatus,
+      pendingPlanId,
+      pendingMarket;
+  List<({String code, String label})> countries = [];
   List<PaystackPlan> plans = [];
+  List<PaystackPlan> plansForCountry(String? country) {
+    if (country == null || (country != 'NG' && !internationalEnabled))
+      return [];
+    final exact = plans.where((p) => p.markets.contains(country)).toList();
+    if (exact.isNotEmpty || country == 'NG') return exact;
+    return plans.where((p) => p.markets.contains('international')).toList();
+  }
+
   int _generation = 0;
   bool _disposed = false;
   String? _owner;
@@ -74,6 +89,9 @@ class PaystackBilling extends ChangeNotifier {
     _generation++;
     _owner = currentUid();
     plans = [];
+    countries = [];
+    pendingMarket = null;
+    mode = 'live';
     enabled = false;
     canManage = false;
     busy = false;
@@ -127,6 +145,17 @@ class PaystackBilling extends ChangeNotifier {
       provider = result['provider']?.toString();
       subscriptionStatus = result['subscriptionStatus']?.toString();
       pendingPlanId = result['pendingPlanId']?.toString();
+      pendingMarket = result['pendingMarket']?.toString();
+      countries = (result['billingCountries'] as List? ?? [])
+          .map((c) => (code: c['code'] as String, label: c['label'] as String))
+          .toList();
+      // Keep older pending checkouts manageable across a country-pricing update.
+      if (pendingMarket == 'international') {
+        countries.add((
+          code: 'international',
+          label: 'Outside Nigeria (existing checkout)',
+        ));
+      }
       plans = (result['plans'] as List? ?? [])
           .map(
             (p) => PaystackPlan.fromJson(Map<String, dynamic>.from(p as Map)),
@@ -144,7 +173,10 @@ class PaystackBilling extends ChangeNotifier {
   }
 
   Future<void> checkout(PaystackPlan plan, String market) async {
-    if (!enabled || busy || locked != null || !plan.markets.contains(market))
+    if (!enabled ||
+        busy ||
+        locked != null ||
+        !plansForCountry(market).any((p) => p.id == plan.id))
       return;
     await _open('startPaystackCheckout', {
       'planId': plan.id,

@@ -7,7 +7,8 @@ import '../../access/providers/access_provider.dart';
 import '../paystack_billing.dart';
 
 class PaystackPlansCard extends StatefulWidget {
-  const PaystackPlansCard({super.key});
+  const PaystackPlansCard({super.key, this.paymentCall});
+  final PaymentCall? paymentCall;
   @override
   State<PaystackPlansCard> createState() => _PaystackPlansCardState();
 }
@@ -16,12 +17,13 @@ class _PaystackPlansCardState extends State<PaystackPlansCard>
     with WidgetsBindingObserver {
   late final PaystackBilling billing;
   String? _uid;
-  String market = 'NG';
+  String? market;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     billing = PaystackBilling(
+      call: widget.paymentCall,
       currentUid: () => context.read<AuthProvider>().currentUser?.uid,
       refreshAccess: () =>
           context.read<AccessProvider>().refresh(refreshPlay: false),
@@ -29,7 +31,10 @@ class _PaystackPlansCardState extends State<PaystackPlansCard>
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (mounted)
+      setState(() {
+        if (billing.pendingMarket != null) market = billing.pendingMarket;
+      });
   }
 
   Future<void> _openInformation(String path) async {
@@ -53,6 +58,7 @@ class _PaystackPlansCardState extends State<PaystackPlansCard>
     final uid = context.watch<AuthProvider>().currentUser?.uid;
     if (_uid != uid) {
       _uid = uid;
+      market = null;
       billing.reset();
       Future<void>.microtask(() {
         if (mounted) billing.load(refreshPayment: true);
@@ -77,9 +83,7 @@ class _PaystackPlansCardState extends State<PaystackPlansCard>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final visible = billing.plans
-        .where((p) => p.markets.contains(market))
-        .toList();
+    final visible = billing.plansForCountry(market);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -95,7 +99,9 @@ class _PaystackPlansCardState extends State<PaystackPlansCard>
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
             if (!billing.enabled && !billing.busy)
-              const Text('New subscriptions are currently unavailable.'),
+              const Text(
+                'Web card payments are being prepared. You can continue using Ripot Free and check back here for available plans.',
+              ),
             if (billing.enabled) ...[
               if (billing.locked == 'trial')
                 const Text(
@@ -128,52 +134,62 @@ class _PaystackPlansCardState extends State<PaystackPlansCard>
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: market,
-                  decoration: const InputDecoration(
-                    labelText: 'Billing location',
+                  key: ValueKey(
+                    'billing-country-$_uid-${billing.pendingMarket}',
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'NG', child: Text('Nigeria')),
-                    DropdownMenuItem(
-                      value: 'international',
-                      child: Text('Outside Nigeria'),
-                    ),
+                  initialValue: market,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Billing country / region',
+                    hintText: 'Select your country',
+                  ),
+                  items: [
+                    for (final country in billing.countries)
+                      DropdownMenuItem(
+                        value: country.code,
+                        child: Text(
+                          country.label,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                   ],
-                  onChanged: billing.busy
+                  onChanged: billing.busy || billing.pendingPlanId != null
                       ? null
-                      : (value) => setState(() => market = value ?? 'NG'),
+                      : (value) => setState(() => market = value),
                 ),
                 const SizedBox(height: 12),
-                if (market == 'international' &&
-                    (!billing.internationalEnabled || visible.isEmpty))
+                if (market == null)
                   const Text(
-                    'International checkout is not available yet. Contact support@ripot.app for updates.',
+                    'Select your billing country to see its available plans and exact payment currency.',
                   ),
-                if (market == 'NG' || billing.internationalEnabled)
-                  for (final plan in visible) ...[
-                    Text(
-                      '${plan.price} ${plan.currency} per ${plan.period}',
-                      style: theme.textTheme.titleMedium,
+                if (market != null && visible.isEmpty)
+                  const Text(
+                    'A plan is not available for this country yet. You can keep using Ripot Free. Contact support@ripot.app for updates.',
+                  ),
+                for (final plan in visible) ...[
+                  Text(
+                    '${plan.price} ${plan.currency} per ${plan.period}',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  Text(
+                    'Renews every ${plan.period} until cancelled. Charged in ${plan.currency}. Your bank may apply currency conversion and fees.',
+                  ),
+                  const SizedBox(height: 6),
+                  FilledButton(
+                    onPressed:
+                        billing.busy ||
+                            (billing.pendingPlanId != null &&
+                                billing.pendingPlanId != plan.id)
+                        ? null
+                        : () => billing.checkout(plan, market!),
+                    child: Text(
+                      billing.pendingPlanId == plan.id
+                          ? 'Resume checkout'
+                          : 'Subscribe ${plan.period == 'month' ? 'monthly' : 'yearly'}',
                     ),
-                    Text(
-                      'Renews every ${plan.period} until cancelled. Charged in ${plan.currency}. Your bank may apply currency conversion and fees.',
-                    ),
-                    const SizedBox(height: 6),
-                    FilledButton(
-                      onPressed:
-                          billing.busy ||
-                              (billing.pendingPlanId != null &&
-                                  billing.pendingPlanId != plan.id)
-                          ? null
-                          : () => billing.checkout(plan, market),
-                      child: Text(
-                        billing.pendingPlanId == plan.id
-                            ? 'Resume checkout'
-                            : 'Subscribe ${plan.period == 'month' ? 'monthly' : 'yearly'}',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 const Text(
                   'Pay securely by card through Paystack. Premium is linked to the Ripot account you are signed in to.',
                 ),

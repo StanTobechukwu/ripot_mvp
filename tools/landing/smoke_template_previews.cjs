@@ -43,6 +43,10 @@ const server=http.createServer((req,res)=>{
       await page.locator('#plans').scrollIntoViewIfNeeded();
       assert.equal(await page.locator('#plan-comparison').getAttribute('open'),null);
       assert.equal(await page.locator('.plan-grid').isVisible(),false);
+      const plansLink = page.locator('[data-ripot-premium-plans]');
+      assert.equal(await plansLink.isVisible(),true);
+      assert.equal(await plansLink.getAttribute('href'),'https://ripot-web.web.app/?premium=plans');
+      assert.equal(await page.locator('#web-payments').getByText(/Nigerian naira/).count(),1);
       await page.screenshot({path:path.join(out,`home-plans-collapsed-${width}.png`)});
       await page.locator('#plan-comparison > summary').click();
       assert.equal(await page.locator('.plan-grid').isVisible(),true);

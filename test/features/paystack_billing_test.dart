@@ -160,4 +160,59 @@ void main() {
     expect(PaystackBilling.supported, true);
     debugDefaultTargetPlatformOverride = null;
   });
+  test(
+    'country pricing requires a selection and prefers the country offer',
+    () async {
+      final billing = PaystackBilling(
+        currentUid: () => 'alice',
+        refreshAccess: () async {},
+        call: (_, _) async => {
+          ...catalog(),
+          'billingCountries': [
+            {'code': 'US', 'label': 'United States'},
+          ],
+          'plans': [
+            ...(catalog()['plans'] as List),
+            {
+              'id': 'us_ngn_monthly',
+              'amount': 1200000,
+              'currency': 'NGN',
+              'interval': 'monthly',
+              'markets': ['US'],
+            },
+          ],
+        },
+      );
+      addTearDown(billing.dispose);
+      await billing.load();
+      expect(billing.plansForCountry(null), isEmpty);
+      expect(billing.plansForCountry('NG'), isEmpty);
+      expect(billing.plansForCountry('US').single.price, '₦12,000.00');
+      expect(billing.plansForCountry('GB').single.currency, 'USD');
+      expect(billing.countries.single.code, 'US');
+      billing.internationalEnabled = false;
+      expect(billing.plansForCountry('US'), isEmpty);
+    },
+  );
+  test('unpriced country has no invented offer and account reset clears country data', () async {
+    final billing = PaystackBilling(
+      currentUid: () => 'alice',
+      refreshAccess: () async {},
+      call: (_, _) async => {
+        ...catalog(),
+        'plans': [],
+        'pendingMarket': 'US',
+        'billingCountries': [
+          {'code': 'US', 'label': 'United States'},
+        ],
+      },
+    );
+    addTearDown(billing.dispose);
+    await billing.load();
+    expect(billing.plansForCountry('US'), isEmpty);
+    expect(billing.pendingMarket, 'US');
+    billing.reset();
+    expect(billing.countries, isEmpty);
+    expect(billing.pendingMarket, isNull);
+  });
 }
