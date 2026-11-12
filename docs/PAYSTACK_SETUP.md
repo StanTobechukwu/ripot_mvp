@@ -102,14 +102,20 @@ For this rollout use the country-specific NGN flags described above. Do not enab
 
 ## Verification before real payments
 
-Automated preparation checks:
+Verified release checks — 12 November 2026:
 
-- **74 backend tests passed**, including payment ownership/amount/currency checks, duplicate events, replay safety, paid-period expiry, refunds, foreign-card NGN checkout, missing-event recovery, isolated test access, provider freshness and Firestore permissions. The landing-page link/content checker also passed.
-- **3 additional setup tests passed** after the owner supplied the test plan codes: exact-code selection despite differing names, rejection of swapped or live plans and mismatched prices, and no silent replacement of unknown codes.
-- Local Dart formatting parsed the new controller, widget and test source. JavaScript syntax, shell syntax and diff checks were run.
-- **Flutter analysis, app tests and compilation have not run.** Automatic approval review blocked Flutter's version/bootstrap command because it tried to contact the environment's cloud metadata service, which can expose instance credentials. That rejected execution was not retried. Offline dependency resolution also could not complete because the Flutter package cache was empty. Run the app validation on an approved development environment before releasing. The preparation commit skips automatic CI to avoid indirectly rerunning the blocked Flutter execution; it must not be treated as a verified release.
+- 315 Flutter app tests passed (2 skipped), including the guided OGD workflow and payment/account-switch checks.
+- 84 backend/emulator tests passed, including the lower Nigerian / higher international price rule, payment lifecycle and client access restrictions. One separate release run hit an intermittent emulator transaction error in an existing template-concurrency test; the same source passed the independent backend run and the release retry also passed.
+- Flutter analysis completed without errors; existing warning/info diagnostics remain. The release web app compiled successfully.
+- Phone/desktop landing layouts, compiled Premium entry/return links, template previews, hashes and downloads passed.
+- The backend dependency audit reports zero known vulnerabilities after updating fast-xml-parser to 5.12.0.
+- These are software checks with an emulator and mocked provider responses. No actual Paystack checkout, production credential installation, live deployment or charge occurred.
 
-On that approved development environment:
+The earlier local Flutter bootstrap was blocked by automatic approval review after attempting cloud-metadata access. It was not retried locally. Validation instead ran on an isolated GitHub runner with metadata access blocked and no production secrets. This supersedes the 9 November note that the app had not been compiled or tested.
+
+Validation/source: [payment release](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/43264671713), [backend and template checks](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/43264684355), [app compatibility checks](https://github.com/StanTobechukwu/ripot_mvp/actions/runs/43264684356). Runtime source: `063b3395e77232fbe5dd7aea98a97becaf3ad7d1`; the tested PR merge commit `578cd3fb02122e137846b36adad12de75811be96` has the identical Git tree.
+
+For future changes, the corresponding development checks are:
 
 ```bash
 flutter pub get --enforce-lockfile
