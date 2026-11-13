@@ -142,6 +142,14 @@ void main() {
     await tester.pumpAndSettle();
     Future<void> reveal(Finder finder) async { await tester.ensureVisible(finder); await tester.pumpAndSettle(); }
     Future<void> choose(String id,String option) async {
+      if (id == 'oesophagus_landmarks') {
+        final control = find.byKey(ValueKey('landmark-measurements-$id'));
+        await reveal(control);
+        if (value(node(vm, id)) != option) {
+          await tester.tap(control); await tester.pumpAndSettle();
+        }
+        return;
+      }
       final field=find.byKey(ValueKey('structured-field-$id'));
       await reveal(field);await tester.tap(field);await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ChoiceChip,option));await tester.pumpAndSettle();
@@ -177,6 +185,13 @@ void main() {
     await choose(childNamed(vm, medication, 'Route').id, 'IV');
     await reveal(find.text('Drug')); await capture('editor-medications');
     expect(find.text('GEJ (top of gastric folds)'),findsNothing);
+    final landmarkControl = find.byKey(const ValueKey('landmark-measurements-oesophagus_landmarks'));
+    final assessment = find.byKey(const ValueKey('structured-field-oesophagus_status'));
+    await reveal(landmarkControl);
+    expect(tester.getTopLeft(landmarkControl).dy, lessThan(tester.getTopLeft(assessment).dy));
+    expect(value(node(vm, 'oesophagus_landmarks')), isEmpty,
+      reason: 'Displaying the optional control must not record a clinical answer');
+    await capture('editor-landmark-flow');
     await choose('oesophagus_landmarks','Yes');
     final gejInput=find.byKey(ValueKey('content-form-numeric-${node(vm,'landmark_gej').children.whereType<ContentNode>().first.id}'));
     await reveal(gejInput);await tester.enterText(gejInput,'39.5');await tester.pumpAndSettle();
@@ -187,6 +202,11 @@ void main() {
     expect(find.text('GEJ (top of gastric folds)'),findsNothing);
     await choose('oesophagus_landmarks','Yes');
     expect(value(node(vm,'landmark_gej')),'39.5');
+    await choose('oesophagus_status','Normal');
+    expect(find.text('GEJ (top of gastric folds)'), findsOneWidget);
+    await choose('oesophagus_status','Abnormal');
+    expect(find.text('GEJ (top of gastric folds)'), findsOneWidget);
+    await choose('oesophagus_status','Normal');
     await choose('extent','Second part of duodenum');
     expect(value(node(vm,'extent')),'Second part of duodenum');
     expect(find.byKey(const ValueKey('add-finding-stomach_findings')),findsNothing);
@@ -196,6 +216,13 @@ void main() {
     expect(find.text('Bleeding stigmata / Forrest category'),findsOneWidget);
     expect(find.text('Sarin type'),findsNothing);
     final first=node(vm,'stomach_findings').children.whereType<SectionNode>().single.id;
+    final stomachAction = find.byKey(const ValueKey('add-finding-stomach_findings'));
+    expect(stomachAction, findsOneWidget);
+    expect(find.descendant(of: stomachAction, matching: find.text('Add another finding')), findsOneWidget);
+    expect(tester.getTopLeft(stomachAction).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(find.byKey(ValueKey('finding-card-$first'))).dy));
+    expect(tester.getTopLeft(find.byKey(ValueKey('toggle-finding-$first'))).dy,
+      inInclusiveRange(0, 920), reason: 'Adding a finding brings its heading into view');
     await choose(childNamed(vm,first,'Location').id,'Antrum');
     final size=childNamed(vm,first,'Size');
     final input=find.byKey(ValueKey('content-form-${size.children.whereType<ContentNode>().first.id}'));
@@ -205,6 +232,10 @@ void main() {
     await reveal(target);await tester.enterText(target,'10');await tester.pumpAndSettle();
     await add('stomach_findings','stomach_ulcer');
     final second=node(vm,'stomach_findings').children.whereType<SectionNode>().last.id;
+    expect(find.text('Antrum · 10 mm'), findsOneWidget);
+    expect(stomachAction, findsOneWidget);
+    expect(tester.getTopLeft(stomachAction).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(find.byKey(ValueKey('finding-card-$second'))).dy));
     await choose(childNamed(vm,second,'Location').id,'Body');
     expect(value(childNamed(vm,first,'Size')),'10');
     expect(value(childNamed(vm,second,'Size')),isEmpty);
@@ -212,11 +243,18 @@ void main() {
     expect(find.text('Morphology'),findsOneWidget);
     expect(find.text('Bleeding stigmata / Forrest category'),findsNothing,reason:'Previous ulcer cards are collapsed');
     await capture('editor-polyp');
+    await reveal(stomachAction); await capture('editor-add-another');
     await choose('stomach_status','Normal');
     expect(find.byKey(const ValueKey('add-finding-stomach_findings')),findsNothing);
     expect(find.text('Morphology'),findsNothing);
     await choose('stomach_status','Abnormal');
     expect(node(vm,'stomach_findings').children,hasLength(3));
+    for (final item in node(vm, 'stomach_findings').children.whereType<SectionNode>().toList()) {
+      vm.removeRepeatableFinding('stomach_findings', item.id);
+    }
+    await tester.pumpAndSettle();
+    expect(stomachAction, findsOneWidget);
+    expect(find.descendant(of: stomachAction, matching: find.text('Add finding')), findsOneWidget);
     expect(tester.takeException(),isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     vm.dispose();

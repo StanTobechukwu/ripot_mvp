@@ -45,6 +45,19 @@ echo "Deployment completed. Open https://ripot-web.web.app and verify version {v
 (stage / 'README.txt').write_text(f'''Ripot Web {version} ({build}) — payment path and guided OGD update
 Source: {source}
 
+Guided entry flow updated 13 November 2026:
+- Optional landmark measurements expand before the oesophagus assessment.
+- There is one Add finding button per region, below the finding cards.
+- After the first entry the same button says Add another finding.
+- New findings scroll into view; collapsed cards show recorded location/size.
+Existing landmark values, grading choices and saved reports keep their data.
+
+If 1.0.28 is already deployed, install this interface update from this folder:
+  bash Deploy-Web.command
+This updates Ripot Web only. Existing Paystack settings remain in place.
+Continue any unfinished test plans/webhook setup using docs/PAYSTACK_SETUP.md.
+The Android and Windows apps require their own later binary updates.
+
 This is a compiled deployment candidate. Deployment and merchant setup are separate.
 The landing page links directly to Ripot Premium. Web users sign in, select their
 billing country and review the server-approved offer before Paystack checkout.

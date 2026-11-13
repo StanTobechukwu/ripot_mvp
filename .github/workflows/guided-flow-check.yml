@@ -1,0 +1,48 @@
+name: Guided template flow and web build
+on:
+  push:
+    branches: [codex/guided-ogd-flow-20261113]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      NO_GCE_CHECK: 'true'
+      GCE_METADATA_HOST: '127.0.0.1:9'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Isolate tools from instance metadata
+        run: |
+          sudo iptables -I OUTPUT -d 169.254.0.0/16 -j REJECT
+          sudo ip6tables -I OUTPUT -d fd00:ec2::254/128 -j REJECT
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib test
+      - run: flutter test --no-pub --reporter expanded
+      - name: Verify the clinical template catalogue is unchanged
+        run: |
+          python3 tools/landing/build_templates.py
+          python3 tools/landing/verify.py
+          git diff --exit-code -- landing/y
+      - run: flutter build web --release --no-pub
+      - run: python3 tools/web/package_release.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ripot-guided-flow-1.0.29-64
+          path: |
+            build/ogd-qa
+            build/web-distribution/*.zip
+          if-no-files-found: error
+          retention-days: 30
