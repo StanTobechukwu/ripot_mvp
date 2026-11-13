@@ -1464,12 +1464,47 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
 
   // ---------------- Form Mode UI ----------------
 
+  // Presentation only: retain the existing landmark toggle, IDs and conditions
+  // so reports saved with older guided templates keep their measurements.
+  bool _isGuidedLandmarks(SectionNode s) =>
+      s.id == 'oesophagus_landmarks' && !s.showInPdf &&
+      s.options.contains('Yes') && s.options.contains('No');
+
   Widget _formSection(
     BuildContext context,
     ReportEditorProvider vm,
     SectionNode s,
   ) {
     if (!_sectionConditionAllows(vm, s)) return const SizedBox.shrink();
+    if (_isGuidedLandmarks(s)) {
+      final control = s.children.whereType<ContentNode>().firstOrNull;
+      if (control != null) {
+        final enabled = fieldValue(s) == 'Yes';
+        return Card(
+          margin: const EdgeInsets.only(bottom: 20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            SwitchListTile.adaptive(
+              key: ValueKey('landmark-measurements-${s.id}'),
+              title: const Text('Landmark measurements (optional)'),
+              subtitle: Text(enabled
+                ? 'Included when recorded. Switch off to omit from the report.'
+                : 'Record GEJ, Z-line and diaphragmatic pinch.'),
+              value: enabled,
+              onChanged: (value) {
+                _unfocusNow();
+                vm.updateContent(control.id, value ? 'Yes' : 'No');
+              },
+            ),
+            if (enabled) Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: s.children.whereType<SectionNode>()
+                  .map((child) => _formSection(context, vm, child)).toList()),
+            ),
+          ]),
+        );
+      }
+    }
     if (s.reportRole == 'ogd.details') {
       final preparation = s.children.whereType<SectionNode>()
           .where((n) => n.reportRole == 'ogd.preparation').firstOrNull;
@@ -1511,6 +1546,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
       );
     }
     if (s.isRepeatable) return RepeatableFindings(
+      key: ValueKey('repeatable-findings-${s.id}'),
       section: s,
       buildItem: (item) => Column(crossAxisAlignment: CrossAxisAlignment.stretch,
         children: item.children.whereType<SectionNode>().map((child) => _formSection(context, vm, child)).toList()),
@@ -1518,10 +1554,16 @@ class _ReportEditorScreenState extends State<ReportEditorScreen>
       onRemove: (item) { _unfocusNow(); vm.removeRepeatableFinding(s.id, item); },
       onToggle: vm.toggleCollapsed,
     );
-    final sectionChildren = s.children
+    var sectionChildren = s.children
         .whereType<SectionNode>()
         .where((child) => _sectionConditionAllows(vm, child))
         .toList(growable: false);
+    if (s.reportRole == 'ogd.region') {
+      sectionChildren = [
+        ...sectionChildren.where(_isGuidedLandmarks),
+        ...sectionChildren.where((child) => !_isGuidedLandmarks(child)),
+      ];
+    }
     final contentChildren = s.children.whereType<ContentNode>().toList(
       growable: false,
     );
